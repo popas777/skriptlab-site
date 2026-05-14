@@ -42,12 +42,10 @@ Netlify external DNS -asetuksella tyypillinen perusmalli on:
 
 Varmista lopulliset arvot aina Netlifyn Domain management -näkymästä ennen tallennusta.
 
-## Sovelluksen linkki
+## Kirjautumisikkuna
 
-Yläpalkin `Kirjaudu`-painike osoittaa nyt osoitteeseen:
+Yläpalkin `Kirjaudu`-painike avaa väliaikaisen ilmoitusikkunan, koska sovelluksen selainkäyttö on työn alla.
 
-```txt
-https://app.skriptlab.com
-```
+Ikkunan yhteydenottolomake avaa käyttäjän sähköpostiohjelman osoitteeseen `skriptlab@skriptlab.com`.
 
-Kun lokaalilla palvelimella oleva sovellus julkaistaan, sille kannattaa tehdä oma subdomain `app.skriptlab.com`.
+Kun sovellus julkaistaan myöhemmin, kirjautumispainikkeen toiminta vaihdetaan takaisin sovelluksen osoitteeseen, esimerkiksi `https://app.skriptlab.com`.
