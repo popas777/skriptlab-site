@@ -38,6 +38,10 @@ body.nav-open {
   overflow: hidden;
 }
 
+body.modal-open {
+  overflow: hidden;
+}
+
 h1,
 h2,
 h3 {
@@ -795,6 +799,99 @@ a {
 .footer-bottom a {
   color: rgba(245, 240, 232, 0.38);
   text-decoration: none;
+}
+
+.login-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: rgba(26, 18, 8, 0.48);
+}
+
+.login-modal-backdrop[hidden] {
+  display: none;
+}
+
+.login-modal {
+  position: relative;
+  width: min(540px, 100%);
+  padding: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--cream);
+  box-shadow: var(--shadow);
+}
+
+.modal-close {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--parchment);
+  color: var(--ink);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.modal-label {
+  margin-bottom: 0.7rem;
+  color: var(--amber);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.login-modal h2 {
+  margin-right: 2.25rem;
+  margin-bottom: 0.75rem;
+  font-size: clamp(1.8rem, 5vw, 2.5rem);
+}
+
+.login-modal p {
+  color: var(--muted);
+}
+
+.contact-form {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.contact-form label {
+  color: var(--ink);
+  font-size: 0.86rem;
+  font-weight: 500;
+}
+
+.contact-form input,
+.contact-form textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--parchment);
+  color: var(--ink);
+  font: inherit;
+  padding: 0.75rem 0.85rem;
+}
+
+.contact-form textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.contact-form input:focus,
+.contact-form textarea:focus,
+.modal-close:focus-visible {
+  border-color: var(--amber);
+  outline: 2px solid rgba(193, 127, 58, 0.22);
 }
 
 .legal-page {
