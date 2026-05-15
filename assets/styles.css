@@ -676,6 +676,59 @@ a {
   color: var(--amber);
 }
 
+.one-off-pricing {
+  margin-top: 4rem;
+  padding-top: 3rem;
+  border-top: 1px solid var(--border);
+}
+
+.one-off-pricing h2 {
+  max-width: 720px;
+  margin-bottom: 1rem;
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+}
+
+.one-off-pricing p {
+  max-width: 760px;
+  color: var(--muted);
+}
+
+.quote-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+  margin: 2rem 0 1.5rem;
+}
+
+.quote-card {
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--cream);
+}
+
+.quote-card h3 {
+  margin-bottom: 0.65rem;
+  font-size: 1.35rem;
+}
+
+.quote-card p {
+  margin-bottom: 1rem;
+  font-size: 0.92rem;
+}
+
+.quote-card strong {
+  display: block;
+  margin-bottom: 0.3rem;
+  color: var(--ink);
+  font-size: 1.05rem;
+}
+
+.quote-card span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
 .cta-section {
   padding: 6rem 2rem;
   background: var(--ink);
