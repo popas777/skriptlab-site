@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="fi" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkriptLab - Admin Paneeli</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .admin-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+            padding-top: 20px;
+        }
+        .admin-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        @media (max-width: 800px) {
+            .admin-grid { grid-template-columns: 1fr; }
+        }
+        .admin-card {
+            padding: 24px;
+            border-radius: 16px;
+        }
+        .settings-row {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 24px;
+        }
+        .settings-row label {
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        .settings-row input {
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: rgba(0,0,0,0.2);
+            color: var(--text-primary);
+            font-family: inherit;
+            outline: none;
+        }
+        .settings-row input:focus {
+            border-color: var(--accent-color);
+        }
+        
+        .user-list {
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+        .user-item {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .user-item:last-child {
+            border-bottom: none;
+        }
+        .user-info h4 { margin-bottom: 4px; font-size: 15px;}
+        .user-info p { font-size: 12px; color: var(--text-secondary); }
+    </style>
+</head>
+<body>
+    <!-- Supistettu Top Bar ylläpitäjälle -->
+    <nav class="top-bar glass-panel">
+        <div class="top-bar-left">
+            <h1 class="logo" style="margin:0;">SkriptLab<span class="accent">.</span> <span style="font-size: 14px; margin-left:8px; padding: 4px 8px; border-radius: 8px; background: rgba(5, 150, 105, 0.1); color: var(--ai-gradient-end); border: 1px solid rgba(5, 150, 105, 0.3);">Admin</span></h1>
+        </div>
+        <div class="top-bar-right">
+            <a href="index.html" class="btn btn-secondary" style="text-decoration: none; font-size: 13px;">Siirry Editoriin</a>
+            <a href="login.html" class="btn btn-primary" id="admin-logout-link" style="text-decoration: none; font-size: 13px;">Kirjaudu ulos</a>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="admin-container">
+            <div class="header" style="margin-bottom: 40px;">
+                <div class="header-info">
+                    <h2>Järjestelmänhallinta</h2>
+                    <p>Globaalien asetusten, API-avainten ja käyttäjätason projektioikeuksien määritys.</p>
+                </div>
+            </div>
+
+            <div class="admin-grid">
+                <!-- API Avainten hallinta -->
+                <div class="admin-card glass-panel">
+                    <h3 style="margin-bottom: 24px; color: var(--text-primary);">Tekoälyn mallit</h3>
+                    
+                    <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.5; margin-bottom: 24px;">
+                        API-avaimet asetetaan palvelimen ympäristömuuttujiin. Tässä näkymässä valitaan sovelluksen oletusmalli ja seurataan mallirekisteriä.
+                    </p>
+                    
+                    <div class="settings-row">
+                        <label>Käytettävä tekstimallin oletus</label>
+                        <select id="default-model-select" style="padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; outline: none; margin-bottom: 12px;"></select>
+                    </div>
+
+                    <button id="save-model-btn" class="btn btn-primary">Tallenna oletusmalli</button>
+                    <p id="model-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
+
+                    <div class="settings-row" style="margin-top: 24px;">
+                        <label>Mallirekisteri</label>
+                        <div class="user-list" id="model-registry-list">
+                            <div class="user-item">
+                                <div class="user-info">
+                                    <h4>Ladataan malleja...</h4>
+                                    <p>Haetaan backendistä.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="admin-card glass-panel">
+                    <h3 style="margin-bottom: 24px; color: var(--text-primary);">Järjestelmän tila</h3>
+                    <div class="user-list" id="system-status-list">
+                        <div class="user-item">
+                            <div class="user-info">
+                                <h4>Ladataan tilaa...</h4>
+                                <p>Haetaan backendistä.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <p id="system-status-message" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
+                </div>
+
+                <div class="admin-card glass-panel">
+                    <h3 style="margin-bottom: 24px; color: var(--text-primary);">Kutsut & Käyttäjät</h3>
+                    
+                    <div class="settings-row">
+                        <label>Sähköposti</label>
+                        <input id="invite-email" type="text" inputmode="email" placeholder="nimi@example.com">
+                    </div>
+
+                    <div class="settings-row">
+                        <label>Rooli</label>
+                        <select id="invite-role" style="padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; outline: none;">
+                            <option value="kirjailija">Kirjailija</option>
+                            <option value="toimittaja">Toimittaja</option>
+                            <option value="org_admin">Org admin</option>
+                            <option value="test_user">Test user</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="settings-row">
+                            <label>Käyttökerrat</label>
+                            <input id="invite-max-uses" type="text" inputmode="numeric" value="1">
+                        </div>
+                        <div class="settings-row">
+                            <label>Voimassa päiviä</label>
+                            <input id="invite-days" type="text" inputmode="numeric" value="30">
+                        </div>
+                    </div>
+                    
+                    <button id="create-invite-btn" class="btn btn-primary">Luo kutsu</button>
+                    <p id="invite-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
+                    <div id="new-invite-code" class="hidden" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.28); border-radius: 8px; padding: 12px; margin: 12px 0 24px;">
+                        <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px;">Kutsukoodi näytetään vain kerran.</p>
+                        <code id="invite-code-value" style="display:block; color: var(--text-primary); font-size: 15px; word-break: break-all;"></code>
+                    </div>
+
+                    <div class="settings-row" style="margin-top: 24px;">
+                        <label>Viimeisimmät kutsut</label>
+                        <div class="user-list" id="invite-list">
+                            <div class="user-item">
+                                <div class="user-info">
+                                    <h4>Ladataan kutsuja...</h4>
+                                    <p>Haetaan backendistä.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-row" style="margin-top: 24px;">
+                        <label>Käyttäjät</label>
+                        <div class="user-list" id="admin-user-list">
+                            <div class="user-item">
+                                <div class="user-info">
+                                    <h4>Ladataan käyttäjiä...</h4>
+                                    <p>Haetaan backendistä.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="usage-limit-panel" class="hidden" style="border-top: 1px solid var(--border-color); margin-top: 24px; padding-top: 24px;">
+                        <h4 id="usage-limit-title" style="margin-bottom: 16px; color: var(--text-primary);">Käyttörajat</h4>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <div class="settings-row">
+                                <label>Analyysia / kk</label>
+                                <input id="limit-analysis-monthly" type="text" inputmode="numeric">
+                            </div>
+                            <div class="settings-row">
+                                <label>Merkkiä / analyysi</label>
+                                <input id="limit-analysis-chars" type="text" inputmode="numeric">
+                            </div>
+                            <div class="settings-row">
+                                <label>Kappalemuokkausta / kk</label>
+                                <input id="limit-edit-monthly" type="text" inputmode="numeric">
+                            </div>
+                            <div class="settings-row">
+                                <label>Merkkiä / muokkaus</label>
+                                <input id="limit-edit-chars" type="text" inputmode="numeric">
+                            </div>
+                        </div>
+                        <div style="display:flex; flex-wrap:wrap; gap: 16px; margin-bottom: 16px;">
+                            <label style="display:flex; align-items:center; gap:8px; color:var(--text-secondary); font-size:13px;">
+                                <input id="limit-pro-models" type="checkbox" style="width:auto; padding:0;">
+                                Salli pro-mallit
+                            </label>
+                            <label style="display:flex; align-items:center; gap:8px; color:var(--text-secondary); font-size:13px;">
+                                <input id="limit-image-models" type="checkbox" style="width:auto; padding:0;">
+                                Salli kuvamallit
+                            </label>
+                        </div>
+                        <p id="usage-limit-usage" style="color: var(--text-secondary); font-size: 13px; margin-bottom: 12px;"></p>
+                        <button id="save-usage-limit-btn" class="btn btn-primary">Tallenna rajat</button>
+                        <p id="usage-limit-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <script src="config.js?v=1"></script>
+    <script>
+        const API_BASE_URL = (window.SKRIPTLAB_CONFIG && window.SKRIPTLAB_CONFIG.API_BASE_URL) || "http://127.0.0.1:8000";
+        const apiUrl = (path) => `${API_BASE_URL}${path}`;
+    </script>
+    <script src="auth.js?v=1"></script>
+    <script>
+        if (!window.SkriptLabAuth.requireLogin()) {
+            throw new Error("Login required.");
+        }
+
+        const currentUser = window.SkriptLabAuth.getUser();
+        if (currentUser && currentUser.role !== 'admin') {
+            window.location.href = 'index.html';
+        }
+
+        const logoutLink = document.getElementById('admin-logout-link');
+        if (logoutLink) {
+            logoutLink.addEventListener('click', () => {
+                window.SkriptLabAuth.clearSession();
+            });
+        }
+
+        const modelRegistryList = document.getElementById('model-registry-list');
+        const defaultModelSelect = document.getElementById('default-model-select');
+        const saveModelBtn = document.getElementById('save-model-btn');
+        const modelStatus = document.getElementById('model-status');
+        const systemStatusList = document.getElementById('system-status-list');
+        const systemStatusMessage = document.getElementById('system-status-message');
+        const inviteEmail = document.getElementById('invite-email');
+        const inviteRole = document.getElementById('invite-role');
+        const inviteMaxUses = document.getElementById('invite-max-uses');
+        const inviteDays = document.getElementById('invite-days');
+        const createInviteBtn = document.getElementById('create-invite-btn');
+        const inviteStatus = document.getElementById('invite-status');
+        const newInviteCode = document.getElementById('new-invite-code');
+        const inviteCodeValue = document.getElementById('invite-code-value');
+        const inviteList = document.getElementById('invite-list');
+        const adminUserList = document.getElementById('admin-user-list');
+        const usageLimitPanel = document.getElementById('usage-limit-panel');
+        const usageLimitTitle = document.getElementById('usage-limit-title');
+        const usageLimitUsage = document.getElementById('usage-limit-usage');
+        const usageLimitStatus = document.getElementById('usage-limit-status');
+        const saveUsageLimitBtn = document.getElementById('save-usage-limit-btn');
+        const limitAnalysisMonthly = document.getElementById('limit-analysis-monthly');
+        const limitAnalysisChars = document.getElementById('limit-analysis-chars');
+        const limitEditMonthly = document.getElementById('limit-edit-monthly');
+        const limitEditChars = document.getElementById('limit-edit-chars');
+        const limitProModels = document.getElementById('limit-pro-models');
+        const limitImageModels = document.getElementById('limit-image-models');
+        let loadedModels = [];
+        let selectedLimitUserId = null;
+        let selectedLimitUserName = '';
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            }[char]));
+        }
+
+        function formatDate(value) {
+            if (!value) return 'Ei vanhenemista';
+            return new Date(value).toLocaleDateString('fi-FI');
+        }
+
+        function statusBadge(ok, labelOk = 'OK', labelBad = 'Huomio') {
+            const style = ok ? 'background: rgba(16, 185, 129, 0.2); color: #fff;' : 'background: rgba(245, 158, 11, 0.18); color: #fbbf24; border-color: rgba(245, 158, 11, 0.35);';
+            return `<span class="badge" style="${style}">${ok ? labelOk : labelBad}</span>`;
+        }
+
+        function renderModels(models) {
+            loadedModels = models;
+            const textModels = models.filter(model => model.task_type === 'text' && model.is_enabled && !model.requires_enterprise_approval);
+            defaultModelSelect.innerHTML = textModels.map(model => (
+                `<option value="${model.id}" ${model.is_default ? 'selected' : ''}>${model.display_name} (${model.model_name})</option>`
+            )).join('');
+
+            modelRegistryList.innerHTML = models.map(model => `
+                <div class="user-item">
+                    <div class="user-info">
+                        <h4>${model.display_name}</h4>
+                        <p>${model.provider} · ${model.model_name} · ${model.task_type} · ${model.model_tier}</p>
+                    </div>
+                    <span class="badge" style="${model.is_default ? 'background: rgba(16, 185, 129, 0.2); color: #fff;' : ''}">
+                        ${model.is_default ? 'Oletus' : (model.is_enabled ? 'Käytössä' : 'Pois')}
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        async function loadModels() {
+            try {
+                const res = await window.SkriptLabAuth.fetch('/api/admin/models');
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Mallien lataus epäonnistui.');
+                renderModels(data);
+                modelStatus.textContent = '';
+            } catch (err) {
+                modelStatus.textContent = err.message;
+            }
+        }
+
+        function renderSystemStatus(status) {
+            const providers = Object.entries(status.provider_credentials || {})
+                .map(([provider, configured]) => `${provider}: ${configured ? 'asetettu' : 'puuttuu'}`)
+                .join(' · ');
+            const productionLike = status.app_env === 'production';
+            const databaseOk = !productionLike || status.database_type === 'postgresql';
+            const autoCreateOk = !productionLike || !status.auto_create_tables;
+            const jwtOk = !productionLike || status.jwt_secret_configured;
+            const resetOk = !status.dangerous_reset_enabled;
+            const issues = status.configuration_issues || [];
+            const productionReady = status.production_ready !== false;
+            const issuesText = issues.length
+                ? issues.map(issue => `• ${escapeHtml(issue)}`).join('<br>')
+                : 'Ei havaittuja julkaisuesteitä.';
+
+            systemStatusList.innerHTML = `
+                <div class="user-item">
+                    <div class="user-info">
+                        <h4>Julkaisuvalmius</h4>
+                        <p>${issuesText}</p>
+                    </div>
+                    ${statusBadge(productionReady, 'OK', 'Korjaa')}
+                </div>
+                <div class="user-item">
+                    <div class="user-info">
+                        <h4>Ympäristö</h4>
+                        <p>${escapeHtml(status.app_env)} · tietokanta: ${escapeHtml(status.database_type)}</p>
+                    </div>
+                    ${statusBadge(databaseOk, 'OK', 'Tarkista')}
+                </div>
+                <div class="user-item">
+                    <div class="user-info">
+                        <h4>Turva-asetukset</h4>
+                        <p>JWT ${status.jwt_secret_configured ? 'asetettu' : 'puuttuu'} · reset ${status.dangerous_reset_enabled ? 'päällä' : 'pois'} · automaattitaulut ${status.auto_create_tables ? 'päällä' : 'pois'}</p>
+                    </div>
+                    ${statusBadge(jwtOk && resetOk && autoCreateOk, 'OK', 'Tarkista')}
+                </div>
+                <div class="user-item">
+                    <div class="user-info">
+                        <h4>AI-avaimet</h4>
+                        <p>${escapeHtml(providers || 'Ei providereita')}</p>
+                    </div>
+                    ${statusBadge(Object.values(status.provider_credentials || {}).some(Boolean), 'OK', 'Puuttuu')}
+                </div>
+                <div class="user-item">
+                    <div class="user-info">
+                        <h4>Sallitut origin-osoitteet</h4>
+                        <p>${escapeHtml((status.allowed_origins || []).join(', '))}</p>
+                    </div>
+                    ${statusBadge((status.allowed_origins || []).length > 0)}
+                </div>
+                <div class="user-item">
+                    <div class="user-info">
+                        <h4>Data</h4>
+                        <p>${status.user_count} käyttäjää · ${status.model_count} mallia rekisterissä</p>
+                    </div>
+                    ${statusBadge(status.model_count > 0)}
+                </div>
+            `;
+            systemStatusMessage.textContent = productionLike
+                ? 'Tuotannossa palvelu ei käynnisty, jos julkaisuvalmiuden kriittiset asetukset ovat pielessä.'
+                : 'Kehitysympäristössä osa tarkistuksista saa olla kevyemmällä asetuksella.';
+        }
+
+        async function loadSystemStatus() {
+            try {
+                const res = await window.SkriptLabAuth.fetch('/api/admin/system-status');
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Järjestelmän tilan lataus epäonnistui.');
+                renderSystemStatus(data);
+            } catch (err) {
+                systemStatusMessage.textContent = err.message;
+            }
+        }
+
+        function renderInvites(invites) {
+            if (!invites.length) {
+                inviteList.innerHTML = `
+                    <div class="user-item">
+                        <div class="user-info">
+                            <h4>Ei kutsuja</h4>
+                            <p>Luo ensimmäinen beta-kutsu yllä.</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            inviteList.innerHTML = invites.map(invite => {
+                const status = invite.is_active ? 'Aktiivinen' : 'Suljettu';
+                const badgeStyle = invite.is_active ? 'background: rgba(16, 185, 129, 0.2); color: #fff;' : '';
+                const email = invite.email || 'Avoin kutsu';
+                const deactivateButton = invite.is_active ? `<button class="btn btn-secondary deactivate-invite-btn" data-id="${invite.id}" style="font-size: 11px; padding: 4px 10px;">Sulje</button>` : '';
+                return `
+                    <div class="user-item">
+                        <div class="user-info">
+                            <h4>${escapeHtml(email)}</h4>
+                            <p>${escapeHtml(invite.role)} · käytetty ${invite.used_count}/${invite.max_uses} · voimassa ${formatDate(invite.expires_at)}</p>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span class="badge" style="${badgeStyle}">${status}</span>
+                            ${deactivateButton}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderUsers(users) {
+            if (!users.length) {
+                adminUserList.innerHTML = `
+                    <div class="user-item">
+                        <div class="user-info">
+                            <h4>Ei käyttäjiä</h4>
+                            <p>Käyttäjät ilmestyvät tänne kutsun hyväksymisen jälkeen.</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            adminUserList.innerHTML = users.map(user => `
+                <div class="user-item">
+                    <div class="user-info">
+                        <h4>${escapeHtml(user.display_name)}</h4>
+                        <p>${escapeHtml(user.email)} · ${formatDate(user.created_at)}</p>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="badge" style="${user.is_active ? 'background: rgba(16, 185, 129, 0.2); color: #fff;' : ''}">
+                            ${escapeHtml(user.role)}
+                        </span>
+                        <button class="btn btn-secondary user-limit-btn" data-id="${user.id}" data-name="${escapeHtml(user.display_name)}" style="font-size: 11px; padding: 4px 10px;">Rajat</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function loadInvites() {
+            try {
+                const res = await window.SkriptLabAuth.fetch('/api/admin/invites');
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Kutsujen lataus epäonnistui.');
+                renderInvites(data);
+            } catch (err) {
+                inviteStatus.textContent = err.message;
+            }
+        }
+
+        async function loadUsers() {
+            try {
+                const res = await window.SkriptLabAuth.fetch('/api/admin/users');
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Käyttäjien lataus epäonnistui.');
+                renderUsers(data);
+            } catch (err) {
+                inviteStatus.textContent = err.message;
+            }
+        }
+
+        function fillUsageLimitForm(data) {
+            limitAnalysisMonthly.value = data.monthly_analysis_limit;
+            limitAnalysisChars.value = data.max_analysis_chars;
+            limitEditMonthly.value = data.monthly_paragraph_edit_limit;
+            limitEditChars.value = data.max_paragraph_edit_chars;
+            limitProModels.checked = Boolean(data.allow_pro_models);
+            limitImageModels.checked = Boolean(data.allow_image_models);
+            usageLimitUsage.textContent = `Käytetty tässä kuussa: ${data.monthly_analysis_used}/${data.monthly_analysis_limit} analyysia, ${data.monthly_paragraph_edit_used}/${data.monthly_paragraph_edit_limit} kappalemuokkausta. ${data.has_custom_limit ? 'Käyttäjäkohtainen raja.' : 'Oletusrajat käytössä.'}`;
+        }
+
+        async function loadUsageLimit(userId, displayName) {
+            selectedLimitUserId = userId;
+            selectedLimitUserName = displayName;
+            usageLimitPanel.classList.remove('hidden');
+            usageLimitTitle.textContent = `Käyttörajat: ${displayName}`;
+            usageLimitStatus.textContent = 'Ladataan rajoja...';
+            try {
+                const res = await window.SkriptLabAuth.fetch(`/api/admin/users/${userId}/usage-limit`);
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Käyttörajojen lataus epäonnistui.');
+                fillUsageLimitForm(data);
+                usageLimitStatus.textContent = '';
+            } catch (err) {
+                usageLimitStatus.textContent = err.message;
+            }
+        }
+
+        if (saveModelBtn) {
+            saveModelBtn.addEventListener('click', async () => {
+                const modelId = defaultModelSelect.value;
+                if (!modelId) return;
+                saveModelBtn.disabled = true;
+                modelStatus.textContent = 'Tallennetaan oletusmallia...';
+                try {
+                    const res = await window.SkriptLabAuth.fetch(`/api/admin/models/${modelId}`, {
+                        method: 'PATCH',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({is_default: true})
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.detail || 'Oletusmallin tallennus epäonnistui.');
+                    modelStatus.textContent = `Oletusmalli: ${data.display_name}`;
+                    await loadModels();
+                } catch (err) {
+                    modelStatus.textContent = err.message;
+                } finally {
+                    saveModelBtn.disabled = false;
+                }
+            });
+        }
+
+        if (createInviteBtn) {
+            createInviteBtn.addEventListener('click', async () => {
+                createInviteBtn.disabled = true;
+                inviteStatus.textContent = 'Luodaan kutsua...';
+                newInviteCode.classList.add('hidden');
+                try {
+                    const payload = {
+                        email: inviteEmail.value.trim() || null,
+                        role: inviteRole.value,
+                        max_uses: parseInt(inviteMaxUses.value || '1', 10),
+                        days_valid: parseInt(inviteDays.value || '30', 10)
+                    };
+                    const res = await window.SkriptLabAuth.fetch('/api/admin/invites', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.detail || 'Kutsun luonti epäonnistui.');
+                    inviteStatus.textContent = `Kutsu luotu: ${data.email || 'avoin kutsu'}`;
+                    inviteCodeValue.textContent = data.invite_code;
+                    newInviteCode.classList.remove('hidden');
+                    inviteEmail.value = '';
+                    await loadInvites();
+                } catch (err) {
+                    inviteStatus.textContent = err.message;
+                } finally {
+                    createInviteBtn.disabled = false;
+                }
+            });
+        }
+
+        inviteList.addEventListener('click', async (event) => {
+            const button = event.target.closest('.deactivate-invite-btn');
+            if (!button) return;
+            button.disabled = true;
+            inviteStatus.textContent = 'Suljetaan kutsua...';
+            try {
+                const res = await window.SkriptLabAuth.fetch(`/api/admin/invites/${button.dataset.id}`, {
+                    method: 'PATCH',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({is_active: false})
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Kutsun sulkeminen epäonnistui.');
+                inviteStatus.textContent = 'Kutsu suljettu.';
+                await loadInvites();
+            } catch (err) {
+                inviteStatus.textContent = err.message;
+                button.disabled = false;
+            }
+        });
+
+        adminUserList.addEventListener('click', async (event) => {
+            const button = event.target.closest('.user-limit-btn');
+            if (!button) return;
+            await loadUsageLimit(button.dataset.id, button.dataset.name);
+        });
+
+        if (saveUsageLimitBtn) {
+            saveUsageLimitBtn.addEventListener('click', async () => {
+                if (!selectedLimitUserId) return;
+                saveUsageLimitBtn.disabled = true;
+                usageLimitStatus.textContent = 'Tallennetaan käyttörajoja...';
+                try {
+                    const payload = {
+                        monthly_analysis_limit: parseInt(limitAnalysisMonthly.value || '0', 10),
+                        max_analysis_chars: parseInt(limitAnalysisChars.value || '1', 10),
+                        monthly_paragraph_edit_limit: parseInt(limitEditMonthly.value || '0', 10),
+                        max_paragraph_edit_chars: parseInt(limitEditChars.value || '1', 10),
+                        allow_pro_models: limitProModels.checked,
+                        allow_image_models: limitImageModels.checked
+                    };
+                    const res = await window.SkriptLabAuth.fetch(`/api/admin/users/${selectedLimitUserId}/usage-limit`, {
+                        method: 'PATCH',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.detail || 'Käyttörajojen tallennus epäonnistui.');
+                    fillUsageLimitForm(data);
+                    usageLimitStatus.textContent = `Rajat tallennettu käyttäjälle ${selectedLimitUserName}.`;
+                } catch (err) {
+                    usageLimitStatus.textContent = err.message;
+                } finally {
+                    saveUsageLimitBtn.disabled = false;
+                }
+            });
+        }
+
+        loadModels();
+        loadSystemStatus();
+        loadInvites();
+        loadUsers();
+    </script>
+</body>
+</html>

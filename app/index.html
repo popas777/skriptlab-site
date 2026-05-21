@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="fi" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkriptLab MVP</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=21">
+</head>
+<body>
+    <!-- Global Task Overlay -->
+    <div id="global-task-overlay" class="hidden" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 9999; display: flex; align-items: center; justify-content: center;">
+        <div class="card glass-panel" style="width: 400px; text-align: center;">
+            <h3 id="task-title" style="margin-bottom: 16px; color: var(--ai-gradient-start);">Tekoäly työskentelee...</h3>
+            <p id="task-desc" style="color: var(--text-secondary); margin-bottom: 24px; font-size: 14px;">Analysoidaan dataa</p>
+            
+            <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; margin-bottom: 16px;">
+                <div id="task-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--ai-gradient-start), var(--ai-gradient-end)); transition: width 1s linear;"></div>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; font-size: 13px; color: var(--text-secondary);">
+                <span id="task-time-left">Arvioitu aika: --:--</span>
+                <span id="task-percent">0%</span>
+            </div>
+            
+            <button id="task-close-btn" class="btn btn-secondary hidden" style="margin-top: 24px; width: 100%;" onclick="document.getElementById('global-task-overlay').classList.add('hidden');">Sulje</button>
+        </div>
+    </div>
+
+    <nav class="top-bar glass-panel">
+        <div class="top-bar-left">
+            <button class="icon-btn" id="toggle-sidebar" title="Piilota sivuvalikko">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            </button>
+            <div class="context-info">
+                <span class="role-badge">Käyttäjäryhmä: Kustannustoimittaja</span>
+                <span class="manuscript-badge" id="top-book-name">Käsikirjoitus: Valitse projekti</span>
+            </div>
+        </div>
+        <div class="top-bar-right">
+            <button class="icon-btn text-btn" id="toggle-lang" title="Vaihda kieltä">FI / ENG</button>
+            <button class="icon-btn" id="toggle-theme" title="Vaihda teema (Dark/Light)">🌓</button>
+            <button class="icon-btn" id="toggle-mobile" title="Simuloi mobiilinäkymää">📱</button>
+            <a href="login.html" class="icon-btn" id="logout-link" title="Kirjaudu ulos" style="text-decoration:none;">🚪</a>
+        </div>
+    </nav>
+
+    <div class="app-wrapper" id="app-wrapper">
+        <aside class="sidebar glass-panel" id="sidebar">
+            <h1 class="logo">SkriptLab<span class="accent">.</span></h1>
+            <nav class="sidebar-nav">
+                <ul id="nav-menu">
+                    <li class="active" data-view="view-kirjani">Kirjani</li>
+                    <li data-view="view-sopimukset">Sopimukset</li>
+                    <li data-view="view-aikajana">Aikajana</li>
+                    <li data-view="view-analyysi">Analyysi</li>
+                    <li data-view="view-toimitus">Toimitus</li>
+                    <li data-view="view-viimeistely">Versiot</li>
+                    <li data-view="view-oikoluku">Oikoluku</li>
+                    <li data-view="view-kuvitus">Kuvitus</li>
+                    <li data-view="view-tuotetiedot">Tuotetiedot</li>
+                    <li data-view="view-markkinointi">Markkinointi</li>
+                    <li data-view="view-taitto">Taitto</li>
+                    <li data-view="view-audio">Audio</li>
+                    <li data-view="view-kaannokset">Käännökset</li>
+                </ul>
+            </nav>
+            <div class="ai-meta-box">
+                <h3>Vektorimuisti (AI Meta)</h3>
+                <div class="meta-item">
+                    <span class="meta-label">Tyyli:</span>
+                    <span class="meta-value" id="sidebar-style">Odottaa analyysiä...</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Sanasto:</span>
+                    <span class="meta-value" id="sidebar-vocab">-</span>
+                </div>
+            </div>
+            <div class="usage-box" id="usage-box">
+                <h3>Käyttörajat</h3>
+                <div class="usage-row">
+                    <div class="usage-label">
+                        <span>Analyysit</span>
+                        <span id="usage-analysis-text">-</span>
+                    </div>
+                    <div class="usage-bar"><div id="usage-analysis-bar"></div></div>
+                    <p id="usage-analysis-chars">-</p>
+                </div>
+                <div class="usage-row">
+                    <div class="usage-label">
+                        <span>Kappalemuokkaukset</span>
+                        <span id="usage-edit-text">-</span>
+                    </div>
+                    <div class="usage-bar"><div id="usage-edit-bar"></div></div>
+                    <p id="usage-edit-chars">-</p>
+                </div>
+                <p id="usage-status">Ladataan rajoja...</p>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+
+            <!-- 1. VIEW: KIRJANI -->
+            <div id="view-kirjani" class="view-section">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>Omat Käsikirjoitukset</h2>
+                        <p>Projektit ja tila, joissa olet mukana</p>
+                    </div>
+                    <div class="header-actions">
+                        <input type="file" id="manuscript-upload" accept=".txt,.md,.docx,.pdf" style="display:none">
+                        <button class="btn btn-primary" onclick="document.getElementById('manuscript-upload').click()">+ Lataa Käsikirjoitus</button>
+                    </div>
+                </div>
+                <div class="grid-cards" id="kirjani-grid">
+                   <!-- Dynaamisesti lisättävät kortit tulevat tähän -->
+                   <div style="color:var(--text-secondary); font-size:14px; padding:20px;">
+                       Ohjelmistossa ei ole vielä aktiivisia käsikirjoitushankkeita ladattuna tähän laitteeseen.<br>
+                       Käytä <strong>Lataa Käsikirjoitus</strong> -painiketta aloittaaksesi uuden hankkeen editoinnin.
+                   </div>
+                </div>
+            </div>
+
+            <!-- 2. VIEW: SOPIMUKSET -->
+            <div id="view-sopimukset" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>Sopimukset</h2>
+                        <p>Käsikirjoitus: [Ei aktiivista teosta]</p>
+                    </div>
+                </div>
+                <div class="grid-cards">
+                    <div class="card glass-panel">
+                        <h3>Kustannussopimus</h3>
+                        <p class="card-meta">Allekirjoitettu: 15.05.2023</p>
+                        <p class="card-status"><span class="badge" style="background:#238636;color:white;border:none;">Voimassa</span></p>
+                        <button class="btn btn-secondary" style="margin-top:20px; width:100%;" onclick="alert('Ladataan PDF...')">Lataa sopimus (PDF)</button>
+                    </div>
+                    <div class="card glass-panel">
+                        <h3>Tekijänpalkkio</h3>
+                        <p class="card-meta">Allekirjoitettu: 15.05.2023</p>
+                        <p class="card-status"><span class="badge" style="background:#238636;color:white;border:none;">Voimassa</span></p>
+                        <button class="btn btn-secondary" style="margin-top:20px; width:100%;" onclick="alert('Ladataan PDF...')">Lataa sopimus (PDF)</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. VIEW: AIKAJANA -->
+            <div id="view-aikajana" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>Projektin Aikajana</h2>
+                        <p>Käännekohdat ja tavoitteet julkaisuun saakka</p>
+                    </div>
+                </div>
+                <div class="timeline glass-panel">
+                    <div class="timeline-item completed">
+                        <div class="timeline-marker"></div>
+                        <div class="timeline-content">
+                            <h4>Sopimus valmis</h4>
+                            <p>15.05.2023 - Virallinen aloitus. Näkyy Sopimukset-välilehdellä.</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item active">
+                        <div class="timeline-marker"></div>
+                        <div class="timeline-content">
+                            <h4>Käsikirjoitus valmis</h4>
+                            <p>Toimitus ja kielenhuolto yhdessä AI:n kanssa tekeillä. (Mene Toimitus-välilehdelle)</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-marker"></div>
+                        <div class="timeline-content">
+                            <h4>Kuvitus valmis</h4>
+                            <p>Odottaa tekstipiirteiden lukitsemista (Freeze).</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-marker"></div>
+                        <div class="timeline-content">
+                            <h4>Tuotetiedot valmiit</h4>
+                            <p>Odottaa valmista runkoa ja analyysin ONIX-metadata-vientiä.</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-marker"></div>
+                        <div class="timeline-content">
+                            <h4>Taitto valmis</h4>
+                            <p>Yhdistää kuvituksen ja lukitun tekstin taitto-ohjelmistojen InDesign/vastaava -formaatissa.</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-marker"></div>
+                        <div class="timeline-content">
+                            <h4>Audio valmis</h4>
+                            <p>Äänikirjan automatisoitu tai studiossa tehty äänitys.</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-marker"></div>
+                        <div class="timeline-content">
+                            <h4>Ilmestyminen</h4>
+                            <p>Arvioitu: Syksy 2024</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. VIEW: ANALYYSI -->
+            <div id="view-analyysi" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>Käsikirjoituksen Analyysi</h2>
+                        <p>Käsikirjoitus: [Ei aktiivista teosta] (AI-avusteinen arviointi rakenne-, tyyli- ja sisältötasolla)</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" id="run-analysis-btn" style="background:linear-gradient(135deg, var(--ai-gradient-start), var(--ai-gradient-end)); border:none;">✨ Suorita Automaattinen Kirja-analyysi</button>
+                    </div>
+                </div>
+                
+                <div id="analysis-loader" class="hidden" style="text-align:center; padding: 60px 40px;">
+                    <h3 class="sparkle glow-text" style="font-size: 24px;">✨ Tekoäly analysoi käsikirjoitustasi...</h3>
+                    <p style="color:var(--text-secondary); margin-top:12px;">Louhitaan tyyli, synopsis, sanasto, markkinointitekstit ja rakenneanalyysi</p>
+                    <div style="margin-top:24px; font-size:36px; font-weight:600; color:var(--ai-gradient-start);" id="analysis-timer">0:00</div>
+                    <p style="color:var(--text-secondary); margin-top:8px; font-size:13px;">Arvioitu kesto: 1–3 minuuttia käsikirjoituksen pituudesta riippuen</p>
+                    <div style="margin-top:20px; width:200px; height:4px; background:rgba(255,255,255,0.1); border-radius:4px; margin-left:auto; margin-right:auto; overflow:hidden;">
+                        <div id="analysis-pulse-bar" style="width:30%; height:100%; background:linear-gradient(90deg, var(--ai-gradient-start), var(--ai-gradient-end)); border-radius:4px; animation: analysisPulse 1.5s ease-in-out infinite;"></div>
+                    </div>
+                </div>
+
+                <div id="analysis-results" class="hidden">
+                    <div class="grid-cards" style="grid-template-columns: 1fr;">
+                        <div class="card glass-panel" style="border-left: 4px solid var(--ai-gradient-start);">
+                            <h3 style="color: var(--ai-gradient-start); margin-bottom: 12px;">Tekoälyn Toimituksellinen arvio & Vinkit</h3>
+                            <p style="line-height:1.6; color:var(--text-secondary);" id="mock-analysis-text">
+                                Teksti etenee jouhevasti ja tyyli on mukaansatempaavaa, kieli sopii hienosti modernille yleisölle.<br><br>
+                                <strong>Rakenne-ehdotus:</strong> Alku on nopeatahtinen, mutta keskivaiheilla tempo hidastuu hieman liikaa. Harkitse lukujen tiivistämistä tai joidenkin sivulauseiden poistamista, jotta päästään nopeammin käsiksi itse pääsiemenen etsintään.<br><br>
+                                <strong>Vinkki:</strong> Tekoälyn palastelu-ominaisuus otetaan myöhemmin käyttöön, jotta kappalejaot menevät täydellisesti oikein.
+                            </p>
+                        </div>
+                        <div class="grid-cards" style="margin-top:8px;">
+                            <div class="card glass-panel" style="background: rgba(16, 185, 129, 0.05);">
+                                <h3>Poimittu Tyyli (Style Guide)</h3>
+                                <p style="margin-top:10px; color:var(--text-secondary);">Synkkä fantasia, eloisa asettelu, dynaaminen temmellys.</p>
+                            </div>
+                            <div class="card glass-panel" style="background: rgba(16, 185, 129, 0.05);">
+                                <h3>Kerätty Sanasto (Glossary)</h3>
+                                <p style="margin-top:10px; color:var(--text-secondary);">Oikeinkirjoitusta varten: <em>Varjometsä, Loitsu, Musta kivi, Korpiklaani...</em></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+
+
+            <!-- 5.5 VIEW: VERSIOT (ent. Viimeistely) -->
+            <div id="view-viimeistely" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>Versiot ja Tuotostiedostot</h2>
+                        <p>Käsikirjoitus: [Ei aktiivista teosta] (AI-avusteinen automaattioikoluku)</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" onclick="startLongTask('Generoidaan Tyyliversioita', 'Luetaan käsikirjoitusta ja vektorimuistia. Ajetaan AI-rinnakkaisversiointia...', 120);">✨ Aja Tyyligenerointi</button>
+                    </div>
+                </div>
+
+                <div class="grid-cards" style="grid-template-columns: 1fr 1fr;">
+                    <!-- Asetukset -->
+                    <div class="card glass-panel" style="display:flex; flex-direction:column;">
+                        <h3 style="margin-bottom:20px; color:var(--text-primary);">Ajo-asetukset</h3>
+                        <p style="color:var(--text-secondary); margin-bottom:16px; font-size:13px;">Valitse, mitkä tyyliversiot haluat tekoälyn laskevan rinnakkain koko tekstistä. Jokainen versio tallennetaan omaan tiedostoonsa vertailua varten.</p>
+                        
+                        <label style="display:flex; align-items:center; gap:12px; margin-bottom:12px; color:var(--text-primary); cursor:pointer;">
+                            <input type="checkbox" checked style="accent-color: var(--ai-gradient-start); width:18px; height:18px;">
+                            <span><strong>Versio 1: Tarkka</strong> (Kielioppikorjaukset, uskollinen alkuperäiselle)</span>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:12px; margin-bottom:12px; color:var(--text-primary); cursor:pointer;">
+                            <input type="checkbox" checked style="accent-color: var(--ai-gradient-start); width:18px; height:18px;">
+                            <span><strong>Versio 2: Kaunokirjallinen</strong> (Sujuvampi rytmi, elävämpi kieli)</span>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:12px; margin-bottom:12px; color:var(--text-primary); cursor:pointer;">
+                            <input type="checkbox" style="accent-color: var(--ai-gradient-start); width:18px; height:18px;">
+                            <span><strong>Versio 3: Moderni</strong> (Lyhyemmät lauseet, karsitut adjektiivit)</span>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:12px; margin-bottom:12px; color:var(--text-primary); cursor:pointer;">
+                            <input type="checkbox" checked style="accent-color: var(--ai-gradient-start); width:18px; height:18px;">
+                            <span><strong>Versio 4: Kirjan oma tyyli</strong> (Hyödyntää Analyzer-luomaa style.txt-ohjeistusta)</span>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:12px; margin-bottom:20px; color:var(--text-primary); cursor:pointer;">
+                            <input type="checkbox" style="accent-color: var(--ai-gradient-start); width:18px; height:18px;">
+                            <span><strong>Versio 5: Selkokieli</strong> (Helppolukuinen ja tiivistetty lyhennelmä erityisryhmille)</span>
+                        </label>
+                    </div>
+
+                    <!-- Esikatselu / Vertailu -->
+                    <div class="card glass-panel" style="display:flex; flex-direction:column;">
+                        <h3 style="margin-bottom:20px; color:var(--text-primary);">Kohtauksen Vertailu (Esimerkki)</h3>
+                        
+                        <div style="background:rgba(0,0,0,0.2); padding:16px; border-radius:8px; border:1px solid var(--border-color); margin-bottom:16px;">
+                            <span class="badge" style="margin-bottom:8px; display:inline-block; margin-left:0;">Alkuperäinen raakakäännös</span>
+                            <p style="font-size:13px; color:var(--text-secondary);">Hän laittoi kätensä taskuunsa ja katsoi pientä oliota, joka oli kylmä.</p>
+                        </div>
+
+                        <div style="background:rgba(16,185,129,0.1); padding:16px; border-radius:8px; border:1px solid rgba(16,185,129,0.3); margin-bottom:16px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                <span class="badge glowing" style="margin-left:0; background:var(--ai-gradient-end); color:#fff; border:none;">Versio 2: Kaunokirjallinen</span>
+                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:11px;">Valitse tämä</button>
+                            </div>
+                            <p style="font-size:13px; color:var(--text-primary);">Hän työnsi kätensä taskuun ja tuijotti pientä, kylmästä tärisevää olentoa.</p>
+                        </div>
+                        
+                        <div style="background:rgba(0,0,0,0.2); padding:16px; border-radius:8px; border:1px solid var(--border-color);">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                <span class="badge" style="margin-left:0;">Versio 4: Kirjan oma tyyli</span>
+                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:11px;">Valitse tämä</button>
+                            </div>
+                            <p style="font-size:13px; color:var(--text-secondary);">Hän kätki nyrkkinsä syvälle viittansa uumeniin, antamatta katseensa irrota tuosta hyytävästä sivullisesta.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tulokset / Tallennetut Versiot -->
+                <div class="generated-files-list glass-panel" style="margin-top: 24px;">
+                    <h3 style="margin-bottom:12px; color:var(--text-primary);">Tallennetut Versiot ja Taitot</h3>
+                    <ul style="list-style: none; padding: 0;">
+                        <li style="display:flex; justify-content:space-between; align-items:center; padding: 12px; background: rgba(0,0,0,0.2); border-bottom: 1px solid #333; border-radius:8px; margin-bottom:8px;">
+                            <span style="color:var(--text-primary);">📕 Metsan_salaisuus_A5.pdf</span>
+                            <div style="display:flex; gap:8px;">
+                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:var(--ai-gradient-start); border-color:var(--ai-gradient-start);" onclick="window.open().document.write('<html><body style=\'background:#222;color:#fff;font-family:sans-serif;padding:40px;text-align:center;\'><h1>Esikatselu: PDF (Mock)</h1><p>Tässä näkyisi taitettu kirjan PDF selaimeen upotettuna.</p></body></html>');">Avaa</button>
+                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:#ff5555; border-color:#ff5555;" onclick="this.parentElement.parentElement.remove()">🗑️ Poista</button>
+                            </div>
+                        </li>
+                        <li style="display:flex; justify-content:space-between; align-items:center; padding: 12px; background: rgba(0,0,0,0.2); border-bottom: 1px solid #333; border-radius:8px; margin-bottom:8px;">
+                            <span style="color:var(--text-primary);">📱 Metsan_salaisuus_EPUB3.epub</span>
+                            <div style="display:flex; gap:8px;">
+                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:var(--ai-gradient-start); border-color:var(--ai-gradient-start);" onclick="window.open().document.write('<html><body style=\'background:#fff;color:#000;font-family:serif;padding:40px;\'><h1 style=\'text-align:center\'>Luku 1 (eBook Esikatselu)</h1><p>Tässä lukijalaite simuloisi responsiivista ePub-tekstiä.</p></body></html>');">Avaa</button>
+                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:#ff5555; border-color:#ff5555;" onclick="this.parentElement.parentElement.remove()">🗑️ Poista</button>
+                            </div>
+                        </li>
+                        <li style="display:flex; justify-content:space-between; align-items:center; padding: 12px; background: rgba(0,0,0,0.2); border-bottom: 1px solid #333; border-radius:8px; margin-bottom:8px;">
+                            <span style="color:var(--text-primary);">📄 Versio_4_Kirjan_tyyli.txt</span>
+                            <div style="display:flex; gap:8px;">
+                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:var(--ai-gradient-start); border-color:var(--ai-gradient-start);" onclick="alert('Ladataan vertailuun...')">Vertaa</button>
+                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:#ff5555; border-color:#ff5555;" onclick="this.parentElement.parentElement.remove()">🗑️ Poista</button>
+                            </div>
+                        </li>
+                        <li style="display:flex; justify-content:space-between; align-items:center; padding: 12px; background: rgba(0,0,0,0.2); border-bottom: 1px solid #333; border-radius:8px; margin-bottom:8px;">
+                            <span style="color:var(--text-primary);">📄 Versio_5_Selkokieli.txt</span>
+                            <div style="display:flex; gap:8px;">
+                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:var(--ai-gradient-start); border-color:var(--ai-gradient-start);" onclick="alert('Ladataan vertailuun...')">Vertaa</button>
+                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:#ff5555; border-color:#ff5555;" onclick="this.parentElement.parentElement.remove()">🗑️ Poista</button>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 5.2 VIEW: OIKOLUKU -->
+            <div id="view-oikoluku" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>Oikoluku (Tarkistusvedos)</h2>
+                        <p>Käsikirjoitus: [Ei aktiivista teosta] (AI-oikolukukone: löydetty 24 korjausehdotusta)</p>
+                    </div>
+                </div>
+
+                <div class="grid-cards" style="grid-template-columns: 1fr;">
+                    <div class="card glass-panel">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+                            <h3 style="color:var(--text-primary);">Avoimet korjausehdotukset</h3>
+                            <button class="btn btn-primary" onclick="alert('Kaikki valitut muutokset vietiin suoraan kohdetekstiin!')">✨ Kohdista Muutokset</button>
+                        </div>
+
+                        <!-- Ehdotus 1 -->
+                        <div style="background:rgba(0,0,0,0.2); padding:16px; border-radius:8px; border:1px solid var(--border-color); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <span class="badge glowing" style="margin-left:0; margin-bottom:8px; display:inline-block; background:rgba(16, 185, 129, 0.2); color:var(--ai-gradient-start); border-color:var(--ai-gradient-start);">Luku 1 - Typo</span>
+                                <p style="color:var(--text-secondary); margin-bottom:4px;"><del>Hän tartui miekan kahvaan voimakkaasti.</del></p>
+                                <p style="color:var(--text-primary);">Hän <span style="color:var(--ai-gradient-start); font-weight:bold;">tarttui</span> miekan kahvaan voimakkaasti.</p>
+                            </div>
+                            <div style="display:flex; gap:8px;">
+                                <button class="btn btn-secondary" style="border-color: #ff5555; color: #ff5555;" onclick="this.parentNode.parentNode.style.display='none'">Hylkää</button>
+                                <button class="btn btn-secondary" style="border-color: var(--ai-gradient-start); color: var(--ai-gradient-start);" onclick="this.parentNode.parentNode.style.opacity='0.5'; this.innerHTML='Hyväksytty ✓'">Hyväksy</button>
+                            </div>
+                        </div>
+
+                        <!-- Ehdotus 2 -->
+                        <div style="background:rgba(0,0,0,0.2); padding:16px; border-radius:8px; border:1px solid var(--border-color); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <span class="badge glowing" style="margin-left:0; margin-bottom:8px; display:inline-block; background:rgba(121, 192, 255, 0.2); color:#79c0ff; border-color:#79c0ff;">Luku 2 - Rakennevirhe</span>
+                                <p style="color:var(--text-secondary); margin-bottom:4px;"><del>Talossa, joka sijaitsi mäen päällä, oli olemassa vanha kellari, joka oli pimeä.</del></p>
+                                <p style="color:var(--text-primary);">Mäen päällä sijaitsevassa talossa oli pimeä, vanha kellari.</p>
+                            </div>
+                            <div style="display:flex; gap:8px;">
+                                <button class="btn btn-secondary" style="border-color: #ff5555; color: #ff5555;" onclick="this.parentNode.parentNode.style.display='none'">Hylkää</button>
+                                <button class="btn btn-secondary" style="border-color: var(--ai-gradient-start); color: var(--ai-gradient-start);" onclick="this.parentNode.parentNode.style.opacity='0.5'; this.innerHTML='Hyväksytty ✓'">Hyväksy</button>
+                            </div>
+                        </div>
+
+                        <!-- Ehdotus 3 -->
+                        <div style="background:rgba(0,0,0,0.2); padding:16px; border-radius:8px; border:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <span class="badge glowing" style="margin-left:0; margin-bottom:8px; display:inline-block; background:rgba(16, 185, 129, 0.2); color:var(--ai-gradient-start); border-color:var(--ai-gradient-start);">Luku 4 - Lyöntivirhe</span>
+                                <p style="color:var(--text-secondary); margin-bottom:4px;"><del>Kuusi miestä saapuuivat paikalle aamunoitena.</del></p>
+                                <p style="color:var(--text-primary);">Kuusi miestä <span style="color:var(--ai-gradient-start); font-weight:bold;">saapuivat</span> paikalle <span style="color:var(--ai-gradient-start); font-weight:bold;">aamunkoitteessa</span>.</p>
+                            </div>
+                            <div style="display:flex; gap:8px;">
+                                <button class="btn btn-secondary" style="border-color: #ff5555; color: #ff5555;" onclick="this.parentNode.parentNode.style.display='none'">Hylkää</button>
+                                <button class="btn btn-secondary" style="border-color: var(--ai-gradient-start); color: var(--ai-gradient-start);" onclick="this.parentNode.parentNode.style.opacity='0.5'; this.innerHTML='Hyväksytty ✓'">Hyväksy</button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6. VIEW: KUVITUS -->
+            <div id="view-kuvitus" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>Kuvitus ja Visuaalit</h2>
+                        <p>Käsikirjoitus: [Ei aktiivista teosta] (Kuvat generoidaan tekoälyllä)</p>
+                    </div>
+                </div>
+
+                <div class="illustration-section" style="margin-bottom: 40px;">
+                    <h3 style="margin-bottom: 20px; color: var(--text-primary);">1. Kansikuvaehdotukset (AI-analyysin promptteina)</h3>
+                    <div class="grid-cards">
+                        <div class="card glass-panel" style="display: flex; flex-direction: column;">
+                            <h4 style="color: var(--ai-gradient-start); margin-bottom:12px;">Ehdotus 1: Tunnelmallinen metsä</h4>
+                            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom:20px; flex:1; font-style: italic; line-height: 1.5;">
+                                "Hyperrealistic, cinematic dark fantasy book cover for '[Teoksen nimi]'. Mysterious ancient forest, glowing purple and teal lighting, highly detailed."
+                            </p>
+                            <div class="img-placeholder" id="cover1-box" style="min-height: 50px;">
+                                <button class="btn btn-primary" style="width:100%" onclick="generateCover(1)">✨ Generoi Kuva (0.1€)</button>
+                            </div>
+                        </div>
+                        <div class="card glass-panel" style="display: flex; flex-direction: column;">
+                            <h4 style="color: var(--ai-gradient-start); margin-bottom:12px;">Ehdotus 2: Hahmo & Kivi</h4>
+                            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom:20px; flex:1; font-style: italic; line-height: 1.5;">
+                                "Dramatic dark fantasy cover. A mysterious cloaked figure holding a glowing magical purple stone in shadowy woods. High contrast, neon accents."
+                            </p>
+                            <div class="img-placeholder" id="cover2-box" style="min-height: 50px;">
+                                <button class="btn btn-primary" style="width:100%" onclick="generateCover(2)">✨ Generoi Kuva (0.1€)</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="illustration-section">
+                    <h3 style="margin-bottom: 20px; color: var(--text-primary);">2. Sisäkuvitukset (Kappalekohtainen)</h3>
+                    <div class="card glass-panel" style="display: flex; gap: 32px; align-items:flex-start; flex-wrap: wrap;">
+                        <div style="flex:1; min-width: 250px;">
+                            <label style="font-size: 13px; color: var(--text-secondary); display:block; margin-bottom:8px;">Valittu kappale (Referenssi luvusta 1):</label>
+                            <div style="padding:20px; background:rgba(0,0,0,0.2); border-radius:12px; border:1px dashed var(--border-color); font-size:14px; color:var(--text-secondary); line-height: 1.6;">
+                                "Kylläpä täällä on pimeää," olento sanoi. Aluskasvillisuus rapisi askeleiden alla kun musta kivi alkoi hehkua voimakkaasti.
+                            </div>
+                            <button class="btn btn-secondary" style="margin-top: 20px;" onclick="document.getElementById('inner-img-box').innerHTML = '<div style=\'text-align:center; padding:50px;\'><span class=\'sparkle glow-text\' style=\'font-size:24px;\'>⏳</span><p style=\'margin-top:10px; color:var(--text-secondary);\'>Generoidaan taidetta...</p></div>'; setTimeout(() => document.getElementById('inner-img-box').innerHTML = '<img src=\'cover_2.png\' style=\'width:100%; border-radius:8px; opacity:0.8;\'>', 2000);">✨ Generoi luonnos hahmosta tähän kohtaan</button>
+                        </div>
+                        <div id="inner-img-box" style="width: 250px; height: 250px; background: rgba(0,0,0,0.1); border: 2px dashed rgba(5,150,105,0.3); border-radius: 12px; display:flex; align-items:center; justify-content:center; color: var(--text-secondary); text-align:center; padding:20px; box-shadow: inset 0 0 20px rgba(0,0,0,0.5);">
+                            Kappaleen erikoiskuva ilmestyy tähän. Voi siirtää suoraan taittoon.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 7. VIEW: TUOTETIEDOT -->
+            <div id="view-tuotetiedot" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>Tuotetiedot & ONIX</h2>
+                        <p>Käsikirjoitus: [Ei aktiivista teosta] (Tiedot myyntiä ja luettelointia varten)</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" onclick="alert('ONIX 3.0 XML tiedosto generoitu ja lähetetty markkinointiin ja jakeluun!');">Varaa ISBN & Pura ONIX XML</button>
+                    </div>
+                </div>
+
+                <div class="grid-cards" style="grid-template-columns: 1fr 1fr;">
+                    <!-- ONIX Perustiedot -->
+                    <div class="card glass-panel">
+                        <h3 style="margin-bottom: 20px; color: var(--text-primary);">ONIX Perustiedot</h3>
+                        
+                        <div style="margin-bottom: 16px;">
+                            <label style="font-size: 13px; color: var(--text-secondary); display:block; margin-bottom:6px;">Nimeke (Title) <span class="badge glowing">AI Ote</span></label>
+                            <input type="text" value="[Ei aktiivista teosta]" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit;">
+                        </div>
+                        
+                        <div style="margin-bottom: 16px;">
+                            <label style="font-size: 13px; color: var(--text-secondary); display:block; margin-bottom:6px;">Kirjailija (Contributor)</label>
+                            <input type="text" value="Matti Meikäläinen" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit;">
+                        </div>
+
+                        <div style="margin-bottom: 16px;">
+                            <label style="font-size: 13px; color: var(--text-secondary); display:block; margin-bottom:6px;">Ikäsuositus (Audience) <span class="badge glowing">AI Asteikko</span></label>
+                            <input type="text" value="Young Adult (YA) 15+" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit;">
+                        </div>
+
+                        <div style="margin-bottom: 16px;">
+                            <label style="font-size: 13px; color: var(--text-secondary); display:block; margin-bottom:6px;">BISAC / Thema Koodit <span class="badge glowing">AI Tulkinta</span></label>
+                            <input type="text" value="FIC009000 (Fantasy / General), YX (Sci-Fi/Fantasy)" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit;">
+                        </div>
+
+                        <div style="margin-bottom: 16px;">
+                            <label style="font-size: 13px; color: var(--text-secondary); display:block; margin-bottom:6px;">ISBN-13 <span class="badge" style="background:var(--accent-color); color:#fff; border:none;">Manuaalinen</span></label>
+                            <input type="text" placeholder="Esim. 978-951-XX-XXXX-X" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px dashed var(--accent-color); background: rgba(121, 192, 255, 0.05); color: var(--text-primary); font-family: inherit; outline:none;">
+                        </div>
+                    </div>
+
+                    <!-- Takakansi & Muut -->
+                    <div class="card glass-panel" style="display: flex; flex-direction: column;">
+                        <h3 style="margin-bottom: 20px; color: var(--text-primary);">Takakansiteksti <span class="badge glowing">AI Kirjoitettu</span></h3>
+                        
+                        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.6;">
+                            Käsikirjoitusanalyysin pohjalta laadittu takakansiluonnos. Voit viilata tekstiä vapaasti ennen sen kiinnittämistä ONIX-dataan ja taittoon.
+                        </p>
+                        
+                        <textarea style="width: 100%; flex: 1; min-height: 200px; padding: 16px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; resize: none; line-height: 1.6; outline:none;">Musta pimeys kietoi ikiaikaisen varjometsän syliinsä. Jotain oli tekeillä aluskasvillisuuden seassa – askeleet olivat huomaamattomat, mutta ilmassa lepäsi odottava jännite.
+
+Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen nimi] vie lukijan henkeäsalpaavalle matkalle syvälle mystiikkaan, missä mikään ei ole sitä miltä näyttää. Uskallatko astua pimeyteen?</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 8. VIEW: MARKKINOINTI -->
+            <div id="view-markkinointi" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>Markkinointimateriaalit</h2>
+                        <p>Käsikirjoitus: [Ei aktiivista teosta] (AI-generoitu analyysivaiheessa)</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" onclick="alert('Ladataan markkinointipakettia zip-muodossa...');">Lataa markkinointipaketti (ZIP)</button>
+                        <button class="btn btn-primary" onclick="alert('Generoidaan uusia some-postauksia nykyisen vektorimuistin perusteella...');">✨ Luo uusi kampanja AI:lla</button>
+                    </div>
+                </div>
+
+                <!-- Peruskuvaukset -->
+                <h3 style="margin-bottom: 20px; color: var(--text-primary);">1. Myyntitekstit & Kuvaukset</h3>
+                <div class="grid-cards" style="margin-bottom: 40px; grid-template-columns: 1fr 1fr;">
+                    <div class="card glass-panel" style="display: flex; flex-direction: column;">
+                        <h4 style="color: var(--ai-gradient-start); margin-bottom:12px;">Hissipuhe / Lyhyt kuvaus</h4>
+                        <textarea style="width: 100%; flex: 1; min-height: 100px; padding: 16px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; resize: none; line-height: 1.6; outline:none;">[Teoksen nimi] on lumoava ja synkkä fantasiaseikkailu, jossa ikiaikaiset noidat ja kadonnut kivi uhkaavat suistaa maailman pimeyteen. Se on kertomus rohkeudesta, valosta ja varjojen keskellä selviytymisestä.</textarea>
+                    </div>
+                    <div class="card glass-panel" style="display: flex; flex-direction: column;">
+                        <h4 style="color: var(--ai-gradient-start); margin-bottom:12px;">Verkkokaupan kuvaus (Long)</h4>
+                        <textarea style="width: 100%; flex: 1; min-height: 100px; padding: 16px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; resize: none; line-height: 1.6; outline:none;">Sukella syvälle Varjometsän uumeniin uudessa YA-fantasiaromaanissa. Kun metsän ylle laskeutuu selittämätön pimeys, on pienen joukkion löydettävä valo ennen kuin on liian myöhäistä. Kirja vetää lukijansa mukaansa poikkeuksellisella tunnelmalla ja unohtumattomilla hahmoilla, tarjoten hengästyttäviä käänteitä aina viimeiselle sivulle asti.</textarea>
+                    </div>
+                </div>
+
+                <!-- Some-kanavat -->
+                <h3 style="margin-bottom: 20px; color: var(--text-primary);">2. Räätälöidyt Kanavapostaukset</h3>
+                <div class="grid-cards" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));">
+                    <!-- Instagram -->
+                    <div class="card glass-panel" style="border-top: 4px solid #E1306C; display:flex; flex-direction:column;">
+                        <h3 style="margin-bottom: 12px; display:flex; align-items:center; gap:8px;">
+                            <span style="font-size: 20px;">📸</span> Instagram 
+                        </h3>
+                        <div style="flex:1; padding:16px; background:rgba(0,0,0,0.2); border-radius:8px; border:1px solid var(--border-color); font-size:14px; color:var(--text-secondary); line-height: 1.6; min-height: 120px;">
+                            "Kylläpä täällä on pimeää," olento sanoi. 🌑🌲<br><br>
+                            Miltä sinusta tuntuisi astua yölliseen Varjometsään? 
+                            [Teoksen nimi] saapuu kirjakauppoihin ensi syksynä! Tägää ystävä, joka rakastaa synkkää fantasiaa. 👇<br><br>
+                            <span style="color: var(--ai-gradient-start);">#MetsänSalaisuus #Uutuuskirja #FantasiaKirjallisuus #Kirjagram #Lukutoukka</span>
+                        </div>
+                        <button class="btn btn-secondary" style="margin-top: 16px; width:100%; border-color: #E1306C; color: #E1306C;" onclick="alert('Kopioitu leikepöydälle!')">Kopioi teksti</button>
+                    </div>
+
+                    <!-- Facebook -->
+                    <div class="card glass-panel" style="border-top: 4px solid #1877F2; display:flex; flex-direction:column;">
+                        <h3 style="margin-bottom: 12px; display:flex; align-items:center; gap:8px;">
+                            <span style="font-size: 20px;">📘</span> Facebook 
+                        </h3>
+                        <div style="flex:1; padding:16px; background:rgba(0,0,0,0.2); border-radius:8px; border:1px solid var(--border-color); font-size:14px; color:var(--text-secondary); line-height: 1.6; min-height: 120px;">
+                            ✨ UUTUUSKIRJAPALJASTUS! ✨<br><br>
+                            Olemme innoissamme, sillä olemme yhden uskomattoman kirjan äärellä. Kirjailija Matti Meikäläisen yhdessä tiimimme kanssa hioma huippufantasia saapuu pian.<br><br>
+                            Oletko koskaan miettinyt, mitä pimeys kätkee sisälleen? "[Teoksen nimi]" pureutuu tähän ikiaikaiseen pelkoon vieden lukijan eeppiselle matkalle. Ennakkotilaa omasi nyt myymälöistämme!
+                        </div>
+                        <button class="btn btn-secondary" style="margin-top: 16px; width:100%; border-color: #1877F2; color: #1877F2;" onclick="alert('Kopioitu leikepöydälle!')">Kopioi teksti</button>
+                    </div>
+
+                    <!-- Lyhyt Video Käsikirjoitus (Tiktok/Reels) -->
+                    <div class="card glass-panel" style="border-top: 4px solid #00f2fe; display:flex; flex-direction:column;">
+                        <h3 style="margin-bottom: 12px; display:flex; align-items:center; gap:8px;">
+                            <span style="font-size: 20px;">📱</span> Video / Reels Script 
+                        </h3>
+                        <div style="flex:1; padding:16px; background:rgba(0,0,0,0.2); border-radius:8px; border:1px dashed var(--ai-gradient-end); font-size:14px; color:var(--text-secondary); line-height: 1.6; min-height: 120px;">
+                            <strong>Aika:</strong> 15 sekuntia<br>
+                            <strong>Audio:</strong> Dramaattinen, nouseva jännitysmusiikki<br><br>
+                            [0:00-0:03]: Kamera zoomaa pimeään metsään panoroimalla (Käytä kirjan kansikuvaa). Teksti ruudussa: <em>"Luuletko tietäväsi millaista on pimeässä?"</em><br>
+                            [0:04-0:08]: Kuvitus vaihtuu hylättyyn sivuun, jossa hehkuu liila kivi. Teksti ilmestyy nopeasti: <em>"Unohda kaikki mitä luulit tietäväsi."</em><br>
+                            [0:09-0:15]: Kirja lyö kovaa ruutuun beat-dropissa. Voiceover: <em>"[Teoksen nimi]. Kaupoissa Nyt."</em>
+                        </div>
+                        <button class="btn btn-secondary" style="margin-top: 16px; width:100%; border-color: var(--ai-gradient-end); color: var(--ai-gradient-end);" onclick="alert('Kopioitu leikepöydälle!')">Kopioi Käsikirjoitus</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 9. VIEW: TAITTO -->
+            <div id="view-taitto" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>Taitto & Automatiikka (taitto.py)</h2>
+                        <p>Käsikirjoitus: [Ei aktiivista teosta] (Memoir, XeLaTeX & Pandoc konfiguraatio)</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" onclick="startLongTask('Ajetaan Taitto.py', 'Muunnetaan Markdownia XeLaTeX-muotoon ja generoidaan PDF/EPUB...', 45);">🚀 Tulosta Kirja (taitto.py)</button>
+                    </div>
+                </div>
+
+                <div class="grid-cards" style="grid-template-columns: 1fr 1fr;">
+                    <!-- Asetukset -->
+                    <div class="card glass-panel" style="display:flex; flex-direction:column;">
+                        <h3 style="margin-bottom:20px; color:var(--text-primary);">Taittomääritykset</h3>
+                        
+                        <label style="font-size: 13px; color: var(--text-secondary); display:block; margin-bottom:8px;">Kirjan koko ja mittasuhteet</label>
+                        <select style="width:100%; padding:12px; border-radius:8px; background:rgba(0,0,0,0.2); border:1px solid var(--border-color); color:var(--text-primary); margin-bottom:20px; font-family:inherit; outline:none;">
+                            <option value="A5">A5 Normaaliromaani (148 x 210 mm) - 11pt</option>
+                            <option value="B5">B5 Iso Kaunokirja/Tieto (176 x 250 mm) - 12pt</option>
+                            <option value="G5">G5 Tieteis/Fantasia (169 x 239 mm) - 11pt</option>
+                            <option value="Pokkari">Pokkari Mass-market (110 x 178 mm) - 10pt</option>
+                        </select>
+
+                        <label style="font-size: 13px; color: var(--text-secondary); display:block; margin-bottom:8px;">Fonttiperhe (Otsikkotyyli: Thatcher)</label>
+                        <select style="width:100%; padding:12px; border-radius:8px; background:rgba(0,0,0,0.2); border:1px solid var(--border-color); color:var(--text-primary); margin-bottom:20px; font-family:inherit; outline:none;">
+                            <option>Minion Pro (Elokuvamainen / Klassinen)</option>
+                            <option>Garamond (Perinteinen fantasia)</option>
+                            <option>Palatino Linotype (Selkeästi luettava)</option>
+                        </select>
+
+                        <label style="font-size: 13px; color: var(--text-secondary); display:block; margin-bottom:8px;">Sisällysluettelo (TOC)</label>
+                        <select style="width:100%; padding:12px; border-radius:8px; background:rgba(0,0,0,0.2); border:1px solid var(--border-color); color:var(--text-primary); font-family:inherit; outline:none;">
+                            <option>Tasot: Luku (Chapter) ja Aliluku (Section)</option>
+                            <option>Vain ylätaso: Luku (Chapter)</option>
+                            <option>Ei sisällysluetteloa</option>
+                        </select>
+                    </div>
+
+                    <!-- Esikatselu -->
+                    <div class="card glass-panel" style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                        <h3 style="align-self:flex-start; width:100%; margin-bottom:20px; color:var(--text-primary);">Sivun Esikatselu (Simulaatio)</h3>
+                        <div style="width: 210px; height: 297px; background:#fff; border-radius:4px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); padding:30px; position:relative; display:flex; flex-direction:column;">
+                            <div style="font-family: serif; color:#000; font-size:10px; text-align:center; margin-bottom:20px;">Luku 1: Varjojen alku</div>
+                            <div style="width:100%; height:4px; background:#000; margin-bottom:20px;"></div>
+                            <div style="width:100%; height:2px; background:#333; margin-bottom:10px; opacity:0.3;"></div>
+                            <div style="width:90%; height:2px; background:#333; margin-bottom:10px; opacity:0.3;"></div>
+                            <div style="width:100%; height:2px; background:#333; margin-bottom:10px; opacity:0.3;"></div>
+                            <div style="width:85%; height:2px; background:#333; margin-bottom:20px; opacity:0.3;"></div>
+                            <div style="width:100%; height:2px; background:#333; margin-bottom:10px; opacity:0.3;"></div>
+                            <div style="width:95%; height:2px; background:#333; margin-bottom:10px; opacity:0.3;"></div>
+                            <div style="width:40%; height:40px; background:rgba(0,0,0,0.1); margin: 10px auto; border:1px dashed #666;"></div>
+                            <div style="margin-top:auto; text-align:center; font-family:serif; color:#000; font-size:9px;">14</div>
+                        </div>
+                        <p style="margin-top:20px; color:var(--text-secondary); font-size:13px;">Visuaalinen ulkoasu määräytyy automaattisesti taitto.py XeLaTeX -sääntöjen avulla. (mm-asetukset)</p>
+                    </div>
+                </div>
+
+                <!-- Taitetut tiedostot siirretty Versiot-välilehdelle -->
+            </div>
+
+            <!-- 10. VIEW: AUDIO -->
+            <div id="view-audio" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>Äänikirja (Audio)</h2>
+                        <p>Käsikirjoitus: [Ei aktiivista teosta] (Ääninäytteleminen ja Syntetisointi)</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" onclick="alert('Generoidaan täysi äänikirja...')">✨ Generoi Koko Äänikirja</button>
+                    </div>
+                </div>
+                <div class="grid-cards" style="grid-template-columns: 1fr 1fr;">
+                    <div class="card glass-panel">
+                        <h3>Valitse Ääni</h3>
+                        <p style="color:var(--text-secondary); margin:10px 0;">Valitse tekoäly-lukijan ääni tai lataa omat studioklipsit.</p>
+                        <select style="width:100%; padding:10px; border-radius:8px; background:rgba(0,0,0,0.2); border:1px solid var(--border-color); color:var(--text-primary); margin-top:10px;">
+                            <option>Aino (Rauhallinen, Nuori aikuinen)</option>
+                            <option>Mikael (Syvä, Kertoja)</option>
+                        </select>
+                        <button class="btn btn-secondary" style="margin-top:16px; width:100%;" onclick="alert('Kuuntele näyte...')">Kuuntele Näyte</button>
+                    </div>
+                    <div class="card glass-panel" style="display:flex; flex-direction:column;">
+                        <h3>Äännämisohjeet (Glossarystä)</h3>
+                        <p style="color:var(--text-secondary); margin:10px 0; flex:1;">Varmista, että tekoäly ääntää keksityt sanat oikein. Määritelmät tuotu sanastosta.</p>
+                        <ul style="color:var(--text-secondary); list-style:inside; font-size:14px; margin-bottom:16px;">
+                            <li><strong>Varjometsä</strong> -> <em>Paino ensimmäisellä tavulla</em></li>
+                            <li><strong>Kivitaika</strong> -> <em>Kiivi-taika</em></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 11. VIEW: KÄÄNNÖKSET -->
+            <div id="view-kaannokset" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>Käännökset</h2>
+                        <p>Käsikirjoitus: [Ei aktiivista teosta] (AI-kääntäjä)</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" onclick="startLongTask('Käännetään Teosta', 'Käännetään kappaleita englanniksi ja säilytetään alkuperäistyyli...', 180);">✨ Käännä koko teos (EN)</button>
+                    </div>
+                </div>
+                <div class="grid-cards" style="grid-template-columns: 1fr;">
+                    <div class="card glass-panel">
+                        <h3>Käännösprojektit</h3>
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding:16px; background:rgba(0,0,0,0.2); border-radius:8px; margin-top:16px;">
+                            <div style="display:flex; align-items:center; gap:16px;">
+                                <span style="font-size:24px;">🇬🇧</span>
+                                <div>
+                                    <h4 style="margin:0;">Englanti (UK)</h4>
+                                    <p style="margin:0; font-size:13px; color:var(--text-secondary);">Secret of the Forest - 0% Valmis (Tyhjä versio)</p>
+                                </div>
+                            </div>
+                            <button class="btn btn-secondary" onclick="openModule('view-toimitus'); alert('Siirrytään vierekkäisnäkymään jossa oikealla Käännös.');">Jatka Kääntämistä</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tulokset / Käännökset -->
+                <div class="generated-files-list glass-panel" style="margin-top: 24px;">
+                    <h3 style="margin-bottom:12px; color:var(--text-primary);">Viimeistellyt Käännöstiedostot</h3>
+                    <ul style="list-style: none; padding: 0;">
+                        <li style="display:flex; justify-content:space-between; align-items:center; padding: 12px; background: rgba(0,0,0,0.2); border-bottom: 1px solid #333; border-radius:8px; margin-bottom:8px;">
+                            <span style="color:var(--text-primary);">🇬🇧 Secret_of_the_Forest_EN.txt</span>
+                            <div style="display:flex; gap:8px;">
+                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:var(--ai-gradient-start); border-color:var(--ai-gradient-start);" onclick="alert('Ladataan käännös...')">Lataa</button>
+                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:#ff5555; border-color:#ff5555;" onclick="this.parentElement.parentElement.remove()">🗑️ Poista</button>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 5. VIEW: TOIMITUS (Vierekkäisnäkymä) -->
+            <div id="view-toimitus" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2 id="toimitus-book-title">[Ei aktiivista teosta] <span class="badge">Luonnos</span></h2>
+                        <p>Luku 1, Kappale 4 (Toimitus/Käännöstila) - Osat palasteltu tietokannasta</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary">Tallenna Vedos</button>
+                        <button class="btn btn-primary" id="lock-block-btn">Lukitse Pätkä (Freeze)</button>
+                    </div>
+                </div>
+
+                <div class="editor-workspace" style="display: grid; grid-template-columns: 200px 1fr 160px 1fr 240px; gap: 16px; overflow: hidden; height: calc(100vh - 160px);">
+                    <!-- 1. Lukuvalikko -->
+                    <div class="glass-panel" style="padding: 16px; overflow-y: auto; display:flex; flex-direction:column;">
+                        <h4 style="color:var(--text-primary); margin-bottom:12px;">Navigaatio</h4>
+                        <ul style="list-style:none; padding:0; margin:0; font-size:13px; color:var(--text-secondary);">
+                            <li style="margin-bottom:8px; cursor:pointer; opacity:0.7;"><strong>Alku / Nimiölehti</strong></li>
+                            <li style="margin-bottom:8px; cursor:pointer; opacity:0.7;"><strong>Sisällysluettelo</strong></li>
+                            <li style="margin-bottom:8px;">
+                                <strong style="color:var(--text-primary); cursor:pointer;">Luku 1: Varjojen alku</strong>
+                                <ul style="list-style:none; padding-left:12px; margin-top:6px; margin-bottom:12px;">
+                                    <li style="padding:4px 0; color:var(--ai-gradient-start); font-weight:bold; cursor:pointer;">● Kappale 1</li>
+                                    <li style="padding:4px 0; cursor:pointer; opacity:0.7;">○ Kappale 2</li>
+                                    <li style="padding:4px 0; cursor:pointer; opacity:0.7;">○ Kappale 3</li>
+                                </ul>
+                            </li>
+                            <li style="margin-bottom:8px; cursor:pointer; opacity:0.7;"><strong>Luku 2: Matka alkaa</strong></li>
+                        </ul>
+                    </div>
+
+                    <!-- 2. Original Panel -->
+                    <div class="editor-panel original-panel" style="height: 100%; overflow-y:auto; display:flex; flex-direction:column;">
+                        <div class="panel-header">
+                            <h3 style="font-size:14px;">Alkuperäinen <span id="original-chapter-label" style="font-size:12px; color:var(--text-secondary);">(Valitse kappale)</span></h3>
+                        </div>
+                        <div class="editor-content" id="original-text" style="flex:1; overflow-y:auto; line-height:1.8; font-size:14px;">
+                            <p style="color:var(--text-secondary); font-style:italic;">Valitse kappale vasemman reunan navigoinnista nähdäksesi luvun sisällön tässä.</p>
+                        </div>
+                    </div>
+
+                    <!-- 3. Action / AI Settings -->
+                    <div class="action-column" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 16px; padding-top: 10px;">
+                        <button class="ai-action-btn" id="ai-improve-btn" style="width:100%; aspect-ratio:1;" title="Pyydä tekoälyä korjaamaan vektorimuistin tyylin ohjeistuksella">
+                            <span class="sparkle">✨</span>
+                            <br>AI
+                        </button>
+                        
+                        <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; font-size: 11px;">
+                            <label style="color:var(--text-secondary); display:block; margin-bottom:6px;">Toimitusprompti:</label>
+                            <textarea id="toimitus-prompt" style="width:100%; height:70px; font-size:11px; background:rgba(255,255,255,0.05); color:var(--text-primary); border:1px solid #333; border-radius:4px; margin-bottom:12px; padding:6px; resize:none;">Korjaa virheet ja sujuvoita tekstiä, mutta säilytä kirjailijan oma ääni tarkasti.</textarea>
+                            
+                            <label style="color:var(--text-secondary); display:block; margin-bottom:6px;">Luovuus (Temp): <span id="temp-val">0.3</span></label>
+                            <input type="range" min="0" max="100" value="30" style="width:100%; accent-color: var(--ai-gradient-start);" oninput="document.getElementById('temp-val').textContent=(this.value/100).toFixed(1)">
+                            <div style="display:flex; justify-content:space-between; color:#666; margin-top:4px; font-size:10px;"><span>Tarkka</span><span>Vapaa</span></div>
+                        </div>
+                    </div>
+
+                    <!-- 4. Editable Panel -->
+                    <div class="editor-panel editable-panel glass-panel" style="height: 100%; overflow-y:auto; display:flex; flex-direction:column;">
+                        <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+                            <h3 style="font-size:14px;">Kohdeversio <span class="badge glowing">Kappale</span></h3>
+                            <button id="replace-original-btn" class="btn btn-primary" style="font-size:11px; padding:4px 10px; background:linear-gradient(135deg, var(--ai-gradient-start), var(--ai-gradient-end)); border:none;">✅ Korvaa alkuperäinen</button>
+                        </div>
+                        <textarea class="editor-content editable" id="edited-text" style="flex:1; resize:none;" placeholder="Valitse kappale ja paina AI-nappia tai muokkaa käsin..."></textarea>
+                    </div>
+
+                    <!-- 5. Kommentointipaneeli -->
+                    <div class="glass-panel" style="padding: 16px; display:flex; flex-direction:column; height: 100%;">
+                        <h4 style="color:var(--text-primary); margin-bottom: 12px;">Kommentit</h4>
+                        <div style="flex:1; overflow-y:auto; margin-bottom:12px;">
+                            <div style="background:rgba(0,0,0,0.2); border:1px solid #333; padding:10px; border-radius:8px; margin-bottom:8px;">
+                                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                                    <strong style="font-size:11px; color:var(--ai-gradient-start);">Ohjaaja / Kustantaja</strong>
+                                    <span style="font-size:10px; color:#666;">Eilen</span>
+                                </div>
+                                <p style="font-size:12px; color:var(--text-secondary); margin:0; line-height:1.4;">Mietin, onko tämä kappale hieman irtonainen? Voisiko lisätä kuvailua ennen tekoälyajoa?</p>
+                            </div>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:8px;">
+                            <textarea placeholder="Kirjoita uusi kommentti..." style="width:100%; font-size:12px; padding:8px; border-radius:4px; background:rgba(255,255,255,0.05); color:#fff; border:1px solid #333; resize:none;"></textarea>
+                            <button class="btn btn-secondary" style="font-size:12px; padding:6px;">Tallenna Kommentti</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+    <script src="config.js?v=1"></script>
+    <script src="auth.js?v=1"></script>
+    <script src="app.js?v=23"></script>
+</body>
+</html>

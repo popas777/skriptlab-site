@@ -8,6 +8,7 @@ Staattinen markkinointisivu osoitteelle `skriptlab.com`.
 - `kenelle.html`, `ominaisuudet.html`, `prosessi.html`, `luottamus.html`, `hinnat.html`, `yhteys.html` - erilliset sisältöosiot
 - `assets/styles.css` - visuaalinen tyyli ja responsiivisuus
 - `assets/main.js` - mobiilivalikko
+- `app/` - SkriptLab-sovellus osoitteessa `https://skriptlab.com/app/`
 - `netlify.toml` - Netlify-julkaisun perusasetukset ja tietoturvaheaderit
 
 ## Paikallinen tarkistus
@@ -38,14 +39,12 @@ Netlify external DNS -asetuksella tyypillinen perusmalli on:
 
 - `@` A -> `75.2.60.5`
 - `www` CNAME -> oma Netlify-osoite, esimerkiksi `skriptlab-site.netlify.app`
-- `app` CNAME -> sovelluksen julkaisualustan osoite, kun sovellus julkaistaan
+- `api` CNAME tai A-tietue -> backend-palvelun julkaisualustan osoite, esimerkiksi Renderin antama kohde
 
 Varmista lopulliset arvot aina Netlifyn Domain management -näkymästä ennen tallennusta.
 
-## Kirjautumisikkuna
+## Sovelluspolku
 
-Yläpalkin `Kirjaudu`-painike avaa väliaikaisen ilmoitusikkunan, koska sovelluksen selainkäyttö on työn alla.
+Sovellus julkaistaan saman domainin alla osoitteessa `https://skriptlab.com/app/`.
 
-Ikkunan yhteydenottolomake avaa käyttäjän sähköpostiohjelman osoitteeseen `skriptlab@skriptlab.com`.
-
-Kun sovellus julkaistaan myöhemmin, kirjautumispainikkeen toiminta vaihdetaan takaisin sovelluksen osoitteeseen, esimerkiksi `https://app.skriptlab.com`.
+Yläpalkin `Kirjaudu`-painikkeet ohjaavat osoitteeseen `/app/login.html`. Backendin julkinen osoite on `https://api.skriptlab.com`.

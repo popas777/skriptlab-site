@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="fi" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkriptLab - Kirjaudu</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .login-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            width: 100vw;
+        }
+        .login-box {
+            width: 420px;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+        }
+        .login-box .logo {
+            font-size: 36px;
+            margin-bottom: 8px;
+        }
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        .input-group input {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: rgba(0,0,0,0.2);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            transition: all 0.3s ease;
+            font-size: 15px;
+        }
+        .input-group input:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 10px rgba(121, 192, 255, 0.2);
+        }
+        .login-btn {
+            width: 100%;
+            padding: 14px;
+            font-size: 16px;
+            margin-top: 10px;
+            margin-bottom: 16px;
+        }
+        .login-divider {
+            margin: 24px 0;
+            color: var(--text-secondary);
+            font-size: 12px;
+            position: relative;
+        }
+        .login-divider::before, .login-divider::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            width: 40%;
+            height: 1px;
+            background: var(--border-color);
+        }
+        .login-divider::before { left: 0; }
+        .login-divider::after { right: 0; }
+    </style>
+</head>
+<body>
+    <div class="login-wrapper">
+        <div class="login-box glass-panel">
+            <h1 class="logo">SkriptLab<span class="accent">.</span></h1>
+            <p style="color: var(--text-secondary); margin-bottom: 30px; font-size: 15px;">Kustannusalan moderni työkalupakki</p>
+            
+            <form id="login-form">
+                <div class="input-group">
+                    <label>Sähköposti</label>
+                    <input type="text" inputmode="email" id="email" placeholder="nimi@example.com" required>
+                </div>
+                <div class="input-group">
+                    <label>Kutsukoodi</label>
+                    <input type="text" id="invite-code" placeholder="Liitä saamasi kutsukoodi" required>
+                </div>
+                <div class="input-group">
+                    <label>Nimi</label>
+                    <input type="text" id="display-name" placeholder="Nimi sovelluksessa">
+                </div>
+                
+                <button type="submit" class="btn btn-primary login-btn" id="login-submit">Kirjaudu sisään</button>
+            </form>
+            <p id="login-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px;"></p>
+        </div>
+    </div>
+    
+    <script src="config.js?v=1"></script>
+    <script>
+        const API_BASE_URL = (window.SKRIPTLAB_CONFIG && window.SKRIPTLAB_CONFIG.API_BASE_URL) || "http://127.0.0.1:8000";
+        const apiUrl = (path) => `${API_BASE_URL}${path}`;
+    </script>
+    <script src="auth.js?v=1"></script>
+    <script>
+        window.SkriptLabAuth.clearSession();
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const status = document.getElementById('login-status');
+            const submit = document.getElementById('login-submit');
+            const email = document.getElementById('email').value.trim().toLowerCase();
+            const inviteCode = document.getElementById('invite-code').value.trim();
+            const displayName = document.getElementById('display-name').value.trim();
+
+            status.textContent = 'Tarkistetaan kutsua...';
+            submit.disabled = true;
+
+            try {
+                const res = await fetch(apiUrl('/api/auth/accept-invite'), {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        email,
+                        invite_code: inviteCode,
+                        display_name: displayName || null
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.detail || 'Kirjautuminen epäonnistui.');
+                }
+
+                window.SkriptLabAuth.setSession(data.access_token, data.user);
+                window.location.href = data.user.role === 'admin' ? 'admin.html' : 'index.html';
+            } catch (err) {
+                status.textContent = err.message;
+                submit.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

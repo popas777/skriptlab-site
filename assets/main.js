@@ -1,7 +1,7 @@
 const toggle = document.querySelector(".nav-toggle");
 const menu = document.querySelector("#site-menu");
 const menuLinks = document.querySelectorAll("#site-menu a");
-const loginLinks = document.querySelectorAll(".btn-login");
+const loginLinks = document.querySelectorAll(".btn-login[href=\"#login\"]");
 
 function setMenuOpen(isOpen) {
   toggle.setAttribute("aria-expanded", String(isOpen));
