@@ -73,16 +73,36 @@
               <span class="dot"></span>
             </div>
             <div class="app-body">
-              <div class="score-card">
-                <small>Käsikirjoitus työn alla</small>
-                <h2>Käsikirjoitus · versio 1.3</h2>
-                <p>Teksti on jäsennetty analyysiksi, synopsikseksi ja viimeistelyä tukeviksi tehtäviksi.</p>
+              <div class="manuscript-preview">
+                <div class="book-mark" aria-hidden="true"></div>
+                <div>
+                  <small>Käsikirjoitus työn alla</small>
+                  <h2>Käsikirjoitus · versio 1.3</h2>
+                  <p>Katkelma tekstistä, josta SkriptLab tuottaa valitut aineistot jatkotyötä varten.</p>
+                  <div class="text-lines" aria-hidden="true">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                </div>
               </div>
-              <div class="analysis-list">
-                <div class="analysis-item"><strong>Analyysi</strong><span>Rakenne, rytmi, henkilöt, kieli ja kehityskohdat</span></div>
-                <div class="analysis-item"><strong>Synopsis</strong><span>Tiivistelmä, teemat, metadata ja jatkokäyttöön vietävät kuvaukset</span></div>
-                <div class="analysis-item"><strong>Viimeistely</strong><span>Oikoluku, virhelistaus, korjausehdotukset ja tarkistuslista</span></div>
-                <div class="analysis-item"><strong>Taitto</strong><span>Sivunäkymä, kuvituksen suunta ja tuotantoon valmistelu</span></div>
+              <div class="preview-actions" aria-label="Käsikirjoituksesta tuotettavat aineistot">
+                <button type="button" class="preview-action is-active">
+                  <strong>Analyysi</strong>
+                  <span>Rakenne, rytmi, henkilöt, kieli ja kehityskohdat.</span>
+                </button>
+                <button type="button" class="preview-action">
+                  <strong>Synopsis</strong>
+                  <span>Tiivistelmä, teemat, metadata ja jatkokäytön kuvaukset.</span>
+                </button>
+                <button type="button" class="preview-action">
+                  <strong>Viimeistely</strong>
+                  <span>Oikoluku, virhelistaus, korjausehdotukset ja tarkistuslista.</span>
+                </button>
+                <button type="button" class="preview-action">
+                  <strong>Taitto</strong>
+                  <span>Sivunäkymä, kuvituksen suunta ja tuotantoon valmistelu.</span>
+                </button>
               </div>
             </div>
           </div>

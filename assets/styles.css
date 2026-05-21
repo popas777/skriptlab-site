@@ -402,50 +402,95 @@ a {
   padding: 1.25rem;
 }
 
-.score-card {
+.manuscript-preview {
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  gap: 1rem;
   margin-bottom: 1rem;
-  padding: 1.25rem;
+  padding: 1.1rem;
   border-radius: 10px;
   background: var(--ink);
   color: var(--parchment);
 }
 
-.score-card small {
+.book-mark {
+  min-height: 128px;
+  border: 1px solid rgba(245, 240, 232, 0.26);
+  border-radius: 4px 8px 8px 4px;
+  background:
+    linear-gradient(90deg, rgba(193, 127, 58, 0.52) 0 8px, transparent 8px),
+    linear-gradient(180deg, rgba(245, 240, 232, 0.14), rgba(245, 240, 232, 0.04));
+  box-shadow: inset -8px 0 16px rgba(0, 0, 0, 0.16);
+}
+
+.manuscript-preview small {
   color: var(--amber-light);
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-size: 0.68rem;
 }
 
-.score-card h2 {
-  margin: 0.4rem 0 0.6rem;
-  font-size: 1.65rem;
+.manuscript-preview h2 {
+  margin: 0.4rem 0 0.55rem;
+  font-size: 1.55rem;
 }
 
-.score-card p {
+.manuscript-preview p {
   color: rgba(245, 240, 232, 0.72);
   font-size: 0.86rem;
 }
 
-.analysis-list {
+.text-lines {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.85rem;
+}
+
+.text-lines span {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(245, 240, 232, 0.22);
+}
+
+.text-lines span:nth-child(2) {
+  width: 82%;
+}
+
+.text-lines span:nth-child(3) {
+  width: 58%;
+}
+
+.preview-actions {
   display: grid;
   gap: 0.7rem;
 }
 
-.analysis-item {
+.preview-action {
+  width: 100%;
   padding: 0.9rem 1rem;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--cream);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: default;
+  transition: border-color 0.2s, background 0.2s;
 }
 
-.analysis-item strong {
+.preview-action.is-active {
+  border-color: rgba(193, 127, 58, 0.68);
+  background: var(--parchment);
+}
+
+.preview-action strong {
   display: block;
   margin-bottom: 0.1rem;
   font-size: 0.9rem;
 }
 
-.analysis-item span {
+.preview-action span {
   color: var(--muted);
   font-size: 0.8rem;
 }
