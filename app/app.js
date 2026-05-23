@@ -47,10 +47,14 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const logoutLink = document.getElementById('logout-link');
+    const adminLink = document.getElementById('admin-link');
     if (logoutLink) {
         logoutLink.addEventListener('click', () => {
             window.SkriptLabAuth.clearSession();
         });
+    }
+    if (adminLink && currentUser && currentUser.role === 'admin') {
+        adminLink.classList.remove('hidden');
     }
 
     if (currentUser) {
