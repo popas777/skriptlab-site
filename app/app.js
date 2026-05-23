@@ -198,13 +198,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function cleanAnalysisDisplayText(value, labels = []) {
         let text = analysisValue(value)
-            .replace(/\*\*/g, '')
+            .replace(/^\s{0,3}#{1,6}\s+/gm, '')
+            .replace(/\*+/g, '')
             .replace(/__+/g, '')
             .trim();
-        labels.forEach(label => {
-            const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            text = text.replace(new RegExp(`^${escaped}\\s*:?\\s*`, 'i'), '').trim();
-        });
+        let changed = true;
+        while (changed) {
+            changed = false;
+            labels.forEach(label => {
+                const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const next = text.replace(new RegExp(`^${escaped}(?:\\s+[^:\\n]{1,60})?\\s*:\\s*`, 'i'), '').trim();
+                if (next !== text) {
+                    text = next;
+                    changed = true;
+                }
+            });
+        }
         return text;
     }
 
@@ -297,9 +306,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const results = document.getElementById('analysis-results');
         if (results) results.classList.remove('hidden');
         const source = window.manuscriptData?.source_filename || window.manuscriptData?.title || 'käsikirjoitus';
-        const style = truncateText(analysis.style, 360, ['Tyyli', 'Tyylianalyysi']) || 'Ei vielä sisältöä.';
-        const assessment = truncateText(analysis.editorial_assessment, 420, ['Toimituksellinen arvio', 'Arvio']) || 'Ei vielä sisältöä.';
-        const synopsis = truncateText(analysis.synopsis, 360, ['Synopsis', 'Synopsisis']) || 'Ei vielä sisältöä.';
+        const style = truncateText(analysis.style, 360, ['Tyyli', 'Tyylianalyysi', 'Äänensävy']) || 'Ei vielä sisältöä.';
+        const assessment = truncateText(analysis.editorial_assessment, 420, ['Toimituksellinen arvio', 'Toimituksellinen analyysi', 'Arvio']) || 'Ei vielä sisältöä.';
+        const synopsis = truncateText(analysis.synopsis, 360, ['Synopsis', 'Synopsisis', 'Tiivistelmä']) || 'Ei vielä sisältöä.';
         statusText.innerHTML = `
             <div class="analysis-summary">
                 <div class="analysis-summary-title">Analyysi laadittu! (${escapeHtml(source)})</div>
