@@ -273,6 +273,10 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 
 /* Workspace Editor */
 .editor-workspace { display: flex; gap: 16px; flex: 1; min-height: 400px; }
+.editor-workspace.hide-editor-nav #editor-nav-panel,
+.editor-workspace.hide-editor-comments #editor-comments-panel {
+    display: none !important;
+}
 .editor-panel {
     flex: 1; border-radius: 12px; display: flex; flex-direction: column;
     border: 1px solid var(--border-color); overflow: hidden;

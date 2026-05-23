@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=21">
+    <link rel="stylesheet" href="styles.css?v=24">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -744,15 +744,17 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                         <p>Luku 1, Kappale 4 (Toimitus/Käännöstila) - Osat palasteltu tietokannasta</p>
                     </div>
                     <div class="header-actions">
+                        <button class="btn btn-secondary" id="toggle-editor-nav-btn">Piilota navigaatio</button>
+                        <button class="btn btn-secondary" id="toggle-editor-comments-btn">Piilota kommentit</button>
                         <button class="btn btn-secondary">Tallenna Vedos</button>
                         <button class="btn btn-primary" id="lock-block-btn">Lukitse Pätkä (Freeze)</button>
                     </div>
                 </div>
 
-                <div class="editor-workspace" style="display: grid; grid-template-columns: 200px 1fr 160px 1fr 240px; gap: 16px; overflow: hidden; height: calc(100vh - 160px);">
+                <div class="editor-workspace" id="editor-workspace" style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr) 160px 240px; gap: 16px; overflow: hidden; height: calc(100vh - 160px);">
                     <!-- 1. Lukuvalikko -->
-                    <div class="glass-panel" style="padding: 16px; overflow-y: auto; display:flex; flex-direction:column;">
-                        <h4 style="color:var(--text-primary); margin-bottom:12px;">Navigaatio</h4>
+                    <div class="glass-panel" id="editor-nav-panel" style="padding: 16px; overflow-y: auto; display:flex; flex-direction:column;">
+                        <h4 style="color:var(--text-primary); margin-bottom:12px;">Luvut ja kappaleet</h4>
                         <ul style="list-style:none; padding:0; margin:0; font-size:13px; color:var(--text-secondary);">
                             <li style="margin-bottom:8px; cursor:pointer; opacity:0.7;"><strong>Alku / Nimiölehti</strong></li>
                             <li style="margin-bottom:8px; cursor:pointer; opacity:0.7;"><strong>Sisällysluettelo</strong></li>
@@ -778,14 +780,29 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                         </div>
                     </div>
 
-                    <!-- 3. Action / AI Settings -->
+                    <!-- 3. Editable Panel -->
+                    <div class="editor-panel editable-panel glass-panel" style="height: 100%; overflow-y:auto; display:flex; flex-direction:column;">
+                        <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+                            <h3 style="font-size:14px;">Kohdeversio <span class="badge glowing">Kappale</span></h3>
+                            <button id="replace-original-btn" class="btn btn-primary" style="font-size:11px; padding:4px 10px; background:linear-gradient(135deg, var(--ai-gradient-start), var(--ai-gradient-end)); border:none;">✅ Korvaa alkuperäinen</button>
+                        </div>
+                        <textarea class="editor-content editable" id="edited-text" style="flex:1; resize:none;" placeholder="Valitse kappale ja paina AI-nappia tai muokkaa käsin..."></textarea>
+                    </div>
+
+                    <!-- 4. Action / AI Settings -->
                     <div class="action-column" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 16px; padding-top: 10px;">
-                        <button class="ai-action-btn" id="ai-improve-btn" style="width:100%; aspect-ratio:1;" title="Pyydä tekoälyä korjaamaan vektorimuistin tyylin ohjeistuksella">
+                        <button class="ai-action-btn" id="ai-improve-btn" style="width:100%; aspect-ratio:1;" title="Pyydä tekoälyä korjaamaan valittu kappale tai luku">
                             <span class="sparkle">✨</span>
                             <br>AI
                         </button>
                         
                         <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; font-size: 11px;">
+                            <label style="color:var(--text-secondary); display:block; margin-bottom:6px;">Käsittele:</label>
+                            <select id="edit-scope" style="width:100%; margin-bottom:12px; padding:6px; border-radius:4px; background:rgba(255,255,255,0.05); color:var(--text-primary); border:1px solid #333;">
+                                <option value="paragraph">Valittu kappale</option>
+                                <option value="chapter">Koko valittu luku</option>
+                            </select>
+
                             <label style="color:var(--text-secondary); display:block; margin-bottom:6px;">Toimitusprompti:</label>
                             <textarea id="toimitus-prompt" style="width:100%; height:70px; font-size:11px; background:rgba(255,255,255,0.05); color:var(--text-primary); border:1px solid #333; border-radius:4px; margin-bottom:12px; padding:6px; resize:none;">Korjaa virheet ja sujuvoita tekstiä, mutta säilytä kirjailijan oma ääni tarkasti.</textarea>
                             
@@ -795,17 +812,8 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                         </div>
                     </div>
 
-                    <!-- 4. Editable Panel -->
-                    <div class="editor-panel editable-panel glass-panel" style="height: 100%; overflow-y:auto; display:flex; flex-direction:column;">
-                        <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
-                            <h3 style="font-size:14px;">Kohdeversio <span class="badge glowing">Kappale</span></h3>
-                            <button id="replace-original-btn" class="btn btn-primary" style="font-size:11px; padding:4px 10px; background:linear-gradient(135deg, var(--ai-gradient-start), var(--ai-gradient-end)); border:none;">✅ Korvaa alkuperäinen</button>
-                        </div>
-                        <textarea class="editor-content editable" id="edited-text" style="flex:1; resize:none;" placeholder="Valitse kappale ja paina AI-nappia tai muokkaa käsin..."></textarea>
-                    </div>
-
                     <!-- 5. Kommentointipaneeli -->
-                    <div class="glass-panel" style="padding: 16px; display:flex; flex-direction:column; height: 100%;">
+                    <div class="glass-panel" id="editor-comments-panel" style="padding: 16px; display:flex; flex-direction:column; height: 100%;">
                         <h4 style="color:var(--text-primary); margin-bottom: 12px;">Kommentit</h4>
                         <div style="flex:1; overflow-y:auto; margin-bottom:12px;">
                             <div style="background:rgba(0,0,0,0.2); border:1px solid #333; padding:10px; border-radius:8px; margin-bottom:8px;">
@@ -828,6 +836,6 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=1"></script>
-    <script src="app.js?v=23"></script>
+    <script src="app.js?v=24"></script>
 </body>
 </html>

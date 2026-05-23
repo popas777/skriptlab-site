@@ -338,6 +338,39 @@ document.addEventListener('DOMContentLoaded', () => {
     const aiBtn = document.getElementById('ai-improve-btn');
     const editableText = document.getElementById('edited-text');
     const lockBtn = document.getElementById('lock-block-btn');
+    const editScopeSelect = document.getElementById('edit-scope');
+    const editorWorkspace = document.getElementById('editor-workspace');
+    const toggleEditorNavBtn = document.getElementById('toggle-editor-nav-btn');
+    const toggleEditorCommentsBtn = document.getElementById('toggle-editor-comments-btn');
+
+    function selectedEditText() {
+        const sel = window.currentEditSelection || {};
+        if (sel.cIndex === null || sel.cIndex === undefined || !window.manuscriptData?.chapters?.[sel.cIndex]) {
+            return '';
+        }
+        const chapter = window.manuscriptData.chapters[sel.cIndex];
+        if (editScopeSelect && editScopeSelect.value === 'chapter') {
+            return (chapter.paragraphs || []).join('\n\n').trim();
+        }
+        return (chapter.paragraphs?.[sel.pIndex] || '').trim();
+    }
+
+    function refreshEditableTextForScope() {
+        if (!editableText) return;
+        const text = selectedEditText();
+        if (text) editableText.value = text;
+    }
+
+    function updateEditorGrid() {
+        if (!editorWorkspace) return;
+        const hideNav = editorWorkspace.classList.contains('hide-editor-nav');
+        const hideComments = editorWorkspace.classList.contains('hide-editor-comments');
+        const columns = [];
+        if (!hideNav) columns.push('220px');
+        columns.push('minmax(0, 1fr)', 'minmax(0, 1fr)', '160px');
+        if (!hideComments) columns.push('240px');
+        editorWorkspace.style.gridTemplateColumns = columns.join(' ');
+    }
 
     const geminiMagicText = `Musta pimeys kietoi ikiaikaisen varjometsän syliinsä, ja puut piirtyivät taivasta vasten kuin sysimustat kynnet. Jokin liikkui äänettömästi aluskasvillisuuden seassa – askeleet olivat huomaamattomat, mutta ilmassa lepäsi odottava jännite. Hahmo oli epäilemättä taikaolennon kaltainen; ehkäpä matkalainen etsimässä loistavaa kiveä.
     
@@ -345,10 +378,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if(aiBtn) {
         aiBtn.addEventListener('click', () => {
-            const originalText = document.getElementById('original-text');
-            const sourceText = originalText ? originalText.textContent.trim() : '';
+            const sourceText = selectedEditText();
             if (!sourceText || sourceText.length < 5) {
-                alert('Valitse ensin kappale vasemmalta navigoinnista ennen AI-muokkausta!');
+                alert('Valitse ensin luku tai kappale navigoinnista ennen AI-muokkausta!');
                 return;
             }
             
@@ -433,6 +465,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     normalBadge.style.borderColor = '';
                 }
             }
+        });
+    }
+
+    if (editScopeSelect) {
+        editScopeSelect.addEventListener('change', refreshEditableTextForScope);
+    }
+
+    if (toggleEditorNavBtn && editorWorkspace) {
+        toggleEditorNavBtn.addEventListener('click', () => {
+            editorWorkspace.classList.toggle('hide-editor-nav');
+            const hidden = editorWorkspace.classList.contains('hide-editor-nav');
+            toggleEditorNavBtn.textContent = hidden ? 'Näytä navigaatio' : 'Piilota navigaatio';
+            updateEditorGrid();
+        });
+    }
+
+    if (toggleEditorCommentsBtn && editorWorkspace) {
+        toggleEditorCommentsBtn.addEventListener('click', () => {
+            editorWorkspace.classList.toggle('hide-editor-comments');
+            const hidden = editorWorkspace.classList.contains('hide-editor-comments');
+            toggleEditorCommentsBtn.textContent = hidden ? 'Näytä kommentit' : 'Piilota kommentit';
+            updateEditorGrid();
         });
     }
 
@@ -639,17 +693,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     window.renderNavList = function() {
-        const navList = document.querySelector('#view-toimitus .glass-panel ul');
+        const navList = document.querySelector('#editor-nav-panel ul');
         if (navList && window.manuscriptData && window.manuscriptData.chapters) {
             let htmlOut = "";
             window.manuscriptData.chapters.forEach((chapter, cIndex) => {
                 let isSpecial = chapter.id === "alku" || chapter.id === "sisallys";
                 htmlOut += `<li style="margin-bottom:8px;">
-                    <strong style="color:${isSpecial ? 'var(--text-secondary)' : 'var(--text-primary)'}; cursor:pointer;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">${chapter.title}</strong>
+                    <strong style="color:${isSpecial ? 'var(--text-secondary)' : 'var(--text-primary)'}; cursor:pointer;" onclick="window.loadParagraph(${cIndex}, 0, this.nextElementSibling.querySelector('li') || this); this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">${chapter.title}</strong>
                     <ul style="list-style:none; padding-left:12px; margin-top:6px; margin-bottom:12px; ${isSpecial ? 'display:none;' : ''}">
                 `;
                 chapter.paragraphs.forEach((p, pIndex) => {
-                    let isFirst = cIndex === 2 && pIndex === 0; // Highlight first actual paragraph
+                    let isFirst = cIndex === (window.manuscriptData.chapters.length > 2 ? 2 : 0) && pIndex === 0;
                     htmlOut += `<li style="padding:4px 0; color:${isFirst ? 'var(--ai-gradient-start)' : 'var(--text-secondary)'}; font-weight:${isFirst ? 'bold' : 'normal'}; cursor:pointer;" onclick="window.loadParagraph(${cIndex}, ${pIndex}, this)">${isFirst ? '●' : '○'} Kappale ${pIndex + 1}</li>`;
                 });
                 htmlOut += `</ul></li>`;
@@ -658,11 +712,13 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const originalText = document.getElementById('original-text');
             const editedText = document.getElementById('edited-text');
-            if(originalText && editedText && window.manuscriptData.chapters.length > 2) {
-                let txt = window.manuscriptData.chapters[2].paragraphs[0] || "";
+            if(originalText && editedText && window.manuscriptData.chapters.length > 0) {
+                const firstChapterIndex = window.manuscriptData.chapters.length > 2 ? 2 : 0;
+                let txt = window.manuscriptData.chapters[firstChapterIndex].paragraphs[0] || "";
                 originalText.style.whiteSpace = 'pre-wrap';
                 originalText.textContent = txt;
                 editedText.value = txt;
+                window.currentEditSelection = { cIndex: firstChapterIndex, pIndex: 0 };
             }
         }
     };
@@ -698,7 +754,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ? 'font-weight: 600; background: rgba(16, 185, 129, 0.12); border-left: 3px solid var(--ai-gradient-start); color: var(--text-primary);' 
                         : 'font-weight: normal; opacity: 0.6; color: var(--text-secondary); border-left: 3px solid transparent;'
                     }
-                " onclick="window.loadParagraph(${cIndex}, ${idx}, document.querySelector('#view-toimitus .glass-panel ul li li:nth-child(${idx+1})') || this)">${p}</div>`;
+                " onclick="window.loadParagraph(${cIndex}, ${idx}, document.querySelector('#editor-nav-panel ul li li:nth-child(${idx+1})') || this)">${p}</div>`;
             });
             originalText.innerHTML = html;
             
@@ -710,11 +766,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         if (editedText) {
-            editedText.value = chapter.paragraphs[pIndex] || '';
+            editedText.value = (editScopeSelect && editScopeSelect.value === 'chapter')
+                ? (chapter.paragraphs || []).join('\n\n')
+                : (chapter.paragraphs[pIndex] || '');
         }
         
         // Navigointilistan päivitys
-        document.querySelectorAll('#view-toimitus .glass-panel ul li li').forEach(li => {
+        document.querySelectorAll('#editor-nav-panel ul li li').forEach(li => {
             li.style.color = 'var(--text-secondary)';
             li.style.fontWeight = 'normal';
             if(li.textContent.startsWith('●')) li.textContent = '○ ' + li.textContent.substring(2);
@@ -749,7 +807,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!confirm(`Korvatanko alkuperäinen kappale ${sel.pIndex + 1} muokatulla versiolla?`)) return;
             
             // Päivitä manuscriptData
-            window.manuscriptData.chapters[sel.cIndex].paragraphs[sel.pIndex] = newText;
+            if (editScopeSelect && editScopeSelect.value === 'chapter') {
+                window.manuscriptData.chapters[sel.cIndex].paragraphs = newText
+                    .split(/\n\s*\n/)
+                    .map(part => part.trim())
+                    .filter(Boolean);
+                sel.pIndex = 0;
+            } else {
+                window.manuscriptData.chapters[sel.cIndex].paragraphs[sel.pIndex] = newText;
+            }
             window.saveManuscriptToDB(window.manuscriptData);
             
             // Päivitä näkymä
