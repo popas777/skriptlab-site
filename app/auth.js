@@ -4,6 +4,7 @@
     const WORKSPACE_KEYS = [
         "skriptlab_manuscript",
         "skriptlab_raw_text",
+        "skriptlab_active_project_id",
     ];
 
     window.SkriptLabAuth = {

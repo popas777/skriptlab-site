@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=26">
+    <link rel="stylesheet" href="styles.css?v=27">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -51,8 +51,7 @@
             <h1 class="logo">SkriptLab<span class="accent">.</span></h1>
             <nav class="sidebar-nav">
                 <ul id="nav-menu">
-                    <li class="active" data-view="view-kirjani">Kirjani</li>
-                    <li data-view="view-kirja">Koko kirja</li>
+                    <li class="active" data-view="view-kirjani">Käsikirjoitukseni</li>
                     <li data-view="view-sopimukset">Sopimukset</li>
                     <li data-view="view-aikajana">Aikajana</li>
                     <li data-view="view-analyysi">Analyysi</li>
@@ -65,10 +64,11 @@
                     <li data-view="view-taitto">Taitto</li>
                     <li data-view="view-audio">Audio</li>
                     <li data-view="view-kaannokset">Käännökset</li>
+                    <li data-view="view-kirja">Valmis kirja</li>
                 </ul>
             </nav>
             <div class="ai-meta-box">
-                <h3>Vektorimuisti (AI Meta)</h3>
+                <h3 id="sidebar-current-title">Ei käsikirjoitusta</h3>
                 <div class="meta-item">
                     <span class="meta-label">Tyyli:</span>
                     <span class="meta-value" id="sidebar-style">Odottaa analyysiä...</span>
@@ -107,7 +107,7 @@
             <div id="view-kirjani" class="view-section">
                 <div class="header">
                     <div class="header-info">
-                        <h2>Omat Käsikirjoitukset</h2>
+                        <h2>Käsikirjoitukseni</h2>
                         <p>Projektit ja tila, joissa olet mukana</p>
                     </div>
                     <div class="header-actions">
@@ -119,17 +119,17 @@
                 <div class="grid-cards" id="kirjani-grid">
                    <!-- Dynaamisesti lisättävät kortit tulevat tähän -->
                    <div style="color:var(--text-secondary); font-size:14px; padding:20px;">
-                       Ohjelmistossa ei ole vielä aktiivisia käsikirjoitushankkeita ladattuna tähän laitteeseen.<br>
+                       Ohjelmistossa ei ole vielä aktiivisia käsikirjoitushankkeita ladattuna.<br>
                        Käytä <strong>Lataa Käsikirjoitus</strong> -painiketta aloittaaksesi uuden hankkeen editoinnin.
                    </div>
                 </div>
             </div>
 
-            <!-- 1.5 VIEW: KOKO KIRJA -->
+            <!-- 1.5 VIEW: VALMIS KIRJA -->
             <div id="view-kirja" class="view-section hidden">
                 <div class="header">
                     <div class="header-info">
-                        <h2>Koko kirja</h2>
+                        <h2>Valmis kirja</h2>
                         <p>Käsikirjoitus: [Ei aktiivista teosta] (lukeminen, vienti ja tuotantopalvelut)</p>
                     </div>
                     <div class="header-actions">
@@ -142,7 +142,7 @@
                         <div class="panel-header">
                             <h3 id="book-preview-title">Ei valittua käsikirjoitusta</h3>
                         </div>
-                        <pre id="book-full-text" class="book-full-text">Lataa tai valitse käsikirjoitus ensin Kirjani-näkymässä.</pre>
+                        <pre id="book-full-text" class="book-full-text">Lataa tai valitse käsikirjoitus ensin Käsikirjoitukseni-näkymässä.</pre>
                     </div>
                     <div class="layout-offers glass-panel">
                         <h3>Taitto ja tuotanto</h3>
@@ -270,18 +270,9 @@
                                 <strong>Rakenne-ehdotus:</strong> Alku on nopeatahtinen, mutta keskivaiheilla tempo hidastuu hieman liikaa. Harkitse lukujen tiivistämistä tai joidenkin sivulauseiden poistamista, jotta päästään nopeammin käsiksi itse pääsiemenen etsintään.<br><br>
                                 <strong>Vinkki:</strong> Tekoälyn palastelu-ominaisuus otetaan myöhemmin käyttöön, jotta kappalejaot menevät täydellisesti oikein.
                             </p>
-                            <div id="analysis-editor" class="analysis-editor"></div>
+                            <button class="btn btn-secondary hidden" id="toggle-analysis-editor-btn" style="margin-top:16px;">Muokkaa analyysin tuloksia</button>
+                            <div id="analysis-editor" class="analysis-editor hidden"></div>
                             <button class="btn btn-primary hidden" id="save-analysis-btn" style="margin-top:16px;">Tallenna analyysimuutokset</button>
-                        </div>
-                        <div class="grid-cards" style="margin-top:8px;">
-                            <div class="card glass-panel" style="background: rgba(16, 185, 129, 0.05);">
-                                <h3>Poimittu Tyyli (Style Guide)</h3>
-                                <p style="margin-top:10px; color:var(--text-secondary);">Synkkä fantasia, eloisa asettelu, dynaaminen temmellys.</p>
-                            </div>
-                            <div class="card glass-panel" style="background: rgba(16, 185, 129, 0.05);">
-                                <h3>Kerätty Sanasto (Glossary)</h3>
-                                <p style="margin-top:10px; color:var(--text-secondary);">Oikeinkirjoitusta varten: <em>Varjometsä, Loitsu, Musta kivi, Korpiklaani...</em></p>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -362,14 +353,14 @@
                     <h3 style="margin-bottom:12px; color:var(--text-primary);">Tallennetut Versiot ja Taitot</h3>
                     <ul style="list-style: none; padding: 0;">
                         <li style="display:flex; justify-content:space-between; align-items:center; padding: 12px; background: rgba(0,0,0,0.2); border-bottom: 1px solid #333; border-radius:8px; margin-bottom:8px;">
-                            <span style="color:var(--text-primary);">📕 Metsan_salaisuus_A5.pdf</span>
+                            <span style="color:var(--text-primary);">📕 Kasikirjoitus_A5.pdf</span>
                             <div style="display:flex; gap:8px;">
                                 <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:var(--ai-gradient-start); border-color:var(--ai-gradient-start);" onclick="window.open().document.write('<html><body style=\'background:#222;color:#fff;font-family:sans-serif;padding:40px;text-align:center;\'><h1>Esikatselu: PDF (Mock)</h1><p>Tässä näkyisi taitettu kirjan PDF selaimeen upotettuna.</p></body></html>');">Avaa</button>
                                 <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:#ff5555; border-color:#ff5555;" onclick="this.parentElement.parentElement.remove()">🗑️ Poista</button>
                             </div>
                         </li>
                         <li style="display:flex; justify-content:space-between; align-items:center; padding: 12px; background: rgba(0,0,0,0.2); border-bottom: 1px solid #333; border-radius:8px; margin-bottom:8px;">
-                            <span style="color:var(--text-primary);">📱 Metsan_salaisuus_EPUB3.epub</span>
+                            <span style="color:var(--text-primary);">📱 Kasikirjoitus_EPUB3.epub</span>
                             <div style="display:flex; gap:8px;">
                                 <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:var(--ai-gradient-start); border-color:var(--ai-gradient-start);" onclick="window.open().document.write('<html><body style=\'background:#fff;color:#000;font-family:serif;padding:40px;\'><h1 style=\'text-align:center\'>Luku 1 (eBook Esikatselu)</h1><p>Tässä lukijalaite simuloisi responsiivista ePub-tekstiä.</p></body></html>');">Avaa</button>
                                 <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:#ff5555; border-color:#ff5555;" onclick="this.parentElement.parentElement.remove()">🗑️ Poista</button>
@@ -869,7 +860,7 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
         </main>
     </div>
     <script src="config.js?v=1"></script>
-    <script src="auth.js?v=1"></script>
-    <script src="app.js?v=26"></script>
+    <script src="auth.js?v=2"></script>
+    <script src="app.js?v=27"></script>
 </body>
 </html>
