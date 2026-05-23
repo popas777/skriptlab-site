@@ -73,6 +73,107 @@ document.addEventListener('DOMContentLoaded', () => {
         return Math.min(100, Math.round((used / limit) * 100));
     }
 
+    function escapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function normalizeWord(value) {
+        return String(value || '').toLocaleLowerCase('fi-FI').replace(/[^\p{L}\p{N}]+/gu, '');
+    }
+
+    function normalizeText(value) {
+        return String(value || '').toLocaleLowerCase('fi-FI').replace(/\s+/g, ' ').trim();
+    }
+
+    function tokenizeText(value) {
+        return String(value || '').match(/(\s+|[\p{L}\p{N}]+|[^\s\p{L}\p{N}]+)/gu) || [];
+    }
+
+    function splitSentences(value) {
+        return String(value || '').match(/[^.!?…]+[.!?…]*|[.!?…]+/g) || [];
+    }
+
+    function matchedTargetWordIndexes(originalSentence, targetSentence) {
+        const originalWords = tokenizeText(originalSentence).map(normalizeWord).filter(Boolean);
+        const targetTokens = tokenizeText(targetSentence);
+        const targetWords = targetTokens
+            .map((token, tokenIndex) => ({ tokenIndex, word: normalizeWord(token) }))
+            .filter(item => item.word);
+        const targetWordValues = targetWords.map(item => item.word);
+        if (originalWords.length * targetWordValues.length > 250000) {
+            const originalWordSet = new Set(originalWords);
+            const matched = new Set();
+            targetWordValues.forEach((word, index) => {
+                if (originalWordSet.has(word)) matched.add(index);
+            });
+            return { matched, targetTokens, targetWords };
+        }
+        const rows = originalWords.length + 1;
+        const cols = targetWordValues.length + 1;
+        const dp = Array.from({ length: rows }, () => Array(cols).fill(0));
+
+        for (let i = originalWords.length - 1; i >= 0; i--) {
+            for (let j = targetWordValues.length - 1; j >= 0; j--) {
+                dp[i][j] = originalWords[i] === targetWordValues[j]
+                    ? dp[i + 1][j + 1] + 1
+                    : Math.max(dp[i + 1][j], dp[i][j + 1]);
+            }
+        }
+
+        const matched = new Set();
+        let i = 0;
+        let j = 0;
+        while (i < originalWords.length && j < targetWordValues.length) {
+            if (originalWords[i] === targetWordValues[j]) {
+                matched.add(j);
+                i++;
+                j++;
+            } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+                i++;
+            } else {
+                j++;
+            }
+        }
+
+        return { matched, targetTokens, targetWords };
+    }
+
+    function sentenceDiffHtml(originalSentence, targetSentence) {
+        const changedSentence = normalizeText(originalSentence) !== normalizeText(targetSentence);
+        const { matched, targetTokens } = matchedTargetWordIndexes(originalSentence, targetSentence);
+        let wordIndex = 0;
+        const html = targetTokens.map(token => {
+            const normalized = normalizeWord(token);
+            if (!normalized) return escapeHtml(token);
+            const isChangedWord = changedSentence && !matched.has(wordIndex++);
+            return isChangedWord
+                ? `<span class="diff-word">${escapeHtml(token)}</span>`
+                : escapeHtml(token);
+        }).join('');
+
+        return changedSentence
+            ? `<span class="diff-sentence">${html}</span>`
+            : html;
+    }
+
+    function buildDiffHtml(original, target) {
+        const originalParagraphs = String(original || '').split(/\n\s*\n/);
+        const targetParagraphs = String(target || '').split(/\n\s*\n/);
+
+        return targetParagraphs.map((paragraph, paragraphIndex) => {
+            const originalSentences = splitSentences(originalParagraphs[paragraphIndex] || '');
+            const targetSentences = splitSentences(paragraph);
+            return targetSentences.map((sentence, sentenceIndex) => {
+                return sentenceDiffHtml(originalSentences[sentenceIndex] || '', sentence);
+            }).join('');
+        }).join('\n\n');
+    }
+
     function updateUsagePanel(data) {
         if (!usageEls.box || !data) return;
         const analysisPercent = usagePercent(data.monthly_analysis_used, data.monthly_analysis_limit);
@@ -342,6 +443,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const editorWorkspace = document.getElementById('editor-workspace');
     const toggleEditorNavBtn = document.getElementById('toggle-editor-nav-btn');
     const toggleEditorCommentsBtn = document.getElementById('toggle-editor-comments-btn');
+    const editedDiffPreview = document.getElementById('edited-diff-preview');
+    let diffPreviewTimer = null;
 
     function selectedEditText() {
         const sel = window.currentEditSelection || {};
@@ -359,6 +462,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!editableText) return;
         const text = selectedEditText();
         if (text) editableText.value = text;
+        renderEditedDiffPreview();
+    }
+
+    function renderEditedDiffPreview() {
+        if (!editedDiffPreview || !editableText) return;
+        const original = selectedEditText();
+        const edited = editableText.value || '';
+        if (!edited.trim() || normalizeText(original) === normalizeText(edited)) {
+            editedDiffPreview.classList.add('is-empty');
+            editedDiffPreview.innerHTML = '';
+            return;
+        }
+        editedDiffPreview.innerHTML = buildDiffHtml(original, edited);
+        editedDiffPreview.classList.remove('is-empty');
+    }
+
+    function scheduleEditedDiffPreview() {
+        window.clearTimeout(diffPreviewTimer);
+        diffPreviewTimer = window.setTimeout(renderEditedDiffPreview, 120);
     }
 
     function updateEditorGrid() {
@@ -392,6 +514,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const editPrompt = promptEl ? promptEl.value : 'Korjaa virheet ja sujuvoita.';
             const tempEl = document.getElementById('temp-val');
             const temperature = tempEl ? parseFloat(tempEl.textContent) : 0.3;
+            renderEditedDiffPreview();
             
             apiFetch('/api/edit', {
                 method: 'POST',
@@ -419,6 +542,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             aiBtn.innerHTML = '<span class="sparkle">✨</span><br>AI';
                             aiBtn.style.pointerEvents = 'auto';
                             editableText.style.backgroundColor = 'rgba(16, 185, 129, 0.15)';
+                            renderEditedDiffPreview();
                             setTimeout(() => { editableText.style.backgroundColor = 'transparent'; }, 600);
                         }
                     };
@@ -434,6 +558,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadUsage();
             });
         });
+    }
+
+    if (editableText) {
+        editableText.addEventListener('input', scheduleEditedDiffPreview);
     }
 
     if(lockBtn) {
@@ -719,6 +847,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 originalText.textContent = txt;
                 editedText.value = txt;
                 window.currentEditSelection = { cIndex: firstChapterIndex, pIndex: 0 };
+                renderEditedDiffPreview();
             }
         }
     };
@@ -754,7 +883,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ? 'font-weight: 600; background: rgba(16, 185, 129, 0.12); border-left: 3px solid var(--ai-gradient-start); color: var(--text-primary);' 
                         : 'font-weight: normal; opacity: 0.6; color: var(--text-secondary); border-left: 3px solid transparent;'
                     }
-                " onclick="window.loadParagraph(${cIndex}, ${idx}, document.querySelector('#editor-nav-panel ul li li:nth-child(${idx+1})') || this)">${p}</div>`;
+                " onclick="window.loadParagraph(${cIndex}, ${idx}, document.querySelector('#editor-nav-panel ul li li:nth-child(${idx+1})') || this)">${escapeHtml(p)}</div>`;
             });
             originalText.innerHTML = html;
             
@@ -769,6 +898,7 @@ document.addEventListener('DOMContentLoaded', () => {
             editedText.value = (editScopeSelect && editScopeSelect.value === 'chapter')
                 ? (chapter.paragraphs || []).join('\n\n')
                 : (chapter.paragraphs[pIndex] || '');
+            renderEditedDiffPreview();
         }
         
         // Navigointilistan päivitys
