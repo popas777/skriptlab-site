@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=25">
+    <link rel="stylesheet" href="styles.css?v=26">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -52,6 +52,7 @@
             <nav class="sidebar-nav">
                 <ul id="nav-menu">
                     <li class="active" data-view="view-kirjani">Kirjani</li>
+                    <li data-view="view-kirja">Koko kirja</li>
                     <li data-view="view-sopimukset">Sopimukset</li>
                     <li data-view="view-aikajana">Aikajana</li>
                     <li data-view="view-analyysi">Analyysi</li>
@@ -110,16 +111,46 @@
                         <p>Projektit ja tila, joissa olet mukana</p>
                     </div>
                     <div class="header-actions">
-                        <input type="file" id="manuscript-upload" accept=".txt,.md,.docx,.pdf" style="display:none">
+                        <input type="file" id="manuscript-upload" accept=".txt,.md,.docx,.pdf,.rtf,.odt,.html,.htm" style="display:none">
                         <button class="btn btn-primary" onclick="document.getElementById('manuscript-upload').click()">+ Lataa Käsikirjoitus</button>
                     </div>
                 </div>
+                <p style="color:var(--text-secondary); font-size:13px; margin: -8px 0 16px 2px;">Tuetut tiedostot: TXT, MD, DOCX, PDF, RTF, ODT ja HTML.</p>
                 <div class="grid-cards" id="kirjani-grid">
                    <!-- Dynaamisesti lisättävät kortit tulevat tähän -->
                    <div style="color:var(--text-secondary); font-size:14px; padding:20px;">
                        Ohjelmistossa ei ole vielä aktiivisia käsikirjoitushankkeita ladattuna tähän laitteeseen.<br>
                        Käytä <strong>Lataa Käsikirjoitus</strong> -painiketta aloittaaksesi uuden hankkeen editoinnin.
                    </div>
+                </div>
+            </div>
+
+            <!-- 1.5 VIEW: KOKO KIRJA -->
+            <div id="view-kirja" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>Koko kirja</h2>
+                        <p>Käsikirjoitus: [Ei aktiivista teosta] (lukeminen, vienti ja tuotantopalvelut)</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" id="refresh-book-preview-btn">Päivitä näkymä</button>
+                        <button class="btn btn-primary" id="download-book-text-btn">Lataa TXT</button>
+                    </div>
+                </div>
+                <div class="book-workspace">
+                    <div class="glass-panel book-preview-panel">
+                        <div class="panel-header">
+                            <h3 id="book-preview-title">Ei valittua käsikirjoitusta</h3>
+                        </div>
+                        <pre id="book-full-text" class="book-full-text">Lataa tai valitse käsikirjoitus ensin Kirjani-näkymässä.</pre>
+                    </div>
+                    <div class="layout-offers glass-panel">
+                        <h3>Taitto ja tuotanto</h3>
+                        <p>Kun teksti on riittävän valmis, voit pyytää taitosta tarjouksen. Tämä ei vielä tee automaattista maksua tai tilausta.</p>
+                        <button class="btn btn-primary" id="layout-offer-basic-btn">Pyydä tarjous: peruskirjataitto</button>
+                        <button class="btn btn-secondary" id="layout-offer-ebook-btn">Pyydä tarjous: e-kirja</button>
+                        <button class="btn btn-secondary" id="layout-offer-print-btn">Pyydä tarjous: painovalmis PDF</button>
+                    </div>
                 </div>
             </div>
 
@@ -239,6 +270,8 @@
                                 <strong>Rakenne-ehdotus:</strong> Alku on nopeatahtinen, mutta keskivaiheilla tempo hidastuu hieman liikaa. Harkitse lukujen tiivistämistä tai joidenkin sivulauseiden poistamista, jotta päästään nopeammin käsiksi itse pääsiemenen etsintään.<br><br>
                                 <strong>Vinkki:</strong> Tekoälyn palastelu-ominaisuus otetaan myöhemmin käyttöön, jotta kappalejaot menevät täydellisesti oikein.
                             </p>
+                            <div id="analysis-editor" class="analysis-editor"></div>
+                            <button class="btn btn-primary hidden" id="save-analysis-btn" style="margin-top:16px;">Tallenna analyysimuutokset</button>
                         </div>
                         <div class="grid-cards" style="margin-top:8px;">
                             <div class="card glass-panel" style="background: rgba(16, 185, 129, 0.05);">
@@ -837,6 +870,6 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=1"></script>
-    <script src="app.js?v=25"></script>
+    <script src="app.js?v=26"></script>
 </body>
 </html>

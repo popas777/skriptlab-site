@@ -320,6 +320,74 @@ textarea.editor-content {
     box-decoration-break: clone;
     -webkit-box-decoration-break: clone;
 }
+.analysis-editor {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+    margin-top: 18px;
+}
+.analysis-section {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    overflow: hidden;
+}
+.analysis-section label {
+    display: block;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 600;
+}
+.analysis-section textarea {
+    width: 100%;
+    min-height: 160px;
+    padding: 12px;
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: vertical;
+    color: var(--text-secondary);
+    font: inherit;
+    line-height: 1.6;
+}
+.book-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 18px;
+}
+.book-preview-panel,
+.layout-offers {
+    border-radius: 8px;
+    overflow: hidden;
+}
+.book-full-text {
+    min-height: 560px;
+    max-height: calc(100vh - 240px);
+    overflow: auto;
+    margin: 0;
+    padding: 22px;
+    white-space: pre-wrap;
+    color: var(--text-primary);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 16px;
+    line-height: 1.8;
+}
+.layout-offers {
+    padding: 18px;
+    align-self: start;
+}
+.layout-offers p {
+    margin: 12px 0 18px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+}
+.layout-offers button {
+    width: 100%;
+    margin-bottom: 10px;
+}
 
 .action-column { display: flex; align-items: center; justify-content: center; }
 .ai-action-btn {

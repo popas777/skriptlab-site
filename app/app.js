@@ -26,7 +26,7 @@ window.saveManuscriptToDB = async function(data) {
 document.addEventListener('DOMContentLoaded', () => {
     const currentUser = window.SkriptLabAuth.getUser();
     const fullWorkspaceRoles = new Set(['admin', 'test_user']);
-    const betaCoreViews = new Set(['view-kirjani', 'view-analyysi', 'view-toimitus']);
+    const betaCoreViews = new Set(['view-kirjani', 'view-kirja', 'view-analyysi', 'view-toimitus']);
     const roleLabels = {
         admin: 'Admin',
         test_user: 'Test user',
@@ -45,6 +45,16 @@ document.addEventListener('DOMContentLoaded', () => {
         editChars: document.getElementById('usage-edit-chars'),
         status: document.getElementById('usage-status')
     };
+    const analysisFields = [
+        { key: 'glossary', label: 'Sanasto' },
+        { key: 'style', label: 'Tyylianalyysi' },
+        { key: 'synopsis', label: 'Synopsis' },
+        { key: 'marketing_short', label: 'Markkinointiteksti, lyhyt' },
+        { key: 'marketing_long', label: 'Markkinointiteksti, pitkä' },
+        { key: 'backcover', label: 'Takakansiteksti' },
+        { key: 'cover_prompt', label: 'Kansikuvaprompti' },
+        { key: 'onix', label: 'ONIX-metadata' }
+    ];
 
     const logoutLink = document.getElementById('logout-link');
     const adminLink = document.getElementById('admin-link');
@@ -174,6 +184,130 @@ document.addEventListener('DOMContentLoaded', () => {
         }).join('\n\n');
     }
 
+    function analysisValue(value) {
+        if (value === null || value === undefined) return '';
+        if (typeof value === 'string') return value;
+        return JSON.stringify(value, null, 2);
+    }
+
+    function getFullManuscriptText(data = window.manuscriptData) {
+        if (!data || !Array.isArray(data.chapters)) return '';
+        return data.chapters.map(chapter => {
+            const title = chapter.title ? String(chapter.title).trim() : '';
+            const paragraphs = Array.isArray(chapter.paragraphs)
+                ? chapter.paragraphs.map(p => String(p || '').trim()).filter(Boolean).join('\n\n')
+                : '';
+            return [title, paragraphs].filter(Boolean).join('\n\n');
+        }).filter(Boolean).join('\n\n\n');
+    }
+
+    function renderAnalysisSections(analysis) {
+        const editor = document.getElementById('analysis-editor');
+        const saveBtn = document.getElementById('save-analysis-btn');
+        if (!editor || !saveBtn) return;
+
+        editor.innerHTML = '';
+        const hasAnalysis = analysis && analysisFields.some(field => analysisValue(analysis[field.key]).trim());
+        if (!hasAnalysis) {
+            saveBtn.classList.add('hidden');
+            return;
+        }
+
+        analysisFields.forEach(field => {
+            const section = document.createElement('div');
+            section.className = 'analysis-section';
+
+            const label = document.createElement('label');
+            label.textContent = field.label;
+
+            const textarea = document.createElement('textarea');
+            textarea.dataset.analysisKey = field.key;
+            textarea.value = analysisValue(analysis[field.key]);
+
+            section.appendChild(label);
+            section.appendChild(textarea);
+            editor.appendChild(section);
+        });
+        saveBtn.classList.remove('hidden');
+    }
+
+    function saveAnalysisFromEditor() {
+        if (!window.manuscriptData) {
+            alert('Valitse tai lataa käsikirjoitus ensin.');
+            return;
+        }
+        const analysis = Object.assign({}, window.manuscriptData.analysis || {});
+        document.querySelectorAll('[data-analysis-key]').forEach(input => {
+            analysis[input.dataset.analysisKey] = input.value.trim();
+        });
+        window.manuscriptData.analysis = analysis;
+        window.saveManuscriptToDB(window.manuscriptData);
+        renderAnalysisSummary(analysis);
+        alert('Analyysi tallennettu.');
+    }
+
+    function renderAnalysisSummary(analysis) {
+        const statusText = document.getElementById('mock-analysis-text');
+        if (!statusText) return;
+        if (!analysis || !analysisFields.some(field => analysisValue(analysis[field.key]).trim())) {
+            statusText.innerHTML = 'Analyysiä ei ole vielä tallennettu tälle käsikirjoitukselle.';
+            return;
+        }
+        const results = document.getElementById('analysis-results');
+        if (results) results.classList.remove('hidden');
+        const title = window.manuscriptData ? window.manuscriptData.title : 'Käsikirjoitus';
+        const filled = analysisFields.filter(field => analysisValue(analysis[field.key]).trim()).length;
+        statusText.innerHTML = `<strong>Analyysi tallennettu: ${escapeHtml(title)}</strong><br><br>${filled}/${analysisFields.length} osiota on täytetty. Voit muokata osioita alla ja tallentaa muutokset jatkoa varten.`;
+        renderAnalysisSections(analysis);
+    }
+
+    function renderBookOverview() {
+        const titleEl = document.getElementById('book-preview-title');
+        const textEl = document.getElementById('book-full-text');
+        if (!titleEl || !textEl) return;
+        if (!window.manuscriptData) {
+            titleEl.textContent = 'Ei valittua käsikirjoitusta';
+            textEl.textContent = 'Lataa tai valitse käsikirjoitus ensin Kirjani-näkymässä.';
+            return;
+        }
+        const title = window.manuscriptData.title || 'Nimetön käsikirjoitus';
+        const author = window.manuscriptData.author || 'Tuntematon';
+        titleEl.textContent = `${title} - ${author}`;
+        textEl.textContent = getFullManuscriptText() || 'Käsikirjoituksessa ei ole vielä tekstiä.';
+    }
+
+    function downloadCurrentBookText() {
+        if (!window.manuscriptData) {
+            alert('Valitse tai lataa käsikirjoitus ensin.');
+            return;
+        }
+        const text = getFullManuscriptText();
+        if (!text.trim()) {
+            alert('Käsikirjoituksessa ei ole ladattavaa tekstiä.');
+            return;
+        }
+        const safeTitle = (window.manuscriptData.title || 'kasikirjoitus')
+            .toLowerCase()
+            .replace(/[^a-z0-9åäö]+/gi, '_')
+            .replace(/^_+|_+$/g, '') || 'kasikirjoitus';
+        const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${safeTitle}.txt`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+    }
+
+    function requestLayoutOffer(serviceName) {
+        const title = window.manuscriptData?.title || 'käsikirjoitus';
+        const subject = encodeURIComponent(`Taittotarjous: ${serviceName}`);
+        const body = encodeURIComponent(`Hei,\n\nHaluaisin pyytää tarjouksen palvelusta: ${serviceName}\nKäsikirjoitus: ${title}\n\nLisätiedot:\n`);
+        window.location.href = `mailto:skriptlab@skriptlab.com?subject=${subject}&body=${body}`;
+    }
+
     function updateUsagePanel(data) {
         if (!usageEls.box || !data) return;
         const analysisPercent = usagePercent(data.monthly_analysis_used, data.monthly_analysis_limit);
@@ -293,9 +427,14 @@ document.addEventListener('DOMContentLoaded', () => {
     navItems.forEach(item => {
         item.addEventListener('click', () => {
             openModule(item.getAttribute('data-view'));
+            if (item.getAttribute('data-view') === 'view-kirja') {
+                renderBookOverview();
+            }
             // If they click something other than Kirjani, simulate that a book is selected
             if(item.getAttribute('data-view') !== 'view-kirjani') {
-                document.getElementById('top-book-name').textContent = 'Käsikirjoitus: Metsän salaisuus';
+                document.getElementById('top-book-name').textContent = window.manuscriptData
+                    ? `Käsikirjoitus: ${window.manuscriptData.title}`
+                    : 'Käsikirjoitus: Valitse projekti...';
             } else {
                 document.getElementById('top-book-name').textContent = 'Käsikirjoitus: Valitse projekti...';
             }
@@ -310,8 +449,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const runAnalysisBtn = document.getElementById('run-analysis-btn');
     const analysisLoader = document.getElementById('analysis-loader');
     const analysisResults = document.getElementById('analysis-results');
+    const saveAnalysisBtn = document.getElementById('save-analysis-btn');
     const sidebarStyle = document.getElementById('sidebar-style');
     const sidebarVocab = document.getElementById('sidebar-vocab');
+
+    if (saveAnalysisBtn) {
+        saveAnalysisBtn.addEventListener('click', saveAnalysisFromEditor);
+    }
 
     if(runAnalysisBtn) {
         runAnalysisBtn.addEventListener('click', () => {
@@ -329,8 +473,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 1000);
             
             // Haetaan ladattu raakateksti lokaalista muistista
-            const rawMsText = localStorage.getItem('skriptlab_raw_text') || "";
+            const rawMsText = localStorage.getItem('skriptlab_raw_text') || getFullManuscriptText();
             if(!rawMsText) {
+                clearInterval(analysisInterval);
                 alert('Käsikirjoitusta ei ole vielä ladattu oikein! Lataa tiedosto Kirjani-näkymästä ensin.');
                 analysisLoader.classList.add('hidden');
                 runAnalysisBtn.style.display = 'block';
@@ -356,16 +501,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if(data.status === "success" && data.data) {
                     const r = data.data;
+                    if (window.manuscriptData) {
+                        window.manuscriptData.analysis = r;
+                    }
                     
                     // Päivitetään Analyysi-tuloskortti aidolla datalla!
                     let title = window.manuscriptData ? window.manuscriptData.title : "Käsikirjoitus";
-                    let newHtml = `<strong>Tekoälyn analyysi ladattu! (${title})</strong><br><br>`;
+                    let newHtml = `<strong>Tekoälyn analyysi ladattu! (${escapeHtml(title)})</strong><br><br>`;
                     
-                    if(r.style) newHtml += `<strong>Tyylianalyysi:</strong><br>${r.style.substring(0,250)}...<br><br>`;
-                    if(r.synopsis) newHtml += `<strong>Synopsis-tiivistelmä:</strong><br>${r.synopsis.substring(0,300)}...<br><br>`;
+                    if(r.style) newHtml += `<strong>Tyylianalyysi:</strong><br>${escapeHtml(r.style.substring(0,250))}...<br><br>`;
+                    if(r.synopsis) newHtml += `<strong>Synopsis-tiivistelmä:</strong><br>${escapeHtml(r.synopsis.substring(0,300))}...<br><br>`;
                     newHtml += `<strong>✔ Rakenneanalyysi paloiteltu suoraan Toimitus-navigaatioon!</strong><br><br>`;
-                    newHtml += `Huom: Muut ominaisuudet (Kuvitus, Markkinointi) saattavat vielä päivittyä UI-koodissa!`;
+                    newHtml += `Alla olevat analyysiosiot ovat nyt muokattavissa ja tallennettavissa.`;
                     document.getElementById('mock-analysis-text').innerHTML = newHtml;
+                    renderAnalysisSections(r);
                     runAnalysisBtn.style.display = 'block';
                     runAnalysisBtn.textContent = '🔄 Analysoi Uudelleen';
                     
@@ -414,6 +563,7 @@ document.addEventListener('DOMContentLoaded', () => {
                        }
                        // Tallennetaan pysyvästi
                        window.saveManuscriptToDB(window.manuscriptData);
+                       renderBookOverview();
                        // Kutsutaan UI refresh
                        if(window.renderNavList) window.renderNavList();
                        loadUsage();
@@ -702,11 +852,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1000);
     };
 
+    const refreshBookPreviewBtn = document.getElementById('refresh-book-preview-btn');
+    const downloadBookTextBtn = document.getElementById('download-book-text-btn');
+    const layoutOfferBasicBtn = document.getElementById('layout-offer-basic-btn');
+    const layoutOfferEbookBtn = document.getElementById('layout-offer-ebook-btn');
+    const layoutOfferPrintBtn = document.getElementById('layout-offer-print-btn');
+
+    if (refreshBookPreviewBtn) refreshBookPreviewBtn.addEventListener('click', renderBookOverview);
+    if (downloadBookTextBtn) downloadBookTextBtn.addEventListener('click', downloadCurrentBookText);
+    if (layoutOfferBasicBtn) layoutOfferBasicBtn.addEventListener('click', () => requestLayoutOffer('Peruskirjataitto'));
+    if (layoutOfferEbookBtn) layoutOfferEbookBtn.addEventListener('click', () => requestLayoutOffer('E-kirja'));
+    if (layoutOfferPrintBtn) layoutOfferPrintBtn.addEventListener('click', () => requestLayoutOffer('Painovalmis PDF'));
+
     function createManuscriptFromText(title, text) {
         let bookData = {
             title: title,
             author: "Tuntematon",
-            chapters: []
+            chapters: [],
+            analysis: {}
         };
 
         const rawLines = text.split(/\n\s*\n/).filter(p => p.trim().length > 0);
@@ -805,6 +968,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.manuscriptData = bookData;
                 window.saveManuscriptToDB(bookData);
                 window.updateDynamicTexts();
+                renderBookOverview();
+                renderAnalysisSummary(bookData.analysis);
                 window.renderNavList();
                 addManuscriptCard(bookData, `Ladattu: ${data.filename} (${data.char_count} merkkiä)`);
                 window.openModule('view-analyysi');
@@ -999,6 +1164,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 window.renderNavList();
                 window.updateDynamicTexts();
+                renderAnalysisSummary(data.analysis);
+                renderBookOverview();
         }
 
     }
