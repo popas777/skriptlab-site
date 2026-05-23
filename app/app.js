@@ -196,8 +196,20 @@ document.addEventListener('DOMContentLoaded', () => {
         return JSON.stringify(value, null, 2);
     }
 
-    function truncateText(value, maxLength) {
-        const text = analysisValue(value).replace(/\s+/g, ' ').trim();
+    function cleanAnalysisDisplayText(value, labels = []) {
+        let text = analysisValue(value)
+            .replace(/\*\*/g, '')
+            .replace(/__+/g, '')
+            .trim();
+        labels.forEach(label => {
+            const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            text = text.replace(new RegExp(`^${escaped}\\s*:?\\s*`, 'i'), '').trim();
+        });
+        return text;
+    }
+
+    function truncateText(value, maxLength, labels = []) {
+        const text = cleanAnalysisDisplayText(value, labels).replace(/\s+/g, ' ').trim();
         if (!text || text.length <= maxLength) return text;
         return `${text.slice(0, maxLength).trim()}...`;
     }
@@ -285,22 +297,46 @@ document.addEventListener('DOMContentLoaded', () => {
         const results = document.getElementById('analysis-results');
         if (results) results.classList.remove('hidden');
         const source = window.manuscriptData?.source_filename || window.manuscriptData?.title || 'käsikirjoitus';
-        const style = truncateText(analysis.style, 360) || 'Ei vielä sisältöä.';
-        const assessment = truncateText(analysis.editorial_assessment, 420) || 'Ei vielä sisältöä.';
-        const synopsis = truncateText(analysis.synopsis, 360) || 'Ei vielä sisältöä.';
+        const style = truncateText(analysis.style, 360, ['Tyyli', 'Tyylianalyysi']) || 'Ei vielä sisältöä.';
+        const assessment = truncateText(analysis.editorial_assessment, 420, ['Toimituksellinen arvio', 'Arvio']) || 'Ei vielä sisältöä.';
+        const synopsis = truncateText(analysis.synopsis, 360, ['Synopsis', 'Synopsisis']) || 'Ei vielä sisältöä.';
         statusText.innerHTML = `
-            <strong>Analyysi laadittu! (${escapeHtml(source)})</strong><br><br>
-            <strong>TYYLI:</strong><br>${escapeHtml(style)}<br><br>
-            <strong>TOIMITUKSELLINEN ARVIO:</strong><br>${escapeHtml(assessment)}<br><br>
-            <strong>SYNOPSIS:</strong><br>${escapeHtml(synopsis)}
+            <div class="analysis-summary">
+                <div class="analysis-summary-title">Analyysi laadittu! (${escapeHtml(source)})</div>
+                <div class="analysis-summary-item"><span class="analysis-summary-label">Tyyli:</span> ${escapeHtml(style)}</div>
+                <div class="analysis-summary-item"><span class="analysis-summary-label">Toimituksellinen arvio:</span> ${escapeHtml(assessment)}</div>
+                <div class="analysis-summary-item"><span class="analysis-summary-label">Synopsis:</span> ${escapeHtml(synopsis)}</div>
+            </div>
         `;
         renderAnalysisSections(analysis);
+    }
+
+    function applyBookReaderSettings() {
+        const textEl = document.getElementById('book-full-text');
+        if (!textEl) return;
+        const font = document.getElementById('book-font-select')?.value || 'serif';
+        const size = document.getElementById('book-font-size-select')?.value || 'medium';
+        const width = document.getElementById('book-width-select')?.value || 'medium';
+        textEl.classList.remove(
+            'book-font-serif',
+            'book-font-sans',
+            'book-font-mono',
+            'book-size-small',
+            'book-size-medium',
+            'book-size-large',
+            'book-size-xlarge',
+            'book-width-narrow',
+            'book-width-medium',
+            'book-width-wide'
+        );
+        textEl.classList.add(`book-font-${font}`, `book-size-${size}`, `book-width-${width}`);
     }
 
     function renderBookOverview() {
         const titleEl = document.getElementById('book-preview-title');
         const textEl = document.getElementById('book-full-text');
         if (!titleEl || !textEl) return;
+        applyBookReaderSettings();
         if (!window.manuscriptData) {
             titleEl.textContent = 'Ei valittua käsikirjoitusta';
             textEl.textContent = 'Lataa tai valitse käsikirjoitus ensin Käsikirjoitukseni-näkymässä.';
@@ -1021,6 +1057,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadBookTextBtn = document.getElementById('download-book-text-btn');
     const layoutOfferEbookBtn = document.getElementById('layout-offer-ebook-btn');
     const layoutOfferPrintBtn = document.getElementById('layout-offer-print-btn');
+    const bookFontSelect = document.getElementById('book-font-select');
+    const bookFontSizeSelect = document.getElementById('book-font-size-select');
+    const bookWidthSelect = document.getElementById('book-width-select');
     const saveWritingBtn = document.getElementById('save-writing-btn');
     const addWritingParagraphBtn = document.getElementById('add-writing-paragraph-btn');
     const deleteWritingParagraphBtn = document.getElementById('delete-writing-paragraph-btn');
@@ -1029,6 +1068,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (downloadBookTextBtn) downloadBookTextBtn.addEventListener('click', downloadCurrentBookText);
     if (layoutOfferEbookBtn) layoutOfferEbookBtn.addEventListener('click', () => requestLayoutOffer('E-kirja'));
     if (layoutOfferPrintBtn) layoutOfferPrintBtn.addEventListener('click', () => requestLayoutOffer('Painovalmis PDF'));
+    [bookFontSelect, bookFontSizeSelect, bookWidthSelect].forEach(select => {
+        if (select) select.addEventListener('change', applyBookReaderSettings);
+    });
     if (saveWritingBtn) saveWritingBtn.addEventListener('click', () => saveWritingText(true));
     if (addWritingParagraphBtn) addWritingParagraphBtn.addEventListener('click', addWritingParagraph);
     if (deleteWritingParagraphBtn) deleteWritingParagraphBtn.addEventListener('click', deleteWritingParagraph);

@@ -172,11 +172,41 @@
                         </div>
                         <pre id="book-full-text" class="book-full-text">Lataa tai valitse käsikirjoitus ensin Käsikirjoitukseni-näkymässä.</pre>
                     </div>
-                    <div class="layout-offers glass-panel">
-                        <h3>Taitto ja tuotanto</h3>
-                        <p>Kun teksti on riittävän valmis, voit pyytää taitosta tarjouksen. Tämä ei vielä tee automaattista maksua tai tilausta.</p>
-                        <button class="btn btn-primary" id="layout-offer-ebook-btn">Pyydä tarjous: e-kirja</button>
-                        <button class="btn btn-secondary" id="layout-offer-print-btn">Pyydä tarjous: painovalmis PDF</button>
+                    <div class="book-side-panel">
+                        <div class="reader-settings glass-panel">
+                            <h3>Lukunäkymä</h3>
+                            <label>
+                                Fontti
+                                <select id="book-font-select">
+                                    <option value="serif">Kirjamainen</option>
+                                    <option value="sans">Selkeä</option>
+                                    <option value="mono">Tasalevyinen</option>
+                                </select>
+                            </label>
+                            <label>
+                                Kirjainkoko
+                                <select id="book-font-size-select">
+                                    <option value="small">Pieni</option>
+                                    <option value="medium" selected>Normaali</option>
+                                    <option value="large">Suuri</option>
+                                    <option value="xlarge">Erittäin suuri</option>
+                                </select>
+                            </label>
+                            <label>
+                                Sivun leveys
+                                <select id="book-width-select">
+                                    <option value="narrow">Kapea</option>
+                                    <option value="medium" selected>Normaali</option>
+                                    <option value="wide">Leveä</option>
+                                </select>
+                            </label>
+                        </div>
+                        <div class="layout-offers glass-panel">
+                            <h3>Taitto ja tuotanto</h3>
+                            <p>Kun teksti on riittävän valmis, voit pyytää taitosta tarjouksen. Tämä ei vielä tee automaattista maksua tai tilausta.</p>
+                            <button class="btn btn-primary" id="layout-offer-ebook-btn">Pyydä tarjous: e-kirja</button>
+                            <button class="btn btn-secondary" id="layout-offer-print-btn">Pyydä tarjous: painovalmis PDF</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -796,13 +826,13 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                     </div>
                     <div class="header-actions">
                         <button class="btn btn-secondary" id="toggle-editor-nav-btn">Piilota navigaatio</button>
-                        <button class="btn btn-secondary" id="toggle-editor-comments-btn">Piilota kommentit</button>
+                        <button class="btn btn-secondary" id="toggle-editor-comments-btn">Näytä kommentit</button>
                         <button class="btn btn-secondary">Tallenna Vedos</button>
                         <button class="btn btn-primary" id="lock-block-btn">Lukitse Pätkä (Freeze)</button>
                     </div>
                 </div>
 
-                <div class="editor-workspace" id="editor-workspace" style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr) 160px 240px; gap: 16px; overflow: hidden; height: calc(100vh - 160px);">
+                <div class="editor-workspace hide-editor-comments" id="editor-workspace" style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr) 160px; gap: 16px; overflow: hidden; height: calc(100vh - 160px);">
                     <!-- 1. Lukuvalikko -->
                     <div class="glass-panel" id="editor-nav-panel" style="padding: 16px; overflow-y: auto; display:flex; flex-direction:column;">
                         <h4 style="color:var(--text-primary); margin-bottom:12px;">Luvut ja kappaleet</h4>
@@ -871,13 +901,7 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                     <div class="glass-panel" id="editor-comments-panel" style="padding: 16px; display:flex; flex-direction:column; height: 100%;">
                         <h4 style="color:var(--text-primary); margin-bottom: 12px;">Kommentit</h4>
                         <div style="flex:1; overflow-y:auto; margin-bottom:12px;">
-                            <div style="background:rgba(0,0,0,0.2); border:1px solid #333; padding:10px; border-radius:8px; margin-bottom:8px;">
-                                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                                    <strong style="font-size:11px; color:var(--ai-gradient-start);">Ohjaaja / Kustantaja</strong>
-                                    <span style="font-size:10px; color:#666;">Eilen</span>
-                                </div>
-                                <p style="font-size:12px; color:var(--text-secondary); margin:0; line-height:1.4;">Mietin, onko tämä kappale hieman irtonainen? Voisiko lisätä kuvailua ennen tekoälyajoa?</p>
-                            </div>
+                            <p style="font-size:12px; color:var(--text-secondary); margin:0; line-height:1.4;">Ei kommentteja tälle kohdalle.</p>
                         </div>
                         <div style="display:flex; flex-direction:column; gap:8px;">
                             <textarea placeholder="Kirjoita uusi kommentti..." style="width:100%; font-size:12px; padding:8px; border-radius:4px; background:rgba(255,255,255,0.05); color:#fff; border:1px solid #333; resize:none;"></textarea>
