@@ -1,6 +1,10 @@
 (function () {
     const TOKEN_KEY = "skriptlab_auth_token";
     const USER_KEY = "skriptlab_auth_user";
+    const WORKSPACE_KEYS = [
+        "skriptlab_manuscript",
+        "skriptlab_raw_text",
+    ];
 
     window.SkriptLabAuth = {
         tokenKey: TOKEN_KEY,
@@ -21,6 +25,10 @@
         },
 
         setSession(token, user) {
+            const previousUser = this.getUser();
+            if (previousUser && user && previousUser.id !== user.id) {
+                this.clearWorkspaceData();
+            }
             localStorage.setItem(TOKEN_KEY, token);
             localStorage.setItem(USER_KEY, JSON.stringify(user));
         },
@@ -28,6 +36,11 @@
         clearSession() {
             localStorage.removeItem(TOKEN_KEY);
             localStorage.removeItem(USER_KEY);
+            this.clearWorkspaceData();
+        },
+
+        clearWorkspaceData() {
+            WORKSPACE_KEYS.forEach((key) => localStorage.removeItem(key));
         },
 
         authHeaders(extraHeaders) {
