@@ -330,6 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'book-font-serif',
             'book-font-sans',
             'book-font-mono',
+            'book-size-xsmall',
             'book-size-small',
             'book-size-medium',
             'book-size-large',

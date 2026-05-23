@@ -440,6 +440,7 @@ textarea.editor-content {
 .book-full-text.book-font-mono {
     font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
+.book-full-text.book-size-xsmall { font-size: 13px; }
 .book-full-text.book-size-small { font-size: 15px; }
 .book-full-text.book-size-medium { font-size: 17px; }
 .book-full-text.book-size-large { font-size: 19px; }
