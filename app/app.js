@@ -500,16 +500,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateUsagePanel(data) {
         if (!usageEls.box || !data) return;
-        const analysisPercent = usagePercent(data.monthly_analysis_used, data.monthly_analysis_limit);
-        const editPercent = usagePercent(data.monthly_paragraph_edit_used, data.monthly_paragraph_edit_limit);
+        const analysisCountPercent = usagePercent(data.monthly_analysis_used, data.monthly_analysis_limit);
+        const analysisCharsPercent = usagePercent(data.monthly_analysis_chars_used, data.monthly_analysis_chars_limit);
+        const editCountPercent = usagePercent(data.monthly_paragraph_edit_used, data.monthly_paragraph_edit_limit);
+        const editCharsPercent = usagePercent(data.monthly_paragraph_edit_chars_used, data.monthly_paragraph_edit_chars_limit);
+        const analysisPercent = Math.max(analysisCountPercent, analysisCharsPercent);
+        const editPercent = Math.max(editCountPercent, editCharsPercent);
 
         usageEls.analysisText.textContent = `${data.monthly_analysis_used}/${data.monthly_analysis_limit}`;
         usageEls.analysisBar.style.width = `${analysisPercent}%`;
-        usageEls.analysisChars.textContent = `Max ${formatNumber(data.max_analysis_chars)} merkkiä / analyysi`;
+        usageEls.analysisChars.textContent = `Max ${formatNumber(data.max_analysis_chars)} merkkiä / analyysi, ${formatNumber(data.monthly_analysis_chars_used)}/${formatNumber(data.monthly_analysis_chars_limit)} merkkiä / kk`;
 
         usageEls.editText.textContent = `${data.monthly_paragraph_edit_used}/${data.monthly_paragraph_edit_limit}`;
         usageEls.editBar.style.width = `${editPercent}%`;
-        usageEls.editChars.textContent = `Max ${formatNumber(data.max_paragraph_edit_chars)} merkkiä / muokkaus`;
+        usageEls.editChars.textContent = `Max ${formatNumber(data.max_paragraph_edit_chars)} merkkiä / muokkaus, ${formatNumber(data.monthly_paragraph_edit_chars_used)}/${formatNumber(data.monthly_paragraph_edit_chars_limit)} merkkiä / kk`;
 
         usageEls.status.textContent = analysisPercent >= 100 || editPercent >= 100
             ? 'Kuukausiraja täynnä. Ota yhteys ylläpitoon.'
