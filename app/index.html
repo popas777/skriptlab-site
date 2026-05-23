@@ -135,6 +135,7 @@
                     </div>
                     <div class="header-actions">
                         <button class="btn btn-secondary" id="add-writing-paragraph-btn">Uusi kappale</button>
+                        <button class="btn btn-secondary btn-danger-soft" id="delete-writing-paragraph-btn">Poista kappale</button>
                         <button class="btn btn-primary" id="save-writing-btn">Tallenna teksti</button>
                     </div>
                 </div>
@@ -174,8 +175,7 @@
                     <div class="layout-offers glass-panel">
                         <h3>Taitto ja tuotanto</h3>
                         <p>Kun teksti on riittävän valmis, voit pyytää taitosta tarjouksen. Tämä ei vielä tee automaattista maksua tai tilausta.</p>
-                        <button class="btn btn-primary" id="layout-offer-basic-btn">Pyydä tarjous: peruskirjataitto</button>
-                        <button class="btn btn-secondary" id="layout-offer-ebook-btn">Pyydä tarjous: e-kirja</button>
+                        <button class="btn btn-primary" id="layout-offer-ebook-btn">Pyydä tarjous: e-kirja</button>
                         <button class="btn btn-secondary" id="layout-offer-print-btn">Pyydä tarjous: painovalmis PDF</button>
                     </div>
                 </div>
@@ -436,7 +436,7 @@
                             </div>
                             <div style="display:flex; gap:8px;">
                                 <button class="btn btn-secondary" style="border-color: #ff5555; color: #ff5555;" onclick="this.parentNode.parentNode.style.display='none'">Hylkää</button>
-                                <button class="btn btn-secondary" style="border-color: var(--ai-gradient-start); color: var(--ai-gradient-start);" onclick="this.parentNode.parentNode.style.opacity='0.5'; this.innerHTML='Hyväksytty ✓'">Hyväksy</button>
+                                <button class="btn btn-secondary" style="border-color: var(--ai-gradient-start); color: var(--ai-gradient-start);" onclick="this.parentNode.parentNode.style.opacity='0.5'; this.innerHTML='Hyväksytty'">Hyväksy</button>
                             </div>
                         </div>
 
@@ -449,7 +449,7 @@
                             </div>
                             <div style="display:flex; gap:8px;">
                                 <button class="btn btn-secondary" style="border-color: #ff5555; color: #ff5555;" onclick="this.parentNode.parentNode.style.display='none'">Hylkää</button>
-                                <button class="btn btn-secondary" style="border-color: var(--ai-gradient-start); color: var(--ai-gradient-start);" onclick="this.parentNode.parentNode.style.opacity='0.5'; this.innerHTML='Hyväksytty ✓'">Hyväksy</button>
+                                <button class="btn btn-secondary" style="border-color: var(--ai-gradient-start); color: var(--ai-gradient-start);" onclick="this.parentNode.parentNode.style.opacity='0.5'; this.innerHTML='Hyväksytty'">Hyväksy</button>
                             </div>
                         </div>
 
@@ -462,7 +462,7 @@
                             </div>
                             <div style="display:flex; gap:8px;">
                                 <button class="btn btn-secondary" style="border-color: #ff5555; color: #ff5555;" onclick="this.parentNode.parentNode.style.display='none'">Hylkää</button>
-                                <button class="btn btn-secondary" style="border-color: var(--ai-gradient-start); color: var(--ai-gradient-start);" onclick="this.parentNode.parentNode.style.opacity='0.5'; this.innerHTML='Hyväksytty ✓'">Hyväksy</button>
+                                <button class="btn btn-secondary" style="border-color: var(--ai-gradient-start); color: var(--ai-gradient-start);" onclick="this.parentNode.parentNode.style.opacity='0.5'; this.innerHTML='Hyväksytty'">Hyväksy</button>
                             </div>
                         </div>
 
@@ -835,17 +835,20 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                     <div class="editor-panel editable-panel glass-panel" style="height: 100%; overflow-y:auto; display:flex; flex-direction:column;">
                         <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
                             <h3 style="font-size:14px;">Kohdeversio <span class="badge glowing">Kappale</span></h3>
-                            <button id="replace-original-btn" class="btn btn-primary" style="font-size:11px; padding:4px 10px; background:linear-gradient(135deg, var(--ai-gradient-start), var(--ai-gradient-end)); border:none;">✅ Korvaa alkuperäinen</button>
+                            <div style="display:flex; gap:8px; align-items:center;">
+                                <button id="delete-edit-paragraph-btn" class="btn btn-secondary btn-danger-soft" style="font-size:11px; padding:4px 10px;">Poista kappale</button>
+                                <button id="replace-original-btn" class="btn btn-primary" style="font-size:11px; padding:4px 10px; background:linear-gradient(135deg, var(--ai-gradient-start), var(--ai-gradient-end)); border:none;">Korvaa alkuperäinen</button>
+                            </div>
                         </div>
                         <div id="edited-diff-preview" class="diff-preview is-empty"></div>
-                        <textarea class="editor-content editable" id="edited-text" style="flex:1; resize:none;" placeholder="Valitse kappale ja paina AI-nappia tai muokkaa käsin..."></textarea>
+                        <textarea class="editor-content editable" id="edited-text" style="flex:1; resize:none;" placeholder="Valitse kappale ja paina analysoi ja ehdota -nappia tai muokkaa käsin..."></textarea>
                     </div>
 
                     <!-- 4. Action / AI Settings -->
                     <div class="action-column" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 16px; padding-top: 10px;">
-                        <button class="ai-action-btn" id="ai-improve-btn" style="width:100%; aspect-ratio:1;" title="Pyydä tekoälyä korjaamaan valittu kappale tai luku">
+                        <button class="ai-action-btn" id="ai-improve-btn" style="width:100%; aspect-ratio:1;" title="Analysoi valittu kappale tai luku ja ehdota parannuksia">
                             <span class="sparkle">✨</span>
-                            <br>AI
+                            <br>Analysoi ja ehdota
                         </button>
                         
                         <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; font-size: 11px;">
@@ -855,7 +858,7 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                                 <option value="chapter">Koko valittu luku</option>
                             </select>
 
-                            <label style="color:var(--text-secondary); display:block; margin-bottom:6px;">Toimitusprompti:</label>
+                            <label style="color:var(--text-secondary); display:block; margin-bottom:6px;">Kehotetarkennus:</label>
                             <textarea id="toimitus-prompt" style="width:100%; height:70px; font-size:11px; background:rgba(255,255,255,0.05); color:var(--text-primary); border:1px solid #333; border-radius:4px; margin-bottom:12px; padding:6px; resize:none;">Korjaa virheet ja sujuvoita tekstiä, mutta säilytä kirjailijan oma ääni tarkasti.</textarea>
                             
                             <label style="color:var(--text-secondary); display:block; margin-bottom:6px;">Luovuus (Temp): <span id="temp-val">0.3</span></label>

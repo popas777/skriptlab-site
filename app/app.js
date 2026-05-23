@@ -346,6 +346,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let writingSelection = { cIndex: null, pIndex: null };
 
+    function persistManuscriptEdits() {
+        if (!window.manuscriptData) return;
+        window.saveManuscriptToDB(window.manuscriptData);
+        localStorage.setItem('skriptlab_raw_text', getFullManuscriptText(window.manuscriptData));
+        renderBookOverview();
+        if (window.renderNavList) window.renderNavList();
+    }
+
     function renderWritingView() {
         const nav = document.getElementById('writing-nav-list');
         const titleEl = document.getElementById('writing-selection-title');
@@ -363,6 +371,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (writingSelection.cIndex === null || !window.manuscriptData.chapters[writingSelection.cIndex]) {
             const firstChapterIndex = window.manuscriptData.chapters.length > 2 ? 2 : 0;
             writingSelection = { cIndex: firstChapterIndex, pIndex: 0 };
+        }
+        const activeChapter = window.manuscriptData.chapters[writingSelection.cIndex];
+        if (!Array.isArray(activeChapter.paragraphs)) activeChapter.paragraphs = [];
+        if (activeChapter.paragraphs.length === 0) activeChapter.paragraphs.push('');
+        if (
+            writingSelection.pIndex === null ||
+            writingSelection.pIndex === undefined ||
+            writingSelection.pIndex < 0 ||
+            writingSelection.pIndex >= activeChapter.paragraphs.length
+        ) {
+            writingSelection.pIndex = 0;
         }
 
         window.manuscriptData.chapters.forEach((chapter, cIndex) => {
@@ -398,10 +417,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const chapter = window.manuscriptData.chapters?.[writingSelection.cIndex];
         if (!chapter || writingSelection.pIndex === null) return;
         chapter.paragraphs[writingSelection.pIndex] = textEl.value.trim();
-        window.saveManuscriptToDB(window.manuscriptData);
-        localStorage.setItem('skriptlab_raw_text', getFullManuscriptText(window.manuscriptData));
-        renderBookOverview();
-        if (window.renderNavList) window.renderNavList();
+        persistManuscriptEdits();
         if (showAlert) alert('Teksti tallennettu.');
     }
 
@@ -415,6 +431,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!chapter) return;
         chapter.paragraphs.push('');
         writingSelection = { cIndex: chapterIndex, pIndex: chapter.paragraphs.length - 1 };
+        renderWritingView();
+    }
+
+    function deleteWritingParagraph() {
+        if (!window.manuscriptData) {
+            alert('Lataa tai valitse käsikirjoitus ensin.');
+            return;
+        }
+        const chapter = window.manuscriptData.chapters?.[writingSelection.cIndex];
+        if (!chapter || writingSelection.pIndex === null || writingSelection.pIndex === undefined) {
+            alert('Valitse poistettava kappale ensin.');
+            return;
+        }
+        if (!confirm(`Poistetaanko kappale ${writingSelection.pIndex + 1}?`)) return;
+        chapter.paragraphs.splice(writingSelection.pIndex, 1);
+        if (chapter.paragraphs.length === 0) chapter.paragraphs.push('');
+        writingSelection.pIndex = Math.min(writingSelection.pIndex, chapter.paragraphs.length - 1);
+        persistManuscriptEdits();
         renderWritingView();
     }
 
@@ -708,6 +742,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const editedDiffPreview = document.getElementById('edited-diff-preview');
     let diffPreviewTimer = null;
 
+    function setAiButtonIdle() {
+        if (aiBtn) aiBtn.innerHTML = '<span class="sparkle">✨</span><br>Analysoi ja ehdota';
+    }
+
     function selectedEditText() {
         const sel = window.currentEditSelection || {};
         if (sel.cIndex === null || sel.cIndex === undefined || !window.manuscriptData?.chapters?.[sel.cIndex]) {
@@ -764,12 +802,12 @@ document.addEventListener('DOMContentLoaded', () => {
         aiBtn.addEventListener('click', () => {
             const sourceText = selectedEditText();
             if (!sourceText || sourceText.length < 5) {
-                alert('Valitse ensin luku tai kappale navigoinnista ennen AI-muokkausta!');
+                alert('Valitse ensin luku tai kappale navigoinnista ennen muokkausta.');
                 return;
             }
             
             editableText.value = '';
-            aiBtn.innerHTML = '<span class="sparkle">⏳</span><br>Muokkaan...';
+            aiBtn.innerHTML = '<span class="sparkle">⏳</span><br>Analysoin...';
             aiBtn.style.pointerEvents = 'none';
             
             const promptEl = document.getElementById('toimitus-prompt');
@@ -801,7 +839,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             i++;
                             setTimeout(typeWriter, 8);
                         } else {
-                            aiBtn.innerHTML = '<span class="sparkle">✨</span><br>AI';
+                            setAiButtonIdle();
                             aiBtn.style.pointerEvents = 'auto';
                             editableText.style.backgroundColor = 'rgba(16, 185, 129, 0.15)';
                             renderEditedDiffPreview();
@@ -815,7 +853,7 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .catch(err => {
                 alert('Toimitus epäonnistui: ' + err.message);
-                aiBtn.innerHTML = '<span class="sparkle">✨</span><br>AI';
+                setAiButtonIdle();
                 aiBtn.style.pointerEvents = 'auto';
                 loadUsage();
             });
@@ -981,19 +1019,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const refreshBookPreviewBtn = document.getElementById('refresh-book-preview-btn');
     const downloadBookTextBtn = document.getElementById('download-book-text-btn');
-    const layoutOfferBasicBtn = document.getElementById('layout-offer-basic-btn');
     const layoutOfferEbookBtn = document.getElementById('layout-offer-ebook-btn');
     const layoutOfferPrintBtn = document.getElementById('layout-offer-print-btn');
     const saveWritingBtn = document.getElementById('save-writing-btn');
     const addWritingParagraphBtn = document.getElementById('add-writing-paragraph-btn');
+    const deleteWritingParagraphBtn = document.getElementById('delete-writing-paragraph-btn');
 
     if (refreshBookPreviewBtn) refreshBookPreviewBtn.addEventListener('click', renderBookOverview);
     if (downloadBookTextBtn) downloadBookTextBtn.addEventListener('click', downloadCurrentBookText);
-    if (layoutOfferBasicBtn) layoutOfferBasicBtn.addEventListener('click', () => requestLayoutOffer('Peruskirjataitto'));
     if (layoutOfferEbookBtn) layoutOfferEbookBtn.addEventListener('click', () => requestLayoutOffer('E-kirja'));
     if (layoutOfferPrintBtn) layoutOfferPrintBtn.addEventListener('click', () => requestLayoutOffer('Painovalmis PDF'));
     if (saveWritingBtn) saveWritingBtn.addEventListener('click', () => saveWritingText(true));
     if (addWritingParagraphBtn) addWritingParagraphBtn.addEventListener('click', addWritingParagraph);
+    if (deleteWritingParagraphBtn) deleteWritingParagraphBtn.addEventListener('click', deleteWritingParagraph);
 
     function createManuscriptFromText(title, text) {
         let bookData = {
@@ -1348,6 +1386,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Korvaa alkuperäinen -napin logiikka
     const replaceBtn = document.getElementById('replace-original-btn');
+    const deleteEditParagraphBtn = document.getElementById('delete-edit-paragraph-btn');
     if (replaceBtn) {
         replaceBtn.addEventListener('click', () => {
             const sel = window.currentEditSelection;
@@ -1361,7 +1400,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert('Muokattu teksti on tyhjä!');
                 return;
             }
-            if (!confirm(`Korvatanko alkuperäinen kappale ${sel.pIndex + 1} muokatulla versiolla?`)) return;
             
             // Päivitä manuscriptData
             if (editScopeSelect && editScopeSelect.value === 'chapter') {
@@ -1373,14 +1411,35 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 window.manuscriptData.chapters[sel.cIndex].paragraphs[sel.pIndex] = newText;
             }
-            window.saveManuscriptToDB(window.manuscriptData);
+            persistManuscriptEdits();
             
             // Päivitä näkymä
             window.loadParagraph(sel.cIndex, sel.pIndex, null);
+            renderWritingView();
             
             // Vihreä välähdys onnistumisesta
             editedText.style.backgroundColor = 'rgba(16, 185, 129, 0.2)';
             setTimeout(() => { editedText.style.backgroundColor = 'transparent'; }, 800);
+        });
+    }
+
+    if (deleteEditParagraphBtn) {
+        deleteEditParagraphBtn.addEventListener('click', () => {
+            const sel = window.currentEditSelection;
+            const chapter = window.manuscriptData?.chapters?.[sel.cIndex];
+            if (sel.cIndex === null || sel.pIndex === null || !chapter) {
+                alert('Valitse poistettava kappale ensin.');
+                return;
+            }
+            if (!confirm(`Poistetaanko kappale ${sel.pIndex + 1}?`)) return;
+            chapter.paragraphs.splice(sel.pIndex, 1);
+            if (chapter.paragraphs.length === 0) chapter.paragraphs.push('');
+            const nextIndex = Math.min(sel.pIndex, chapter.paragraphs.length - 1);
+            window.currentEditSelection = { cIndex: sel.cIndex, pIndex: nextIndex };
+            if (writingSelection.cIndex === sel.cIndex) writingSelection.pIndex = nextIndex;
+            persistManuscriptEdits();
+            window.loadParagraph(sel.cIndex, nextIndex, null);
+            renderWritingView();
         });
     }
 

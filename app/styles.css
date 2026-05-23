@@ -389,6 +389,15 @@ textarea.editor-content {
     width: 100%;
     margin-bottom: 10px;
 }
+.btn-danger-soft {
+    border-color: rgba(239, 68, 68, 0.45) !important;
+    color: #fca5a5 !important;
+    background: rgba(239, 68, 68, 0.08) !important;
+}
+.btn-danger-soft:hover {
+    border-color: rgba(239, 68, 68, 0.75) !important;
+    background: rgba(239, 68, 68, 0.16) !important;
+}
 .writing-workspace {
     display: grid;
     grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
