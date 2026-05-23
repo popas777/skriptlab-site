@@ -388,6 +388,53 @@ textarea.editor-content {
     width: 100%;
     margin-bottom: 10px;
 }
+.writing-workspace {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+    gap: 18px;
+    min-height: calc(100vh - 190px);
+}
+.writing-nav,
+.writing-editor {
+    border-radius: 8px;
+    overflow: hidden;
+}
+.writing-nav {
+    padding: 16px;
+}
+.writing-nav h3 {
+    color: var(--text-primary);
+    font-size: 14px;
+    margin-bottom: 12px;
+}
+.writing-nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.writing-nav li {
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 5px 0;
+    font-size: 13px;
+}
+.writing-nav li.active {
+    color: var(--ai-gradient-start);
+    font-weight: 600;
+}
+.writing-text {
+    width: 100%;
+    min-height: calc(100vh - 260px);
+    padding: 24px;
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: vertical;
+    color: var(--text-primary);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 17px;
+    line-height: 1.8;
+}
 
 .action-column { display: flex; align-items: center; justify-content: center; }
 .ai-action-btn {

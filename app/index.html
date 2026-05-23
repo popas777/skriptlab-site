@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=27">
+    <link rel="stylesheet" href="styles.css?v=28">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -52,6 +52,7 @@
             <nav class="sidebar-nav">
                 <ul id="nav-menu">
                     <li class="active" data-view="view-kirjani">Käsikirjoitukseni</li>
+                    <li data-view="view-kirjoita">Kirjoita</li>
                     <li data-view="view-sopimukset">Sopimukset</li>
                     <li data-view="view-aikajana">Aikajana</li>
                     <li data-view="view-analyysi">Analyysi</li>
@@ -76,6 +77,32 @@
                 <div class="meta-item">
                     <span class="meta-label">Sanasto:</span>
                     <span class="meta-value" id="sidebar-vocab">-</span>
+                </div>
+            </div>
+
+            <!-- 1.2 VIEW: KIRJOITA -->
+            <div id="view-kirjoita" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>Kirjoita</h2>
+                        <p>Käsikirjoitus: [Ei aktiivista teosta] (kirjoittaminen ja tekstin jatkaminen)</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" id="add-writing-paragraph-btn">Uusi kappale</button>
+                        <button class="btn btn-primary" id="save-writing-btn">Tallenna teksti</button>
+                    </div>
+                </div>
+                <div class="writing-workspace">
+                    <aside class="writing-nav glass-panel">
+                        <h3>Luvut ja kappaleet</h3>
+                        <ul id="writing-nav-list"></ul>
+                    </aside>
+                    <section class="writing-editor glass-panel">
+                        <div class="panel-header">
+                            <h3 id="writing-selection-title">Valitse kappale</h3>
+                        </div>
+                        <textarea id="writing-text" class="writing-text" placeholder="Valitse kappale tai aloita uusi käsikirjoitus lataamalla teksti Käsikirjoitukseni-näkymässä."></textarea>
+                    </section>
                 </div>
             </div>
             <div class="usage-box" id="usage-box">
@@ -243,17 +270,17 @@
             <div id="view-analyysi" class="view-section hidden">
                 <div class="header">
                     <div class="header-info">
-                        <h2>Käsikirjoituksen Analyysi</h2>
-                        <p>Käsikirjoitus: [Ei aktiivista teosta] (AI-avusteinen arviointi rakenne-, tyyli- ja sisältötasolla)</p>
+                        <h2>Käsikirjoituksen analyysi</h2>
+                        <p>Käsikirjoitus: [Ei aktiivista teosta] (rakenne, tyyli ja toimituksellinen arvio)</p>
                     </div>
                     <div class="header-actions">
-                        <button class="btn btn-primary" id="run-analysis-btn" style="background:linear-gradient(135deg, var(--ai-gradient-start), var(--ai-gradient-end)); border:none;">✨ Suorita Automaattinen Kirja-analyysi</button>
+                        <button class="btn btn-primary" id="run-analysis-btn" style="background:linear-gradient(135deg, var(--ai-gradient-start), var(--ai-gradient-end)); border:none;">Suorita kirja-analyysi</button>
                     </div>
                 </div>
                 
                 <div id="analysis-loader" class="hidden" style="text-align:center; padding: 60px 40px;">
-                    <h3 class="sparkle glow-text" style="font-size: 24px;">✨ Tekoäly analysoi käsikirjoitustasi...</h3>
-                    <p style="color:var(--text-secondary); margin-top:12px;">Louhitaan tyyli, synopsis, sanasto, markkinointitekstit ja rakenneanalyysi</p>
+                    <h3 class="sparkle glow-text" style="font-size: 24px;">Analyysi käynnissä...</h3>
+                    <p style="color:var(--text-secondary); margin-top:12px;">Jäsennetään tyyli, synopsis, sanasto, markkinointitekstit ja rakenne</p>
                     <div style="margin-top:24px; font-size:36px; font-weight:600; color:var(--ai-gradient-start);" id="analysis-timer">0:00</div>
                     <p style="color:var(--text-secondary); margin-top:8px; font-size:13px;">Arvioitu kesto: 1–3 minuuttia käsikirjoituksen pituudesta riippuen</p>
                     <div style="margin-top:20px; width:200px; height:4px; background:rgba(255,255,255,0.1); border-radius:4px; margin-left:auto; margin-right:auto; overflow:hidden;">
@@ -264,11 +291,11 @@
                 <div id="analysis-results" class="hidden">
                     <div class="grid-cards" style="grid-template-columns: 1fr;">
                         <div class="card glass-panel" style="border-left: 4px solid var(--ai-gradient-start);">
-                            <h3 style="color: var(--ai-gradient-start); margin-bottom: 12px;">Tekoälyn Toimituksellinen arvio & Vinkit</h3>
+                            <h3 style="color: var(--ai-gradient-start); margin-bottom: 12px;">Analyysin tulokset</h3>
                             <p style="line-height:1.6; color:var(--text-secondary);" id="mock-analysis-text">
                                 Teksti etenee jouhevasti ja tyyli on mukaansatempaavaa, kieli sopii hienosti modernille yleisölle.<br><br>
                                 <strong>Rakenne-ehdotus:</strong> Alku on nopeatahtinen, mutta keskivaiheilla tempo hidastuu hieman liikaa. Harkitse lukujen tiivistämistä tai joidenkin sivulauseiden poistamista, jotta päästään nopeammin käsiksi itse pääsiemenen etsintään.<br><br>
-                                <strong>Vinkki:</strong> Tekoälyn palastelu-ominaisuus otetaan myöhemmin käyttöön, jotta kappalejaot menevät täydellisesti oikein.
+                                <strong>Vinkki:</strong> Rakenne voidaan siirtää suoraan toimitusnäkymään, kun analyysi on valmis.
                             </p>
                             <button class="btn btn-secondary hidden" id="toggle-analysis-editor-btn" style="margin-top:16px;">Muokkaa analyysin tuloksia</button>
                             <div id="analysis-editor" class="analysis-editor hidden"></div>
@@ -861,6 +888,6 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=2"></script>
-    <script src="app.js?v=27"></script>
+    <script src="app.js?v=28"></script>
 </body>
 </html>
