@@ -17,7 +17,7 @@ window.saveManuscriptToDB = async function(data) {
         });
         const saved = await res.json();
         if (!res.ok) throw new Error(saved.detail || "Tallennus epäonnistui.");
-        data.id = saved.id;
+        Object.assign(data, saved);
         if (data.id) localStorage.setItem(ACTIVE_PROJECT_ID_KEY, String(data.id));
         localStorage.setItem('skriptlab_manuscript', JSON.stringify(data));
         return data;
@@ -1272,10 +1272,66 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>`;
     }
 
+    function projectAccessLevel(data) {
+        if (data.access_level) return data.access_level;
+        if (!data.owner_user_id || (currentUser && Number(data.owner_user_id) === Number(currentUser.id))) return 'owner';
+        return 'shared_edit';
+    }
+
+    function canEditProject(data) {
+        return ['admin', 'owner', 'shared_edit'].includes(projectAccessLevel(data));
+    }
+
+    function canManageProject(data) {
+        return ['admin', 'owner'].includes(projectAccessLevel(data));
+    }
+
+    function projectAccessLabel(data) {
+        const level = projectAccessLevel(data);
+        if (level === 'admin') return 'Admin-näkymä';
+        if (level === 'owner') return 'Oma käsikirjoitus';
+        if (level === 'shared_view') return 'Jaettu sinulle';
+        if (level === 'shared_edit') return 'Jaettu sinulle';
+        return 'Käsikirjoitus';
+    }
+
+    function projectOwnerLine(data) {
+        if (!data.owner_email || (currentUser && Number(data.owner_user_id) === Number(currentUser.id))) return '';
+        const owner = data.owner_display_name || data.owner_email;
+        return `<p class="card-meta">Omistaja: ${escapeHtml(owner)}</p>`;
+    }
+
+    function projectSharedLine(data) {
+        if (!Array.isArray(data.shared_with) || data.shared_with.length === 0) return '';
+        const names = data.shared_with
+            .map(share => share.display_name || share.email)
+            .filter(Boolean)
+            .slice(0, 3)
+            .join(', ');
+        const suffix = data.shared_with.length > 3 ? ` +${data.shared_with.length - 3}` : '';
+        return `<p class="card-meta">Jaettu: ${escapeHtml(names + suffix)}</p>`;
+    }
+
+    function projectShareControls(data) {
+        if (!data.id || !canManageProject(data)) return '';
+        return `
+            <div class="project-share-controls" style="margin-top:12px;" onclick="event.stopPropagation();">
+                <label style="font-size:11px; color:var(--text-secondary); display:block; margin-bottom:6px;">Jaa käyttäjälle:</label>
+                <div style="display:flex; gap:6px;">
+                    <input type="email" class="share-email-input" placeholder="sähköposti" style="min-width:0; flex:1; background:rgba(255,255,255,0.06); border:1px solid var(--border-color); color:var(--text-primary); border-radius:6px; padding:7px 8px; font-family:inherit; font-size:12px;">
+                    <button class="share-project-btn" style="padding:7px 10px; font-size:12px; border-radius:6px; border:1px solid var(--border-color); background:rgba(255,255,255,0.08); color:var(--text-primary); cursor:pointer;">Jaa</button>
+                </div>
+            </div>
+        `;
+    }
+
     function addManuscriptCard(data, statusText, gridCards) {
         gridCards = gridCards || document.querySelector('#view-kirjani .grid-cards');
         if (!gridCards) return;
 
+        const editable = canEditProject(data);
+        const manageable = canManageProject(data);
+        const accessLabel = projectAccessLabel(data);
         const newCard = document.createElement('div');
         newCard.className = 'card glass-panel interactive';
         newCard.dataset.projectId = data.id || '';
@@ -1286,37 +1342,53 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         newCard.innerHTML = `
             <div style="font-size:30px; margin-bottom:4px;">📄</div>
-            <input type="text" class="book-title-input" value="${escapeHtml(data.title)}" style="width:100%; font-size:18px; font-weight:bold; background:transparent; border:none; border-bottom:1px dashed rgba(255,255,255,0.3); color:var(--text-primary); font-family:inherit; outline:none; margin-bottom:8px; padding-bottom:4px;">
+            <input type="text" class="book-title-input" value="${escapeHtml(data.title)}" ${editable ? '' : 'readonly'} style="width:100%; font-size:18px; font-weight:bold; background:transparent; border:none; border-bottom:1px dashed rgba(255,255,255,0.3); color:var(--text-primary); font-family:inherit; outline:none; margin-bottom:8px; padding-bottom:4px;">
             <div style="margin-bottom:12px;" onclick="event.stopPropagation();">
                 <label style="font-size:11px; color:var(--text-secondary);">Kirjailija:</label>
-                <input type="text" class="book-author-input" value="${escapeHtml(data.author)}" style="width:100%; background:transparent; border:none; border-bottom:1px solid #333; color:var(--text-primary); font-family:inherit; font-size:13px; outline:none; padding:2px 0;">
+                <input type="text" class="book-author-input" value="${escapeHtml(data.author)}" ${editable ? '' : 'readonly'} style="width:100%; background:transparent; border:none; border-bottom:1px solid #333; color:var(--text-primary); font-family:inherit; font-size:13px; outline:none; padding:2px 0;">
             </div>
             <p class="card-meta">${escapeHtml(statusText)}</p>
+            ${projectOwnerLine(data)}
+            ${projectSharedLine(data)}
+            <p class="card-status"><span class="badge">${escapeHtml(accessLabel)}</span></p>
             <p class="card-status"><span class="badge glowing">${data.analysis && data.analysis.style ? 'Analysoitu' : 'Odottaa analyysiä'}</span></p>
-            <button class="delete-project-btn" style="margin-top:12px; padding:6px 12px; font-size:12px; background:rgba(255,50,50,0.2); color:var(--text-primary); border:1px solid rgba(255,50,50,0.5); border-radius:6px; cursor:pointer;">Poista teos</button>
+            ${projectShareControls(data)}
+            ${manageable ? '<button class="delete-project-btn" style="margin-top:12px; padding:6px 12px; font-size:12px; background:rgba(255,50,50,0.2); color:var(--text-primary); border:1px solid rgba(255,50,50,0.5); border-radius:6px; cursor:pointer;">Poista teos</button>' : ''}
         `;
         const titleInput = newCard.querySelector('.book-title-input');
         const authorInput = newCard.querySelector('.book-author-input');
         const deleteBtn = newCard.querySelector('.delete-project-btn');
+        const shareBtn = newCard.querySelector('.share-project-btn');
+        const shareInput = newCard.querySelector('.share-email-input');
         [titleInput, authorInput].forEach(input => input.addEventListener('click', event => event.stopPropagation()));
-        titleInput.addEventListener('change', () => {
-            data.title = titleInput.value.trim() || 'Nimetön';
-            if (window.manuscriptData && window.manuscriptData.id === data.id) window.manuscriptData.title = data.title;
-            window.saveManuscriptToDB(data);
-            window.updateDynamicTexts();
-            renderBookOverview();
-        });
-        authorInput.addEventListener('change', () => {
-            data.author = authorInput.value.trim() || 'Tuntematon';
-            if (window.manuscriptData && window.manuscriptData.id === data.id) window.manuscriptData.author = data.author;
-            window.saveManuscriptToDB(data);
-            window.updateDynamicTexts();
-            renderBookOverview();
-        });
-        deleteBtn.addEventListener('click', event => {
-            event.stopPropagation();
-            window.deleteManuscript(data.id);
-        });
+        if (editable) {
+            titleInput.addEventListener('change', () => {
+                data.title = titleInput.value.trim() || 'Nimetön';
+                if (window.manuscriptData && window.manuscriptData.id === data.id) window.manuscriptData.title = data.title;
+                window.saveManuscriptToDB(data);
+                window.updateDynamicTexts();
+                renderBookOverview();
+            });
+            authorInput.addEventListener('change', () => {
+                data.author = authorInput.value.trim() || 'Tuntematon';
+                if (window.manuscriptData && window.manuscriptData.id === data.id) window.manuscriptData.author = data.author;
+                window.saveManuscriptToDB(data);
+                window.updateDynamicTexts();
+                renderBookOverview();
+            });
+        }
+        if (shareBtn && shareInput) {
+            shareBtn.addEventListener('click', event => {
+                event.stopPropagation();
+                window.shareProject(data.id, shareInput.value.trim());
+            });
+        }
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', event => {
+                event.stopPropagation();
+                window.deleteManuscript(data.id);
+            });
+        }
         gridCards.appendChild(newCard);
     }
 
@@ -1351,6 +1423,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const projects = await res.json();
         renderProjectCards(projects || []);
     }
+
+    window.shareProject = async function(projectId, email) {
+        if (!projectId) {
+            alert('Tallenna käsikirjoitus ensin ennen jakamista.');
+            return;
+        }
+        if (!email) {
+            alert('Anna käyttäjän sähköpostiosoite.');
+            return;
+        }
+        try {
+            const res = await apiFetch(`/api/projects/${projectId}/shares`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ email, permission: 'edit' })
+            });
+            if (!res.ok) throw new Error(await apiErrorMessage(res, 'Jakaminen epäonnistui.'));
+            await loadProjects();
+            alert('Käsikirjoitus jaettiin käyttäjälle.');
+        } catch (err) {
+            alert('Jakaminen epäonnistui: ' + err.message);
+        }
+    };
 
     window.deleteManuscript = async function(projectId) {
         if (!confirm('Poistetaanko teos pysyvästi?')) return;
