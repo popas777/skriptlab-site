@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedTranslation = null;
     let syncingTranslationScroll = false;
     let translationTimerInterval = null;
+    let latestTranslationEstimate = null;
     const fullWorkspaceRoles = new Set(['admin', 'test_user']);
     const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-kirja', 'view-analyysi', 'view-toimitus']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset']);
@@ -1531,19 +1532,40 @@ document.addEventListener('DOMContentLoaded', () => {
         return String(warnings || '').split('\n').map(line => line.trim()).filter(Boolean).join(' ');
     }
 
-    function startTranslationTimer() {
+    function translationEstimateKey(payload) {
+        return JSON.stringify({
+            project_id: payload?.project_id || null,
+            source_kind: payload?.source_kind || 'manuscript',
+            target_language: payload?.target_language || 'en',
+            style: payload?.style || 'faithful',
+            model: payload?.model || null,
+            chunk_words: payload?.chunk_words || 2000
+        });
+    }
+
+    function translationProgressText(seconds, estimate) {
+        const minutes = Math.floor(seconds / 60);
+        const rest = seconds % 60;
+        const elapsed = `${minutes}:${rest < 10 ? '0' : ''}${rest}`;
+        const chunks = Number(estimate?.chunks_count || 0);
+        const estimatedSeconds = Number(estimate?.estimated_seconds || 0);
+        if (!chunks) return elapsed;
+        const secondsPerChunk = estimatedSeconds > 0 ? Math.max(1, estimatedSeconds / chunks) : 45;
+        const currentPart = Math.min(chunks, Math.max(1, Math.floor(seconds / secondsPerChunk) + 1));
+        return `${elapsed} · arvioitu etenemä: osa ${currentPart}/${chunks}`;
+    }
+
+    function startTranslationTimer(estimate = null) {
         const timer = document.getElementById('translation-timer');
         window.clearInterval(translationTimerInterval);
         let seconds = 0;
         if (timer) {
-            timer.textContent = '0:00';
+            timer.textContent = translationProgressText(seconds, estimate);
             timer.classList.remove('hidden');
         }
         translationTimerInterval = window.setInterval(() => {
             seconds++;
-            const minutes = Math.floor(seconds / 60);
-            const rest = seconds % 60;
-            if (timer) timer.textContent = `${minutes}:${rest < 10 ? '0' : ''}${rest}`;
+            if (timer) timer.textContent = translationProgressText(seconds, estimate);
         }, 1000);
     }
 
@@ -1627,29 +1649,38 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
+    async function fetchTranslationEstimate(payload) {
+        const res = await apiFetch('/api/translations/estimate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Arvion muodostus epäonnistui.');
+        latestTranslationEstimate = Object.assign({ payload_key: translationEstimateKey(payload) }, data);
+        return latestTranslationEstimate;
+    }
+
     async function updateTranslationEstimate() {
         const estimateEl = document.getElementById('translation-estimate');
         const payload = translationRequestPayload();
         if (!estimateEl || !payload.project_id) {
             if (estimateEl) estimateEl.textContent = 'Valitse ensin käsikirjoitus.';
+            latestTranslationEstimate = null;
             return;
         }
         const project = currentTranslationProject();
         if (!updateTranslationAnalysisNotice(project)) {
             estimateEl.textContent = translationAnalysisMessage();
+            latestTranslationEstimate = null;
             return;
         }
         estimateEl.textContent = 'Lasketaan arviota...';
         try {
-            const res = await apiFetch('/api/translations/estimate', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.detail || 'Arvion muodostus epäonnistui.');
+            const data = await fetchTranslationEstimate(payload);
             estimateEl.textContent = `${formatNumber(data.word_count)} sanaa, ${data.chunks_count} osaa, arvioitu kesto noin ${formatDuration(data.estimated_seconds)}.`;
         } catch (err) {
+            latestTranslationEstimate = null;
             estimateEl.textContent = err.message;
         }
     }
@@ -1768,9 +1799,14 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         if (button) button.disabled = true;
-        startTranslationTimer();
-        if (status) status.textContent = 'Käännös käynnissä. Tämä voi kestää useita minuutteja pitkällä kirjalla.';
         try {
+            if (status) status.textContent = 'Valmistellaan käännöstä ja lasketaan osat...';
+            const estimateKey = translationEstimateKey(payload);
+            const estimate = latestTranslationEstimate?.payload_key === estimateKey
+                ? latestTranslationEstimate
+                : await fetchTranslationEstimate(payload);
+            startTranslationTimer(estimate);
+            if (status) status.textContent = `Käännös käynnissä. ${estimate.chunks_count} osaa, arvioitu kesto noin ${formatDuration(estimate.estimated_seconds)}.`;
             const res = await apiFetch('/api/translations', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
