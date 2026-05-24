@@ -229,6 +229,7 @@
                         <div style="display:flex; gap: 10px; flex-wrap:wrap;">
                             <button id="save-usage-limit-btn" class="btn btn-primary">Tallenna rajat</button>
                             <button id="reset-usage-limit-btn" class="btn btn-secondary">Palauta oletusrajat</button>
+                            <button id="reset-usage-counters-btn" class="btn btn-secondary">Nollaa tämän kuun käyttö</button>
                         </div>
                         <p id="usage-limit-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
                     </div>
@@ -281,6 +282,7 @@
         const usageLimitStatus = document.getElementById('usage-limit-status');
         const saveUsageLimitBtn = document.getElementById('save-usage-limit-btn');
         const resetUsageLimitBtn = document.getElementById('reset-usage-limit-btn');
+        const resetUsageCountersBtn = document.getElementById('reset-usage-counters-btn');
         const limitAnalysisMonthly = document.getElementById('limit-analysis-monthly');
         const limitAnalysisChars = document.getElementById('limit-analysis-chars');
         const limitEditMonthly = document.getElementById('limit-edit-monthly');
@@ -753,6 +755,28 @@
                     usageLimitStatus.textContent = err.message;
                 } finally {
                     resetUsageLimitBtn.disabled = false;
+                }
+            });
+        }
+
+        if (resetUsageCountersBtn) {
+            resetUsageCountersBtn.addEventListener('click', async () => {
+                if (!selectedLimitUserId) return;
+                if (!confirm(`Nollataanko käyttäjän ${selectedLimitUserName} tämän kuun käyttömäärät?`)) return;
+                resetUsageCountersBtn.disabled = true;
+                usageLimitStatus.textContent = 'Nollataan tämän kuun käyttöä...';
+                try {
+                    const res = await window.SkriptLabAuth.fetch(`/api/admin/users/${selectedLimitUserId}/usage/reset`, {
+                        method: 'POST'
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.detail || 'Käytön nollaus epäonnistui.');
+                    fillUsageLimitForm(data);
+                    usageLimitStatus.textContent = `Tämän kuun käyttö nollattu käyttäjälle ${selectedLimitUserName}.`;
+                } catch (err) {
+                    usageLimitStatus.textContent = err.message;
+                } finally {
+                    resetUsageCountersBtn.disabled = false;
                 }
             });
         }
