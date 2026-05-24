@@ -943,6 +943,7 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                         <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
                             <h3 style="font-size:14px;">Kohdeversio <span class="badge glowing">Kappale</span></h3>
                             <div style="display:flex; gap:8px; align-items:center;">
+                                <button id="italic-selection-btn" class="btn btn-secondary" style="font-size:11px; padding:4px 10px;">Kursivoi</button>
                                 <button id="delete-edit-paragraph-btn" class="btn btn-secondary btn-danger-soft" style="font-size:11px; padding:4px 10px;">Poista kappale</button>
                                 <button id="replace-original-btn" class="btn btn-primary" style="font-size:11px; padding:4px 10px; background:linear-gradient(135deg, var(--ai-gradient-start), var(--ai-gradient-end)); border:none;">Korvaa alkuperäinen</button>
                             </div>
@@ -983,12 +984,21 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                                     <option value="chapter">Valittu luku</option>
                                     <option value="book">Koko käsikirjoitus</option>
                                 </select>
-                                <button class="btn btn-secondary" id="remove-markdown-btn" type="button">Poista *-merkinnät</button>
                                 <label>Etsi</label>
                                 <input id="mass-find-input" type="text" placeholder="Etsittävä teksti">
                                 <label>Korvaa</label>
                                 <input id="mass-replace-input" type="text" placeholder="Korvaava teksti">
                                 <button class="btn btn-secondary" id="mass-replace-btn" type="button">Etsi ja korvaa</button>
+                                <label>Kursivoi automaatiolla</label>
+                                <div class="italic-rule-list">
+                                    <label><input type="checkbox" class="italic-rule-option" value="Teosten nimet: Kirjojen, elokuvien, lehtien, taideteosten ja musiikkialbumien nimet kursivoidaan."> Teosten nimet</label>
+                                    <label><input type="checkbox" class="italic-rule-option" value="Ajatukset ja sisäinen monologi: Hahmon ääneen lausumattomat ajatukset esitetään usein kursiivilla."> Ajatukset ja sisäinen monologi</label>
+                                    <label><input type="checkbox" class="italic-rule-option" value="Korostus ja painotus: Yksittäisen sanan tai lauseen korostaminen lauseen sisällä."> Korostus ja painotus</label>
+                                    <label><input type="checkbox" class="italic-rule-option" value="Vieras- ja lainasanat: Vieraiden kielten sanat, termit ja latinankieliset vastineet kursivoidaan, kun se sopii tekstiin."> Vieras- ja lainasanat</label>
+                                    <label><input type="checkbox" class="italic-rule-option" value="Kerronnan tasot: Takaumat, unet, kirjeet ja tekstiviestit voidaan erottaa kursiivilla muusta kerronnasta."> Kerronnan tasot</label>
+                                    <label><input type="checkbox" class="italic-rule-option" value="Paino- ja äänneasut: Kursivoi sanat, joita hahmo painottaa puheessaan poikkeuksellisen voimakkaasti."> Paino- ja äänneasut</label>
+                                </div>
+                                <button class="btn btn-secondary" id="ai-italicize-btn" type="button">Kursivoi automaatiolla</button>
                                 <button class="btn btn-secondary" id="ai-restructure-btn" type="button">Ehdota uutta jakoa</button>
                                 <p id="mass-edit-status"></p>
                             </div>

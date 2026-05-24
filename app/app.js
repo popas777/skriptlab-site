@@ -360,6 +360,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.appendChild(chapterButton);
 
                 if (index === activeCIndex) {
+                    const titleInput = document.createElement('input');
+                    titleInput.type = 'text';
+                    titleInput.className = 'chapter-title-input';
+                    titleInput.value = chapter.title || `Luku ${index + 1}`;
+                    titleInput.setAttribute('aria-label', 'Luvun nimi');
+                    titleInput.addEventListener('click', event => event.stopPropagation());
+                    titleInput.addEventListener('change', () => {
+                        if (handlers.onChapterRename) handlers.onChapterRename(index, titleInput.value.trim());
+                    });
+                    titleInput.addEventListener('keydown', event => {
+                        if (event.key === 'Enter') {
+                            event.preventDefault();
+                            titleInput.blur();
+                        }
+                    });
+                    item.appendChild(titleInput);
+
                     const paragraphList = document.createElement('div');
                     paragraphList.className = 'paragraph-list';
                     const paragraphs = chapter.paragraphs || [];
@@ -738,6 +755,14 @@ document.addEventListener('DOMContentLoaded', () => {
             onParagraphSelect: (cIndex, pIndex) => {
                 saveWritingText(false);
                 writingSelection = { cIndex, pIndex };
+                renderWritingView();
+            },
+            onChapterRename: (cIndex, title) => {
+                saveWritingText(false);
+                const chapter = window.manuscriptData.chapters[cIndex];
+                if (!chapter) return;
+                chapter.title = title || `Luku ${cIndex + 1}`;
+                persistManuscriptEdits();
                 renderWritingView();
             }
         });
@@ -1177,6 +1202,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 4. Split-Screen Editor Logic ---
     const aiBtn = document.getElementById('ai-improve-btn');
     const editableText = document.getElementById('edited-text');
+    const italicSelectionBtn = document.getElementById('italic-selection-btn');
     const editScopeSelect = document.getElementById('edit-scope');
     const editorWorkspace = document.getElementById('editor-workspace');
     const addEditorChapterBtn = document.getElementById('add-editor-chapter-btn');
@@ -1186,10 +1212,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const massEditToggle = document.getElementById('mass-edit-toggle');
     const massEditBody = document.getElementById('mass-edit-body');
     const massEditScope = document.getElementById('mass-edit-scope');
-    const removeMarkdownBtn = document.getElementById('remove-markdown-btn');
     const massFindInput = document.getElementById('mass-find-input');
     const massReplaceInput = document.getElementById('mass-replace-input');
     const massReplaceBtn = document.getElementById('mass-replace-btn');
+    const aiItalicizeBtn = document.getElementById('ai-italicize-btn');
     const aiRestructureBtn = document.getElementById('ai-restructure-btn');
     const massEditStatus = document.getElementById('mass-edit-status');
 
@@ -1265,6 +1291,43 @@ document.addEventListener('DOMContentLoaded', () => {
         return massEditScope?.value === 'book' ? 'book' : 'chapter';
     }
 
+    function chapterToMassText(chapter) {
+        return [chapter?.title || '', ...(chapter?.paragraphs || [])].filter(Boolean).join('\n\n');
+    }
+
+    function applyMassTextToChapter(chapter, text) {
+        const parts = splitIntoParagraphs(text);
+        if (!parts.length) return;
+        chapter.title = parts.shift() || chapter.title || 'Nimetön luku';
+        chapter.paragraphs = parts.length ? parts : [''];
+    }
+
+    function selectedItalicRules() {
+        return Array.from(document.querySelectorAll('.italic-rule-option:checked'))
+            .map(input => input.value)
+            .filter(Boolean);
+    }
+
+    function wrapEditableSelectionWithItalics() {
+        if (!editableText) return;
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) {
+            alert('Valitse ensin kursivoitava teksti kohdeversiosta.');
+            return;
+        }
+        const range = selection.getRangeAt(0);
+        if (!editableText.contains(range.commonAncestorContainer)) {
+            alert('Valitse kursivoitava teksti kohdeversiosta.');
+            return;
+        }
+        const selected = selection.toString();
+        if (!selected.trim()) return;
+        range.deleteContents();
+        range.insertNode(document.createTextNode(`*${selected}*`));
+        selection.removeAllRanges();
+        renderEditedDiffPreview();
+    }
+
     function applyMassTextTransform(transform, statusText) {
         if (!window.manuscriptData?.chapters?.length) {
             alert('Lataa tai valitse käsikirjoitus ensin.');
@@ -1273,6 +1336,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const scope = massEditSelectionScope();
         if (scope === 'book') {
             window.manuscriptData.chapters.forEach(chapter => {
+                chapter.title = transform(chapter.title || '');
                 chapter.paragraphs = (chapter.paragraphs || []).map(paragraph => transform(paragraph));
             });
         } else {
@@ -1282,6 +1346,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert('Valitse luku ensin.');
                 return;
             }
+            chapter.title = transform(chapter.title || '');
             chapter.paragraphs = (chapter.paragraphs || []).map(paragraph => transform(paragraph));
         }
         persistManuscriptEdits();
@@ -1378,6 +1443,8 @@ document.addEventListener('DOMContentLoaded', () => {
         editScopeSelect.addEventListener('change', refreshEditableTextForScope);
     }
 
+    if (italicSelectionBtn) italicSelectionBtn.addEventListener('click', wrapEditableSelectionWithItalics);
+
     if (addEditorChapterBtn) addEditorChapterBtn.addEventListener('click', () => addChapterNearSelection('editor'));
     if (deleteEditorChapterBtn) deleteEditorChapterBtn.addEventListener('click', () => deleteSelectedChapter('editor'));
 
@@ -1386,15 +1453,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const isOpen = massEditToggle.getAttribute('aria-expanded') === 'true';
             massEditToggle.setAttribute('aria-expanded', String(!isOpen));
             massEditBody.classList.toggle('hidden', isOpen);
-        });
-    }
-
-    if (removeMarkdownBtn) {
-        removeMarkdownBtn.addEventListener('click', () => {
-            applyMassTextTransform(
-                text => text.replace(/\*\*/g, '').replace(/\*([^*\n]+)\*/g, '$1'),
-                'Tähtimerkinnät poistettu.'
-            );
         });
     }
 
@@ -1410,6 +1468,63 @@ document.addEventListener('DOMContentLoaded', () => {
                 text => text.split(findText).join(replaceText),
                 'Etsi ja korvaa tehty.'
             );
+        });
+    }
+
+    if (aiItalicizeBtn) {
+        aiItalicizeBtn.addEventListener('click', async () => {
+            if (!window.manuscriptData?.chapters?.length) {
+                alert('Lataa tai valitse käsikirjoitus ensin.');
+                return;
+            }
+            const rules = selectedItalicRules();
+            if (!rules.length) {
+                if (massEditStatus) massEditStatus.textContent = 'Valitse ensin vähintään yksi kursivointiperuste.';
+                return;
+            }
+            const scope = massEditSelectionScope();
+            const sel = window.currentEditSelection || {};
+            const chapter = window.manuscriptData.chapters[sel.cIndex];
+            const targets = scope === 'book'
+                ? window.manuscriptData.chapters.map((item, index) => ({ chapter: item, index }))
+                : (chapter ? [{ chapter, index: sel.cIndex }] : []);
+            if (!targets.length) {
+                alert('Valitse luku ensin.');
+                return;
+            }
+            if (!confirm('Lisätäänkö kursivointimerkinnät valittuun tekstiin automaattisesti?')) return;
+            aiItalicizeBtn.disabled = true;
+            if (massEditStatus) massEditStatus.textContent = 'Haetaan kursivointiehdotusta...';
+            try {
+                for (const target of targets) {
+                    const sourceText = chapterToMassText(target.chapter);
+                    const res = await apiFetch('/api/edit', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            text: sourceText,
+                            temperature: 0.2,
+                            prompt: `Lisää tekstiin kursivointimerkinnät vain tarvittaviin kohtiin. Käytä kursivointiin yksittäisiä tähtiä näin: *kursivoitu teksti*. Älä käytä tuplatähtiä. Säilytä luvun otsikko ensimmäisenä kappaleena ja säilytä kappalejako. Älä lisää selityksiä.\n\nKursivointiperusteet:\n- ${rules.join('\n- ')}`
+                        })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.detail || 'Kursivointi epäonnistui.');
+                    applyMassTextToChapter(target.chapter, data.edited_text || sourceText);
+                }
+                persistManuscriptEdits();
+                renderWritingView();
+                const next = window.currentEditSelection || { cIndex: firstBodyChapterIndex(), pIndex: 0 };
+                if (window.loadParagraph && window.manuscriptData.chapters[next.cIndex]) {
+                    window.loadParagraph(next.cIndex, Math.min(next.pIndex || 0, window.manuscriptData.chapters[next.cIndex].paragraphs.length - 1), null);
+                }
+                loadUsage();
+                if (massEditStatus) massEditStatus.textContent = 'Kursivointiehdotus lisätty.';
+            } catch (err) {
+                if (massEditStatus) massEditStatus.textContent = err.message;
+                loadUsage();
+            } finally {
+                aiItalicizeBtn.disabled = false;
+            }
         });
     }
 
@@ -2416,6 +2531,14 @@ document.addEventListener('DOMContentLoaded', () => {
             },
             onParagraphSelect: (nextCIndex, nextPIndex) => {
                 window.loadParagraph(nextCIndex, nextPIndex, null);
+            },
+            onChapterRename: (nextCIndex, title) => {
+                const chapter = window.manuscriptData.chapters[nextCIndex];
+                if (!chapter) return;
+                chapter.title = title || `Luku ${nextCIndex + 1}`;
+                persistManuscriptEdits();
+                renderWritingView();
+                window.loadParagraph(nextCIndex, Math.min(pIndex || 0, chapter.paragraphs.length - 1), null);
             }
         });
     }
