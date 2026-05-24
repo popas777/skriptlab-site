@@ -472,6 +472,25 @@ textarea.editor-content {
     background: rgba(255, 255, 255, 0.06);
     color: var(--text-primary);
 }
+.settings-row {
+    margin-top: 14px;
+}
+.settings-row label {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+.settings-row select,
+.settings-row input {
+    width: 100%;
+    padding: 9px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+    font-family: inherit;
+}
 .layout-offers button {
     width: 100%;
     margin-bottom: 10px;

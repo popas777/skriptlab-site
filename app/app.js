@@ -30,13 +30,18 @@ window.saveManuscriptToDB = async function(data) {
 
 document.addEventListener('DOMContentLoaded', () => {
     const currentUser = window.SkriptLabAuth.getUser();
+    let availableProjects = [];
+    let translationModels = [];
+    let latestTranslationText = '';
     const fullWorkspaceRoles = new Set(['admin', 'test_user']);
     const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-kirja', 'view-analyysi', 'view-toimitus']);
+    const translatorViews = new Set([...betaCoreViews, 'view-kaannokset']);
     const roleLabels = {
         admin: 'Admin',
         test_user: 'Test user',
         org_admin: 'Org admin',
         toimittaja: 'Toimittaja',
+        kaantaja: 'Kääntäjä',
         kirjailija: 'Kirjailija'
     };
     const canSeeAllModules = currentUser && fullWorkspaceRoles.has(currentUser.role);
@@ -109,6 +114,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function usagePercent(used, limit) {
         if (!limit || limit <= 0) return used > 0 ? 100 : 0;
         return Math.min(100, Math.round((used / limit) * 100));
+    }
+
+    function formatDuration(seconds) {
+        const value = Number(seconds || 0);
+        if (value < 60) return `${Math.max(1, Math.round(value))} s`;
+        const minutes = Math.round(value / 60);
+        if (minutes < 60) return `${minutes} min`;
+        const hours = Math.floor(minutes / 60);
+        const rest = minutes % 60;
+        return rest ? `${hours} h ${rest} min` : `${hours} h`;
     }
 
     function escapeHtml(value) {
@@ -660,7 +675,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const views = document.querySelectorAll('.view-section');
 
     function isViewAllowed(viewId) {
-        return canSeeAllModules || betaCoreViews.has(viewId);
+        if (canSeeAllModules) return true;
+        if (currentUser && currentUser.role === 'kaantaja') return translatorViews.has(viewId);
+        return betaCoreViews.has(viewId);
     }
 
     navItems.forEach(item => {
@@ -696,6 +713,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (item.getAttribute('data-view') === 'view-kirjoita') {
                 renderWritingView();
+            }
+            if (item.getAttribute('data-view') === 'view-kaannokset') {
+                loadTranslationModels();
+                updateTranslationProjectSelect();
+                updateTranslationEstimate();
             }
             if(item.getAttribute('data-view') !== 'view-kirjani') {
                 document.getElementById('top-book-name').textContent = window.manuscriptData
@@ -1246,6 +1268,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderBookOverview();
         renderWritingView();
         if (window.renderNavList) window.renderNavList();
+        updateTranslationProjectSelect();
     }
 
     function setActiveManuscript(data) {
@@ -1393,10 +1416,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderProjectCards(projects) {
+        availableProjects = projects || [];
         const gridCards = document.querySelector('#view-kirjani .grid-cards');
         if (!gridCards) return;
         gridCards.innerHTML = '';
         if (!projects || projects.length === 0) {
+            updateTranslationProjectSelect();
             gridCards.innerHTML = emptyProjectMessage();
             clearActiveManuscript();
             return;
@@ -1415,6 +1440,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             clearActiveManuscript();
         }
+        updateTranslationProjectSelect();
     }
 
     async function loadProjects() {
@@ -1422,6 +1448,180 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!res.ok) throw new Error(await apiErrorMessage(res, 'Käsikirjoitusten lataus epäonnistui.'));
         const projects = await res.json();
         renderProjectCards(projects || []);
+    }
+
+    function currentTranslationProject() {
+        const select = document.getElementById('translation-project-select');
+        const selectedId = select?.value || window.manuscriptData?.id;
+        if (!selectedId) return null;
+        return availableProjects.find(project => String(project.id) === String(selectedId)) || null;
+    }
+
+    function updateTranslationProjectSelect() {
+        const select = document.getElementById('translation-project-select');
+        const currentText = document.getElementById('translation-current-project');
+        if (!select) return;
+        const previousValue = select.value || window.manuscriptData?.id || '';
+        select.innerHTML = '';
+        availableProjects.forEach(project => {
+            const option = document.createElement('option');
+            option.value = project.id;
+            option.textContent = `${project.title || 'Nimetön'}${project.owner_email ? ` (${project.owner_email})` : ''}`;
+            select.appendChild(option);
+        });
+        if (previousValue && availableProjects.some(project => String(project.id) === String(previousValue))) {
+            select.value = String(previousValue);
+        } else if (window.manuscriptData?.id) {
+            select.value = String(window.manuscriptData.id);
+        }
+        const project = currentTranslationProject();
+        if (currentText) {
+            currentText.textContent = project
+                ? `Käännettävä teos: ${project.title || 'Nimetön'}`
+                : 'Valitse käsikirjoitus ja käännösasetukset.';
+        }
+        renderTranslationHistory();
+    }
+
+    async function loadTranslationModels() {
+        const select = document.getElementById('translation-model-select');
+        if (!select) return;
+        try {
+            const res = await apiFetch('/api/models/text');
+            if (!res.ok) throw new Error(await apiErrorMessage(res, 'Mallien lataus epäonnistui.'));
+            translationModels = await res.json();
+            select.innerHTML = '';
+            translationModels.forEach(model => {
+                const option = document.createElement('option');
+                option.value = `${model.provider}:${model.model_name}`;
+                option.textContent = model.display_name || model.model_name;
+                if (model.is_default) option.selected = true;
+                select.appendChild(option);
+            });
+        } catch (err) {
+            select.innerHTML = '<option value="">Oletusmalli</option>';
+        }
+    }
+
+    function translationRequestPayload() {
+        const project = currentTranslationProject();
+        return {
+            project_id: project ? project.id : null,
+            source_kind: document.getElementById('translation-source-select')?.value || 'manuscript',
+            target_language: document.getElementById('translation-language-select')?.value || 'en',
+            style: document.getElementById('translation-style-select')?.value || 'faithful',
+            model: document.getElementById('translation-model-select')?.value || null,
+            chunk_words: parseInt(document.getElementById('translation-chunk-select')?.value || '2000', 10)
+        };
+    }
+
+    async function updateTranslationEstimate() {
+        const estimateEl = document.getElementById('translation-estimate');
+        const payload = translationRequestPayload();
+        if (!estimateEl || !payload.project_id) {
+            if (estimateEl) estimateEl.textContent = 'Valitse ensin käsikirjoitus.';
+            return;
+        }
+        estimateEl.textContent = 'Lasketaan arviota...';
+        try {
+            const res = await apiFetch('/api/translations/estimate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Arvion muodostus epäonnistui.');
+            estimateEl.textContent = `${formatNumber(data.word_count)} sanaa, ${data.chunks_count} osaa, arvioitu kesto noin ${formatDuration(data.estimated_seconds)}.`;
+        } catch (err) {
+            estimateEl.textContent = err.message;
+        }
+    }
+
+    async function renderTranslationHistory() {
+        const history = document.getElementById('translation-history');
+        const project = currentTranslationProject();
+        if (!history) return;
+        if (!project?.id) {
+            history.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Ei valittua käsikirjoitusta.</div>';
+            return;
+        }
+        try {
+            const res = await apiFetch(`/api/projects/${project.id}/translations`);
+            if (!res.ok) throw new Error(await apiErrorMessage(res, 'Käännöshistorian lataus epäonnistui.'));
+            const translations = await res.json();
+            if (!translations.length) {
+                history.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Ei tallennettuja käännöksiä.</div>';
+                return;
+            }
+            history.innerHTML = translations.map(item => `
+                <button class="translation-history-item" data-translation-id="${item.id}" style="text-align:left; padding:10px 12px; border-radius:8px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:var(--text-primary); cursor:pointer;">
+                    <strong>${escapeHtml(item.target_language_label)}</strong> · ${escapeHtml(item.style_label)} · ${item.chunks_count} osaa · ${escapeHtml(item.status)}
+                </button>
+            `).join('');
+            history.querySelectorAll('.translation-history-item').forEach(button => {
+                button.addEventListener('click', () => {
+                    const selected = translations.find(item => String(item.id) === String(button.dataset.translationId));
+                    if (!selected) return;
+                    latestTranslationText = selected.translated_text || '';
+                    const output = document.getElementById('translation-output');
+                    const status = document.getElementById('translation-status');
+                    if (output) output.value = latestTranslationText;
+                    if (status) status.textContent = `${selected.target_language_label}, ${selected.style_label}: ${selected.status}`;
+                });
+            });
+        } catch (err) {
+            history.innerHTML = `<div style="color:#ffb4b4; font-size:13px;">${escapeHtml(err.message)}</div>`;
+        }
+    }
+
+    async function startTranslation() {
+        const payload = translationRequestPayload();
+        const status = document.getElementById('translation-status');
+        const output = document.getElementById('translation-output');
+        const button = document.getElementById('translation-start-btn');
+        if (!payload.project_id) {
+            alert('Valitse ensin käsikirjoitus.');
+            return;
+        }
+        if (button) button.disabled = true;
+        if (status) status.textContent = 'Käännös käynnissä. Tämä voi kestää useita minuutteja pitkällä kirjalla.';
+        try {
+            const res = await apiFetch('/api/translations', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Käännös epäonnistui.');
+            latestTranslationText = data.translated_text || '';
+            if (output) output.value = latestTranslationText;
+            if (status) {
+                status.textContent = `${data.target_language_label}, ${data.style_label}: ${data.status}. ${data.chunks_count} osaa, ${formatNumber(data.word_count)} sanaa.`;
+                if (data.warnings) status.textContent += ` Huomautukset: ${data.warnings}`;
+            }
+            await renderTranslationHistory();
+        } catch (err) {
+            if (status) status.textContent = err.message;
+            alert('Käännös epäonnistui: ' + err.message);
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
+    function downloadTranslation() {
+        if (!latestTranslationText) {
+            alert('Ei ladattavaa käännöstä.');
+            return;
+        }
+        const project = currentTranslationProject();
+        const language = document.getElementById('translation-language-select')?.value || 'translation';
+        const safeTitle = (project?.title || 'kaannos').toLowerCase().replace(/[^a-z0-9åäö]+/gi, '-').replace(/^-|-$/g, '');
+        const blob = new Blob([latestTranslationText], {type: 'text/plain;charset=utf-8'});
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${safeTitle}-${language}.txt`;
+        link.click();
+        URL.revokeObjectURL(link.href);
     }
 
     window.shareProject = async function(projectId, email) {
@@ -1462,6 +1662,26 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Teoksen poisto epäonnistui: ' + err.message);
         }
     }
+
+    const translationProjectSelect = document.getElementById('translation-project-select');
+    const translationEstimateBtn = document.getElementById('translation-estimate-btn');
+    const translationStartBtn = document.getElementById('translation-start-btn');
+    const translationDownloadBtn = document.getElementById('translation-download-btn');
+    ['translation-source-select', 'translation-language-select', 'translation-style-select', 'translation-model-select', 'translation-chunk-select'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) element.addEventListener('change', updateTranslationEstimate);
+    });
+    if (translationProjectSelect) {
+        translationProjectSelect.addEventListener('change', () => {
+            const project = currentTranslationProject();
+            if (project) setActiveManuscript(project);
+            updateTranslationEstimate();
+            renderTranslationHistory();
+        });
+    }
+    if (translationEstimateBtn) translationEstimateBtn.addEventListener('click', updateTranslationEstimate);
+    if (translationStartBtn) translationStartBtn.addEventListener('click', startTranslation);
+    if (translationDownloadBtn) translationDownloadBtn.addEventListener('click', downloadTranslation);
 
     // --- 7. File Upload ---
     const fileUpload = document.getElementById('manuscript-upload');
@@ -1674,6 +1894,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     {
         loadUsage();
+        loadTranslationModels();
         loadProjects().catch(() => {
             const saved = localStorage.getItem('skriptlab_manuscript');
             if (saved) {

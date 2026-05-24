@@ -791,40 +791,77 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                 <div class="header">
                     <div class="header-info">
                         <h2>Käännökset</h2>
-                        <p>Käsikirjoitus: [Ei aktiivista teosta] (AI-kääntäjä)</p>
-                    </div>
-                    <div class="header-actions">
-                        <button class="btn btn-primary" onclick="startLongTask('Käännetään Teosta', 'Käännetään kappaleita englanniksi ja säilytetään alkuperäistyyli...', 180);">✨ Käännä koko teos (EN)</button>
+                        <p id="translation-current-project">Valitse käsikirjoitus ja käännösasetukset.</p>
                     </div>
                 </div>
-                <div class="grid-cards" style="grid-template-columns: 1fr;">
+                <div class="grid-cards" style="grid-template-columns: minmax(280px, 420px) minmax(0, 1fr); align-items:start;">
                     <div class="card glass-panel">
-                        <h3>Käännösprojektit</h3>
-                        <div style="display:flex; justify-content:space-between; align-items:center; padding:16px; background:rgba(0,0,0,0.2); border-radius:8px; margin-top:16px;">
-                            <div style="display:flex; align-items:center; gap:16px;">
-                                <span style="font-size:24px;">🇬🇧</span>
-                                <div>
-                                    <h4 style="margin:0;">Englanti (UK)</h4>
-                                    <p style="margin:0; font-size:13px; color:var(--text-secondary);">Secret of the Forest - 0% Valmis (Tyhjä versio)</p>
-                                </div>
-                            </div>
-                            <button class="btn btn-secondary" onclick="openModule('view-toimitus'); alert('Siirrytään vierekkäisnäkymään jossa oikealla Käännös.');">Jatka Kääntämistä</button>
+                        <h3>Käännettävä teos</h3>
+                        <div class="settings-row">
+                            <label>Käsikirjoitus</label>
+                            <select id="translation-project-select"></select>
+                        </div>
+                        <div class="settings-row">
+                            <label>Lähde</label>
+                            <select id="translation-source-select">
+                                <option value="manuscript">Tuotu käsikirjoitus</option>
+                                <option value="book">Valmis kirja</option>
+                            </select>
+                        </div>
+                        <div class="settings-row">
+                            <label>Kohdekieli</label>
+                            <select id="translation-language-select">
+                                <option value="sv">Ruotsi</option>
+                                <option value="en" selected>Englanti</option>
+                                <option value="ru">Venäjä</option>
+                                <option value="et">Viro</option>
+                                <option value="ar">Arabia</option>
+                                <option value="sme">Pohjoissaame</option>
+                                <option value="de">Saksa</option>
+                                <option value="fr">Ranska</option>
+                                <option value="it">Italia</option>
+                                <option value="es">Espanja</option>
+                            </select>
+                        </div>
+                        <div class="settings-row">
+                            <label>Käännöstyyli</label>
+                            <select id="translation-style-select">
+                                <option value="faithful" selected>Originaalille uskollinen</option>
+                                <option value="modern">Moderni ja sujuva</option>
+                                <option value="literary">Kaunokirjallinen</option>
+                            </select>
+                        </div>
+                        <div class="settings-row">
+                            <label>Malli</label>
+                            <select id="translation-model-select"></select>
+                        </div>
+                        <div class="settings-row">
+                            <label>Palakoko</label>
+                            <select id="translation-chunk-select">
+                                <option value="500">500 sanaa</option>
+                                <option value="1000">1 000 sanaa</option>
+                                <option value="2000" selected>2 000 sanaa</option>
+                                <option value="4000">4 000 sanaa</option>
+                                <option value="8000">8 000 sanaa</option>
+                                <option value="10000">10 000 sanaa</option>
+                            </select>
+                        </div>
+                        <div id="translation-estimate" style="font-size:13px; color:var(--text-secondary); margin:14px 0;">Arvio muodostetaan, kun käsikirjoitus on valittu.</div>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                            <button class="btn btn-secondary" id="translation-estimate-btn">Päivitä arvio</button>
+                            <button class="btn btn-primary" id="translation-start-btn">Aloita käännös</button>
                         </div>
                     </div>
-                </div>
-
-                <!-- Tulokset / Käännökset -->
-                <div class="generated-files-list glass-panel" style="margin-top: 24px;">
-                    <h3 style="margin-bottom:12px; color:var(--text-primary);">Viimeistellyt Käännöstiedostot</h3>
-                    <ul style="list-style: none; padding: 0;">
-                        <li style="display:flex; justify-content:space-between; align-items:center; padding: 12px; background: rgba(0,0,0,0.2); border-bottom: 1px solid #333; border-radius:8px; margin-bottom:8px;">
-                            <span style="color:var(--text-primary);">🇬🇧 Secret_of_the_Forest_EN.txt</span>
-                            <div style="display:flex; gap:8px;">
-                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:var(--ai-gradient-start); border-color:var(--ai-gradient-start);" onclick="alert('Ladataan käännös...')">Lataa</button>
-                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:#ff5555; border-color:#ff5555;" onclick="this.parentElement.parentElement.remove()">🗑️ Poista</button>
-                            </div>
-                        </li>
-                    </ul>
+                    <div class="card glass-panel">
+                        <h3>Käännöksen tulos</h3>
+                        <div id="translation-status" style="font-size:13px; color:var(--text-secondary); margin:10px 0 14px;">Ei käännöstä vielä.</div>
+                        <textarea id="translation-output" readonly style="width:100%; min-height:420px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:14px; font-family:Georgia,serif; line-height:1.65;"></textarea>
+                        <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+                            <button class="btn btn-secondary" id="translation-download-btn">Lataa tekstitiedosto</button>
+                        </div>
+                        <h3 style="margin-top:22px;">Tallennetut käännökset</h3>
+                        <div id="translation-history" style="display:grid; gap:10px; margin-top:12px;"></div>
+                    </div>
                 </div>
             </div>
 
