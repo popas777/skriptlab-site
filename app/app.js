@@ -878,11 +878,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Tehdään aito fetch meidän backend API:in
-            apiFetch('/api/analyze', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({text: rawMsText})
+            Promise.resolve().then(async () => {
+                let projectId = window.manuscriptData?.id || null;
+                if (!projectId && window.manuscriptData) {
+                    const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
+                    projectId = savedProject?.id || null;
+                    if (savedProject?.id) window.manuscriptData = savedProject;
+                }
+                return apiFetch('/api/analyze', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({text: rawMsText, project_id: projectId})
+                });
             })
             .then(async res => {
                 if(!res.ok) {
