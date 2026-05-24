@@ -408,6 +408,56 @@ document.addEventListener('DOMContentLoaded', () => {
         renderAnalysisSections(analysis);
     }
 
+    function hasSavedAnalysis(analysis) {
+        return Boolean(analysis && analysisFields.some(field => analysisValue(analysis[field.key]).trim()));
+    }
+
+    async function loadSavedAnalysisForActiveProject(showFeedback = true) {
+        if (!window.manuscriptData?.id) {
+            if (showFeedback) alert('Valitse ensin käsikirjoitus.');
+            return;
+        }
+        if (!showFeedback && hasSavedAnalysis(window.manuscriptData.analysis)) return;
+
+        const originalText = loadSavedAnalysisBtn?.textContent;
+        if (loadSavedAnalysisBtn && showFeedback) {
+            loadSavedAnalysisBtn.disabled = true;
+            loadSavedAnalysisBtn.textContent = 'Ladataan...';
+        }
+
+        try {
+            const res = await apiFetch('/api/projects');
+            if (!res.ok) throw new Error(await apiErrorMessage(res, 'Tallennetun analyysin lataus epäonnistui.'));
+            const projects = await res.json();
+            availableProjects = projects || [];
+            const latest = availableProjects.find(project => String(project.id) === String(window.manuscriptData.id));
+            if (!latest) throw new Error('Aktiivista käsikirjoitusta ei löytynyt tietokannasta.');
+
+            window.manuscriptData = Object.assign({}, window.manuscriptData, latest);
+            if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
+            localStorage.setItem('skriptlab_manuscript', JSON.stringify(window.manuscriptData));
+            localStorage.setItem('skriptlab_raw_text', getFullManuscriptText(window.manuscriptData));
+            window.updateDynamicTexts();
+            renderAnalysisSummary(window.manuscriptData.analysis);
+            renderBookOverview();
+            renderWritingView();
+            if (window.renderNavList) window.renderNavList();
+            updateTranslationProjectSelect();
+
+            if (showFeedback && !hasSavedAnalysis(window.manuscriptData.analysis)) {
+                alert('Tälle käsikirjoitukselle ei löytynyt vielä tallennettua analyysiä.');
+            }
+        } catch (err) {
+            if (showFeedback) alert(err.message);
+            console.warn('Tallennetun analyysin lataus epäonnistui:', err);
+        } finally {
+            if (loadSavedAnalysisBtn && showFeedback) {
+                loadSavedAnalysisBtn.disabled = false;
+                loadSavedAnalysisBtn.textContent = originalText || 'Lataa tallennettu analyysi';
+            }
+        }
+    }
+
     function applyBookReaderSettings() {
         const textEl = document.getElementById('book-full-text');
         if (!textEl) return;
@@ -717,6 +767,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (item.getAttribute('data-view') === 'view-kirjoita') {
                 renderWritingView();
             }
+            if (item.getAttribute('data-view') === 'view-analyysi') {
+                loadSavedAnalysisForActiveProject(false);
+            }
             if (item.getAttribute('data-view') === 'view-kaannokset') {
                 loadTranslationModels();
                 updateTranslationProjectSelect();
@@ -740,6 +793,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const runAnalysisBtn = document.getElementById('run-analysis-btn');
     const analysisLoader = document.getElementById('analysis-loader');
     const analysisResults = document.getElementById('analysis-results');
+    const loadSavedAnalysisBtn = document.getElementById('load-saved-analysis-btn');
     const saveAnalysisBtn = document.getElementById('save-analysis-btn');
     const toggleAnalysisEditorBtn = document.getElementById('toggle-analysis-editor-btn');
     const toggleAnalysisMetaBtn = document.getElementById('toggle-analysis-meta-btn');
@@ -761,6 +815,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const editor = document.getElementById('analysis-meta-editor');
             if (!editor) return;
             setAnalysisMetadataOpen(editor.classList.contains('hidden'));
+        });
+    }
+    if (loadSavedAnalysisBtn) {
+        loadSavedAnalysisBtn.addEventListener('click', () => {
+            loadSavedAnalysisForActiveProject(true);
         });
     }
 
@@ -887,7 +946,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 4. Split-Screen Editor Logic ---
     const aiBtn = document.getElementById('ai-improve-btn');
     const editableText = document.getElementById('edited-text');
-    const lockBtn = document.getElementById('lock-block-btn');
     const editScopeSelect = document.getElementById('edit-scope');
     const editorWorkspace = document.getElementById('editor-workspace');
     const toggleEditorNavBtn = document.getElementById('toggle-editor-nav-btn');
@@ -1017,38 +1075,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 aiBtn.style.pointerEvents = 'auto';
                 loadUsage();
             });
-        });
-    }
-
-    if(lockBtn) {
-        lockBtn.addEventListener('click', () => {
-            const badge = document.querySelector('.badge.glowing');
-            if(lockBtn.textContent === "Lukitse Pätkä (Freeze)") {
-                lockBtn.textContent = "Pätkä Lukittu";
-                lockBtn.style.background = "#238636"; 
-                lockBtn.style.color = "#fff";
-                editableText.readOnly = true;
-                
-                if (badge) {
-                    badge.textContent = 'Valmis';
-                    badge.classList.remove('glowing');
-                    badge.style.background = 'rgba(35, 134, 54, 0.2)';
-                    badge.style.borderColor = 'rgba(35, 134, 54, 0.5)';
-                }
-            } else {
-                lockBtn.textContent = "Lukitse Pätkä (Freeze)";
-                lockBtn.style.background = "var(--text-primary)";
-                lockBtn.style.color = "var(--bg-color)";
-                editableText.readOnly = false;
-                
-                const normalBadge = document.querySelector('.panel-header .badge');
-                if(normalBadge) {
-                    normalBadge.textContent = 'Kesken';
-                    normalBadge.classList.add('glowing');
-                    normalBadge.style.background = '';
-                    normalBadge.style.borderColor = '';
-                }
-            }
         });
     }
 
