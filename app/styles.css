@@ -82,7 +82,7 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 .text-btn { font-size: 14px; font-weight: 600; }
 
 .context-info { display: flex; gap: 12px; margin-left: 10px; }
-.role-badge, .manuscript-badge {
+.manuscript-badge {
     font-size: 13px;
     padding: 6px 14px;
     border-radius: 20px;
@@ -90,8 +90,6 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     color: var(--accent-color);
     font-weight: 500;
     border: 1px solid rgba(121, 192, 255, 0.2);
-}
-.manuscript-badge {
     background: rgba(16, 185, 129, 0.1);
     color: var(--ai-gradient-start);
     border: 1px solid rgba(16, 185, 129, 0.2);
@@ -192,6 +190,53 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     font-size: 11px;
     line-height: 1.4;
     margin-top: 5px;
+}
+.sidebar-user-card {
+    margin-top: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 14px;
+    background: rgba(255, 255, 255, 0.035);
+}
+.sidebar-user-info {
+    display: grid;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+.sidebar-user-label {
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0;
+}
+.sidebar-user-info strong {
+    color: var(--text-primary);
+    font-size: 13px;
+    line-height: 1.3;
+}
+.sidebar-user-info > span:not(.sidebar-user-label):not(.role-badge) {
+    color: var(--text-secondary);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+.role-badge {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    margin-top: 6px;
+    font-size: 11px;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: rgba(121, 192, 255, 0.1);
+    color: var(--accent-color);
+    font-weight: 500;
+    border: 1px solid rgba(121, 192, 255, 0.2);
+}
+.sidebar-user-card .btn {
+    width: 100%;
+    justify-content: center;
+    padding: 8px 10px;
+    font-size: 12px;
 }
 
 /* Main Content & SPA */

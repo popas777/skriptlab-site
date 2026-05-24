@@ -63,6 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const logoutLink = document.getElementById('logout-link');
     const adminLink = document.getElementById('admin-link');
+    const settingsBtn = document.getElementById('settings-btn');
     if (logoutLink) {
         logoutLink.addEventListener('click', () => {
             window.SkriptLabAuth.clearSession();
@@ -73,10 +74,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (currentUser) {
-        const roleBadge = document.querySelector('.role-badge');
+        const roleBadge = document.getElementById('sidebar-user-role');
+        const userName = document.getElementById('sidebar-user-name');
+        const userEmail = document.getElementById('sidebar-user-email');
+        if (userName) userName.textContent = currentUser.display_name || currentUser.email || 'Käyttäjä';
+        if (userEmail) userEmail.textContent = currentUser.email || '';
         if (roleBadge) {
             roleBadge.textContent = `Käyttäjäryhmä: ${roleLabels[currentUser.role] || currentUser.role}`;
         }
+    }
+
+    if (settingsBtn) {
+        settingsBtn.addEventListener('click', () => {
+            alert('Asetukset-osio rakennetaan myöhemmin.');
+        });
     }
 
     function formatNumber(value) {
