@@ -33,6 +33,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let availableProjects = [];
     let translationModels = [];
     let latestTranslationText = '';
+    let currentTranslationHistory = [];
+    let selectedTranslation = null;
+    let syncingTranslationScroll = false;
     const fullWorkspaceRoles = new Set(['admin', 'test_user']);
     const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-kirja', 'view-analyysi', 'view-toimitus']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset']);
@@ -1457,6 +1460,28 @@ document.addEventListener('DOMContentLoaded', () => {
         return availableProjects.find(project => String(project.id) === String(selectedId)) || null;
     }
 
+    function projectTextForTranslation(project) {
+        return project ? getFullManuscriptText(project) : '';
+    }
+
+    function translationStatusLabel(status) {
+        const labels = {
+            completed: 'Valmis',
+            partial: 'Osittainen',
+            reviewed: 'Tarkastettu'
+        };
+        return labels[status] || status || 'Luonnos';
+    }
+
+    function showTranslationPanel(panelId) {
+        document.querySelectorAll('.translation-panel').forEach(panel => {
+            panel.classList.toggle('hidden', panel.id !== panelId);
+        });
+        document.querySelectorAll('.translation-tab').forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.translationPanel === panelId);
+        });
+    }
+
     function updateTranslationProjectSelect() {
         const select = document.getElementById('translation-project-select');
         const currentText = document.getElementById('translation-current-project');
@@ -1475,11 +1500,16 @@ document.addEventListener('DOMContentLoaded', () => {
             select.value = String(window.manuscriptData.id);
         }
         const project = currentTranslationProject();
+        if (selectedTranslation && project && String(selectedTranslation.project_id) !== String(project.id)) {
+            selectedTranslation = null;
+            currentTranslationHistory = [];
+        }
         if (currentText) {
             currentText.textContent = project
                 ? `Käännettävä teos: ${project.title || 'Nimetön'}`
                 : 'Valitse käsikirjoitus ja käännösasetukset.';
         }
+        renderSelectedTranslationForReview();
         renderTranslationHistory();
     }
 
@@ -1542,6 +1572,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const project = currentTranslationProject();
         if (!history) return;
         if (!project?.id) {
+            currentTranslationHistory = [];
+            selectedTranslation = null;
+            populateTranslationReviewSelect();
+            renderSelectedTranslationForReview();
             history.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Ei valittua käsikirjoitusta.</div>';
             return;
         }
@@ -1549,29 +1583,81 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await apiFetch(`/api/projects/${project.id}/translations`);
             if (!res.ok) throw new Error(await apiErrorMessage(res, 'Käännöshistorian lataus epäonnistui.'));
             const translations = await res.json();
+            currentTranslationHistory = translations || [];
+            if (selectedTranslation && !currentTranslationHistory.some(item => String(item.id) === String(selectedTranslation.id))) {
+                selectedTranslation = null;
+            }
+            if (!selectedTranslation && currentTranslationHistory.length) {
+                selectedTranslation = currentTranslationHistory[0];
+            }
+            populateTranslationReviewSelect();
+            renderSelectedTranslationForReview();
             if (!translations.length) {
                 history.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Ei tallennettuja käännöksiä.</div>';
                 return;
             }
             history.innerHTML = translations.map(item => `
                 <button class="translation-history-item" data-translation-id="${item.id}" style="text-align:left; padding:10px 12px; border-radius:8px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:var(--text-primary); cursor:pointer;">
-                    <strong>${escapeHtml(item.target_language_label)}</strong> · ${escapeHtml(item.style_label)} · ${item.chunks_count} osaa · ${escapeHtml(item.status)}
+                    <strong>${escapeHtml(item.target_language_label)}</strong> · ${escapeHtml(item.style_label)} · ${item.chunks_count} osaa · ${escapeHtml(translationStatusLabel(item.status))}
                 </button>
             `).join('');
             history.querySelectorAll('.translation-history-item').forEach(button => {
                 button.addEventListener('click', () => {
                     const selected = translations.find(item => String(item.id) === String(button.dataset.translationId));
                     if (!selected) return;
-                    latestTranslationText = selected.translated_text || '';
-                    const output = document.getElementById('translation-output');
-                    const status = document.getElementById('translation-status');
-                    if (output) output.value = latestTranslationText;
-                    if (status) status.textContent = `${selected.target_language_label}, ${selected.style_label}: ${selected.status}`;
+                    selectTranslationForReview(selected.id);
+                    showTranslationPanel('translation-review-panel');
                 });
             });
         } catch (err) {
             history.innerHTML = `<div style="color:#ffb4b4; font-size:13px;">${escapeHtml(err.message)}</div>`;
         }
+    }
+
+    function populateTranslationReviewSelect() {
+        const select = document.getElementById('translation-review-select');
+        if (!select) return;
+        select.innerHTML = '';
+        currentTranslationHistory.forEach(item => {
+            const option = document.createElement('option');
+            option.value = item.id;
+            option.textContent = `${item.target_language_label} · ${item.style_label} · ${translationStatusLabel(item.status)}`;
+            select.appendChild(option);
+        });
+        if (selectedTranslation) select.value = String(selectedTranslation.id);
+    }
+
+    function selectTranslationForReview(translationId) {
+        const selected = currentTranslationHistory.find(item => String(item.id) === String(translationId));
+        if (!selected) return;
+        selectedTranslation = selected;
+        latestTranslationText = selected.translated_text || '';
+        populateTranslationReviewSelect();
+        renderSelectedTranslationForReview();
+    }
+
+    function renderSelectedTranslationForReview() {
+        const project = currentTranslationProject();
+        const original = document.getElementById('translation-review-original');
+        const textarea = document.getElementById('translation-review-text');
+        const status = document.getElementById('translation-review-status');
+        const output = document.getElementById('translation-output');
+        const outputStatus = document.getElementById('translation-status');
+        if (!original || !textarea || !status) return;
+
+        if (!project || !selectedTranslation) {
+            original.textContent = project ? 'Valitse käännös.' : 'Valitse käsikirjoitus.';
+            textarea.value = '';
+            status.textContent = 'Valitse käännös tarkastettavaksi.';
+            return;
+        }
+
+        latestTranslationText = selectedTranslation.translated_text || '';
+        original.textContent = projectTextForTranslation(project);
+        textarea.value = latestTranslationText;
+        status.textContent = `${selectedTranslation.target_language_label}, ${selectedTranslation.style_label}: ${translationStatusLabel(selectedTranslation.status)}.`;
+        if (output) output.value = latestTranslationText;
+        if (outputStatus) outputStatus.textContent = `${selectedTranslation.target_language_label}, ${selectedTranslation.style_label}: ${translationStatusLabel(selectedTranslation.status)}`;
     }
 
     async function startTranslation() {
@@ -1596,10 +1682,12 @@ document.addEventListener('DOMContentLoaded', () => {
             latestTranslationText = data.translated_text || '';
             if (output) output.value = latestTranslationText;
             if (status) {
-                status.textContent = `${data.target_language_label}, ${data.style_label}: ${data.status}. ${data.chunks_count} osaa, ${formatNumber(data.word_count)} sanaa.`;
+                status.textContent = `${data.target_language_label}, ${data.style_label}: ${translationStatusLabel(data.status)}. ${data.chunks_count} osaa, ${formatNumber(data.word_count)} sanaa.`;
                 if (data.warnings) status.textContent += ` Huomautukset: ${data.warnings}`;
             }
             await renderTranslationHistory();
+            selectTranslationForReview(data.id);
+            showTranslationPanel('translation-review-panel');
         } catch (err) {
             if (status) status.textContent = err.message;
             alert('Käännös epäonnistui: ' + err.message);
@@ -1609,19 +1697,69 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function downloadTranslation() {
-        if (!latestTranslationText) {
+        const reviewText = document.getElementById('translation-review-text');
+        const text = reviewText && !document.getElementById('translation-review-panel')?.classList.contains('hidden')
+            ? reviewText.value
+            : latestTranslationText;
+        if (!text) {
             alert('Ei ladattavaa käännöstä.');
             return;
         }
         const project = currentTranslationProject();
         const language = document.getElementById('translation-language-select')?.value || 'translation';
         const safeTitle = (project?.title || 'kaannos').toLowerCase().replace(/[^a-z0-9åäö]+/gi, '-').replace(/^-|-$/g, '');
-        const blob = new Blob([latestTranslationText], {type: 'text/plain;charset=utf-8'});
+        const blob = new Blob([text], {type: 'text/plain;charset=utf-8'});
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         link.download = `${safeTitle}-${language}.txt`;
         link.click();
         URL.revokeObjectURL(link.href);
+    }
+
+    async function saveReviewedTranslation() {
+        const textarea = document.getElementById('translation-review-text');
+        const status = document.getElementById('translation-review-status');
+        const button = document.getElementById('translation-review-save-btn');
+        if (!selectedTranslation || !textarea) {
+            alert('Valitse ensin tallennettu käännös.');
+            return;
+        }
+        if (button) button.disabled = true;
+        if (status) status.textContent = 'Tallennetaan käännöksen muutoksia...';
+        try {
+            const res = await apiFetch(`/api/translations/${selectedTranslation.id}`, {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ translated_text: textarea.value })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Käännöksen tallennus epäonnistui.');
+            latestTranslationText = data.translated_text || '';
+            selectedTranslation = data;
+            const index = currentTranslationHistory.findIndex(item => String(item.id) === String(data.id));
+            if (index >= 0) currentTranslationHistory[index] = data;
+            populateTranslationReviewSelect();
+            renderSelectedTranslationForReview();
+            await renderTranslationHistory();
+            if (status) status.textContent = 'Käännöksen muutokset tallennettu.';
+        } catch (err) {
+            if (status) status.textContent = err.message;
+            alert('Tallennus epäonnistui: ' + err.message);
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
+    function syncTranslationScroll(source, target) {
+        if (!source || !target || syncingTranslationScroll) return;
+        syncingTranslationScroll = true;
+        const sourceMax = source.scrollHeight - source.clientHeight;
+        const targetMax = target.scrollHeight - target.clientHeight;
+        const ratio = sourceMax > 0 ? source.scrollTop / sourceMax : 0;
+        target.scrollTop = targetMax * ratio;
+        requestAnimationFrame(() => {
+            syncingTranslationScroll = false;
+        });
     }
 
     window.shareProject = async function(projectId, email) {
@@ -1667,6 +1805,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const translationEstimateBtn = document.getElementById('translation-estimate-btn');
     const translationStartBtn = document.getElementById('translation-start-btn');
     const translationDownloadBtn = document.getElementById('translation-download-btn');
+    const translationReviewSelect = document.getElementById('translation-review-select');
+    const translationReviewSaveBtn = document.getElementById('translation-review-save-btn');
+    const translationReviewDownloadBtn = document.getElementById('translation-review-download-btn');
+    const translationReviewOriginal = document.getElementById('translation-review-original');
+    const translationReviewText = document.getElementById('translation-review-text');
+    document.querySelectorAll('.translation-tab').forEach(tab => {
+        tab.addEventListener('click', () => showTranslationPanel(tab.dataset.translationPanel));
+    });
     ['translation-source-select', 'translation-language-select', 'translation-style-select', 'translation-model-select', 'translation-chunk-select'].forEach(id => {
         const element = document.getElementById(id);
         if (element) element.addEventListener('change', updateTranslationEstimate);
@@ -1682,6 +1828,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (translationEstimateBtn) translationEstimateBtn.addEventListener('click', updateTranslationEstimate);
     if (translationStartBtn) translationStartBtn.addEventListener('click', startTranslation);
     if (translationDownloadBtn) translationDownloadBtn.addEventListener('click', downloadTranslation);
+    if (translationReviewSelect) {
+        translationReviewSelect.addEventListener('change', () => selectTranslationForReview(translationReviewSelect.value));
+    }
+    if (translationReviewSaveBtn) translationReviewSaveBtn.addEventListener('click', saveReviewedTranslation);
+    if (translationReviewDownloadBtn) translationReviewDownloadBtn.addEventListener('click', downloadTranslation);
+    if (translationReviewText) {
+        translationReviewText.addEventListener('input', () => {
+            latestTranslationText = translationReviewText.value;
+        });
+    }
+    if (translationReviewOriginal && translationReviewText) {
+        translationReviewOriginal.addEventListener('scroll', () => syncTranslationScroll(translationReviewOriginal, translationReviewText));
+        translationReviewText.addEventListener('scroll', () => syncTranslationScroll(translationReviewText, translationReviewOriginal));
+    }
 
     // --- 7. File Upload ---
     const fileUpload = document.getElementById('manuscript-upload');

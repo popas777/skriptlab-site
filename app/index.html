@@ -794,6 +794,11 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                         <p id="translation-current-project">Valitse käsikirjoitus ja käännösasetukset.</p>
                     </div>
                 </div>
+                <div class="translation-tabs">
+                    <button class="translation-tab active" data-translation-panel="translation-create-panel">Luo käännös</button>
+                    <button class="translation-tab" data-translation-panel="translation-review-panel">Käännöksen tarkastus</button>
+                </div>
+                <div id="translation-create-panel" class="translation-panel">
                 <div class="grid-cards" style="grid-template-columns: minmax(280px, 420px) minmax(0, 1fr); align-items:start;">
                     <div class="card glass-panel">
                         <h3>Käännettävä teos</h3>
@@ -861,6 +866,32 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                         </div>
                         <h3 style="margin-top:22px;">Tallennetut käännökset</h3>
                         <div id="translation-history" style="display:grid; gap:10px; margin-top:12px;"></div>
+                    </div>
+                </div>
+                </div>
+                <div id="translation-review-panel" class="translation-panel hidden">
+                    <div class="card glass-panel">
+                        <div class="translation-review-header">
+                            <div>
+                                <h3>Käännöksen tarkastus</h3>
+                                <p id="translation-review-status">Valitse käännös tarkastettavaksi.</p>
+                            </div>
+                            <div class="translation-review-actions">
+                                <select id="translation-review-select"></select>
+                                <button class="btn btn-secondary" id="translation-review-save-btn">Tallenna muutokset</button>
+                                <button class="btn btn-secondary" id="translation-review-download-btn">Lataa tekstitiedosto</button>
+                            </div>
+                        </div>
+                        <div class="translation-review-grid">
+                            <div class="translation-review-column">
+                                <h4>Originaali</h4>
+                                <pre id="translation-review-original" class="translation-review-text">Valitse käännös.</pre>
+                            </div>
+                            <div class="translation-review-column">
+                                <h4>Käännös</h4>
+                                <textarea id="translation-review-text" class="translation-review-textarea" placeholder="Valitse käännös tarkastettavaksi."></textarea>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

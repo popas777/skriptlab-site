@@ -491,6 +491,103 @@ textarea.editor-content {
     color: var(--text-primary);
     font-family: inherit;
 }
+.translation-tabs {
+    display: flex;
+    gap: 8px;
+    margin: 0 0 18px;
+    flex-wrap: wrap;
+}
+.translation-tab {
+    padding: 9px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: inherit;
+}
+.translation-tab.active {
+    color: var(--text-primary);
+    border-color: var(--ai-gradient-start);
+    background: rgba(121, 192, 255, 0.12);
+}
+.translation-review-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+.translation-review-header p {
+    color: var(--text-secondary);
+    font-size: 13px;
+    margin: 6px 0 0;
+}
+.translation-review-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+.translation-review-actions select {
+    min-width: 220px;
+    padding: 9px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+}
+.translation-review-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+    height: calc(100vh - 250px);
+    min-height: 520px;
+}
+.translation-review-column {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    min-width: 0;
+}
+.translation-review-column h4 {
+    color: var(--text-primary);
+    margin: 0 0 8px;
+}
+.translation-review-text,
+.translation-review-textarea {
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: rgba(0, 0, 0, 0.24);
+    color: var(--text-primary);
+    padding: 16px;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 16px;
+    line-height: 1.75;
+    white-space: pre-wrap;
+}
+.translation-review-textarea {
+    resize: none;
+}
+@media (max-width: 980px) {
+    .translation-review-header {
+        display: grid;
+    }
+    .translation-review-actions {
+        justify-content: flex-start;
+    }
+    .translation-review-grid {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+    .translation-review-text,
+    .translation-review-textarea {
+        height: 420px;
+    }
+}
 .layout-offers button {
     width: 100%;
     margin-bottom: 10px;
