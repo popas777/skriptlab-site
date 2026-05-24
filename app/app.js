@@ -768,21 +768,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         const selectedChapter = window.manuscriptData.chapters[writingSelection.cIndex];
-        const selectedParagraph = selectedChapter?.paragraphs?.[writingSelection.pIndex] || '';
         titleEl.textContent = selectedChapter
-            ? `${selectedChapter.title}, kappale ${writingSelection.pIndex + 1}`
-            : 'Valitse kappale';
-        textEl.value = selectedParagraph;
+            ? `${selectedChapter.title}, koko luku`
+            : 'Valitse luku';
+        textEl.value = (selectedChapter?.paragraphs || []).join('\n\n');
     }
 
     function saveWritingText(showAlert = true) {
         const textEl = document.getElementById('writing-text');
         if (!textEl || !window.manuscriptData) return;
         const chapter = window.manuscriptData.chapters?.[writingSelection.cIndex];
-        if (!chapter || writingSelection.pIndex === null) return;
-        chapter.paragraphs[writingSelection.pIndex] = textEl.value.trim();
+        if (!chapter) return;
+        const paragraphs = splitIntoParagraphs(textEl.value);
+        chapter.paragraphs = paragraphs.length ? paragraphs : [''];
+        writingSelection.pIndex = Math.min(writingSelection.pIndex || 0, chapter.paragraphs.length - 1);
         persistManuscriptEdits();
-        if (showAlert) alert('Teksti tallennettu.');
+        if (showAlert) alert('Luku tallennettu ja kappalerakenne päivitetty.');
     }
 
     function addWritingParagraph() {
