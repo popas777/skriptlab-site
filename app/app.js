@@ -55,11 +55,10 @@ document.addEventListener('DOMContentLoaded', () => {
         { key: 'style', label: 'Tyylianalyysi' },
         { key: 'editorial_assessment', label: 'Toimituksellinen arvio' },
         { key: 'synopsis', label: 'Synopsis' },
+        { key: 'chapter_analysis', label: 'Lukutason analyysi' },
         { key: 'marketing_short', label: 'Markkinointiteksti, lyhyt' },
         { key: 'marketing_long', label: 'Markkinointiteksti, pitkä' },
-        { key: 'backcover', label: 'Takakansiteksti' },
-        { key: 'cover_prompt', label: 'Kansikuvaprompti' },
-        { key: 'onix', label: 'ONIX-metadata' }
+        { key: 'backcover', label: 'Takakansiteksti' }
     ];
 
     const logoutLink = document.getElementById('logout-link');
@@ -309,12 +308,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const style = truncateText(analysis.style, 360, ['Tyyli', 'Tyylianalyysi', 'Äänensävy']) || 'Ei vielä sisältöä.';
         const assessment = truncateText(analysis.editorial_assessment, 420, ['Toimituksellinen arvio', 'Toimituksellinen analyysi', 'Arvio']) || 'Ei vielä sisältöä.';
         const synopsis = truncateText(analysis.synopsis, 360, ['Synopsis', 'Synopsisis', 'Tiivistelmä']) || 'Ei vielä sisältöä.';
+        const chapterAnalysis = truncateText(analysis.chapter_analysis, 700, ['Lukutason analyysi', 'Lukuanalyysi', 'Luku- tai osatason analyysi']) || 'Ei vielä sisältöä.';
         statusText.innerHTML = `
             <div class="analysis-summary">
                 <div class="analysis-summary-title">Analyysi laadittu! (${escapeHtml(source)})</div>
                 <div class="analysis-summary-item"><span class="analysis-summary-label">Tyyli:</span> ${escapeHtml(style)}</div>
                 <div class="analysis-summary-item"><span class="analysis-summary-label">Toimituksellinen arvio:</span> ${escapeHtml(assessment)}</div>
                 <div class="analysis-summary-item"><span class="analysis-summary-label">Synopsis:</span> ${escapeHtml(synopsis)}</div>
+                <div class="analysis-summary-item"><span class="analysis-summary-label">Lukutason analyysi:</span> ${escapeHtml(chapterAnalysis)}</div>
             </div>
         `;
         renderAnalysisSections(analysis);
