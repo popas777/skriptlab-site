@@ -892,8 +892,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const editorWorkspace = document.getElementById('editor-workspace');
     const toggleEditorNavBtn = document.getElementById('toggle-editor-nav-btn');
     const toggleEditorCommentsBtn = document.getElementById('toggle-editor-comments-btn');
-    const editedDiffPreview = document.getElementById('edited-diff-preview');
-    let diffPreviewTimer = null;
 
     function setAiButtonIdle() {
         if (aiBtn) aiBtn.innerHTML = '<span class="sparkle">✨</span><br>Analysoi ja ehdota';
@@ -914,26 +912,35 @@ document.addEventListener('DOMContentLoaded', () => {
     function refreshEditableTextForScope() {
         if (!editableText) return;
         const text = selectedEditText();
-        if (text) editableText.value = text;
-        renderEditedDiffPreview();
+        if (text) setEditableText(text);
+    }
+
+    function getEditableText() {
+        if (!editableText) return '';
+        return (editableText.innerText || editableText.textContent || '').replace(/\u00a0/g, ' ');
+    }
+
+    function setEditableText(value) {
+        if (!editableText) return;
+        editableText.classList.remove('has-diff');
+        editableText.textContent = value || '';
+    }
+
+    function setEditableDiffText(original, edited) {
+        if (!editableText) return;
+        if (!edited.trim() || normalizeText(original) === normalizeText(edited)) {
+            setEditableText(edited);
+            return;
+        }
+        editableText.innerHTML = buildDiffHtml(original, edited);
+        editableText.classList.add('has-diff');
     }
 
     function renderEditedDiffPreview() {
-        if (!editedDiffPreview || !editableText) return;
+        if (!editableText) return;
         const original = selectedEditText();
-        const edited = editableText.value || '';
-        if (!edited.trim() || normalizeText(original) === normalizeText(edited)) {
-            editedDiffPreview.classList.add('is-empty');
-            editedDiffPreview.innerHTML = '';
-            return;
-        }
-        editedDiffPreview.innerHTML = buildDiffHtml(original, edited);
-        editedDiffPreview.classList.remove('is-empty');
-    }
-
-    function scheduleEditedDiffPreview() {
-        window.clearTimeout(diffPreviewTimer);
-        diffPreviewTimer = window.setTimeout(renderEditedDiffPreview, 120);
+        const edited = getEditableText();
+        setEditableDiffText(original, edited);
     }
 
     function updateEditorGrid() {
@@ -959,7 +966,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             
-            editableText.value = '';
+            setEditableText('');
             aiBtn.innerHTML = '<span class="sparkle">⏳</span><br>Analysoin...';
             aiBtn.style.pointerEvents = 'none';
             
@@ -988,7 +995,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     let i = 0;
                     const typeWriter = () => {
                         if (i < geminiResult.length) {
-                            editableText.value += geminiResult.charAt(i);
+                            editableText.textContent = getEditableText() + geminiResult.charAt(i);
                             i++;
                             setTimeout(typeWriter, 8);
                         } else {
@@ -1011,10 +1018,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadUsage();
             });
         });
-    }
-
-    if (editableText) {
-        editableText.addEventListener('input', scheduleEditedDiffPreview);
     }
 
     if(lockBtn) {
@@ -1893,7 +1896,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const originalText = document.getElementById('original-text');
             const editedText = document.getElementById('edited-text');
             if (originalText) originalText.textContent = 'Valitse käsikirjoitus ensin Käsikirjoitukseni-näkymässä.';
-            if (editedText) editedText.value = '';
+            if (editedText) setEditableText('');
             return;
         }
         if (navList && window.manuscriptData && window.manuscriptData.chapters) {
@@ -1919,7 +1922,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let txt = window.manuscriptData.chapters[firstChapterIndex].paragraphs[0] || "";
                 originalText.style.whiteSpace = 'pre-wrap';
                 originalText.textContent = txt;
-                editedText.value = txt;
+                setEditableText(txt);
                 window.currentEditSelection = { cIndex: firstChapterIndex, pIndex: 0 };
                 renderEditedDiffPreview();
             }
@@ -1969,9 +1972,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         if (editedText) {
-            editedText.value = (editScopeSelect && editScopeSelect.value === 'chapter')
+            setEditableText((editScopeSelect && editScopeSelect.value === 'chapter')
                 ? (chapter.paragraphs || []).join('\n\n')
-                : (chapter.paragraphs[pIndex] || '');
+                : (chapter.paragraphs[pIndex] || ''));
             renderEditedDiffPreview();
         }
         
@@ -2004,7 +2007,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert('Valitse ensin kappale ennen korvaamista!');
                 return;
             }
-            const newText = editedText.value.trim();
+            const newText = getEditableText().trim();
             if (!newText) {
                 alert('Muokattu teksti on tyhjä!');
                 return;

@@ -935,7 +935,7 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                         <div class="panel-header">
                             <h3 style="font-size:14px;">Alkuperäinen <span id="original-chapter-label" style="font-size:12px; color:var(--text-secondary);">(Valitse kappale)</span></h3>
                         </div>
-                        <div class="editor-content" id="original-text" style="flex:1; overflow-y:auto; line-height:1.8; font-size:14px;">
+                        <div class="editor-content" id="original-text" style="flex:1; overflow-y:auto; line-height:1.8;">
                             <p style="color:var(--text-secondary); font-style:italic;">Valitse kappale vasemman reunan navigoinnista nähdäksesi luvun sisällön tässä.</p>
                         </div>
                     </div>
@@ -949,8 +949,7 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                                 <button id="replace-original-btn" class="btn btn-primary" style="font-size:11px; padding:4px 10px; background:linear-gradient(135deg, var(--ai-gradient-start), var(--ai-gradient-end)); border:none;">Korvaa alkuperäinen</button>
                             </div>
                         </div>
-                        <div id="edited-diff-preview" class="diff-preview is-empty"></div>
-                        <textarea class="editor-content editable" id="edited-text" style="flex:1; resize:none;" placeholder="Valitse kappale ja paina analysoi ja ehdota -nappia tai muokkaa käsin..."></textarea>
+                        <div class="editor-content editable rich-editor" id="edited-text" contenteditable="true" data-placeholder="Valitse kappale ja paina analysoi ja ehdota -nappia tai muokkaa käsin..."></div>
                     </div>
 
                     <!-- 4. Action / AI Settings -->

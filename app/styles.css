@@ -336,10 +336,17 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 [data-theme="light"] .panel-header { background: rgba(0,0,0,0.02); }
 .panel-header h3 { font-size: 14px; color: var(--text-secondary); }
 .editor-content {
-    padding: 20px; font-size: 15px; line-height: 1.8; flex: 1; overflow-y: auto; color: var(--text-secondary);
+    padding: 20px; font-family: inherit; font-size: 15px; line-height: 1.8; flex: 1; overflow-y: auto; color: var(--text-secondary);
 }
-textarea.editor-content {
+.editor-content.editable {
     background: transparent; color: var(--text-primary); border: none; resize: none; outline: none; transition: background-color 0.3s ease;
+    white-space: pre-wrap;
+}
+.rich-editor:empty::before {
+    content: attr(data-placeholder);
+    color: var(--text-secondary);
+    font-style: italic;
+    pointer-events: none;
 }
 .diff-preview {
     max-height: 34%;
