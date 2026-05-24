@@ -226,7 +226,10 @@
                             </label>
                         </div>
                         <p id="usage-limit-usage" style="color: var(--text-secondary); font-size: 13px; margin-bottom: 12px;"></p>
-                        <button id="save-usage-limit-btn" class="btn btn-primary">Tallenna rajat</button>
+                        <div style="display:flex; gap: 10px; flex-wrap:wrap;">
+                            <button id="save-usage-limit-btn" class="btn btn-primary">Tallenna rajat</button>
+                            <button id="reset-usage-limit-btn" class="btn btn-secondary">Palauta oletusrajat</button>
+                        </div>
                         <p id="usage-limit-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
                     </div>
                 </div>
@@ -277,6 +280,7 @@
         const usageLimitUsage = document.getElementById('usage-limit-usage');
         const usageLimitStatus = document.getElementById('usage-limit-status');
         const saveUsageLimitBtn = document.getElementById('save-usage-limit-btn');
+        const resetUsageLimitBtn = document.getElementById('reset-usage-limit-btn');
         const limitAnalysisMonthly = document.getElementById('limit-analysis-monthly');
         const limitAnalysisChars = document.getElementById('limit-analysis-chars');
         const limitEditMonthly = document.getElementById('limit-edit-monthly');
@@ -286,6 +290,14 @@
         let loadedModels = [];
         let selectedLimitUserId = null;
         let selectedLimitUserName = '';
+        const userRoles = [
+            ['kirjailija', 'Kirjailija'],
+            ['kaantaja', 'Kääntäjä'],
+            ['toimittaja', 'Toimittaja'],
+            ['org_admin', 'Org admin'],
+            ['test_user', 'Test user'],
+            ['admin', 'Admin']
+        ];
 
         function escapeHtml(value) {
             return String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -483,12 +495,13 @@
                 <div class="user-item">
                     <div class="user-info">
                         <h4>${escapeHtml(user.display_name)}</h4>
-                        <p>${escapeHtml(user.email)} · ${formatDate(user.created_at)}</p>
+                        <p>${escapeHtml(user.email)} · ${formatDate(user.created_at)} · ${user.is_active ? 'aktiivinen' : 'pois käytöstä'}</p>
                     </div>
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <span class="badge" style="${user.is_active ? 'background: rgba(16, 185, 129, 0.2); color: #fff;' : ''}">
-                            ${escapeHtml(user.role)}
-                        </span>
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+                        <select class="user-role-select" data-id="${user.id}" style="padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; font-size: 12px;">
+                            ${userRoles.map(([value, label]) => `<option value="${value}" ${user.role === value ? 'selected' : ''}>${label}</option>`).join('')}
+                        </select>
+                        <button class="btn btn-secondary toggle-user-active-btn" data-id="${user.id}" data-active="${user.is_active}" style="font-size: 11px; padding: 4px 10px;">${user.is_active ? 'Poista käytöstä' : 'Aktivoi'}</button>
                         <button class="btn btn-secondary user-limit-btn" data-id="${user.id}" data-name="${escapeHtml(user.display_name)}" style="font-size: 11px; padding: 4px 10px;">Rajat</button>
                     </div>
                 </div>
@@ -524,7 +537,7 @@
             limitEditChars.value = data.max_paragraph_edit_chars;
             limitProModels.checked = Boolean(data.allow_pro_models);
             limitImageModels.checked = Boolean(data.allow_image_models);
-            usageLimitUsage.textContent = `Käytetty tässä kuussa: ${data.monthly_analysis_used}/${data.monthly_analysis_limit} analyysia, ${data.monthly_paragraph_edit_used}/${data.monthly_paragraph_edit_limit} kappalemuokkausta. ${data.has_custom_limit ? 'Käyttäjäkohtainen raja.' : 'Oletusrajat käytössä.'}`;
+            usageLimitUsage.textContent = `Käytetty tässä kuussa: ${data.monthly_analysis_used}/${data.monthly_analysis_limit} analyysia, ${data.monthly_translation_used}/${data.monthly_translation_limit} käännöstä, ${data.monthly_paragraph_edit_used}/${data.monthly_paragraph_edit_limit} kappalemuokkausta. ${data.has_custom_limit ? 'Käyttäjäkohtainen raja.' : 'Oletusrajat käytössä.'}`;
         }
 
         async function loadUsageLimit(userId, displayName) {
@@ -644,9 +657,52 @@
         });
 
         adminUserList.addEventListener('click', async (event) => {
+            const activeButton = event.target.closest('.toggle-user-active-btn');
+            if (activeButton) {
+                activeButton.disabled = true;
+                inviteStatus.textContent = 'Päivitetään käyttäjää...';
+                try {
+                    const isActive = activeButton.dataset.active === 'true';
+                    const res = await window.SkriptLabAuth.fetch(`/api/admin/users/${activeButton.dataset.id}`, {
+                        method: 'PATCH',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({is_active: !isActive})
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.detail || 'Käyttäjän päivitys epäonnistui.');
+                    inviteStatus.textContent = `Käyttäjä ${data.email} päivitetty.`;
+                    await loadUsers();
+                } catch (err) {
+                    inviteStatus.textContent = err.message;
+                    activeButton.disabled = false;
+                }
+                return;
+            }
+
             const button = event.target.closest('.user-limit-btn');
             if (!button) return;
             await loadUsageLimit(button.dataset.id, button.dataset.name);
+        });
+
+        adminUserList.addEventListener('change', async (event) => {
+            const select = event.target.closest('.user-role-select');
+            if (!select) return;
+            select.disabled = true;
+            inviteStatus.textContent = 'Päivitetään käyttäjäroolia...';
+            try {
+                const res = await window.SkriptLabAuth.fetch(`/api/admin/users/${select.dataset.id}`, {
+                    method: 'PATCH',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({role: select.value})
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Roolin päivitys epäonnistui.');
+                inviteStatus.textContent = `Käyttäjän ${data.email} rooli päivitetty.`;
+                await loadUsers();
+            } catch (err) {
+                inviteStatus.textContent = err.message;
+                await loadUsers();
+            }
         });
 
         if (saveUsageLimitBtn) {
@@ -676,6 +732,27 @@
                     usageLimitStatus.textContent = err.message;
                 } finally {
                     saveUsageLimitBtn.disabled = false;
+                }
+            });
+        }
+
+        if (resetUsageLimitBtn) {
+            resetUsageLimitBtn.addEventListener('click', async () => {
+                if (!selectedLimitUserId) return;
+                resetUsageLimitBtn.disabled = true;
+                usageLimitStatus.textContent = 'Palautetaan oletusrajoja...';
+                try {
+                    const res = await window.SkriptLabAuth.fetch(`/api/admin/users/${selectedLimitUserId}/usage-limit`, {
+                        method: 'DELETE'
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.detail || 'Oletusrajojen palautus epäonnistui.');
+                    fillUsageLimitForm(data);
+                    usageLimitStatus.textContent = `Oletusrajat palautettu käyttäjälle ${selectedLimitUserName}.`;
+                } catch (err) {
+                    usageLimitStatus.textContent = err.message;
+                } finally {
+                    resetUsageLimitBtn.disabled = false;
                 }
             });
         }
