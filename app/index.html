@@ -78,25 +78,30 @@
                     <span class="meta-value" id="sidebar-vocab">-</span>
                 </div>
             </div>
-            <div class="usage-box" id="usage-box">
-                <h3>Käyttörajat</h3>
-                <div class="usage-row">
-                    <div class="usage-label">
-                        <span>Analyysit</span>
-                        <span id="usage-analysis-text">-</span>
+            <div class="usage-box collapsed" id="usage-box">
+                <button class="usage-toggle" id="usage-toggle" type="button" aria-expanded="false" aria-controls="usage-details">
+                    <span>Käyttörajat</span>
+                    <span class="usage-chevron" aria-hidden="true">›</span>
+                </button>
+                <div class="usage-details" id="usage-details" hidden>
+                    <div class="usage-row">
+                        <div class="usage-label">
+                            <span>Analyysit</span>
+                            <span id="usage-analysis-text">-</span>
+                        </div>
+                        <div class="usage-bar"><div id="usage-analysis-bar"></div></div>
+                        <p id="usage-analysis-chars">-</p>
                     </div>
-                    <div class="usage-bar"><div id="usage-analysis-bar"></div></div>
-                    <p id="usage-analysis-chars">-</p>
-                </div>
-                <div class="usage-row">
-                    <div class="usage-label">
-                        <span>Kappale- ja lukumuokkaukset</span>
-                        <span id="usage-edit-text">-</span>
+                    <div class="usage-row">
+                        <div class="usage-label">
+                            <span>Kappale- ja lukumuokkaukset</span>
+                            <span id="usage-edit-text">-</span>
+                        </div>
+                        <div class="usage-bar"><div id="usage-edit-bar"></div></div>
+                        <p id="usage-edit-chars">-</p>
                     </div>
-                    <div class="usage-bar"><div id="usage-edit-bar"></div></div>
-                    <p id="usage-edit-chars">-</p>
+                    <p id="usage-status">Ladataan rajoja...</p>
                 </div>
-                <p id="usage-status">Ladataan rajoja...</p>
             </div>
             <div class="sidebar-user-card">
                 <div class="sidebar-user-info">

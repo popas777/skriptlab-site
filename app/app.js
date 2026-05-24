@@ -52,6 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const canSeeAllModules = currentUser && fullWorkspaceRoles.has(currentUser.role);
     const usageEls = {
         box: document.getElementById('usage-box'),
+        toggle: document.getElementById('usage-toggle'),
+        details: document.getElementById('usage-details'),
         analysisText: document.getElementById('usage-analysis-text'),
         analysisBar: document.getElementById('usage-analysis-bar'),
         analysisChars: document.getElementById('usage-analysis-chars'),
@@ -110,6 +112,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (settingsBtn) {
         settingsBtn.addEventListener('click', () => {
             alert('Asetukset-osio rakennetaan myöhemmin.');
+        });
+    }
+    if (usageEls.toggle && usageEls.box && usageEls.details) {
+        usageEls.toggle.addEventListener('click', () => {
+            const isOpen = usageEls.toggle.getAttribute('aria-expanded') === 'true';
+            usageEls.toggle.setAttribute('aria-expanded', String(!isOpen));
+            usageEls.box.classList.toggle('collapsed', isOpen);
+            usageEls.details.hidden = isOpen;
         });
     }
 
