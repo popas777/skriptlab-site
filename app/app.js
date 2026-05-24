@@ -60,6 +60,16 @@ document.addEventListener('DOMContentLoaded', () => {
         { key: 'marketing_long', label: 'Markkinointiteksti, pitkä' },
         { key: 'backcover', label: 'Takakansiteksti' }
     ];
+    const analysisMetadataFields = [
+        { key: 'audience', label: 'Kohderyhmä' },
+        { key: 'genre', label: 'Genre' },
+        { key: 'library_class', label: 'Kirjastoluokka' },
+        { key: 'thema_classes', label: 'Thema-luokat' },
+        { key: 'cover_prompt', label: 'Ensisijainen kansiprompti' },
+        { key: 'cover_prompts', label: 'Kansipromptit' },
+        { key: 'onix', label: 'ONIX-metadata' }
+    ];
+    const canSeeAnalysisMetadata = currentUser && currentUser.role !== 'kirjailija';
 
     const logoutLink = document.getElementById('logout-link');
     const adminLink = document.getElementById('admin-link');
@@ -233,6 +243,19 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${text.slice(0, maxLength).trim()}...`;
     }
 
+    function networkFailureMessage(error) {
+        const message = String(error?.message || error || '');
+        if (message.includes('Failed to fetch')) {
+            return (
+                'Yhteys backend-palveluun katkesi ennen kuin vastaus saatiin. '
+                + 'Pitkän käsikirjoituksen analyysissä tämä johtuu yleensä siitä, että pyyntö kestää liian kauan, '
+                + 'palvelin/proxy katkaisee yhteyden tai backend käynnistyy uudelleen. '
+                + 'Teksti ei välttämättä ole virheellinen.'
+            );
+        }
+        return message || 'Tuntematon virhe.';
+    }
+
     function getFullManuscriptText(data = window.manuscriptData) {
         if (!data || !Array.isArray(data.chapters)) return '';
         return data.chapters.map(chapter => {
@@ -248,18 +271,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const editor = document.getElementById('analysis-editor');
         const saveBtn = document.getElementById('save-analysis-btn');
         const toggleBtn = document.getElementById('toggle-analysis-editor-btn');
-        if (!editor || !saveBtn || !toggleBtn) return;
+        const metaEditor = document.getElementById('analysis-meta-editor');
+        const metaToggleBtn = document.getElementById('toggle-analysis-meta-btn');
+        if (!editor || !saveBtn || !toggleBtn || !metaEditor || !metaToggleBtn) return;
 
         editor.innerHTML = '';
+        metaEditor.innerHTML = '';
         const hasAnalysis = analysis && analysisFields.some(field => analysisValue(analysis[field.key]).trim());
+        const hasMetadata = analysis && analysisMetadataFields.some(field => analysisValue(analysis[field.key]).trim());
         if (!hasAnalysis) {
             editor.classList.add('hidden');
+            metaEditor.classList.add('hidden');
             saveBtn.classList.add('hidden');
             toggleBtn.classList.add('hidden');
+            metaToggleBtn.classList.add('hidden');
             return;
         }
 
-        analysisFields.forEach(field => {
+        function appendAnalysisField(target, field, datasetName) {
             const section = document.createElement('div');
             section.className = 'analysis-section';
 
@@ -267,15 +296,20 @@ document.addEventListener('DOMContentLoaded', () => {
             label.textContent = field.label;
 
             const textarea = document.createElement('textarea');
-            textarea.dataset.analysisKey = field.key;
+            textarea.dataset[datasetName] = field.key;
             textarea.value = analysisValue(analysis[field.key]);
 
             section.appendChild(label);
             section.appendChild(textarea);
-            editor.appendChild(section);
-        });
+            target.appendChild(section);
+        }
+
+        analysisFields.forEach(field => appendAnalysisField(editor, field, 'analysisKey'));
+        analysisMetadataFields.forEach(field => appendAnalysisField(metaEditor, field, 'analysisMetaKey'));
         toggleBtn.classList.remove('hidden');
+        metaToggleBtn.classList.toggle('hidden', !canSeeAnalysisMetadata || !hasMetadata);
         setAnalysisEditorOpen(!editor.classList.contains('hidden'));
+        setAnalysisMetadataOpen(!metaEditor.classList.contains('hidden'));
     }
 
     function setAnalysisEditorOpen(isOpen) {
@@ -284,8 +318,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const toggleBtn = document.getElementById('toggle-analysis-editor-btn');
         if (!editor || !saveBtn || !toggleBtn) return;
         editor.classList.toggle('hidden', !isOpen);
-        saveBtn.classList.toggle('hidden', !isOpen);
+        updateAnalysisSaveButton();
         toggleBtn.textContent = isOpen ? 'Piilota analyysin muokkaus' : 'Muokkaa analyysin tuloksia';
+    }
+
+    function setAnalysisMetadataOpen(isOpen) {
+        const editor = document.getElementById('analysis-meta-editor');
+        const saveBtn = document.getElementById('save-analysis-btn');
+        const toggleBtn = document.getElementById('toggle-analysis-meta-btn');
+        if (!editor || !saveBtn || !toggleBtn) return;
+        editor.classList.toggle('hidden', !isOpen);
+        updateAnalysisSaveButton();
+        toggleBtn.textContent = isOpen ? 'Piilota muut tiedot' : 'Muokkaa muita tietoja';
+    }
+
+    function updateAnalysisSaveButton() {
+        const saveBtn = document.getElementById('save-analysis-btn');
+        const editor = document.getElementById('analysis-editor');
+        const metaEditor = document.getElementById('analysis-meta-editor');
+        if (!saveBtn || !editor || !metaEditor) return;
+        const isEditing = !editor.classList.contains('hidden') || !metaEditor.classList.contains('hidden');
+        saveBtn.classList.toggle('hidden', !isEditing);
     }
 
     function saveAnalysisFromEditor() {
@@ -296,6 +349,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const analysis = Object.assign({}, window.manuscriptData.analysis || {});
         document.querySelectorAll('[data-analysis-key]').forEach(input => {
             analysis[input.dataset.analysisKey] = input.value.trim();
+        });
+        document.querySelectorAll('[data-analysis-meta-key]').forEach(input => {
+            analysis[input.dataset.analysisMetaKey] = input.value.trim();
         });
         window.manuscriptData.analysis = analysis;
         window.saveManuscriptToDB(window.manuscriptData);
@@ -659,6 +715,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const analysisResults = document.getElementById('analysis-results');
     const saveAnalysisBtn = document.getElementById('save-analysis-btn');
     const toggleAnalysisEditorBtn = document.getElementById('toggle-analysis-editor-btn');
+    const toggleAnalysisMetaBtn = document.getElementById('toggle-analysis-meta-btn');
     const sidebarStyle = document.getElementById('sidebar-style');
     const sidebarVocab = document.getElementById('sidebar-vocab');
 
@@ -670,6 +727,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const editor = document.getElementById('analysis-editor');
             if (!editor) return;
             setAnalysisEditorOpen(editor.classList.contains('hidden'));
+        });
+    }
+    if (toggleAnalysisMetaBtn) {
+        toggleAnalysisMetaBtn.addEventListener('click', () => {
+            const editor = document.getElementById('analysis-meta-editor');
+            if (!editor) return;
+            setAnalysisMetadataOpen(editor.classList.contains('hidden'));
         });
     }
 
@@ -785,7 +849,7 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .catch(e => {
                 clearInterval(analysisInterval);
-                alert('Analyysi epäonnistui:\n' + e.message);
+                alert('Analyysi epäonnistui:\n' + networkFailureMessage(e));
                 analysisLoader.classList.add('hidden');
                 runAnalysisBtn.style.display = 'block';
                 loadUsage();
