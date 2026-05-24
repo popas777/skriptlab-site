@@ -342,6 +342,69 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     background: transparent; color: var(--text-primary); border: none; resize: none; outline: none; transition: background-color 0.3s ease;
     white-space: pre-wrap;
 }
+.nav-control-label {
+    display: block;
+    margin: 10px 0 6px;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0;
+}
+.chapter-select {
+    width: 100%;
+    min-width: 0;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: rgba(255,255,255,0.06);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+}
+.paragraph-list {
+    display: grid;
+    gap: 6px;
+    margin-top: 6px;
+    overflow-y: auto;
+    min-height: 0;
+}
+.paragraph-nav-btn {
+    width: 100%;
+    text-align: left;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.04);
+    color: var(--text-secondary);
+    padding: 8px 9px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.35;
+}
+.paragraph-nav-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+.paragraph-nav-btn.active {
+    color: var(--text-primary);
+    background: rgba(16, 185, 129, 0.12);
+    border-color: var(--ai-gradient-start);
+}
+.paragraph-nav-btn span {
+    display: block;
+    color: inherit;
+}
+.paragraph-nav-btn small {
+    display: block;
+    margin-top: 2px;
+    color: var(--text-secondary);
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 .rich-editor:empty::before {
     content: attr(data-placeholder);
     color: var(--text-secondary);
@@ -651,21 +714,8 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     font-size: 14px;
     margin-bottom: 12px;
 }
-.writing-nav ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-.writing-nav li {
-    color: var(--text-secondary);
-    cursor: pointer;
-    padding: 5px 0;
-    font-size: 13px;
-}
-.writing-nav li.active {
-    color: var(--ai-gradient-start);
-    font-weight: 600;
-}
+.writing-nav .paragraph-list { max-height: calc(100vh - 310px); }
+#editor-paragraph-list { max-height: calc(100vh - 310px); }
 .writing-text {
     width: 100%;
     min-height: 420px;

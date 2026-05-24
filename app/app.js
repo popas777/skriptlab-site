@@ -266,6 +266,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${text.slice(0, maxLength).trim()}...`;
     }
 
+    function paragraphSnippet(value) {
+        const text = String(value || '').replace(/\s+/g, ' ').trim();
+        return text ? truncateText(text, 54) : 'Tyhjä kappale';
+    }
+
     function networkFailureMessage(error) {
         const message = String(error?.message || error || '');
         if (message.includes('Failed to fetch')) {
@@ -569,18 +574,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderWritingView() {
-        const nav = document.getElementById('writing-nav-list');
+        const chapterSelect = document.getElementById('writing-chapter-select');
+        const paragraphList = document.getElementById('writing-paragraph-list');
         const titleEl = document.getElementById('writing-selection-title');
         const textEl = document.getElementById('writing-text');
-        if (!nav || !titleEl || !textEl) return;
+        if (!chapterSelect || !paragraphList || !titleEl || !textEl) return;
 
-        nav.innerHTML = '';
+        chapterSelect.innerHTML = '';
+        paragraphList.innerHTML = '';
         if (!window.manuscriptData || !Array.isArray(window.manuscriptData.chapters) || window.manuscriptData.chapters.length === 0) {
             titleEl.textContent = 'Ei käsikirjoitusta';
             textEl.value = '';
-            nav.innerHTML = '<li>Valitse tai lataa käsikirjoitus ensin.</li>';
+            chapterSelect.disabled = true;
+            paragraphList.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Valitse tai lataa käsikirjoitus ensin.</div>';
             return;
         }
+        chapterSelect.disabled = false;
 
         if (writingSelection.cIndex === null || !window.manuscriptData.chapters[writingSelection.cIndex]) {
             const firstChapterIndex = window.manuscriptData.chapters.length > 2 ? 2 : 0;
@@ -599,22 +608,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         window.manuscriptData.chapters.forEach((chapter, cIndex) => {
-            const chapterLi = document.createElement('li');
-            chapterLi.textContent = chapter.title || `Luku ${cIndex + 1}`;
-            chapterLi.style.fontWeight = '600';
-            nav.appendChild(chapterLi);
+            const option = document.createElement('option');
+            option.value = String(cIndex);
+            option.textContent = chapter.title || `Luku ${cIndex + 1}`;
+            chapterSelect.appendChild(option);
+        });
+        chapterSelect.value = String(writingSelection.cIndex);
+        chapterSelect.onchange = () => {
+            saveWritingText(false);
+            writingSelection = { cIndex: Number(chapterSelect.value), pIndex: 0 };
+            renderWritingView();
+        };
 
-            (chapter.paragraphs || []).forEach((paragraph, pIndex) => {
-                const paragraphLi = document.createElement('li');
-                paragraphLi.textContent = `  Kappale ${pIndex + 1}`;
-                paragraphLi.classList.toggle('active', writingSelection.cIndex === cIndex && writingSelection.pIndex === pIndex);
-                paragraphLi.addEventListener('click', () => {
-                    saveWritingText(false);
-                    writingSelection = { cIndex, pIndex };
-                    renderWritingView();
-                });
-                nav.appendChild(paragraphLi);
+        (activeChapter.paragraphs || []).forEach((paragraph, pIndex) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'paragraph-nav-btn';
+            button.classList.toggle('active', writingSelection.pIndex === pIndex);
+            button.dataset.pindex = String(pIndex);
+            button.innerHTML = `<span>Kappale ${pIndex + 1}</span><small>${escapeHtml(paragraphSnippet(paragraph))}</small>`;
+            button.addEventListener('click', () => {
+                saveWritingText(false);
+                writingSelection = { cIndex: writingSelection.cIndex, pIndex };
+                renderWritingView();
             });
+            paragraphList.appendChild(button);
         });
 
         const selectedChapter = window.manuscriptData.chapters[writingSelection.cIndex];
@@ -623,6 +641,8 @@ document.addEventListener('DOMContentLoaded', () => {
             ? `${selectedChapter.title}, kappale ${writingSelection.pIndex + 1}`
             : 'Valitse kappale';
         textEl.value = selectedParagraph;
+        const activeButton = paragraphList.querySelector('.paragraph-nav-btn.active');
+        if (activeButton) activeButton.scrollIntoView({ block: 'nearest' });
     }
 
     function saveWritingText(showAlert = true) {
@@ -2061,43 +2081,99 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function renderEditorParagraphPicker(cIndex, pIndex) {
+        const chapterSelect = document.getElementById('editor-chapter-select');
+        const paragraphList = document.getElementById('editor-paragraph-list');
+        if (!chapterSelect || !paragraphList || !window.manuscriptData?.chapters?.length) return;
+        chapterSelect.innerHTML = '';
+        window.manuscriptData.chapters.forEach((chapter, index) => {
+            const option = document.createElement('option');
+            option.value = String(index);
+            option.textContent = chapter.title || `Luku ${index + 1}`;
+            chapterSelect.appendChild(option);
+        });
+        chapterSelect.value = String(cIndex);
+        chapterSelect.onchange = () => {
+            window.loadParagraph(Number(chapterSelect.value), 0, null);
+        };
+
+        const chapter = window.manuscriptData.chapters[cIndex];
+        paragraphList.innerHTML = '';
+        (chapter.paragraphs || []).forEach((paragraph, index) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'paragraph-nav-btn';
+            button.classList.toggle('active', index === pIndex);
+            button.dataset.pindex = String(index);
+            button.innerHTML = `<span>Kappale ${index + 1}</span><small>${escapeHtml(paragraphSnippet(paragraph))}</small>`;
+            button.addEventListener('click', () => window.loadParagraph(cIndex, index, button));
+            paragraphList.appendChild(button);
+        });
+        const active = paragraphList.querySelector('.paragraph-nav-btn.active');
+        if (active) active.scrollIntoView({ block: 'nearest' });
+    }
+
+    function setEditorParagraphFromScroll(cIndex, pIndex) {
+        const previous = window.currentEditSelection || {};
+        if (previous.cIndex === cIndex && previous.pIndex === pIndex) return;
+        const chapter = window.manuscriptData?.chapters?.[cIndex];
+        if (!chapter) return;
+        const previousText = chapter.paragraphs?.[previous.pIndex] || '';
+        window.currentEditSelection = { cIndex, pIndex };
+        renderEditorParagraphPicker(cIndex, pIndex);
+
+        const chapterLabel = document.getElementById('original-chapter-label');
+        if (chapterLabel) chapterLabel.textContent = `- ${chapter.title}`;
+        const statusP = document.querySelector('#view-toimitus .header-info p');
+        if (statusP) statusP.textContent = `${chapter.title}, Kappale ${pIndex + 1} (Toimitus/Käännöstila)`;
+
+        if (editScopeSelect?.value === 'paragraph' && normalizeText(getEditableText()) === normalizeText(previousText)) {
+            setEditableText(chapter.paragraphs[pIndex] || '');
+            renderEditedDiffPreview();
+        }
+    }
+
+    function attachOriginalScrollTracker(originalText, cIndex) {
+        if (!originalText) return;
+        originalText.onscroll = () => {
+            const chapter = window.manuscriptData?.chapters?.[cIndex];
+            if (!chapter) return;
+            const containerRect = originalText.getBoundingClientRect();
+            let bestIndex = null;
+            let bestDistance = Infinity;
+            originalText.querySelectorAll('[data-pindex]').forEach(node => {
+                const rect = node.getBoundingClientRect();
+                if (rect.bottom < containerRect.top + 20 || rect.top > containerRect.bottom - 20) return;
+                const distance = Math.abs(rect.top - containerRect.top - 18);
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    bestIndex = Number(node.dataset.pindex);
+                }
+            });
+            if (bestIndex !== null) setEditorParagraphFromScroll(cIndex, bestIndex);
+        };
+    }
+
     window.renderNavList = function() {
-        const navList = document.querySelector('#editor-nav-panel ul');
-        if (navList && (!window.manuscriptData || !window.manuscriptData.chapters)) {
-            navList.innerHTML = '<li style="color:var(--text-secondary);">Valitse käsikirjoitus ensin.</li>';
+        const chapterSelect = document.getElementById('editor-chapter-select');
+        const paragraphList = document.getElementById('editor-paragraph-list');
+        if (chapterSelect && paragraphList && (!window.manuscriptData || !window.manuscriptData.chapters)) {
+            chapterSelect.innerHTML = '';
+            chapterSelect.disabled = true;
+            paragraphList.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Valitse käsikirjoitus ensin.</div>';
             const originalText = document.getElementById('original-text');
             const editedText = document.getElementById('edited-text');
             if (originalText) originalText.textContent = 'Valitse käsikirjoitus ensin Käsikirjoitukseni-näkymässä.';
             if (editedText) setEditableText('');
             return;
         }
-        if (navList && window.manuscriptData && window.manuscriptData.chapters) {
-            let htmlOut = "";
-            window.manuscriptData.chapters.forEach((chapter, cIndex) => {
-                let isSpecial = chapter.id === "alku" || chapter.id === "sisallys";
-                htmlOut += `<li style="margin-bottom:8px;">
-                    <strong style="color:${isSpecial ? 'var(--text-secondary)' : 'var(--text-primary)'}; cursor:pointer;" onclick="window.loadParagraph(${cIndex}, 0, this.nextElementSibling.querySelector('li') || this); this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">${chapter.title}</strong>
-                    <ul style="list-style:none; padding-left:12px; margin-top:6px; margin-bottom:12px; ${isSpecial ? 'display:none;' : ''}">
-                `;
-                chapter.paragraphs.forEach((p, pIndex) => {
-                    let isFirst = cIndex === (window.manuscriptData.chapters.length > 2 ? 2 : 0) && pIndex === 0;
-                    htmlOut += `<li style="padding:4px 0; color:${isFirst ? 'var(--ai-gradient-start)' : 'var(--text-secondary)'}; font-weight:${isFirst ? 'bold' : 'normal'}; cursor:pointer;" onclick="window.loadParagraph(${cIndex}, ${pIndex}, this)">${isFirst ? '●' : '○'} Kappale ${pIndex + 1}</li>`;
-                });
-                htmlOut += `</ul></li>`;
-            });
-            navList.innerHTML = htmlOut;
-            
-            const originalText = document.getElementById('original-text');
-            const editedText = document.getElementById('edited-text');
-            if(originalText && editedText && window.manuscriptData.chapters.length > 0) {
-                const firstChapterIndex = window.manuscriptData.chapters.length > 2 ? 2 : 0;
-                let txt = window.manuscriptData.chapters[firstChapterIndex].paragraphs[0] || "";
-                originalText.style.whiteSpace = 'pre-wrap';
-                originalText.textContent = txt;
-                setEditableText(txt);
-                window.currentEditSelection = { cIndex: firstChapterIndex, pIndex: 0 };
-                renderEditedDiffPreview();
+        if (chapterSelect && paragraphList && window.manuscriptData?.chapters?.length) {
+            chapterSelect.disabled = false;
+            if (window.currentEditSelection.cIndex === null || !window.manuscriptData.chapters[window.currentEditSelection.cIndex]) {
+                window.currentEditSelection = { cIndex: window.manuscriptData.chapters.length > 2 ? 2 : 0, pIndex: 0 };
             }
+            renderEditorParagraphPicker(window.currentEditSelection.cIndex, window.currentEditSelection.pIndex || 0);
+            window.loadParagraph(window.currentEditSelection.cIndex, window.currentEditSelection.pIndex || 0, null);
         }
     };
 
@@ -2115,7 +2191,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const editedText = document.getElementById('edited-text');
         const chapterLabel = document.getElementById('original-chapter-label');
         
-        if (chapterLabel) chapterLabel.textContent = `— ${chapter.title}`;
+        if (chapterLabel) chapterLabel.textContent = `- ${chapter.title}`;
         
         if (originalText) {
             let html = '';
@@ -2132,9 +2208,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         ? 'font-weight: 600; background: rgba(16, 185, 129, 0.12); border-left: 3px solid var(--ai-gradient-start); color: var(--text-primary);' 
                         : 'font-weight: normal; opacity: 0.6; color: var(--text-secondary); border-left: 3px solid transparent;'
                     }
-                " onclick="window.loadParagraph(${cIndex}, ${idx}, document.querySelector('#editor-nav-panel ul li li:nth-child(${idx+1})') || this)">${escapeHtml(p)}</div>`;
+                " onclick="window.loadParagraph(${cIndex}, ${idx}, null)">${escapeHtml(p)}</div>`;
             });
             originalText.innerHTML = html;
+            attachOriginalScrollTracker(originalText, cIndex);
             
             // Scrollaa valittu kappale näkyviin
             setTimeout(() => {
@@ -2150,17 +2227,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderEditedDiffPreview();
         }
         
-        // Navigointilistan päivitys
-        document.querySelectorAll('#editor-nav-panel ul li li').forEach(li => {
-            li.style.color = 'var(--text-secondary)';
-            li.style.fontWeight = 'normal';
-            if(li.textContent.startsWith('●')) li.textContent = '○ ' + li.textContent.substring(2);
-        });
-        if (el) {
-            el.style.color = 'var(--ai-gradient-start)';
-            el.style.fontWeight = 'bold';
-            if(el.textContent.startsWith('○')) el.textContent = '● ' + el.textContent.substring(2);
-        }
+        renderEditorParagraphPicker(cIndex, pIndex);
         
         const statusP = document.querySelector('#view-toimitus .header-info p');
         if (statusP) {

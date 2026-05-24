@@ -150,7 +150,10 @@
                 <div class="writing-workspace">
                     <aside class="writing-nav glass-panel">
                         <h3>Luvut ja kappaleet</h3>
-                        <ul id="writing-nav-list"></ul>
+                        <label class="nav-control-label" for="writing-chapter-select">Luku</label>
+                        <select id="writing-chapter-select" class="chapter-select"></select>
+                        <label class="nav-control-label">Kappaleet</label>
+                        <div id="writing-paragraph-list" class="paragraph-list"></div>
                     </aside>
                     <section class="writing-editor glass-panel">
                         <div class="panel-header">
@@ -916,19 +919,10 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                     <!-- 1. Lukuvalikko -->
                     <div class="glass-panel" id="editor-nav-panel" style="padding: 16px; overflow-y: auto; display:flex; flex-direction:column;">
                         <h4 style="color:var(--text-primary); margin-bottom:12px;">Luvut ja kappaleet</h4>
-                        <ul style="list-style:none; padding:0; margin:0; font-size:13px; color:var(--text-secondary);">
-                            <li style="margin-bottom:8px; cursor:pointer; opacity:0.7;"><strong>Alku / Nimiölehti</strong></li>
-                            <li style="margin-bottom:8px; cursor:pointer; opacity:0.7;"><strong>Sisällysluettelo</strong></li>
-                            <li style="margin-bottom:8px;">
-                                <strong style="color:var(--text-primary); cursor:pointer;">Luku 1: Varjojen alku</strong>
-                                <ul style="list-style:none; padding-left:12px; margin-top:6px; margin-bottom:12px;">
-                                    <li style="padding:4px 0; color:var(--ai-gradient-start); font-weight:bold; cursor:pointer;">● Kappale 1</li>
-                                    <li style="padding:4px 0; cursor:pointer; opacity:0.7;">○ Kappale 2</li>
-                                    <li style="padding:4px 0; cursor:pointer; opacity:0.7;">○ Kappale 3</li>
-                                </ul>
-                            </li>
-                            <li style="margin-bottom:8px; cursor:pointer; opacity:0.7;"><strong>Luku 2: Matka alkaa</strong></li>
-                        </ul>
+                        <label class="nav-control-label" for="editor-chapter-select">Luku</label>
+                        <select id="editor-chapter-select" class="chapter-select"></select>
+                        <label class="nav-control-label">Kappaleet</label>
+                        <div id="editor-paragraph-list" class="paragraph-list"></div>
                     </div>
 
                     <!-- 2. Original Panel -->
