@@ -96,7 +96,7 @@
                     <h3 style="margin-bottom: 24px; color: var(--text-primary);">Tekoälyn mallit</h3>
                     
                     <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.5; margin-bottom: 24px;">
-                        API-avaimet asetetaan palvelimen ympäristömuuttujiin. Tässä näkymässä valitaan sovelluksen oletusmalli ja seurataan mallirekisteriä.
+                        API-avaimet asetetaan palvelimen ympäristömuuttujiin. Tässä näkymässä valitaan sovelluksen oletustekstimalli ja seurataan teksti- sekä kuvamallien rekisteriä.
                     </p>
                     
                     <div class="settings-row">
@@ -313,17 +313,36 @@
                 `<option value="${model.id}" ${model.is_default ? 'selected' : ''}>${model.display_name} (${model.model_name})</option>`
             )).join('');
 
-            modelRegistryList.innerHTML = models.map(model => `
+            modelRegistryList.innerHTML = models.map(model => {
+                const capabilities = [
+                    model.supports_images ? 'kuvat' : null,
+                    model.supports_files ? 'tiedostot' : null,
+                    model.requires_enterprise_approval ? 'yritys/pro' : null
+                ].filter(Boolean).join(' · ');
+                const status = model.is_default ? 'Oletus' : (model.is_enabled ? 'Käytössä' : 'Pois');
+                const badgeStyle = model.is_default
+                    ? 'background: rgba(16, 185, 129, 0.2); color: #fff;'
+                    : (model.task_type === 'image' ? 'background: rgba(59, 130, 246, 0.18); color: #bfdbfe; border-color: rgba(59, 130, 246, 0.35);' : '');
+                const toggleButton = model.is_default ? '' : `
+                        <button class="btn btn-secondary toggle-model-btn" data-id="${model.id}" data-enabled="${model.is_enabled ? 'true' : 'false'}" style="font-size: 11px; padding: 4px 10px;">
+                            ${model.is_enabled ? 'Poista käytöstä' : 'Ota käyttöön'}
+                        </button>
+                `;
+                return `
                 <div class="user-item">
                     <div class="user-info">
                         <h4>${model.display_name}</h4>
-                        <p>${model.provider} · ${model.model_name} · ${model.task_type} · ${model.model_tier}</p>
+                        <p>${model.provider} · ${model.model_name} · ${model.task_type} · ${model.model_tier}${capabilities ? ' · ' + capabilities : ''}</p>
                     </div>
-                    <span class="badge" style="${model.is_default ? 'background: rgba(16, 185, 129, 0.2); color: #fff;' : ''}">
-                        ${model.is_default ? 'Oletus' : (model.is_enabled ? 'Käytössä' : 'Pois')}
-                    </span>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="badge" style="${badgeStyle}">
+                            ${status}
+                        </span>
+                        ${toggleButton}
+                    </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         }
 
         async function loadModels() {
@@ -547,6 +566,28 @@
                 }
             });
         }
+
+        modelRegistryList.addEventListener('click', async (event) => {
+            const button = event.target.closest('.toggle-model-btn');
+            if (!button) return;
+            button.disabled = true;
+            modelStatus.textContent = 'Päivitetään mallia...';
+            try {
+                const isEnabled = button.dataset.enabled === 'true';
+                const res = await window.SkriptLabAuth.fetch(`/api/admin/models/${button.dataset.id}`, {
+                    method: 'PATCH',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({is_enabled: !isEnabled})
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Mallin päivitys epäonnistui.');
+                modelStatus.textContent = `${data.display_name}: ${data.is_enabled ? 'käytössä' : 'pois käytöstä'}`;
+                await loadModels();
+            } catch (err) {
+                modelStatus.textContent = err.message;
+                button.disabled = false;
+            }
+        });
 
         if (createInviteBtn) {
             createInviteBtn.addEventListener('click', async () => {
