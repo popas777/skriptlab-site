@@ -271,6 +271,104 @@ document.addEventListener('DOMContentLoaded', () => {
         return text ? truncateText(text, 54) : 'Tyhjä kappale';
     }
 
+    function chapterPlacement(chapter, index) {
+        const label = `${chapter?.id || ''} ${chapter?.title || ''}`.toLocaleLowerCase('fi-FI');
+        if (/(epilogi|j[aä]lkisanat|hakemisto|kiitokset|l[aä]hteet|liite|liitteet|sanasto|bibliografia)/i.test(label)) {
+            return 'back';
+        }
+        if (/(alku|nimi[oö]lehti|sis[aä]llysluettelo|sis[aä]llys|omistus|tekij[aä]noikeus|copyright|esipuhe|alkusanat)/i.test(label)) {
+            return 'front';
+        }
+        return 'body';
+    }
+
+    function chapterGroupLabel(key) {
+        if (key === 'front') return 'Alkuosat';
+        if (key === 'back') return 'Loppuosat';
+        return 'Luvut';
+    }
+
+    function firstBodyChapterIndex(chapters = window.manuscriptData?.chapters || []) {
+        const bodyIndex = chapters.findIndex((chapter, index) => chapterPlacement(chapter, index) === 'body');
+        return bodyIndex >= 0 ? bodyIndex : 0;
+    }
+
+    function isSubchapterTitle(chapter) {
+        const title = `${chapter?.id || ''} ${chapter?.title || ''}`.trim();
+        return /^(\d+\.\d+|[IVXLC]+\.\d+)\b/i.test(title) || /\baliluku\b/i.test(title);
+    }
+
+    function renderChapterParagraphNav(container, activeCIndex, activePIndex, handlers = {}) {
+        if (!container) return;
+        container.innerHTML = '';
+        const chapters = window.manuscriptData?.chapters || [];
+        if (!chapters.length) {
+            container.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Valitse tai lataa käsikirjoitus ensin.</div>';
+            return;
+        }
+
+        const grouped = { front: [], body: [], back: [] };
+        chapters.forEach((chapter, index) => {
+            grouped[chapterPlacement(chapter, index)].push({ chapter, index });
+        });
+        const visibleGroups = ['front', 'body', 'back'].filter(key => grouped[key].length);
+
+        visibleGroups.forEach(groupKey => {
+            const groupEl = document.createElement('div');
+            groupEl.className = 'chapter-group';
+
+            const label = document.createElement('div');
+            label.className = 'chapter-group-label';
+            label.textContent = chapterGroupLabel(groupKey);
+            groupEl.appendChild(label);
+
+            grouped[groupKey].forEach(({ chapter, index }) => {
+                const item = document.createElement('div');
+                item.className = 'chapter-nav-item';
+
+                const chapterButton = document.createElement('button');
+                chapterButton.type = 'button';
+                chapterButton.className = 'chapter-nav-btn';
+                chapterButton.classList.toggle('active', index === activeCIndex);
+                chapterButton.classList.toggle('subchapter', isSubchapterTitle(chapter));
+                const paragraphCount = Array.isArray(chapter.paragraphs) ? chapter.paragraphs.length : 0;
+                chapterButton.innerHTML = `
+                    <span class="chapter-nav-title">${escapeHtml(chapter.title || `Luku ${index + 1}`)}</span>
+                    <span class="chapter-nav-meta">${paragraphCount} kappaletta</span>
+                `;
+                chapterButton.addEventListener('click', () => {
+                    if (handlers.onChapterSelect) handlers.onChapterSelect(index);
+                });
+                item.appendChild(chapterButton);
+
+                if (index === activeCIndex) {
+                    const paragraphList = document.createElement('div');
+                    paragraphList.className = 'paragraph-list';
+                    (chapter.paragraphs || []).forEach((paragraph, pIndex) => {
+                        const paragraphButton = document.createElement('button');
+                        paragraphButton.type = 'button';
+                        paragraphButton.className = 'paragraph-nav-btn';
+                        paragraphButton.classList.toggle('active', pIndex === activePIndex);
+                        paragraphButton.dataset.pindex = String(pIndex);
+                        paragraphButton.innerHTML = `<span>Kappale ${pIndex + 1}</span><small>${escapeHtml(paragraphSnippet(paragraph))}</small>`;
+                        paragraphButton.addEventListener('click', () => {
+                            if (handlers.onParagraphSelect) handlers.onParagraphSelect(index, pIndex);
+                        });
+                        paragraphList.appendChild(paragraphButton);
+                    });
+                    item.appendChild(paragraphList);
+                }
+
+                groupEl.appendChild(item);
+            });
+
+            container.appendChild(groupEl);
+        });
+
+        const active = container.querySelector('.paragraph-nav-btn.active') || container.querySelector('.chapter-nav-btn.active');
+        if (active) active.scrollIntoView({ block: 'nearest' });
+    }
+
     function networkFailureMessage(error) {
         const message = String(error?.message || error || '');
         if (message.includes('Failed to fetch')) {
@@ -574,25 +672,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderWritingView() {
-        const chapterSelect = document.getElementById('writing-chapter-select');
-        const paragraphList = document.getElementById('writing-paragraph-list');
+        const chapterList = document.getElementById('writing-chapter-list');
         const titleEl = document.getElementById('writing-selection-title');
         const textEl = document.getElementById('writing-text');
-        if (!chapterSelect || !paragraphList || !titleEl || !textEl) return;
+        if (!chapterList || !titleEl || !textEl) return;
 
-        chapterSelect.innerHTML = '';
-        paragraphList.innerHTML = '';
+        chapterList.innerHTML = '';
         if (!window.manuscriptData || !Array.isArray(window.manuscriptData.chapters) || window.manuscriptData.chapters.length === 0) {
             titleEl.textContent = 'Ei käsikirjoitusta';
             textEl.value = '';
-            chapterSelect.disabled = true;
-            paragraphList.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Valitse tai lataa käsikirjoitus ensin.</div>';
+            renderChapterParagraphNav(chapterList, null, null);
             return;
         }
-        chapterSelect.disabled = false;
 
         if (writingSelection.cIndex === null || !window.manuscriptData.chapters[writingSelection.cIndex]) {
-            const firstChapterIndex = window.manuscriptData.chapters.length > 2 ? 2 : 0;
+            const firstChapterIndex = firstBodyChapterIndex(window.manuscriptData.chapters);
             writingSelection = { cIndex: firstChapterIndex, pIndex: 0 };
         }
         const activeChapter = window.manuscriptData.chapters[writingSelection.cIndex];
@@ -607,32 +701,18 @@ document.addEventListener('DOMContentLoaded', () => {
             writingSelection.pIndex = 0;
         }
 
-        window.manuscriptData.chapters.forEach((chapter, cIndex) => {
-            const option = document.createElement('option');
-            option.value = String(cIndex);
-            option.textContent = chapter.title || `Luku ${cIndex + 1}`;
-            chapterSelect.appendChild(option);
-        });
-        chapterSelect.value = String(writingSelection.cIndex);
-        chapterSelect.onchange = () => {
-            saveWritingText(false);
-            writingSelection = { cIndex: Number(chapterSelect.value), pIndex: 0 };
-            renderWritingView();
-        };
-
-        (activeChapter.paragraphs || []).forEach((paragraph, pIndex) => {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'paragraph-nav-btn';
-            button.classList.toggle('active', writingSelection.pIndex === pIndex);
-            button.dataset.pindex = String(pIndex);
-            button.innerHTML = `<span>Kappale ${pIndex + 1}</span><small>${escapeHtml(paragraphSnippet(paragraph))}</small>`;
-            button.addEventListener('click', () => {
+        renderChapterParagraphNav(chapterList, writingSelection.cIndex, writingSelection.pIndex, {
+            onChapterSelect: cIndex => {
                 saveWritingText(false);
-                writingSelection = { cIndex: writingSelection.cIndex, pIndex };
+                const nextPIndex = cIndex === writingSelection.cIndex ? writingSelection.pIndex : 0;
+                writingSelection = { cIndex, pIndex: nextPIndex };
                 renderWritingView();
-            });
-            paragraphList.appendChild(button);
+            },
+            onParagraphSelect: (cIndex, pIndex) => {
+                saveWritingText(false);
+                writingSelection = { cIndex, pIndex };
+                renderWritingView();
+            }
         });
 
         const selectedChapter = window.manuscriptData.chapters[writingSelection.cIndex];
@@ -641,8 +721,6 @@ document.addEventListener('DOMContentLoaded', () => {
             ? `${selectedChapter.title}, kappale ${writingSelection.pIndex + 1}`
             : 'Valitse kappale';
         textEl.value = selectedParagraph;
-        const activeButton = paragraphList.querySelector('.paragraph-nav-btn.active');
-        if (activeButton) activeButton.scrollIntoView({ block: 'nearest' });
     }
 
     function saveWritingText(showAlert = true) {
@@ -660,7 +738,7 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Lataa tai valitse käsikirjoitus ensin.');
             return;
         }
-        const chapterIndex = writingSelection.cIndex ?? (window.manuscriptData.chapters.length > 2 ? 2 : 0);
+        const chapterIndex = writingSelection.cIndex ?? firstBodyChapterIndex(window.manuscriptData.chapters);
         const chapter = window.manuscriptData.chapters[chapterIndex];
         if (!chapter) return;
         chapter.paragraphs.push('');
@@ -2082,35 +2160,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderEditorParagraphPicker(cIndex, pIndex) {
-        const chapterSelect = document.getElementById('editor-chapter-select');
-        const paragraphList = document.getElementById('editor-paragraph-list');
-        if (!chapterSelect || !paragraphList || !window.manuscriptData?.chapters?.length) return;
-        chapterSelect.innerHTML = '';
-        window.manuscriptData.chapters.forEach((chapter, index) => {
-            const option = document.createElement('option');
-            option.value = String(index);
-            option.textContent = chapter.title || `Luku ${index + 1}`;
-            chapterSelect.appendChild(option);
+        const chapterList = document.getElementById('editor-chapter-list');
+        if (!chapterList || !window.manuscriptData?.chapters?.length) return;
+        renderChapterParagraphNav(chapterList, cIndex, pIndex, {
+            onChapterSelect: nextCIndex => {
+                const nextPIndex = nextCIndex === cIndex ? pIndex : 0;
+                window.loadParagraph(nextCIndex, nextPIndex, null);
+            },
+            onParagraphSelect: (nextCIndex, nextPIndex) => {
+                window.loadParagraph(nextCIndex, nextPIndex, null);
+            }
         });
-        chapterSelect.value = String(cIndex);
-        chapterSelect.onchange = () => {
-            window.loadParagraph(Number(chapterSelect.value), 0, null);
-        };
-
-        const chapter = window.manuscriptData.chapters[cIndex];
-        paragraphList.innerHTML = '';
-        (chapter.paragraphs || []).forEach((paragraph, index) => {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'paragraph-nav-btn';
-            button.classList.toggle('active', index === pIndex);
-            button.dataset.pindex = String(index);
-            button.innerHTML = `<span>Kappale ${index + 1}</span><small>${escapeHtml(paragraphSnippet(paragraph))}</small>`;
-            button.addEventListener('click', () => window.loadParagraph(cIndex, index, button));
-            paragraphList.appendChild(button);
-        });
-        const active = paragraphList.querySelector('.paragraph-nav-btn.active');
-        if (active) active.scrollIntoView({ block: 'nearest' });
     }
 
     function setEditorParagraphFromScroll(cIndex, pIndex) {
@@ -2155,22 +2215,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     window.renderNavList = function() {
-        const chapterSelect = document.getElementById('editor-chapter-select');
-        const paragraphList = document.getElementById('editor-paragraph-list');
-        if (chapterSelect && paragraphList && (!window.manuscriptData || !window.manuscriptData.chapters)) {
-            chapterSelect.innerHTML = '';
-            chapterSelect.disabled = true;
-            paragraphList.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Valitse käsikirjoitus ensin.</div>';
+        const chapterList = document.getElementById('editor-chapter-list');
+        if (chapterList && (!window.manuscriptData || !window.manuscriptData.chapters)) {
+            renderChapterParagraphNav(chapterList, null, null);
             const originalText = document.getElementById('original-text');
             const editedText = document.getElementById('edited-text');
             if (originalText) originalText.textContent = 'Valitse käsikirjoitus ensin Käsikirjoitukseni-näkymässä.';
             if (editedText) setEditableText('');
             return;
         }
-        if (chapterSelect && paragraphList && window.manuscriptData?.chapters?.length) {
-            chapterSelect.disabled = false;
+        if (chapterList && window.manuscriptData?.chapters?.length) {
             if (window.currentEditSelection.cIndex === null || !window.manuscriptData.chapters[window.currentEditSelection.cIndex]) {
-                window.currentEditSelection = { cIndex: window.manuscriptData.chapters.length > 2 ? 2 : 0, pIndex: 0 };
+                window.currentEditSelection = { cIndex: firstBodyChapterIndex(window.manuscriptData.chapters), pIndex: 0 };
             }
             renderEditorParagraphPicker(window.currentEditSelection.cIndex, window.currentEditSelection.pIndex || 0);
             window.loadParagraph(window.currentEditSelection.cIndex, window.currentEditSelection.pIndex || 0, null);
