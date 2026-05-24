@@ -415,6 +415,21 @@ document.addEventListener('DOMContentLoaded', () => {
         return Boolean(analysis && analysisFields.some(field => analysisValue(analysis[field.key]).trim()));
     }
 
+    function analysisStatusLabel(analysis) {
+        return hasSavedAnalysis(analysis) ? 'Analysoitu' : 'Odottaa analyysiä';
+    }
+
+    function updateAvailableProject(project) {
+        if (!project?.id) return;
+        const index = availableProjects.findIndex(item => String(item.id) === String(project.id));
+        if (index >= 0) {
+            availableProjects[index] = Object.assign({}, availableProjects[index], project);
+        } else {
+            availableProjects.unshift(project);
+        }
+        renderProjectCards(availableProjects);
+    }
+
     function hasTranslationAnalysis(project) {
         const analysis = project?.analysis || {};
         return translationAnalysisKeys.some(key => analysisValue(analysis[key]).trim());
@@ -441,10 +456,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const latest = availableProjects.find(project => String(project.id) === String(window.manuscriptData.id));
             if (!latest) throw new Error('Aktiivista käsikirjoitusta ei löytynyt tietokannasta.');
 
+            const localAnalysis = window.manuscriptData.analysis || {};
+            if (!hasSavedAnalysis(latest.analysis) && hasSavedAnalysis(localAnalysis)) {
+                latest.analysis = localAnalysis;
+                await window.saveManuscriptToDB(latest);
+            }
+
             window.manuscriptData = Object.assign({}, window.manuscriptData, latest);
             if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
             localStorage.setItem('skriptlab_manuscript', JSON.stringify(window.manuscriptData));
             localStorage.setItem('skriptlab_raw_text', getFullManuscriptText(window.manuscriptData));
+            updateAvailableProject(window.manuscriptData);
             window.updateDynamicTexts();
             renderAnalysisSummary(window.manuscriptData.analysis);
             renderBookOverview();
@@ -868,7 +890,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 return res.json();
             })
-            .then(data => {
+            .then(async data => {
                 clearInterval(analysisInterval);
                 analysisLoader.classList.add('hidden');
                 analysisResults.classList.remove('hidden');
@@ -877,6 +899,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     const r = data.data;
                     if (window.manuscriptData) {
                         window.manuscriptData.analysis = r;
+                        const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
+                        if (savedProject?.id) {
+                            window.manuscriptData = savedProject;
+                            updateAvailableProject(savedProject);
+                        }
                     }
                     
                     renderAnalysisSummary(r);
@@ -928,7 +955,11 @@ document.addEventListener('DOMContentLoaded', () => {
                            window.manuscriptData = { title: "A", author: "B", chapters: freshChapters };
                        }
                        // Tallennetaan pysyvästi
-                       window.saveManuscriptToDB(window.manuscriptData);
+                       const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
+                       if (savedProject?.id) {
+                           window.manuscriptData = savedProject;
+                           updateAvailableProject(savedProject);
+                       }
                        renderBookOverview();
                        // Kutsutaan UI refresh
                        if(window.renderNavList) window.renderNavList();
@@ -1126,8 +1157,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const sidebarStyle = document.getElementById('sidebar-style');
         const sidebarVocab = document.getElementById('sidebar-vocab');
         if (sidebarStyle) {
-            sidebarStyle.textContent = analysis.style ? 'Tyyli valmis' : 'Odottaa analyysiä...';
-            sidebarStyle.style.color = analysis.style ? 'var(--ai-gradient-start)' : '';
+            sidebarStyle.textContent = hasSavedAnalysis(analysis) ? 'Analyysi valmis' : 'Odottaa analyysiä...';
+            sidebarStyle.style.color = hasSavedAnalysis(analysis) ? 'var(--ai-gradient-start)' : '';
         }
         if (sidebarVocab) {
             sidebarVocab.textContent = analysis.glossary ? 'Valmis sanasto' : '-';
@@ -1414,7 +1445,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ${projectOwnerLine(data)}
             ${projectSharedLine(data)}
             <p class="card-status"><span class="badge">${escapeHtml(accessLabel)}</span></p>
-            <p class="card-status"><span class="badge glowing">${data.analysis && data.analysis.style ? 'Analysoitu' : 'Odottaa analyysiä'}</span></p>
+            <p class="card-status"><span class="badge glowing">${analysisStatusLabel(data.analysis)}</span></p>
             ${projectShareControls(data)}
             ${manageable ? '<button class="delete-project-btn" style="margin-top:12px; padding:6px 12px; font-size:12px; background:rgba(255,50,50,0.2); color:var(--text-primary); border:1px solid rgba(255,50,50,0.5); border-radius:6px; cursor:pointer;">Poista teos</button>' : ''}
         `;
