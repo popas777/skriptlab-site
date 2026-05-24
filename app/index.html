@@ -853,6 +853,7 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                             </select>
                         </div>
                         <div id="translation-estimate" style="font-size:13px; color:var(--text-secondary); margin:14px 0;">Arvio muodostetaan, kun käsikirjoitus on valittu.</div>
+                        <div id="translation-analysis-notice" class="hidden" style="font-size:13px; color:#ffcf70; margin:10px 0;">Käännös vaatii ensin käsikirjoituksen analyysin.</div>
                         <div style="display:flex; gap:10px; flex-wrap:wrap;">
                             <button class="btn btn-secondary" id="translation-estimate-btn">Päivitä arvio</button>
                             <button class="btn btn-primary" id="translation-start-btn">Aloita käännös</button>
@@ -861,6 +862,7 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                     <div class="card glass-panel">
                         <h3>Käännöksen tulos</h3>
                         <div id="translation-status" style="font-size:13px; color:var(--text-secondary); margin:10px 0 14px;">Ei käännöstä vielä.</div>
+                        <div id="translation-timer" class="hidden" style="margin:8px 0 16px; font-size:30px; font-weight:600; color:var(--ai-gradient-start);">0:00</div>
                         <textarea id="translation-output" readonly style="width:100%; min-height:420px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:14px; font-family:Georgia,serif; line-height:1.65;"></textarea>
                         <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
                             <button class="btn btn-secondary" id="translation-download-btn">Lataa tekstitiedosto</button>
