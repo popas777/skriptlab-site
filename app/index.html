@@ -147,6 +147,8 @@
                         <p>Käsikirjoitus: [Ei aktiivista teosta] (kirjoittaminen ja tekstin jatkaminen)</p>
                     </div>
                     <div class="header-actions">
+                        <button class="btn btn-secondary" id="add-writing-chapter-btn">Uusi luku</button>
+                        <button class="btn btn-secondary btn-danger-soft" id="delete-writing-chapter-btn">Poista luku</button>
                         <button class="btn btn-secondary" id="add-writing-paragraph-btn">Uusi kappale</button>
                         <button class="btn btn-secondary btn-danger-soft" id="delete-writing-paragraph-btn">Poista kappale</button>
                         <button class="btn btn-primary" id="save-writing-btn">Tallenna teksti</button>
@@ -912,12 +914,14 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                         <p>Luku 1, Kappale 4 (Toimitus/Käännöstila) - Osat palasteltu tietokannasta</p>
                     </div>
                     <div class="header-actions">
+                        <button class="btn btn-secondary" id="add-editor-chapter-btn">Uusi luku</button>
+                        <button class="btn btn-secondary btn-danger-soft" id="delete-editor-chapter-btn">Poista luku</button>
                         <button class="btn btn-secondary" id="toggle-editor-nav-btn">Piilota navigaatio</button>
                         <button class="btn btn-secondary" id="toggle-editor-comments-btn">Näytä kommentit</button>
                     </div>
                 </div>
 
-                <div class="editor-workspace hide-editor-comments" id="editor-workspace" style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr) 160px; gap: 16px; overflow: hidden; height: calc(100vh - 160px);">
+                <div class="editor-workspace hide-editor-comments" id="editor-workspace" style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr) 220px; gap: 16px; overflow: hidden; height: calc(100vh - 160px);">
                     <!-- 1. Lukuvalikko -->
                     <div class="glass-panel" id="editor-nav-panel" style="padding: 16px; overflow-y: auto; display:flex; flex-direction:column;">
                         <h4 style="color:var(--text-primary); margin-bottom:12px;">Luvut ja kappaleet</h4>
@@ -966,6 +970,28 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                             <label style="color:var(--text-secondary); display:block; margin-bottom:6px;">Luovuus (Temp): <span id="temp-val">0.3</span></label>
                             <input type="range" min="0" max="100" value="30" style="width:100%; accent-color: var(--ai-gradient-start);" oninput="document.getElementById('temp-val').textContent=(this.value/100).toFixed(1)">
                             <div style="display:flex; justify-content:space-between; color:#666; margin-top:4px; font-size:10px;"><span>Tarkka</span><span>Vapaa</span></div>
+                        </div>
+
+                        <div class="mass-edit-panel">
+                            <button class="mass-edit-toggle" id="mass-edit-toggle" type="button" aria-expanded="false" aria-controls="mass-edit-body">
+                                <span>Massamuutokset</span>
+                                <span aria-hidden="true">›</span>
+                            </button>
+                            <div class="mass-edit-body hidden" id="mass-edit-body">
+                                <label>Laajuus</label>
+                                <select id="mass-edit-scope">
+                                    <option value="chapter">Valittu luku</option>
+                                    <option value="book">Koko käsikirjoitus</option>
+                                </select>
+                                <button class="btn btn-secondary" id="remove-markdown-btn" type="button">Poista *-merkinnät</button>
+                                <label>Etsi</label>
+                                <input id="mass-find-input" type="text" placeholder="Etsittävä teksti">
+                                <label>Korvaa</label>
+                                <input id="mass-replace-input" type="text" placeholder="Korvaava teksti">
+                                <button class="btn btn-secondary" id="mass-replace-btn" type="button">Etsi ja korvaa</button>
+                                <button class="btn btn-secondary" id="ai-restructure-btn" type="button">Ehdota uutta jakoa</button>
+                                <p id="mass-edit-status"></p>
+                            </div>
                         </div>
                     </div>
 

@@ -427,20 +427,21 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     font-size: 11px;
 }
 .paragraph-list {
-    display: grid;
+    display: flex;
     gap: 6px;
+    flex-wrap: wrap;
     margin-top: 6px;
-    overflow-y: auto;
+    overflow: hidden;
     min-height: 0;
 }
 .paragraph-nav-btn {
-    width: 100%;
-    text-align: left;
+    min-width: 42px;
+    text-align: center;
     border: 1px solid transparent;
     border-radius: 6px;
     background: rgba(255,255,255,0.04);
     color: var(--text-secondary);
-    padding: 8px 9px;
+    padding: 7px 8px;
     cursor: pointer;
     font-family: inherit;
     font-size: 12px;
@@ -462,14 +463,73 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     display: block;
     color: inherit;
 }
-.paragraph-nav-btn small {
+.paragraph-nav-btn small,
+.paragraph-range-note {
     display: block;
-    margin-top: 2px;
+    margin-top: 4px;
     color: var(--text-secondary);
     font-size: 11px;
-    white-space: nowrap;
+    flex-basis: 100%;
+}
+.mass-edit-panel {
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
     overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 11px;
+}
+.mass-edit-toggle {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: var(--text-primary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+}
+.mass-edit-toggle[aria-expanded="true"] span:last-child {
+    transform: rotate(90deg);
+}
+.mass-edit-toggle span:last-child {
+    color: var(--text-secondary);
+    font-size: 18px;
+    line-height: 1;
+    transition: transform 0.2s ease;
+}
+.mass-edit-body {
+    display: grid;
+    gap: 8px;
+    padding: 0 12px 12px;
+}
+.mass-edit-body label {
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+.mass-edit-body input,
+.mass-edit-body select {
+    width: 100%;
+    padding: 7px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.05);
+    color: var(--text-primary);
+    border: 1px solid #333;
+    font-family: inherit;
+    font-size: 11px;
+}
+.mass-edit-body .btn {
+    font-size: 11px;
+    padding: 7px 8px;
+}
+#mass-edit-status {
+    min-height: 16px;
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.4;
 }
 .rich-editor:empty::before {
     content: attr(data-placeholder);

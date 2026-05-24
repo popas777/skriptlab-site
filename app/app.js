@@ -308,6 +308,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return /^(\d+\.\d+|[IVXLC]+\.\d+)\b/i.test(title) || /\baliluku\b/i.test(title);
     }
 
+    function visibleParagraphIndexes(count, activePIndex) {
+        if (!count) return [];
+        const active = Math.min(Math.max(Number(activePIndex) || 0, 0), count - 1);
+        const start = Math.min(Math.max(active - 1, 0), Math.max(count - 3, 0));
+        const end = Math.min(count, start + 3);
+        return Array.from({ length: end - start }, (_, offset) => start + offset);
+    }
+
     function renderChapterParagraphNav(container, activeCIndex, activePIndex, handlers = {}) {
         if (!container) return;
         container.innerHTML = '';
@@ -354,18 +362,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (index === activeCIndex) {
                     const paragraphList = document.createElement('div');
                     paragraphList.className = 'paragraph-list';
-                    (chapter.paragraphs || []).forEach((paragraph, pIndex) => {
+                    const paragraphs = chapter.paragraphs || [];
+                    const indexes = visibleParagraphIndexes(paragraphs.length, activePIndex);
+                    indexes.forEach((pIndex) => {
                         const paragraphButton = document.createElement('button');
                         paragraphButton.type = 'button';
                         paragraphButton.className = 'paragraph-nav-btn';
                         paragraphButton.classList.toggle('active', pIndex === activePIndex);
                         paragraphButton.dataset.pindex = String(pIndex);
-                        paragraphButton.innerHTML = `<span>Kappale ${pIndex + 1}</span><small>${escapeHtml(paragraphSnippet(paragraph))}</small>`;
+                        paragraphButton.title = paragraphSnippet(paragraphs[pIndex]);
+                        paragraphButton.innerHTML = `<span>${pIndex + 1}</span>`;
                         paragraphButton.addEventListener('click', () => {
                             if (handlers.onParagraphSelect) handlers.onParagraphSelect(index, pIndex);
                         });
                         paragraphList.appendChild(paragraphButton);
                     });
+                    if (paragraphs.length > 3) {
+                        const note = document.createElement('small');
+                        note.className = 'paragraph-range-note';
+                        note.textContent = `Kappaleet ${indexes[0] + 1}-${indexes[indexes.length - 1] + 1} / ${paragraphs.length}`;
+                        paragraphList.appendChild(note);
+                    }
                     item.appendChild(paragraphList);
                 }
 
@@ -774,6 +791,66 @@ document.addEventListener('DOMContentLoaded', () => {
         renderWritingView();
     }
 
+    function nextChapterTitle() {
+        const bodyCount = (window.manuscriptData?.chapters || [])
+            .filter((chapter, index) => chapterPlacement(chapter, index) === 'body')
+            .length;
+        return `Luku ${bodyCount + 1}`;
+    }
+
+    function addChapterNearSelection(source = 'writing') {
+        if (!window.manuscriptData) {
+            alert('Lataa tai valitse käsikirjoitus ensin.');
+            return;
+        }
+        if (source === 'writing') saveWritingText(false);
+        const chapters = window.manuscriptData.chapters || [];
+        const currentIndex = source === 'editor'
+            ? (window.currentEditSelection?.cIndex ?? firstBodyChapterIndex(chapters))
+            : (writingSelection.cIndex ?? firstBodyChapterIndex(chapters));
+        const title = prompt('Uuden luvun nimi', nextChapterTitle());
+        if (title === null) return;
+        const cleanTitle = title.trim() || nextChapterTitle();
+        const insertIndex = Math.min(Math.max(currentIndex + 1, 0), chapters.length);
+        const newChapter = {
+            id: `luku_${Date.now()}`,
+            title: cleanTitle,
+            paragraphs: ['']
+        };
+        chapters.splice(insertIndex, 0, newChapter);
+        writingSelection = { cIndex: insertIndex, pIndex: 0 };
+        window.currentEditSelection = { cIndex: insertIndex, pIndex: 0 };
+        persistManuscriptEdits();
+        renderWritingView();
+        if (window.loadParagraph) window.loadParagraph(insertIndex, 0, null);
+    }
+
+    function deleteSelectedChapter(source = 'writing') {
+        if (!window.manuscriptData?.chapters?.length) {
+            alert('Lataa tai valitse käsikirjoitus ensin.');
+            return;
+        }
+        if (source === 'writing') saveWritingText(false);
+        const chapters = window.manuscriptData.chapters;
+        if (chapters.length <= 1) {
+            alert('Viimeistä lukua ei voi poistaa.');
+            return;
+        }
+        const currentIndex = source === 'editor'
+            ? (window.currentEditSelection?.cIndex ?? firstBodyChapterIndex(chapters))
+            : (writingSelection.cIndex ?? firstBodyChapterIndex(chapters));
+        const chapter = chapters[currentIndex];
+        if (!chapter) return;
+        if (!confirm(`Poistetaanko luku "${chapter.title || `Luku ${currentIndex + 1}`}"?`)) return;
+        chapters.splice(currentIndex, 1);
+        const nextIndex = Math.min(currentIndex, chapters.length - 1);
+        writingSelection = { cIndex: nextIndex, pIndex: 0 };
+        window.currentEditSelection = { cIndex: nextIndex, pIndex: 0 };
+        persistManuscriptEdits();
+        renderWritingView();
+        if (window.loadParagraph) window.loadParagraph(nextIndex, 0, null);
+    }
+
     function updateUsagePanel(data) {
         if (!usageEls.box || !data) return;
         const analysisCountPercent = usagePercent(data.monthly_analysis_used, data.monthly_analysis_limit);
@@ -1102,8 +1179,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const editableText = document.getElementById('edited-text');
     const editScopeSelect = document.getElementById('edit-scope');
     const editorWorkspace = document.getElementById('editor-workspace');
+    const addEditorChapterBtn = document.getElementById('add-editor-chapter-btn');
+    const deleteEditorChapterBtn = document.getElementById('delete-editor-chapter-btn');
     const toggleEditorNavBtn = document.getElementById('toggle-editor-nav-btn');
     const toggleEditorCommentsBtn = document.getElementById('toggle-editor-comments-btn');
+    const massEditToggle = document.getElementById('mass-edit-toggle');
+    const massEditBody = document.getElementById('mass-edit-body');
+    const massEditScope = document.getElementById('mass-edit-scope');
+    const removeMarkdownBtn = document.getElementById('remove-markdown-btn');
+    const massFindInput = document.getElementById('mass-find-input');
+    const massReplaceInput = document.getElementById('mass-replace-input');
+    const massReplaceBtn = document.getElementById('mass-replace-btn');
+    const aiRestructureBtn = document.getElementById('ai-restructure-btn');
+    const massEditStatus = document.getElementById('mass-edit-status');
 
     function setAiButtonIdle() {
         if (aiBtn) aiBtn.innerHTML = '<span class="sparkle">✨</span><br>Analysoi ja ehdota';
@@ -1161,9 +1249,63 @@ document.addEventListener('DOMContentLoaded', () => {
         const hideComments = editorWorkspace.classList.contains('hide-editor-comments');
         const columns = [];
         if (!hideNav) columns.push('220px');
-        columns.push('minmax(0, 1fr)', 'minmax(0, 1fr)', '160px');
+        columns.push('minmax(0, 1fr)', 'minmax(0, 1fr)', '220px');
         if (!hideComments) columns.push('240px');
         editorWorkspace.style.gridTemplateColumns = columns.join(' ');
+    }
+
+    function splitIntoParagraphs(text) {
+        return String(text || '')
+            .split(/\n\s*\n/)
+            .map(part => part.trim())
+            .filter(Boolean);
+    }
+
+    function massEditSelectionScope() {
+        return massEditScope?.value === 'book' ? 'book' : 'chapter';
+    }
+
+    function applyMassTextTransform(transform, statusText) {
+        if (!window.manuscriptData?.chapters?.length) {
+            alert('Lataa tai valitse käsikirjoitus ensin.');
+            return;
+        }
+        const scope = massEditSelectionScope();
+        if (scope === 'book') {
+            window.manuscriptData.chapters.forEach(chapter => {
+                chapter.paragraphs = (chapter.paragraphs || []).map(paragraph => transform(paragraph));
+            });
+        } else {
+            const sel = window.currentEditSelection || {};
+            const chapter = window.manuscriptData.chapters[sel.cIndex];
+            if (!chapter) {
+                alert('Valitse luku ensin.');
+                return;
+            }
+            chapter.paragraphs = (chapter.paragraphs || []).map(paragraph => transform(paragraph));
+        }
+        persistManuscriptEdits();
+        renderWritingView();
+        const sel = window.currentEditSelection || { cIndex: firstBodyChapterIndex(), pIndex: 0 };
+        if (window.loadParagraph && window.manuscriptData.chapters[sel.cIndex]) {
+            const pIndex = Math.min(sel.pIndex || 0, window.manuscriptData.chapters[sel.cIndex].paragraphs.length - 1);
+            window.loadParagraph(sel.cIndex, pIndex, null);
+        }
+        if (massEditStatus) massEditStatus.textContent = statusText;
+    }
+
+    function parseRestructuredChapters(text, fallbackTitle) {
+        const parsed = createManuscriptFromText(fallbackTitle || 'Uusi rakenne', text);
+        const chapters = (parsed.chapters || []).filter(chapter => {
+            const joined = (chapter.paragraphs || []).join(' ').trim();
+            return joined && !/^\(Ei .+ havaittu\)$/i.test(joined);
+        });
+        if (chapters.length) return chapters;
+        return [{
+            id: `luku_${Date.now()}`,
+            title: fallbackTitle || 'Uusi luku',
+            paragraphs: splitIntoParagraphs(text)
+        }];
     }
 
     const geminiMagicText = `Musta pimeys kietoi ikiaikaisen varjometsän syliinsä, ja puut piirtyivät taivasta vasten kuin sysimustat kynnet. Jokin liikkui äänettömästi aluskasvillisuuden seassa – askeleet olivat huomaamattomat, mutta ilmassa lepäsi odottava jännite. Hahmo oli epäilemättä taikaolennon kaltainen; ehkäpä matkalainen etsimässä loistavaa kiveä.
@@ -1234,6 +1376,97 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (editScopeSelect) {
         editScopeSelect.addEventListener('change', refreshEditableTextForScope);
+    }
+
+    if (addEditorChapterBtn) addEditorChapterBtn.addEventListener('click', () => addChapterNearSelection('editor'));
+    if (deleteEditorChapterBtn) deleteEditorChapterBtn.addEventListener('click', () => deleteSelectedChapter('editor'));
+
+    if (massEditToggle && massEditBody) {
+        massEditToggle.addEventListener('click', () => {
+            const isOpen = massEditToggle.getAttribute('aria-expanded') === 'true';
+            massEditToggle.setAttribute('aria-expanded', String(!isOpen));
+            massEditBody.classList.toggle('hidden', isOpen);
+        });
+    }
+
+    if (removeMarkdownBtn) {
+        removeMarkdownBtn.addEventListener('click', () => {
+            applyMassTextTransform(
+                text => text.replace(/\*\*/g, '').replace(/\*([^*\n]+)\*/g, '$1'),
+                'Tähtimerkinnät poistettu.'
+            );
+        });
+    }
+
+    if (massReplaceBtn) {
+        massReplaceBtn.addEventListener('click', () => {
+            const findText = massFindInput?.value || '';
+            const replaceText = massReplaceInput?.value || '';
+            if (!findText) {
+                if (massEditStatus) massEditStatus.textContent = 'Kirjoita ensin etsittävä teksti.';
+                return;
+            }
+            applyMassTextTransform(
+                text => text.split(findText).join(replaceText),
+                'Etsi ja korvaa tehty.'
+            );
+        });
+    }
+
+    if (aiRestructureBtn) {
+        aiRestructureBtn.addEventListener('click', async () => {
+            if (!window.manuscriptData?.chapters?.length) {
+                alert('Lataa tai valitse käsikirjoitus ensin.');
+                return;
+            }
+            const scope = massEditSelectionScope();
+            const sel = window.currentEditSelection || {};
+            const chapter = window.manuscriptData.chapters[sel.cIndex];
+            const sourceText = scope === 'book'
+                ? getFullManuscriptText(window.manuscriptData)
+                : (chapter?.paragraphs || []).join('\n\n');
+            if (!sourceText.trim()) {
+                if (massEditStatus) massEditStatus.textContent = 'Käsiteltävää tekstiä ei löytynyt.';
+                return;
+            }
+            if (!confirm('Korvataanko nykyinen luku- ja kappalejako ehdotetulla rakenteella?')) return;
+            aiRestructureBtn.disabled = true;
+            if (massEditStatus) massEditStatus.textContent = 'Haetaan uutta jakoa...';
+            try {
+                const res = await apiFetch('/api/edit', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        text: sourceText,
+                        temperature: 0.2,
+                        prompt: 'Jaa teksti uudelleen selkeiksi luvuiksi ja kappaleiksi. Palauta vain valmis käsikirjoitusteksti: luvun otsikko omalle rivilleen, kappaleet tyhjällä rivillä erotettuina. Älä lisää selityksiä.'
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Uuden jaon tekeminen epäonnistui.');
+                const chapters = parseRestructuredChapters(data.edited_text || '', chapter?.title || window.manuscriptData.title);
+                if (scope === 'book') {
+                    window.manuscriptData.chapters = chapters;
+                    writingSelection = { cIndex: firstBodyChapterIndex(chapters), pIndex: 0 };
+                    window.currentEditSelection = { cIndex: writingSelection.cIndex, pIndex: 0 };
+                } else {
+                    if (!chapter) throw new Error('Valittua lukua ei löytynyt.');
+                    window.manuscriptData.chapters.splice(sel.cIndex, 1, ...chapters);
+                    writingSelection = { cIndex: sel.cIndex, pIndex: 0 };
+                    window.currentEditSelection = { cIndex: sel.cIndex, pIndex: 0 };
+                }
+                persistManuscriptEdits();
+                renderWritingView();
+                if (window.loadParagraph) window.loadParagraph(window.currentEditSelection.cIndex, 0, null);
+                loadUsage();
+                if (massEditStatus) massEditStatus.textContent = 'Uusi jako tehty.';
+            } catch (err) {
+                if (massEditStatus) massEditStatus.textContent = err.message;
+                loadUsage();
+            } finally {
+                aiRestructureBtn.disabled = false;
+            }
+        });
     }
 
     if (toggleEditorNavBtn && editorWorkspace) {
@@ -1361,6 +1594,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const bookFontSizeSelect = document.getElementById('book-font-size-select');
     const bookWidthSelect = document.getElementById('book-width-select');
     const saveWritingBtn = document.getElementById('save-writing-btn');
+    const addWritingChapterBtn = document.getElementById('add-writing-chapter-btn');
+    const deleteWritingChapterBtn = document.getElementById('delete-writing-chapter-btn');
     const addWritingParagraphBtn = document.getElementById('add-writing-paragraph-btn');
     const deleteWritingParagraphBtn = document.getElementById('delete-writing-paragraph-btn');
 
@@ -1372,6 +1607,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (select) select.addEventListener('change', applyBookReaderSettings);
     });
     if (saveWritingBtn) saveWritingBtn.addEventListener('click', () => saveWritingText(true));
+    if (addWritingChapterBtn) addWritingChapterBtn.addEventListener('click', () => addChapterNearSelection('writing'));
+    if (deleteWritingChapterBtn) deleteWritingChapterBtn.addEventListener('click', () => deleteSelectedChapter('writing'));
     if (addWritingParagraphBtn) addWritingParagraphBtn.addEventListener('click', addWritingParagraph);
     if (deleteWritingParagraphBtn) deleteWritingParagraphBtn.addEventListener('click', deleteWritingParagraph);
 
