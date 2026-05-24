@@ -61,6 +61,8 @@ document.addEventListener('DOMContentLoaded', () => {
         { key: 'backcover', label: 'Takakansiteksti' }
     ];
     const analysisMetadataFields = [
+        { key: 'analysis_status', label: 'Analyysin tila' },
+        { key: 'analysis_warnings', label: 'Käsittelyhuomautukset' },
         { key: 'audience', label: 'Kohderyhmä' },
         { key: 'genre', label: 'Genre' },
         { key: 'library_class', label: 'Kirjastoluokka' },
