@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=28">
+    <link rel="stylesheet" href="styles.css?v=29">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -64,6 +64,7 @@
                     <li data-view="view-taitto">Taitto</li>
                     <li data-view="view-audio">Audio</li>
                     <li data-view="view-kaannokset">Käännökset</li>
+                    <li data-view="view-muut-toiminnot">Muut toiminnot</li>
                     <li data-view="view-kirja">Valmis kirja</li>
                 </ul>
             </nav>
@@ -906,6 +907,53 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                 </div>
             </div>
 
+            <!-- 11.5 VIEW: MUUT TOIMINNOT -->
+            <div id="view-muut-toiminnot" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>Muut toiminnot</h2>
+                        <p id="misc-current-project">Valitse käsikirjoitus ja toiminto.</p>
+                    </div>
+                </div>
+                <div class="grid-cards" style="grid-template-columns: minmax(280px, 420px) minmax(0, 1fr); align-items:start;">
+                    <div class="card glass-panel">
+                        <h3>Toiminnon asetukset</h3>
+                        <div class="settings-row">
+                            <label>Käsikirjoitus</label>
+                            <select id="misc-project-select"></select>
+                        </div>
+                        <div class="settings-row">
+                            <label>Toiminto</label>
+                            <select id="misc-tool-select">
+                                <option value="character_index">Henkilöhakemisto</option>
+                                <option value="table_of_contents">Sisällysluettelo</option>
+                                <option value="copyright_page">Copysivu</option>
+                            </select>
+                        </div>
+                        <div class="settings-row">
+                            <label>Malli</label>
+                            <select id="misc-model-select"></select>
+                        </div>
+                        <div class="settings-row">
+                            <label>Lisäohje</label>
+                            <textarea id="misc-instructions" placeholder="Esim. tee lyhyt versio, huomioi lastenromaanin lukija tai jätä epävarmat nimet pois." style="width:100%; min-height:110px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:12px; font-family:inherit; line-height:1.5;"></textarea>
+                        </div>
+                        <button class="btn btn-primary" id="misc-run-btn">Suorita toiminto</button>
+                        <p id="misc-tool-note" style="font-size:12px; color:var(--text-secondary); margin-top:12px; line-height:1.5;">Sisällysluettelo muodostetaan nykyisestä luku- ja kappalerakenteesta. Henkilöhakemisto ja copysivu käyttävät mallia, mutta niille on yksinkertainen varatuloste.</p>
+                    </div>
+                    <div class="card glass-panel">
+                        <h3 id="misc-result-title">Tulokset</h3>
+                        <div id="misc-status" style="font-size:13px; color:var(--text-secondary); margin:10px 0 14px;">Ei tulosta vielä.</div>
+                        <div id="misc-timer" class="hidden" style="margin:8px 0 16px; font-size:30px; font-weight:600; color:var(--ai-gradient-start);">0:00</div>
+                        <textarea id="misc-output" style="width:100%; min-height:480px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:14px; font-family:Georgia,serif; line-height:1.65;" placeholder="Tulokset näkyvät tässä ja niitä voi muokata ennen kopiointia tai lataamista."></textarea>
+                        <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+                            <button class="btn btn-secondary" id="misc-copy-btn">Kopioi</button>
+                            <button class="btn btn-secondary" id="misc-download-btn">Lataa TXT</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 5. VIEW: TOIMITUS (Vierekkäisnäkymä) -->
             <div id="view-toimitus" class="view-section hidden">
                 <div class="header">
@@ -1023,6 +1071,6 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=2"></script>
-    <script src="app.js?v=28"></script>
+    <script src="app.js?v=29"></script>
 </body>
 </html>

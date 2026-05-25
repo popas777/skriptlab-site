@@ -38,8 +38,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let syncingTranslationScroll = false;
     let translationTimerInterval = null;
     let latestTranslationEstimate = null;
+    let miscModels = [];
+    let miscTimerInterval = null;
+    let latestMiscText = '';
     const fullWorkspaceRoles = new Set(['admin', 'test_user']);
-    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-kirja', 'view-analyysi', 'view-toimitus']);
+    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-muut-toiminnot']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset']);
     const roleLabels = {
         admin: 'Admin',
@@ -1016,6 +1019,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateTranslationProjectSelect();
                 updateTranslationEstimate();
             }
+            if (item.getAttribute('data-view') === 'view-muut-toiminnot') {
+                loadMiscModels();
+                updateMiscProjectSelect();
+            }
             if(item.getAttribute('data-view') !== 'view-kirjani') {
                 document.getElementById('top-book-name').textContent = window.manuscriptData
                     ? `Käsikirjoitus: ${window.manuscriptData.title}`
@@ -1808,6 +1815,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderWritingView();
         if (window.renderNavList) window.renderNavList();
         updateTranslationProjectSelect();
+        updateMiscProjectSelect();
     }
 
     function setActiveManuscript(data) {
@@ -1825,6 +1833,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderBookOverview();
         renderWritingView();
         if (window.renderNavList) window.renderNavList();
+        updateMiscProjectSelect();
     }
 
     function emptyProjectMessage() {
@@ -1961,6 +1970,7 @@ document.addEventListener('DOMContentLoaded', () => {
         gridCards.innerHTML = '';
         if (!projects || projects.length === 0) {
             updateTranslationProjectSelect();
+            updateMiscProjectSelect();
             gridCards.innerHTML = emptyProjectMessage();
             clearActiveManuscript();
             return;
@@ -1980,6 +1990,7 @@ document.addEventListener('DOMContentLoaded', () => {
             clearActiveManuscript();
         }
         updateTranslationProjectSelect();
+        updateMiscProjectSelect();
     }
 
     async function loadProjects() {
@@ -2116,6 +2127,38 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTranslationHistory();
     }
 
+    function currentMiscProject() {
+        const select = document.getElementById('misc-project-select');
+        const selectedId = select?.value || window.manuscriptData?.id;
+        if (!selectedId) return null;
+        return availableProjects.find(project => String(project.id) === String(selectedId)) || null;
+    }
+
+    function updateMiscProjectSelect() {
+        const select = document.getElementById('misc-project-select');
+        const currentText = document.getElementById('misc-current-project');
+        if (!select) return;
+        const previousValue = select.value || window.manuscriptData?.id || '';
+        select.innerHTML = '';
+        availableProjects.forEach(project => {
+            const option = document.createElement('option');
+            option.value = project.id;
+            option.textContent = `${project.title || 'Nimetön'}${project.owner_email ? ` (${project.owner_email})` : ''}`;
+            select.appendChild(option);
+        });
+        if (previousValue && availableProjects.some(project => String(project.id) === String(previousValue))) {
+            select.value = String(previousValue);
+        } else if (window.manuscriptData?.id) {
+            select.value = String(window.manuscriptData.id);
+        }
+        const project = currentMiscProject();
+        if (currentText) {
+            currentText.textContent = project
+                ? `Käsiteltävä aineisto: ${project.title || 'Nimetön'}`
+                : 'Valitse käsikirjoitus ja toiminto.';
+        }
+    }
+
     async function loadTranslationModels() {
         const select = document.getElementById('translation-model-select');
         if (!select) return;
@@ -2125,6 +2168,26 @@ document.addEventListener('DOMContentLoaded', () => {
             translationModels = await res.json();
             select.innerHTML = '';
             translationModels.forEach(model => {
+                const option = document.createElement('option');
+                option.value = `${model.provider}:${model.model_name}`;
+                option.textContent = model.display_name || model.model_name;
+                if (model.is_default) option.selected = true;
+                select.appendChild(option);
+            });
+        } catch (err) {
+            select.innerHTML = '<option value="">Oletusmalli</option>';
+        }
+    }
+
+    async function loadMiscModels() {
+        const select = document.getElementById('misc-model-select');
+        if (!select) return;
+        try {
+            const res = await apiFetch('/api/models/text');
+            if (!res.ok) throw new Error(await apiErrorMessage(res, 'Mallien lataus epäonnistui.'));
+            miscModels = await res.json();
+            select.innerHTML = '';
+            miscModels.forEach(model => {
                 const option = document.createElement('option');
                 option.value = `${model.provider}:${model.model_name}`;
                 option.textContent = model.display_name || model.model_name;
@@ -2352,6 +2415,129 @@ document.addEventListener('DOMContentLoaded', () => {
         URL.revokeObjectURL(link.href);
     }
 
+    function miscToolLabel(value) {
+        const labels = {
+            character_index: 'Henkilöhakemisto',
+            table_of_contents: 'Sisällysluettelo',
+            copyright_page: 'Copysivu'
+        };
+        return labels[value] || 'Muu toiminto';
+    }
+
+    function miscRequestPayload() {
+        const project = currentMiscProject();
+        return {
+            project_id: project ? project.id : null,
+            tool: document.getElementById('misc-tool-select')?.value || 'character_index',
+            model: document.getElementById('misc-model-select')?.value || null,
+            instructions: document.getElementById('misc-instructions')?.value || ''
+        };
+    }
+
+    function miscProgressText(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const rest = seconds % 60;
+        return `${minutes}:${rest < 10 ? '0' : ''}${rest}`;
+    }
+
+    function startMiscTimer() {
+        const timer = document.getElementById('misc-timer');
+        window.clearInterval(miscTimerInterval);
+        let seconds = 0;
+        if (timer) {
+            timer.textContent = miscProgressText(seconds);
+            timer.classList.remove('hidden');
+        }
+        miscTimerInterval = window.setInterval(() => {
+            seconds++;
+            if (timer) timer.textContent = miscProgressText(seconds);
+        }, 1000);
+    }
+
+    function stopMiscTimer() {
+        window.clearInterval(miscTimerInterval);
+        miscTimerInterval = null;
+        const timer = document.getElementById('misc-timer');
+        if (timer) timer.classList.add('hidden');
+    }
+
+    async function runMiscTool() {
+        const payload = miscRequestPayload();
+        const status = document.getElementById('misc-status');
+        const output = document.getElementById('misc-output');
+        const title = document.getElementById('misc-result-title');
+        const button = document.getElementById('misc-run-btn');
+        if (!payload.project_id) {
+            alert('Valitse ensin käsikirjoitus.');
+            return;
+        }
+        const selectedLabel = miscToolLabel(payload.tool);
+        if (button) button.disabled = true;
+        if (status) status.textContent = `${selectedLabel} työn alla...`;
+        if (title) title.textContent = selectedLabel;
+        if (output) output.value = '';
+        startMiscTimer();
+        try {
+            const res = await apiFetch('/api/misc-tools/run', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Toiminto epäonnistui.');
+            latestMiscText = data.result || '';
+            if (output) output.value = latestMiscText;
+            if (title) title.textContent = data.title || selectedLabel;
+            if (status) {
+                status.textContent = data.warnings
+                    ? `${data.warnings} Lähde: ${data.generated_by}.`
+                    : `Valmis. Lähde: ${data.generated_by}.`;
+            }
+            loadUsage();
+        } catch (err) {
+            if (status) status.textContent = err.message;
+            alert('Toiminto epäonnistui: ' + networkFailureMessage(err));
+            loadUsage();
+        } finally {
+            stopMiscTimer();
+            if (button) button.disabled = false;
+        }
+    }
+
+    async function copyMiscOutput() {
+        const output = document.getElementById('misc-output');
+        const text = output?.value || latestMiscText;
+        if (!text) {
+            alert('Ei kopioitavaa tulosta.');
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(text);
+            const status = document.getElementById('misc-status');
+            if (status) status.textContent = 'Kopioitu leikepöydälle.';
+        } catch (err) {
+            alert('Kopiointi epäonnistui. Voit valita tekstin ja kopioida sen käsin.');
+        }
+    }
+
+    function downloadMiscOutput() {
+        const output = document.getElementById('misc-output');
+        const text = output?.value || latestMiscText;
+        if (!text) {
+            alert('Ei ladattavaa tulosta.');
+            return;
+        }
+        const project = currentMiscProject();
+        const tool = document.getElementById('misc-tool-select')?.value || 'muut-toiminnot';
+        const safeTitle = (project?.title || 'kasikirjoitus').toLowerCase().replace(/[^a-z0-9åäö]+/gi, '-').replace(/^-|-$/g, '') || 'kasikirjoitus';
+        const blob = new Blob([text], {type: 'text/plain;charset=utf-8'});
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${safeTitle}-${tool}.txt`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+    }
+
     async function saveReviewedTranslation() {
         const textarea = document.getElementById('translation-review-text');
         const status = document.getElementById('translation-review-status');
@@ -2446,6 +2632,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const translationReviewDownloadBtn = document.getElementById('translation-review-download-btn');
     const translationReviewOriginal = document.getElementById('translation-review-original');
     const translationReviewText = document.getElementById('translation-review-text');
+    const miscProjectSelect = document.getElementById('misc-project-select');
+    const miscToolSelect = document.getElementById('misc-tool-select');
+    const miscRunBtn = document.getElementById('misc-run-btn');
+    const miscCopyBtn = document.getElementById('misc-copy-btn');
+    const miscDownloadBtn = document.getElementById('misc-download-btn');
     document.querySelectorAll('.translation-tab').forEach(tab => {
         tab.addEventListener('click', () => showTranslationPanel(tab.dataset.translationPanel));
     });
@@ -2478,6 +2669,22 @@ document.addEventListener('DOMContentLoaded', () => {
         translationReviewOriginal.addEventListener('scroll', () => syncTranslationScroll(translationReviewOriginal, translationReviewText));
         translationReviewText.addEventListener('scroll', () => syncTranslationScroll(translationReviewText, translationReviewOriginal));
     }
+    if (miscProjectSelect) {
+        miscProjectSelect.addEventListener('change', () => {
+            const project = currentMiscProject();
+            if (project) setActiveManuscript(project);
+            updateMiscProjectSelect();
+        });
+    }
+    if (miscToolSelect) {
+        miscToolSelect.addEventListener('change', () => {
+            const title = document.getElementById('misc-result-title');
+            if (title) title.textContent = miscToolLabel(miscToolSelect.value);
+        });
+    }
+    if (miscRunBtn) miscRunBtn.addEventListener('click', runMiscTool);
+    if (miscCopyBtn) miscCopyBtn.addEventListener('click', copyMiscOutput);
+    if (miscDownloadBtn) miscDownloadBtn.addEventListener('click', downloadMiscOutput);
 
     // --- 7. File Upload ---
     const fileUpload = document.getElementById('manuscript-upload');
@@ -2724,6 +2931,7 @@ document.addEventListener('DOMContentLoaded', () => {
     {
         loadUsage();
         loadTranslationModels();
+        loadMiscModels();
         loadProjects().catch(() => {
             const saved = localStorage.getItem('skriptlab_manuscript');
             if (saved) {
