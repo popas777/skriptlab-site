@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SkriptLab – tekstin, käsikirjoituksen ja julkaisuaineistojen analyysi</title>
-  <meta name="description" content="SkriptLab auttaa kirjailijoita, kääntäjiä, omakustantajia, freelance-toimittajia ja julkaisutuotannon ammattilaisia analysoimaan, kehittämään ja viimeistelemään tekstejä ja julkaisuaineistoja.">
+  <title>SkriptLab - käsikirjoitustyön SaaS-työkalu</title>
+  <meta name="description" content="SkriptLab jäsentää käsikirjoituksen rakenteen, kielen ja kehityskohdat selkeiksi havainnoiksi.">
   <meta name="theme-color" content="#faf7f2">
-  <meta property="og:title" content="SkriptLab – tekstistä valmiimpi julkaisu">
-  <meta property="og:description" content="Turvallinen työtila tekstin, käsikirjoituksen, käännöksen ja julkaisuaineistojen analysointiin ja viimeistelyyn.">
+  <meta property="og:title" content="SkriptLab">
+  <meta property="og:description" content="Työkalu käsikirjoituksen analysointiin, jalostamiseen ja toimitustyön tueksi.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://skriptlab.com">
   <link rel="canonical" href="https://skriptlab.com">
@@ -22,7 +22,11 @@
   <header class="site-header">
     <nav class="nav" aria-label="Päänavigaatio">
       <a class="logo" href="index.html" aria-label="SkriptLab etusivulle">Skript<span>Lab</span></a>
-      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-menu" aria-label="Avaa valikko"><span></span><span></span><span></span></button>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-menu" aria-label="Avaa valikko">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
       <ul class="nav-links" id="site-menu">
         <li><a href="index.html" aria-current="page">Tuote</a></li>
         <li><a href="kenelle.html">Kenelle</a></li>
@@ -30,7 +34,7 @@
         <li><a href="prosessi.html">Työnkulku</a></li>
         <li><a href="luottamus.html">Tietosuoja</a></li>
         <li><a href="hinnat.html">Hinnoittelu</a></li>
-        <li><a href="yhteys.html">Demo</a></li>
+        <li><a href="yhteys.html">Ota yhteyttä</a></li>
         <li><a class="btn-login" href="/app/login.html">Kirjaudu</a></li>
       </ul>
     </nav>
@@ -41,14 +45,15 @@
       <div class="hero-bg" aria-hidden="true"></div>
       <div class="hero-inner">
         <div class="hero-content">
-          <p class="eyebrow">Toimituksellisen työn ja julkaisutuotannon työtila</p>
-          <h1>Tekstistä valmiimpi julkaisu</h1>
-          <p class="hero-sub">Jalosta käsikirjoitus, käännös ja julkaisuaineistot valmiimmiksi.</p>
-          <p class="hero-desc">SkriptLab auttaa kirjailijoita, kääntäjiä, omakustantajia, freelance-toimittajia ja julkaisutuotannon ammattilaisia analysoimaan, kehittämään ja viimeistelemään tekstejä turvallisessa työtilassa.</p>
-          <p class="hero-desc">Näet rakenteen ongelmat, jatkuvuusvirheet, toiston, kielen heikkoudet, termien epäjohdonmukaisuudet, taittovedoksen riskikohdat ja audiotuotannon valmistelutarpeet ennen seuraavaa työvaihetta.</p>
+          <p class="eyebrow">Käsikirjoitustyökalu kaikille</p>
+          <h1>SkriptLab</h1>
+          <p class="hero-sub">Käsikirjoitus valmiiksi helpommin.</p>
+          <p class="hero-desc">
+            SkriptLab jäsentää käsikirjoituksen rakenteen, kielen ja kehityskohdat selkeiksi havainnoiksi. Voit kirjoittaa tai tuoda tekstisi suoraan palveluun, etkä tarvitse erillistä tekstieditoria tai taittotyökaluja. Saat analyysin, toimitussuunnitelman ja materiaalit jatkotyöhön. Kaikki oikeudet pysyvät tekijällä, aineistoa käsitellään ja säilytetään turvallisesti EU-alueella.
+          </p>
           <div class="hero-actions">
-            <a href="/app/login.html" class="btn-primary">Aloita analyysi</a>
-            <a href="yhteys.html" class="btn-ghost">Pyydä demo</a>
+            <a href="yhteys.html" class="btn-primary">Pyydä demo</a>
+            <a href="ominaisuudet.html" class="btn-ghost">Katso ominaisuudet</a>
           </div>
 
           <nav class="hero-links" aria-label="Sivuston osiot">
@@ -62,79 +67,46 @@
 
         <div class="hero-visual" aria-label="SkriptLab-sovelluksen esikatselu">
           <div class="app-window">
-            <div class="app-topbar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+            <div class="app-topbar">
+              <span class="dot"></span>
+              <span class="dot"></span>
+              <span class="dot"></span>
+            </div>
             <div class="app-body">
               <div class="manuscript-preview">
                 <div class="book-mark" aria-hidden="true"></div>
                 <div>
-                  <small>Aineisto työn alla</small>
-                  <h2>Käsikirjoitus · käännös · taittovedos</h2>
-                  <p>Yksi työtila, jossa havainnot, riskikohdat ja jatkotyön aineistot pysyvät koossa.</p>
-                  <div class="text-lines" aria-hidden="true"><span></span><span></span><span></span></div>
+                  <small>Käsikirjoitus työn alla</small>
+                  <h2>Käsikirjoitus · versio 1.3</h2>
+                  <p>Katkelma tekstistä, josta SkriptLab tuottaa valitut aineistot jatkotyötä varten.</p>
+                  <div class="text-lines" aria-hidden="true">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
                 </div>
               </div>
-              <div class="preview-actions" aria-label="SkriptLabin tuottamat havainnot">
-                <button type="button" class="preview-action is-active"><strong>Käsikirjoitusanalyysi</strong><span>Rakenne, rytmi, henkilöt, kieli ja kehityskohdat.</span></button>
-                <button type="button" class="preview-action"><strong>Käännöksen tarkistus</strong><span>Termit, nimet, tyyli, rekisteri ja viimeistelykohdat.</span></button>
-                <button type="button" class="preview-action"><strong>Julkaisuaineistot</strong><span>Synopsis, takakansiteksti, avainsanat, metadata ja esittelytekstit.</span></button>
-                <button type="button" class="preview-action"><strong>Tuotannon valmistelu</strong><span>Taittovedoksen havainnot, kuvatekstit ja audiotuotannon ohjeet.</span></button>
+              <div class="preview-actions" aria-label="Käsikirjoituksesta tuotettavat aineistot">
+                <button type="button" class="preview-action is-active">
+                  <strong>Analyysi</strong>
+                  <span>Rakenne, rytmi, henkilöt, kieli ja kehityskohdat.</span>
+                </button>
+                <button type="button" class="preview-action">
+                  <strong>Synopsis</strong>
+                  <span>Tiivistelmä, teemat, metadata ja jatkokäytön kuvaukset.</span>
+                </button>
+                <button type="button" class="preview-action">
+                  <strong>Viimeistely</strong>
+                  <span>Oikoluku, virhelistaus, korjausehdotukset ja tarkistuslista.</span>
+                </button>
+                <button type="button" class="preview-action">
+                  <strong>Taitto</strong>
+                  <span>Sivunäkymä, kuvituksen suunta ja tuotantoon valmistelu.</span>
+                </button>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </section>
-
-    <section class="section product-section">
-      <div class="section-inner">
-        <p class="section-label">Ydintoiminnot</p>
-        <h2 class="section-title">Mitä SkriptLab auttaa tekemään?</h2>
-        <p class="section-intro">SkriptLab kokoaa tekstistä ja julkaisuaineistosta havaintoja, joiden avulla seuraava työvaihe on selkeämpi.</p>
-        <div class="grid">
-          <article class="card"><div class="card-icon" aria-hidden="true">⌕</div><h3>Analysoi käsikirjoitus</h3><p>Saat kokonaiskuvan rakenteesta, rytmistä, henkilöistä, paikoista, jännitteestä, jatkuvuudesta ja tekstin vahvuuksista.</p></article>
-          <article class="card"><div class="card-icon" aria-hidden="true">✓</div><h3>Viimeistele kieli ja sisältö</h3><p>Tunnista toisto, maneerit, epäselvät kohdat, kielivirheet, ristiriidat ja kohdat, jotka kaipaavat vielä muokkausta.</p></article>
-          <article class="card"><div class="card-icon" aria-hidden="true">文</div><h3>Tue käännöstyötä</h3><p>Tarkista termien, nimien, tyylin ja rekisterin yhdenmukaisuutta sekä löydä kohtia, joissa käännös kaipaa jatkotyöstöä.</p></article>
-          <article class="card"><div class="card-icon" aria-hidden="true">¶</div><h3>Valmistele julkaisuaineistot</h3><p>Luonnostele synopsis, takakansiteksti, lyhyet esittelytekstit, avainsanat, metadata ja muut julkaisua tukevat aineistot.</p></article>
-          <article class="card"><div class="card-icon" aria-hidden="true">▣</div><h3>Tarkista taitto ja viimeistely</h3><p>Hyödynnä SkriptLabia taittovedosten, kuvatekstien, otsikoiden, sisällysluetteloiden ja viimeistelyvaiheen tarkistuksessa.</p></article>
-          <article class="card"><div class="card-icon" aria-hidden="true">♪</div><h3>Valmistele audiotuotanto</h3><p>Kokoa lukijalle tai tuotannolle huomioitavat nimet, vieraskieliset sanat, ääntämiset, henkilöt, roolit ja muut tuotantoa helpottavat tiedot.</p></article>
-        </div>
-      </div>
-    </section>
-
-    <section class="vision-strip">
-      <p>Ennen kuin lähetät tekstin eteenpäin, <span>anna sen näyttää vahvuutensa mahdollisimman selkeästi.</span></p>
-    </section>
-
-    <section class="section audience-section">
-      <div class="section-inner split-copy">
-        <div>
-          <p class="section-label">Seuraava työvaihe</p>
-          <h2 class="section-title">Ennen kuin lähetät tekstin eteenpäin</h2>
-        </div>
-        <div>
-          <p class="section-intro">Ensivaikutelma ratkaisee paljon. SkriptLab auttaa löytämään rakenteen ongelmat, jatkuvuusvirheet, toiston, epäselvät kohdat, termien vaihtelun ja muut heikkoudet ennen kuin lähetät tekstin arvioitavaksi, palautekierrokselle, taittoon, julkaisuvalmisteluun tai audiotuotantoon.</p>
-          <p class="supporting-copy">Viimeistellympi käsikirjoitus ei takaa julkaisua tai kustannussopimusta. Se kuitenkin antaa tekstillesi paremmat edellytykset tulla arvioiduksi vakavasti ja näyttää vahvuutensa heti ensimmäisellä lukukerralla.</p>
-        </div>
-      </div>
-    </section>
-
-    <section class="section product-section">
-      <div class="section-inner">
-        <p class="section-label">Lopputulokset</p>
-        <h2 class="section-title">Mitä saat ulos SkriptLabista?</h2>
-        <p class="section-intro">Saat käytännön aineistoja ja havaintoja, joita voi hyödyntää muokkauksessa, käännöstyössä, toimituksessa, julkaisuvalmistelussa, taiton tarkistuksessa ja audiotuotannon valmistelussa.</p>
-        <div class="output-list">
-          <span>Käsikirjoitusanalyysi</span><span>Priorisoitu toimitussuunnitelma</span><span>Rakenne- ja rytmihavainnot</span><span>Henkilöiden, paikkojen ja aikajanan kooste</span><span>Jatkuvuusvirheiden ja ristiriitojen lista</span><span>Toiston, maneerien ja kieliongelmien havainnot</span><span>Käännöksen termi- ja tyylitarkistuksen havainnot</span><span>Synopsis</span><span>Takakansiteksti</span><span>Avainsanat ja metadata</span><span>Esittely- ja myyntitekstien luonnokset</span><span>Taittovedoksen tarkistushavainnot</span><span>Kuvatekstien ja otsikoiden tarkistus</span><span>Audiotuotannon valmisteluaineisto</span><span>Ääntämisohjeet ja lukijalle huomioitavat kohdat</span>
-        </div>
-      </div>
-    </section>
-
-    <section class="cta-section">
-      <div class="section-inner">
-        <h2>Katso, mitä SkriptLab löytää <em>aineistostasi</em></h2>
-        <p>Kerro, työskenteletkö käsikirjoituksen, käännöksen, taittovedoksen, julkaisuaineistojen vai audiotuotannon valmistelun parissa.</p>
-        <a href="yhteys.html" class="btn-primary btn-large">Pyydä demo</a>
-        <p class="cta-note">SkriptLab tukee toimituksellista ja tuotannollista työtä. Lopulliset ratkaisut tekee aina ihminen.</p>
       </div>
     </section>
   </main>
@@ -142,14 +114,47 @@
   <footer class="site-footer">
     <div class="footer-inner">
       <div class="footer-top">
-        <div class="footer-brand"><a class="logo" href="index.html">Skript<span>Lab</span></a><p>Työtila tekstin, käsikirjoituksen, käännöksen ja julkaisuaineistojen analysointiin ja viimeistelyyn.</p></div>
-        <div class="footer-col"><h2>Tuote</h2><a href="ominaisuudet.html">Ominaisuudet</a><a href="prosessi.html">Työnkulku</a><a href="hinnat.html">Hinnoittelu</a><a href="yhteys.html">Demo</a></div>
-        <div class="footer-col"><h2>Käyttäjille</h2><a href="kenelle.html">Kirjailijat</a><a href="kenelle.html">Freelance-toimittajat</a><a href="kenelle.html">Kääntäjät</a><a href="kenelle.html">Tuotantotiimit</a></div>
-        <div class="footer-col"><h2>Luottamus</h2><a href="luottamus.html">Tietosuoja</a><a href="legal/terms.html">Käyttöehdot</a><a href="legal/privacy.html">Tietosuojaseloste</a><a href="yhteys.html">Ota yhteyttä</a></div>
+        <div class="footer-brand">
+          <a class="logo" href="index.html">Skript<span>Lab</span></a>
+          <p>Työkalu käsikirjoituksen analysointiin, jalostamiseen ja toimitustyön tueksi.</p>
+        </div>
+
+        <div class="footer-col">
+          <h2>Tuote</h2>
+          <a href="ominaisuudet.html">Ominaisuudet</a>
+          <a href="prosessi.html">Työnkulku</a>
+          <a href="hinnat.html">Hinnoittelu</a>
+          <a href="yhteys.html">Demo</a>
+        </div>
+
+        <div class="footer-col">
+          <h2>Käyttäjille</h2>
+          <a href="kenelle.html">Kirjoittajat</a>
+          <a href="kenelle.html">Toimitukset</a>
+          <a href="kenelle.html">Freelance-toimittajat</a>
+          <a href="kenelle.html">Kääntäjät</a>
+        </div>
+
+        <div class="footer-col">
+          <h2>Yritys</h2>
+          <a href="luottamus.html">Tietosuoja</a>
+          <a href="yhteys.html">Ota yhteyttä</a>
+          <a href="legal/terms.html">Käyttöehdot</a>
+          <a href="legal/privacy.html">Tietosuojaseloste</a>
+        </div>
       </div>
-      <div class="footer-bottom"><span>© 2026 SkriptLab. Kaikki oikeudet pidätetään.</span><span><a href="legal/privacy.html">Tietosuojaseloste</a><a href="legal/terms.html">Käyttöehdot</a><a href="legal/cookies.html">Evästeet</a></span></div>
+
+      <div class="footer-bottom">
+        <span>© 2026 SkriptLab. Kaikki oikeudet pidätetään.</span>
+        <span>
+          <a href="legal/privacy.html">Tietosuojaseloste</a>
+          <a href="legal/terms.html">Käyttöehdot</a>
+          <a href="legal/cookies.html">Evästeet</a>
+        </span>
+      </div>
     </div>
   </footer>
+
   <script src="assets/main.js"></script>
 </body>
 </html>
