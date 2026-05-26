@@ -48,6 +48,22 @@
         .settings-row input:focus {
             border-color: var(--accent-color);
         }
+        .feedback-list .user-item {
+            align-items: flex-start;
+            gap: 16px;
+        }
+        .feedback-message {
+            white-space: pre-wrap;
+            line-height: 1.5;
+            color: var(--text-primary);
+            margin-top: 8px;
+            font-size: 13px;
+        }
+        .feedback-meta {
+            color: var(--text-secondary);
+            font-size: 12px;
+            line-height: 1.5;
+        }
         
         .user-list {
             background: rgba(0,0,0,0.2);
@@ -131,6 +147,25 @@
                         </div>
                     </div>
                     <p id="system-status-message" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
+                </div>
+
+                <div class="admin-card glass-panel">
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom: 20px;">
+                        <div>
+                            <h3 style="margin-bottom: 6px; color: var(--text-primary);">Palautteet</h3>
+                            <p style="color: var(--text-secondary); font-size: 13px;">Käyttäjien moduulikohtaiset palautteet.</p>
+                        </div>
+                        <button id="refresh-feedback-btn" class="btn btn-secondary" style="font-size: 12px;">Päivitä</button>
+                    </div>
+                    <div class="user-list feedback-list" id="feedback-list">
+                        <div class="user-item">
+                            <div class="user-info">
+                                <h4>Ladataan palautteita...</h4>
+                                <p>Haetaan backendistä.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <p id="feedback-admin-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
                 </div>
 
                 <div class="admin-card glass-panel">
@@ -267,6 +302,9 @@
         const modelStatus = document.getElementById('model-status');
         const systemStatusList = document.getElementById('system-status-list');
         const systemStatusMessage = document.getElementById('system-status-message');
+        const feedbackList = document.getElementById('feedback-list');
+        const feedbackAdminStatus = document.getElementById('feedback-admin-status');
+        const refreshFeedbackBtn = document.getElementById('refresh-feedback-btn');
         const inviteEmail = document.getElementById('invite-email');
         const inviteRole = document.getElementById('invite-role');
         const inviteMaxUses = document.getElementById('invite-max-uses');
@@ -316,6 +354,11 @@
         function formatDate(value) {
             if (!value) return 'Ei vanhenemista';
             return new Date(value).toLocaleDateString('fi-FI');
+        }
+
+        function formatDateTime(value) {
+            if (!value) return '-';
+            return new Date(value).toLocaleString('fi-FI');
         }
 
         function statusBadge(ok, labelOk = 'OK', labelBad = 'Huomio') {
@@ -446,6 +489,48 @@
                 renderSystemStatus(data);
             } catch (err) {
                 systemStatusMessage.textContent = err.message;
+            }
+        }
+
+        function renderFeedback(items) {
+            if (!items.length) {
+                feedbackList.innerHTML = `
+                    <div class="user-item">
+                        <div class="user-info">
+                            <h4>Ei palautteita</h4>
+                            <p>Käyttäjien lähettämät palautteet ilmestyvät tänne.</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            feedbackList.innerHTML = items.map(item => {
+                const project = item.project_title ? ` · ${escapeHtml(item.project_title)}` : '';
+                const page = item.page_path ? ` · ${escapeHtml(item.page_path)}` : '';
+                return `
+                    <div class="user-item">
+                        <div class="user-info" style="width:100%;">
+                            <h4>${escapeHtml(item.module_title)}</h4>
+                            <p class="feedback-meta">${escapeHtml(item.user_display_name || item.user_email)} · ${escapeHtml(item.user_email)} · ${formatDateTime(item.created_at)}${project}${page}</p>
+                            <div class="feedback-message">${escapeHtml(item.message)}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function loadFeedback() {
+            if (!feedbackList) return;
+            if (feedbackAdminStatus) feedbackAdminStatus.textContent = 'Ladataan palautteita...';
+            try {
+                const res = await window.SkriptLabAuth.fetch('/api/admin/feedback');
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Palautteiden lataus epäonnistui.');
+                renderFeedback(data);
+                if (feedbackAdminStatus) feedbackAdminStatus.textContent = `${data.length} palautetta.`;
+            } catch (err) {
+                if (feedbackAdminStatus) feedbackAdminStatus.textContent = err.message;
             }
         }
 
@@ -639,6 +724,10 @@
             });
         }
 
+        if (refreshFeedbackBtn) {
+            refreshFeedbackBtn.addEventListener('click', loadFeedback);
+        }
+
         inviteList.addEventListener('click', async (event) => {
             const button = event.target.closest('.deactivate-invite-btn');
             if (!button) return;
@@ -785,6 +874,7 @@
 
         loadModels();
         loadSystemStatus();
+        loadFeedback();
         loadInvites();
         loadUsers();
     </script>

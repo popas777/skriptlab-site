@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let latestMiscText = '';
     let biographyState = {};
     let biographyTimerInterval = null;
+    let currentViewId = 'view-kirjani';
     const fullWorkspaceRoles = new Set(['admin', 'test_user']);
     const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-muut-toiminnot', 'view-elamakerta']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset']);
@@ -96,6 +97,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoutLink = document.getElementById('logout-link');
     const adminLink = document.getElementById('admin-link');
     const settingsBtn = document.getElementById('settings-btn');
+    const feedbackOpenBtn = document.getElementById('feedback-open-btn');
+    const feedbackModal = document.getElementById('feedback-modal');
+    const feedbackCloseBtn = document.getElementById('feedback-close-btn');
+    const feedbackCancelBtn = document.getElementById('feedback-cancel-btn');
+    const feedbackSubmitBtn = document.getElementById('feedback-submit-btn');
+    const feedbackMessage = document.getElementById('feedback-message');
+    const feedbackStatus = document.getElementById('feedback-status');
+    const feedbackModalTitle = document.getElementById('feedback-modal-title');
     if (logoutLink) {
         logoutLink.addEventListener('click', () => {
             window.SkriptLabAuth.clearSession();
@@ -119,6 +128,81 @@ document.addEventListener('DOMContentLoaded', () => {
     if (settingsBtn) {
         settingsBtn.addEventListener('click', () => {
             alert('Asetukset-osio rakennetaan myöhemmin.');
+        });
+    }
+
+    function currentModuleTitle() {
+        const navItem = document.querySelector(`#nav-menu li[data-view="${currentViewId}"]`);
+        if (navItem && !navItem.hidden) return navItem.textContent.trim();
+        const view = document.getElementById(currentViewId);
+        const heading = view ? view.querySelector('.header-info h2') : null;
+        return heading ? heading.textContent.trim() : 'Sovellus';
+    }
+
+    function closeFeedbackModal() {
+        if (!feedbackModal) return;
+        feedbackModal.classList.add('hidden');
+        feedbackModal.setAttribute('aria-hidden', 'true');
+    }
+
+    function openFeedbackModal() {
+        if (!feedbackModal) return;
+        const title = currentModuleTitle();
+        if (feedbackModalTitle) feedbackModalTitle.textContent = `Palaute: ${title}`;
+        if (feedbackStatus) feedbackStatus.textContent = 'Palaute tallennetaan adminin nähtäväksi.';
+        feedbackModal.classList.remove('hidden');
+        feedbackModal.setAttribute('aria-hidden', 'false');
+        if (feedbackMessage) feedbackMessage.focus();
+    }
+
+    async function submitFeedback() {
+        const message = feedbackMessage ? feedbackMessage.value.trim() : '';
+        if (!message) {
+            if (feedbackStatus) feedbackStatus.textContent = 'Kirjoita ensin palaute.';
+            return;
+        }
+        const title = currentModuleTitle();
+        const payload = {
+            module_id: currentViewId,
+            module_title: title,
+            message,
+            project_id: window.manuscriptData && window.manuscriptData.id ? window.manuscriptData.id : null,
+            page_path: window.location.pathname
+        };
+        if (feedbackSubmitBtn) feedbackSubmitBtn.disabled = true;
+        if (feedbackStatus) feedbackStatus.textContent = 'Tallennetaan palautetta...';
+        try {
+            const res = await apiFetch('/api/feedback', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Palautteen tallennus epäonnistui.');
+            if (feedbackMessage) feedbackMessage.value = '';
+            if (feedbackStatus) feedbackStatus.textContent = 'Palaute tallennettu. Kiitos.';
+            window.setTimeout(closeFeedbackModal, 700);
+        } catch (err) {
+            if (feedbackStatus) feedbackStatus.textContent = networkFailureMessage(err);
+        } finally {
+            if (feedbackSubmitBtn) feedbackSubmitBtn.disabled = false;
+        }
+    }
+
+    if (feedbackOpenBtn) feedbackOpenBtn.addEventListener('click', openFeedbackModal);
+    if (feedbackCloseBtn) feedbackCloseBtn.addEventListener('click', closeFeedbackModal);
+    if (feedbackCancelBtn) feedbackCancelBtn.addEventListener('click', closeFeedbackModal);
+    if (feedbackSubmitBtn) feedbackSubmitBtn.addEventListener('click', submitFeedback);
+    if (feedbackModal) {
+        feedbackModal.addEventListener('click', (event) => {
+            if (event.target === feedbackModal) closeFeedbackModal();
+        });
+    }
+    if (feedbackMessage) {
+        feedbackMessage.addEventListener('keydown', (event) => {
+            if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                submitFeedback();
+            }
         });
     }
     if (usageEls.toggle && usageEls.box && usageEls.details) {
@@ -993,6 +1077,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!isViewAllowed(viewId)) {
             viewId = 'view-kirjani';
         }
+        currentViewId = viewId;
 
         views.forEach(v => v.classList.add('hidden'));
         const targetView = document.getElementById(viewId);

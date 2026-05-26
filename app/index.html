@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=29">
+    <link rel="stylesheet" href="styles.css?v=30">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -27,6 +27,24 @@
         </div>
     </div>
 
+    <div id="feedback-modal" class="feedback-modal hidden" aria-hidden="true">
+        <div class="feedback-dialog glass-panel">
+            <div class="feedback-dialog-header">
+                <div>
+                    <h3 id="feedback-modal-title">Palaute</h3>
+                    <p>Kirjoita vapaasti, mikä toimii, mikä puuttuu tai mikä tuntuu epäselvältä.</p>
+                </div>
+                <button class="icon-btn" id="feedback-close-btn" type="button" title="Sulje palautelomake">×</button>
+            </div>
+            <textarea id="feedback-message" placeholder="Kirjoita palautteesi tähän."></textarea>
+            <p id="feedback-status">Palaute tallennetaan adminin nähtäväksi.</p>
+            <div class="feedback-actions">
+                <button class="btn btn-secondary" id="feedback-cancel-btn" type="button">Peruuta</button>
+                <button class="btn btn-primary" id="feedback-submit-btn" type="button">Lähetä palaute</button>
+            </div>
+        </div>
+    </div>
+
     <nav class="top-bar glass-panel">
         <div class="top-bar-left">
             <button class="icon-btn" id="toggle-sidebar" title="Piilota sivuvalikko">
@@ -37,6 +55,7 @@
             </div>
         </div>
         <div class="top-bar-right">
+            <button class="icon-btn text-btn" id="feedback-open-btn" type="button" title="Anna palautetta nykyisestä moduulista">Anna palautetta</button>
             <a href="admin.html" class="icon-btn text-btn hidden" id="admin-link" title="Admin-paneeli" style="text-decoration:none;">Admin</a>
             <button class="icon-btn text-btn" id="toggle-lang" title="Vaihda kieltä">FI / ENG</button>
             <button class="icon-btn" id="toggle-theme" title="Vaihda teema (Dark/Light)">🌓</button>
@@ -1286,6 +1305,6 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=2"></script>
-    <script src="app.js?v=31"></script>
+    <script src="app.js?v=32"></script>
 </body>
 </html>
