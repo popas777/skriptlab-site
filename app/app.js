@@ -1883,6 +1883,39 @@ document.addEventListener('DOMContentLoaded', () => {
         return bookData;
     }
 
+    async function createEmptyDocument() {
+        const timestamp = new Date().toLocaleString('fi-FI', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        const suggestedTitle = `Uusi käsikirjoitus ${timestamp}`;
+        const title = window.prompt('Anna tyhjälle dokumentille nimi', suggestedTitle);
+        if (title === null) return;
+        const cleanTitle = title.trim() || suggestedTitle;
+        const bookData = {
+            title: cleanTitle,
+            author: currentUser?.display_name || 'Tuntematon',
+            source_filename: '',
+            chapters: [
+                {
+                    id: 'luku_1',
+                    title: 'Luku 1',
+                    paragraphs: ['']
+                }
+            ],
+            analysis: {}
+        };
+
+        const saved = await window.saveManuscriptToDB(bookData);
+        setActiveManuscript(saved);
+        await loadProjects();
+        window.openModule('view-kirjoita');
+        renderWritingView();
+    }
+
     function clearActiveManuscript() {
         window.manuscriptData = null;
         localStorage.removeItem('skriptlab_manuscript');
@@ -1936,7 +1969,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function emptyProjectMessage() {
         return `<div style="color:var(--text-secondary); font-size:14px; padding:20px;">
             Ohjelmistossa ei ole vielä aktiivisia käsikirjoitushankkeita ladattuna.<br>
-            Käytä <strong>Lataa Käsikirjoitus</strong> -painiketta aloittaaksesi uuden hankkeen editoinnin.
+            Luo <strong>tyhjä dokumentti</strong> tai käytä <strong>Lataa Käsikirjoitus</strong> -painiketta aloittaaksesi uuden hankkeen editoinnin.
         </div>`;
     }
 
@@ -3150,6 +3183,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (bioRunDraftBtn) bioRunDraftBtn.addEventListener('click', () => runBiographyAction('draft'));
 
     // --- 7. File Upload ---
+    const createEmptyDocBtn = document.getElementById('create-empty-doc-btn');
+    if (createEmptyDocBtn) {
+        createEmptyDocBtn.addEventListener('click', async () => {
+            createEmptyDocBtn.disabled = true;
+            try {
+                await createEmptyDocument();
+            } catch (err) {
+                alert('Tyhjän dokumentin luonti epäonnistui: ' + err.message);
+            } finally {
+                createEmptyDocBtn.disabled = false;
+            }
+        });
+    }
+
     const fileUpload = document.getElementById('manuscript-upload');
     if(fileUpload) {
         fileUpload.addEventListener('click', (e) => {

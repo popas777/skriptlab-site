@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fi" data-theme="dark">
+<html lang="fi" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -58,7 +58,7 @@
             <button class="icon-btn text-btn" id="feedback-open-btn" type="button" title="Anna palautetta nykyisestä moduulista">Anna palautetta</button>
             <a href="admin.html" class="icon-btn text-btn hidden" id="admin-link" title="Admin-paneeli" style="text-decoration:none;">Admin</a>
             <button class="icon-btn text-btn" id="toggle-lang" title="Vaihda kieltä">FI / ENG</button>
-            <button class="icon-btn" id="toggle-theme" title="Vaihda teema (Dark/Light)">🌓</button>
+            <button class="icon-btn" id="toggle-theme" title="Vaihda teema (Dark/Light)">☀️</button>
             <button class="icon-btn" id="toggle-mobile" title="Simuloi mobiilinäkymää">📱</button>
             <a href="login.html" class="icon-btn text-btn" id="logout-link" title="Kirjaudu ulos" style="text-decoration:none;">Kirjaudu ulos</a>
         </div>
@@ -147,6 +147,7 @@
                     </div>
                     <div class="header-actions">
                         <input type="file" id="manuscript-upload" accept=".txt,.md,.docx,.pdf,.rtf,.odt,.html,.htm" style="display:none">
+                        <button class="btn btn-secondary" id="create-empty-doc-btn" type="button">+ Tyhjä dokumentti</button>
                         <button class="btn btn-primary" onclick="document.getElementById('manuscript-upload').click()">+ Lataa Käsikirjoitus</button>
                     </div>
                 </div>
@@ -1305,6 +1306,6 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=2"></script>
-    <script src="app.js?v=32"></script>
+    <script src="app.js?v=33"></script>
 </body>
 </html>
