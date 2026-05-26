@@ -46,13 +46,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const fullWorkspaceRoles = new Set(['admin', 'test_user']);
     const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-muut-toiminnot', 'view-elamakerta']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset']);
+    const biographyViews = new Set(['view-kirjani', 'view-kirjoita', 'view-elamakerta', 'view-toimitus', 'view-kuvitus', 'view-taitto', 'view-muut-toiminnot', 'view-kirja']);
     const roleLabels = {
         admin: 'Admin',
         test_user: 'Test user',
         org_admin: 'Org admin',
         toimittaja: 'Toimittaja',
         kaantaja: 'Kääntäjä',
-        kirjailija: 'Kirjailija'
+        kirjailija: 'Kirjailija',
+        elamakerta: 'Elämäkerta'
     };
     const canSeeAllModules = currentUser && fullWorkspaceRoles.has(currentUser.role);
     const usageEls = {
@@ -976,6 +978,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function isViewAllowed(viewId) {
         if (canSeeAllModules) return true;
         if (currentUser && currentUser.role === 'kaantaja') return translatorViews.has(viewId);
+        if (currentUser && currentUser.role === 'elamakerta') return biographyViews.has(viewId);
         return betaCoreViews.has(viewId);
     }
 
@@ -2426,11 +2429,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function miscToolLabel(value) {
         const labels = {
+            title_page: 'Nimiölehti',
             character_index: 'Henkilöhakemisto',
             table_of_contents: 'Sisällysluettelo',
-            copyright_page: 'Copysivu'
+            copyright_page: 'Copysivu',
+            bibliography: 'Lähdeluettelo',
+            subject_index: 'Asiahakemisto',
+            place_index: 'Paikkahakemisto'
         };
-        return labels[value] || 'Muu toiminto';
+        return labels[value] || 'Oheisaineisto';
     }
 
     function miscRequestPayload() {
@@ -2493,7 +2500,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify(payload)
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.detail || 'Toiminto epäonnistui.');
+            if (!res.ok) throw new Error(data.detail || 'Oheisaineiston muodostaminen epäonnistui.');
             latestMiscText = data.result || '';
             if (output) output.value = latestMiscText;
             if (title) title.textContent = data.title || selectedLabel;
@@ -2505,7 +2512,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loadUsage();
         } catch (err) {
             if (status) status.textContent = err.message;
-            alert('Toiminto epäonnistui: ' + networkFailureMessage(err));
+            alert('Oheisaineiston muodostaminen epäonnistui: ' + networkFailureMessage(err));
             loadUsage();
         } finally {
             stopMiscTimer();

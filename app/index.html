@@ -65,7 +65,7 @@
                     <li data-view="view-taitto">Taitto</li>
                     <li data-view="view-audio">Audio</li>
                     <li data-view="view-kaannokset">Käännökset</li>
-                    <li data-view="view-muut-toiminnot">Muut toiminnot</li>
+                    <li data-view="view-muut-toiminnot">Oheisaineistot</li>
                     <li data-view="view-kirja">Valmis kirja</li>
                 </ul>
             </nav>
@@ -1118,27 +1118,31 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                 </div>
             </div>
 
-            <!-- 11.5 VIEW: MUUT TOIMINNOT -->
+            <!-- 11.5 VIEW: OHEISAINEISTOT -->
             <div id="view-muut-toiminnot" class="view-section hidden">
                 <div class="header">
                     <div class="header-info">
-                        <h2>Muut toiminnot</h2>
-                        <p id="misc-current-project">Valitse käsikirjoitus ja toiminto.</p>
+                        <h2>Oheisaineistot</h2>
+                        <p id="misc-current-project">Valitse käsikirjoitus ja oheisaineiston tyyppi.</p>
                     </div>
                 </div>
                 <div class="grid-cards" style="grid-template-columns: minmax(280px, 420px) minmax(0, 1fr); align-items:start;">
                     <div class="card glass-panel">
-                        <h3>Toiminnon asetukset</h3>
+                        <h3>Oheisaineiston asetukset</h3>
                         <div class="settings-row">
                             <label>Käsikirjoitus</label>
                             <select id="misc-project-select"></select>
                         </div>
                         <div class="settings-row">
-                            <label>Toiminto</label>
+                            <label>Oheisaineisto</label>
                             <select id="misc-tool-select">
-                                <option value="character_index">Henkilöhakemisto</option>
-                                <option value="table_of_contents">Sisällysluettelo</option>
+                                <option value="title_page">Nimiölehti</option>
                                 <option value="copyright_page">Copysivu</option>
+                                <option value="table_of_contents">Sisällysluettelo</option>
+                                <option value="character_index">Henkilöhakemisto</option>
+                                <option value="place_index">Paikkahakemisto</option>
+                                <option value="subject_index">Asiahakemisto</option>
+                                <option value="bibliography">Lähdeluettelo</option>
                             </select>
                         </div>
                         <div class="settings-row">
@@ -1149,8 +1153,8 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                             <label>Lisäohje</label>
                             <textarea id="misc-instructions" placeholder="Esim. tee lyhyt versio, huomioi lastenromaanin lukija tai jätä epävarmat nimet pois." style="width:100%; min-height:110px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:12px; font-family:inherit; line-height:1.5;"></textarea>
                         </div>
-                        <button class="btn btn-primary" id="misc-run-btn">Suorita toiminto</button>
-                        <p id="misc-tool-note" style="font-size:12px; color:var(--text-secondary); margin-top:12px; line-height:1.5;">Sisällysluettelo muodostetaan nykyisestä luku- ja kappalerakenteesta. Henkilöhakemisto ja copysivu käyttävät mallia, mutta niille on yksinkertainen varatuloste.</p>
+                        <button class="btn btn-primary" id="misc-run-btn">Muodosta oheisaineisto</button>
+                        <p id="misc-tool-note" style="font-size:12px; color:var(--text-secondary); margin-top:12px; line-height:1.5;">Nimiölehti ja sisällysluettelo muodostetaan suoraan käsikirjoituksesta. Hakemistot, lähdeluettelo ja copysivu käyttävät mallia, mutta niille on yksinkertainen varatuloste, jos mallipalvelu ei vastaa.</p>
                     </div>
                     <div class="card glass-panel">
                         <h3 id="misc-result-title">Tulokset</h3>
@@ -1282,6 +1286,6 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=2"></script>
-    <script src="app.js?v=30"></script>
+    <script src="app.js?v=31"></script>
 </body>
 </html>
