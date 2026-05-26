@@ -52,6 +52,7 @@
                 <ul id="nav-menu">
                     <li class="active" data-view="view-kirjani">Käsikirjoitukseni</li>
                     <li data-view="view-kirjoita">Kirjoita</li>
+                    <li data-view="view-elamakerta">Elämäkerta</li>
                     <li data-view="view-sopimukset">Sopimukset</li>
                     <li data-view="view-aikajana">Aikajana</li>
                     <li data-view="view-analyysi">Analyysi</li>
@@ -166,6 +167,216 @@
                         </div>
                         <textarea id="writing-text" class="writing-text" placeholder="Valitse luku tai aloita uusi käsikirjoitus lataamalla teksti Käsikirjoitukseni-näkymässä. Erottele kappaleet tyhjällä rivillä."></textarea>
                     </section>
+                </div>
+            </div>
+
+            <!-- 1.3 VIEW: ELÄMÄKERTA -->
+            <div id="view-elamakerta" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>Elämäkerta</h2>
+                        <p id="bio-current-project">Valitse käsikirjoitus tai elämäkertaprojekti.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" id="bio-load-btn">Lataa tiedot</button>
+                        <button class="btn btn-primary" id="bio-save-btn">Tallenna elämäkertatiedot</button>
+                    </div>
+                </div>
+
+                <div class="translation-tabs biography-tabs">
+                    <button class="translation-tab biography-tab active" data-bio-panel="bio-goal-panel">Tavoite</button>
+                    <button class="translation-tab biography-tab" data-bio-panel="bio-material-panel">Aineisto</button>
+                    <button class="translation-tab biography-tab" data-bio-panel="bio-analysis-panel">Analyysi</button>
+                    <button class="translation-tab biography-tab" data-bio-panel="bio-questions-panel">Kysymykset</button>
+                    <button class="translation-tab biography-tab" data-bio-panel="bio-outline-panel">Rakenne</button>
+                    <button class="translation-tab biography-tab" data-bio-panel="bio-writing-panel">Kirjoittaminen</button>
+                    <button class="translation-tab biography-tab" data-bio-panel="bio-approval-panel">Hyväksynnät</button>
+                </div>
+
+                <div id="bio-status" style="font-size:13px; color:var(--text-secondary); margin:0 0 14px;">Ei ladattuja elämäkertatietoja.</div>
+                <div id="bio-timer" class="hidden" style="margin:8px 0 16px; font-size:30px; font-weight:600; color:var(--ai-gradient-start);">0:00</div>
+
+                <div id="bio-goal-panel" class="biography-panel">
+                    <div class="grid-cards" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); align-items:start;">
+                        <div class="card glass-panel">
+                            <h3>Tavoite ja lukija</h3>
+                            <div class="settings-row">
+                                <label>Kenelle elämäkerta on tarkoitettu?</label>
+                                <select id="bio-purpose">
+                                    <option value="">Valitse</option>
+                                    <option>Vain itselle</option>
+                                    <option>Lapsille ja suvulle</option>
+                                    <option>Julkaistavaksi kirjamuodossa</option>
+                                    <option>Lahjaksi</option>
+                                    <option>Yritys- tai uratarinaksi</option>
+                                </select>
+                            </div>
+                            <div class="settings-row">
+                                <label>Tyyli</label>
+                                <select id="bio-style">
+                                    <option value="">Valitse</option>
+                                    <option>Lämmin ja henkilökohtainen</option>
+                                    <option>Dokumentaarinen</option>
+                                    <option>Humoristinen</option>
+                                    <option>Kaunokirjallinen</option>
+                                    <option>Kronologinen</option>
+                                    <option>Teemallinen</option>
+                                </select>
+                            </div>
+                            <div class="settings-row">
+                                <label>Tavoitepituus</label>
+                                <select id="bio-target-length">
+                                    <option value="">Valitse</option>
+                                    <option>Lyhyt elämäntarina, 20-40 sivua</option>
+                                    <option>Laajempi elämäkerta, 100-200 sivua</option>
+                                    <option>Täysimittainen kirja</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="card glass-panel">
+                            <h3>Tulkinta ja rajat</h3>
+                            <div class="settings-row">
+                                <label>Saako tekstiin tehdä kirjallista tulkintaa?</label>
+                                <select id="bio-interpretation">
+                                    <option value="">Valitse</option>
+                                    <option>Pysy vain vahvistetuissa faktoissa</option>
+                                    <option>Salli varovainen tulkinta, kun se merkitään näkyviin</option>
+                                    <option>Salli kaunokirjallinen tulkinta käyttäjän tarkistettavaksi</option>
+                                </select>
+                            </div>
+                            <div class="settings-row">
+                                <label>Arkaluontoisten aiheiden oletuskäsittely</label>
+                                <select id="bio-sensitive-handling">
+                                    <option value="">Päätä tapauskohtaisesti</option>
+                                    <option>Käsitellään suoraan</option>
+                                    <option>Käsitellään varovaisesti</option>
+                                    <option>Käsitellään nimettömästi</option>
+                                    <option>Jätetään pois luonnoksista, kunnes hyväksyn ne</option>
+                                </select>
+                            </div>
+                            <p style="color:var(--text-secondary); font-size:13px; line-height:1.6; margin-top:14px;">Elämäkertatekstiin merkitään epävarmat tiedot, tulkinnat ja täydennettävät kohdat. Käyttäjä hyväksyy suunnan ennen pitkien lukujen kirjoittamista.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="bio-material-panel" class="biography-panel hidden">
+                    <div class="grid-cards" style="grid-template-columns: minmax(280px, 430px) minmax(0, 1fr); align-items:start;">
+                        <div class="card glass-panel">
+                            <h3>Lisää aineistoa</h3>
+                            <div class="settings-row">
+                                <label>Aineiston otsikko</label>
+                                <input id="bio-material-title" type="text" placeholder="Esim. Lapsuus, työvuodet, kirje isältä">
+                            </div>
+                            <div class="settings-row">
+                                <label>Aineiston tyyppi</label>
+                                <select id="bio-material-kind">
+                                    <option value="free_text">Vapaamuotoinen kertomus</option>
+                                    <option value="document_note">Dokumentista poimittu tieto</option>
+                                    <option value="interview_answer">Haastatteluvastaus</option>
+                                    <option value="photo_note">Valokuvaan liittyvä muisto</option>
+                                    <option value="timeline_note">Aikajanan tarkennus</option>
+                                </select>
+                            </div>
+                            <div class="settings-row">
+                                <label>Teksti</label>
+                                <textarea id="bio-material-text" placeholder="Kirjoita muisto, tapahtuma, henkilö, dokumentista poimittu tieto tai muu elämäkertaan liittyvä aineisto." style="width:100%; min-height:240px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:12px; font-family:inherit; line-height:1.5;"></textarea>
+                            </div>
+                            <button class="btn btn-primary" id="bio-add-material-btn">Lisää aineistoon</button>
+                        </div>
+                        <div class="card glass-panel">
+                            <h3>Kerätty aineisto</h3>
+                            <div id="bio-materials-list" style="display:grid; gap:10px; margin-top:12px;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="bio-analysis-panel" class="biography-panel hidden">
+                    <div class="grid-cards" style="grid-template-columns: minmax(260px, 360px) minmax(0, 1fr); align-items:start;">
+                        <div class="card glass-panel">
+                            <h3>Analyysi</h3>
+                            <p style="color:var(--text-secondary); font-size:13px; line-height:1.6;">Päivitä aikajana, henkilökartta, teemat ja puuttuvat kohdat nykyisen aineiston perusteella.</p>
+                            <button class="btn btn-primary" id="bio-run-analysis-btn" style="margin-top:14px;">Päivitä analyysi</button>
+                        </div>
+                        <div class="card glass-panel">
+                            <h3>Aikajana, henkilöt ja puuttuvat kohdat</h3>
+                            <div class="analysis-editor" style="display:grid; gap:14px;">
+                                <div class="analysis-section"><label>Aikajana</label><textarea id="bio-timeline"></textarea></div>
+                                <div class="analysis-section"><label>Henkilökartta</label><textarea id="bio-people"></textarea></div>
+                                <div class="analysis-section"><label>Teemat</label><textarea id="bio-themes"></textarea></div>
+                                <div class="analysis-section"><label>Puuttuvat kohdat</label><textarea id="bio-gaps"></textarea></div>
+                                <div class="analysis-section"><label>Arkaluontoiset kohdat</label><textarea id="bio-sensitive-topics"></textarea></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="bio-questions-panel" class="biography-panel hidden">
+                    <div class="grid-cards" style="grid-template-columns: 1fr 1fr; align-items:start;">
+                        <div class="card glass-panel">
+                            <h3>Seuraava haastattelukierros</h3>
+                            <p style="color:var(--text-secondary); font-size:13px; line-height:1.6;">Kysymykset rajataan 5-10 olennaiseen asiaan, jotta vastaaminen ei tunnu liian raskaalta.</p>
+                            <button class="btn btn-primary" id="bio-run-questions-btn" style="margin:12px 0;">Laadi kysymykset</button>
+                            <textarea id="bio-questions" style="width:100%; min-height:360px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:14px; font-family:inherit; line-height:1.6;"></textarea>
+                        </div>
+                        <div class="card glass-panel">
+                            <h3>Vastaukset</h3>
+                            <textarea id="bio-answers" placeholder="Kirjoita vastaukset tähän. Vastaukset tallennetaan ja voidaan liittää aineistoon seuraavaa analyysikierrosta varten." style="width:100%; min-height:360px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:14px; font-family:inherit; line-height:1.6;"></textarea>
+                            <button class="btn btn-secondary" id="bio-add-answers-btn" style="margin-top:12px;">Lisää vastaukset aineistoon</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="bio-outline-panel" class="biography-panel hidden">
+                    <div class="card glass-panel">
+                        <div style="display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:12px;">
+                            <h3>Rakennesuunnitelma</h3>
+                            <button class="btn btn-primary" id="bio-run-outline-btn">Ehdota rakennetta</button>
+                        </div>
+                        <textarea id="bio-outline" style="width:100%; min-height:520px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:14px; font-family:inherit; line-height:1.6;"></textarea>
+                    </div>
+                </div>
+
+                <div id="bio-writing-panel" class="biography-panel hidden">
+                    <div class="grid-cards" style="grid-template-columns: minmax(280px, 420px) minmax(0, 1fr); align-items:start;">
+                        <div class="card glass-panel">
+                            <h3>Luvun valmistelu</h3>
+                            <div class="settings-row">
+                                <label>Luvun nimi</label>
+                                <input id="bio-chapter-title" type="text" placeholder="Esim. Ensimmäiset työvuodet">
+                            </div>
+                            <div class="settings-row">
+                                <label>Painopiste tai lisäohje</label>
+                                <textarea id="bio-chapter-focus" placeholder="Mitä tässä luvussa pitää näyttää, mitä vältetään ja mihin sävyyn se kirjoitetaan?" style="width:100%; min-height:150px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:12px; font-family:inherit; line-height:1.5;"></textarea>
+                            </div>
+                            <button class="btn btn-secondary" id="bio-run-chapter-plan-btn">Tee lukusuunnitelma</button>
+                            <button class="btn btn-primary" id="bio-run-draft-btn" style="margin-left:8px;">Kirjoita raakaversio</button>
+                        </div>
+                        <div class="card glass-panel">
+                            <h3>Lukusuunnitelma ja luonnos</h3>
+                            <div class="analysis-editor" style="display:grid; gap:14px;">
+                                <div class="analysis-section"><label>Lukusuunnitelma</label><textarea id="bio-chapter-plan"></textarea></div>
+                                <div class="analysis-section"><label>Lukuluonnos</label><textarea id="bio-draft"></textarea></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="bio-approval-panel" class="biography-panel hidden">
+                    <div class="card glass-panel">
+                        <h3>Hyväksyntäpisteet</h3>
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px; margin:16px 0;">
+                            <label><input type="checkbox" id="bio-approval-goal"> Tavoite hyväksytty</label>
+                            <label><input type="checkbox" id="bio-approval-timeline"> Aikajana hyväksytty</label>
+                            <label><input type="checkbox" id="bio-approval-people"> Keskeiset henkilöt hyväksytty</label>
+                            <label><input type="checkbox" id="bio-approval-outline"> Rakenne hyväksytty</label>
+                            <label><input type="checkbox" id="bio-approval-sensitive"> Arkaluontoiset rajaukset tarkistettu</label>
+                            <label><input type="checkbox" id="bio-approval-final"> Lopullinen versio hyväksytty</label>
+                        </div>
+                        <div class="settings-row">
+                            <label>Muistiinpanot hyväksynnöistä ja tarkistuksista</label>
+                            <textarea id="bio-approval-notes" style="width:100%; min-height:240px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:14px; font-family:inherit; line-height:1.6;"></textarea>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1071,6 +1282,6 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=2"></script>
-    <script src="app.js?v=29"></script>
+    <script src="app.js?v=30"></script>
 </body>
 </html>

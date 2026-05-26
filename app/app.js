@@ -41,8 +41,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let miscModels = [];
     let miscTimerInterval = null;
     let latestMiscText = '';
+    let biographyState = {};
+    let biographyTimerInterval = null;
     const fullWorkspaceRoles = new Set(['admin', 'test_user']);
-    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-muut-toiminnot']);
+    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-muut-toiminnot', 'view-elamakerta']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset']);
     const roleLabels = {
         admin: 'Admin',
@@ -1023,6 +1025,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadMiscModels();
                 updateMiscProjectSelect();
             }
+            if (item.getAttribute('data-view') === 'view-elamakerta') {
+                loadBiographyState(false);
+            }
             if(item.getAttribute('data-view') !== 'view-kirjani') {
                 document.getElementById('top-book-name').textContent = window.manuscriptData
                     ? `Käsikirjoitus: ${window.manuscriptData.title}`
@@ -1811,6 +1816,8 @@ document.addEventListener('DOMContentLoaded', () => {
             sidebarVocab.style.color = '';
         }
         renderAnalysisSummary(null);
+        biographyState = defaultBiographyState();
+        renderBiography();
         renderBookOverview();
         renderWritingView();
         if (window.renderNavList) window.renderNavList();
@@ -1829,6 +1836,8 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('skriptlab_raw_text', getFullManuscriptText(window.manuscriptData));
         if (data.id) localStorage.setItem(ACTIVE_PROJECT_ID_KEY, String(data.id));
         window.updateDynamicTexts();
+        biographyState = normalizeBiographyState(window.manuscriptData.analysis?.biography || {});
+        renderBiography();
         renderAnalysisSummary(window.manuscriptData.analysis);
         renderBookOverview();
         renderWritingView();
@@ -2090,7 +2099,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.translation-panel').forEach(panel => {
             panel.classList.toggle('hidden', panel.id !== panelId);
         });
-        document.querySelectorAll('.translation-tab').forEach(tab => {
+        document.querySelectorAll('.translation-tab[data-translation-panel]').forEach(tab => {
             tab.classList.toggle('active', tab.dataset.translationPanel === panelId);
         });
     }
@@ -2538,6 +2547,337 @@ document.addEventListener('DOMContentLoaded', () => {
         URL.revokeObjectURL(link.href);
     }
 
+    function defaultBiographyState() {
+        return {
+            purpose: '',
+            style: '',
+            target_length: '',
+            interpretation_level: '',
+            sensitive_handling: '',
+            materials: [],
+            timeline: '',
+            people: '',
+            themes: '',
+            gaps: '',
+            sensitive_topics: '',
+            quality_status: '',
+            analysis_report: '',
+            questions: '',
+            answers: '',
+            outline: '',
+            chapter_title: '',
+            chapter_focus: '',
+            chapter_plan: '',
+            draft: '',
+            approval_goal: false,
+            approval_timeline: false,
+            approval_people: false,
+            approval_outline: false,
+            approval_sensitive: false,
+            approval_final: false,
+            approval_notes: '',
+            last_generated_action: '',
+            last_generated_at: ''
+        };
+    }
+
+    function normalizeBiographyState(data) {
+        const state = Object.assign(defaultBiographyState(), data || {});
+        state.materials = Array.isArray(state.materials) ? state.materials : [];
+        return state;
+    }
+
+    function activeBiographyProjectId() {
+        return window.manuscriptData?.id || null;
+    }
+
+    function setBiographyStatus(message, isError = false) {
+        const status = document.getElementById('bio-status');
+        if (!status) return;
+        status.textContent = message;
+        status.style.color = isError ? '#ffb4b4' : 'var(--text-secondary)';
+    }
+
+    function setSelectValue(selectId, value) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        const cleanValue = value || '';
+        const hasOption = Array.from(select.options).some(option => option.value === cleanValue || option.textContent === cleanValue);
+        if (cleanValue && !hasOption) {
+            const option = document.createElement('option');
+            option.value = cleanValue;
+            option.textContent = cleanValue;
+            select.appendChild(option);
+        }
+        select.value = cleanValue;
+    }
+
+    function inputValue(id, value = '') {
+        const el = document.getElementById(id);
+        if (el) el.value = value || '';
+    }
+
+    function checkboxValue(id, value = false) {
+        const el = document.getElementById(id);
+        if (el) el.checked = Boolean(value);
+    }
+
+    function collectBiographyForm() {
+        const state = normalizeBiographyState(biographyState);
+        state.purpose = document.getElementById('bio-purpose')?.value || '';
+        state.style = document.getElementById('bio-style')?.value || '';
+        state.target_length = document.getElementById('bio-target-length')?.value || '';
+        state.interpretation_level = document.getElementById('bio-interpretation')?.value || '';
+        state.sensitive_handling = document.getElementById('bio-sensitive-handling')?.value || '';
+        state.timeline = document.getElementById('bio-timeline')?.value || '';
+        state.people = document.getElementById('bio-people')?.value || '';
+        state.themes = document.getElementById('bio-themes')?.value || '';
+        state.gaps = document.getElementById('bio-gaps')?.value || '';
+        state.sensitive_topics = document.getElementById('bio-sensitive-topics')?.value || '';
+        state.questions = document.getElementById('bio-questions')?.value || '';
+        state.answers = document.getElementById('bio-answers')?.value || '';
+        state.outline = document.getElementById('bio-outline')?.value || '';
+        state.chapter_title = document.getElementById('bio-chapter-title')?.value || '';
+        state.chapter_focus = document.getElementById('bio-chapter-focus')?.value || '';
+        state.chapter_plan = document.getElementById('bio-chapter-plan')?.value || '';
+        state.draft = document.getElementById('bio-draft')?.value || '';
+        state.approval_goal = Boolean(document.getElementById('bio-approval-goal')?.checked);
+        state.approval_timeline = Boolean(document.getElementById('bio-approval-timeline')?.checked);
+        state.approval_people = Boolean(document.getElementById('bio-approval-people')?.checked);
+        state.approval_outline = Boolean(document.getElementById('bio-approval-outline')?.checked);
+        state.approval_sensitive = Boolean(document.getElementById('bio-approval-sensitive')?.checked);
+        state.approval_final = Boolean(document.getElementById('bio-approval-final')?.checked);
+        state.approval_notes = document.getElementById('bio-approval-notes')?.value || '';
+        return state;
+    }
+
+    function renderBiographyMaterials() {
+        const list = document.getElementById('bio-materials-list');
+        if (!list) return;
+        const materials = Array.isArray(biographyState.materials) ? biographyState.materials : [];
+        if (!materials.length) {
+            list.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Ei vielä kerättyä elämäkerta-aineistoa.</div>';
+            return;
+        }
+        list.innerHTML = materials.map((item, index) => `
+            <div style="padding:12px; border:1px solid var(--border-color); border-radius:8px; background:rgba(255,255,255,0.04);">
+                <div style="display:flex; justify-content:space-between; gap:10px; align-items:start;">
+                    <div>
+                        <strong>${escapeHtml(item.title || `Aineisto ${index + 1}`)}</strong>
+                        <div style="color:var(--text-secondary); font-size:12px; margin-top:2px;">${escapeHtml(item.kind || 'free_text')}</div>
+                    </div>
+                    <button class="btn btn-secondary bio-remove-material-btn" data-material-index="${index}" style="font-size:11px; padding:4px 8px;">Poista</button>
+                </div>
+                <p style="color:var(--text-secondary); font-size:13px; line-height:1.5; margin-top:8px;">${escapeHtml(truncateText(item.text || '', 260))}</p>
+            </div>
+        `).join('');
+        list.querySelectorAll('.bio-remove-material-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                const index = Number(button.dataset.materialIndex);
+                biographyState.materials.splice(index, 1);
+                renderBiography();
+            });
+        });
+    }
+
+    function renderBiography() {
+        biographyState = normalizeBiographyState(biographyState);
+        const currentText = document.getElementById('bio-current-project');
+        if (currentText) {
+            currentText.textContent = window.manuscriptData
+                ? `Elämäkertaprojekti: ${window.manuscriptData.title || 'Nimetön'}`
+                : 'Valitse käsikirjoitus tai elämäkertaprojekti.';
+        }
+        setSelectValue('bio-purpose', biographyState.purpose);
+        setSelectValue('bio-style', biographyState.style);
+        setSelectValue('bio-target-length', biographyState.target_length);
+        setSelectValue('bio-interpretation', biographyState.interpretation_level);
+        setSelectValue('bio-sensitive-handling', biographyState.sensitive_handling);
+        inputValue('bio-timeline', biographyState.timeline);
+        inputValue('bio-people', biographyState.people);
+        inputValue('bio-themes', biographyState.themes);
+        inputValue('bio-gaps', biographyState.gaps);
+        inputValue('bio-sensitive-topics', biographyState.sensitive_topics);
+        inputValue('bio-questions', biographyState.questions);
+        inputValue('bio-answers', biographyState.answers);
+        inputValue('bio-outline', biographyState.outline);
+        inputValue('bio-chapter-title', biographyState.chapter_title);
+        inputValue('bio-chapter-focus', biographyState.chapter_focus);
+        inputValue('bio-chapter-plan', biographyState.chapter_plan);
+        inputValue('bio-draft', biographyState.draft);
+        checkboxValue('bio-approval-goal', biographyState.approval_goal);
+        checkboxValue('bio-approval-timeline', biographyState.approval_timeline);
+        checkboxValue('bio-approval-people', biographyState.approval_people);
+        checkboxValue('bio-approval-outline', biographyState.approval_outline);
+        checkboxValue('bio-approval-sensitive', biographyState.approval_sensitive);
+        checkboxValue('bio-approval-final', biographyState.approval_final);
+        inputValue('bio-approval-notes', biographyState.approval_notes);
+        renderBiographyMaterials();
+    }
+
+    function showBiographyPanel(panelId) {
+        document.querySelectorAll('.biography-panel').forEach(panel => {
+            panel.classList.toggle('hidden', panel.id !== panelId);
+        });
+        document.querySelectorAll('.biography-tab').forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.bioPanel === panelId);
+        });
+    }
+
+    function startBiographyTimer() {
+        const timer = document.getElementById('bio-timer');
+        window.clearInterval(biographyTimerInterval);
+        let seconds = 0;
+        if (timer) {
+            timer.textContent = '0:00';
+            timer.classList.remove('hidden');
+        }
+        biographyTimerInterval = window.setInterval(() => {
+            seconds++;
+            const minutes = Math.floor(seconds / 60);
+            const rest = seconds % 60;
+            if (timer) timer.textContent = `${minutes}:${rest < 10 ? '0' : ''}${rest}`;
+        }, 1000);
+    }
+
+    function stopBiographyTimer() {
+        window.clearInterval(biographyTimerInterval);
+        biographyTimerInterval = null;
+        const timer = document.getElementById('bio-timer');
+        if (timer) timer.classList.add('hidden');
+    }
+
+    async function loadBiographyState(showFeedback = true) {
+        if (!activeBiographyProjectId()) {
+            biographyState = defaultBiographyState();
+            renderBiography();
+            if (showFeedback) alert('Valitse ensin käsikirjoitus tai luo elämäkertaprojekti.');
+            return;
+        }
+        try {
+            if (showFeedback) setBiographyStatus('Ladataan elämäkertatietoja...');
+            const res = await apiFetch(`/api/projects/${activeBiographyProjectId()}/biography`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Elämäkertatietojen lataus epäonnistui.');
+            biographyState = normalizeBiographyState(data.data);
+            if (window.manuscriptData) {
+                if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
+                window.manuscriptData.analysis.biography = biographyState;
+            }
+            renderBiography();
+            setBiographyStatus(showFeedback ? 'Elämäkertatiedot ladattu.' : 'Elämäkertatyötila valmis.');
+        } catch (err) {
+            setBiographyStatus(err.message, true);
+            if (showFeedback) alert(err.message);
+        }
+    }
+
+    async function saveBiographyState(showFeedback = true) {
+        if (!activeBiographyProjectId()) {
+            if (showFeedback) alert('Valitse ensin käsikirjoitus tai elämäkertaprojekti.');
+            return null;
+        }
+        biographyState = collectBiographyForm();
+        try {
+            if (showFeedback) setBiographyStatus('Tallennetaan elämäkertatietoja...');
+            const res = await apiFetch(`/api/projects/${activeBiographyProjectId()}/biography`, {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ data: biographyState })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Elämäkertatietojen tallennus epäonnistui.');
+            biographyState = normalizeBiographyState(data.data);
+            if (window.manuscriptData) {
+                if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
+                window.manuscriptData.analysis.biography = biographyState;
+                localStorage.setItem('skriptlab_manuscript', JSON.stringify(window.manuscriptData));
+            }
+            renderBiography();
+            if (showFeedback) setBiographyStatus('Elämäkertatiedot tallennettu.');
+            return biographyState;
+        } catch (err) {
+            setBiographyStatus(err.message, true);
+            if (showFeedback) alert(err.message);
+            return null;
+        }
+    }
+
+    function addBiographyMaterial(title, kind, text) {
+        const cleanText = String(text || '').trim();
+        if (!cleanText) {
+            alert('Kirjoita ensin lisättävä aineisto.');
+            return;
+        }
+        biographyState = collectBiographyForm();
+        biographyState.materials.push({
+            title: String(title || '').trim() || `Aineisto ${biographyState.materials.length + 1}`,
+            kind: kind || 'free_text',
+            text: cleanText,
+            created_at: new Date().toISOString()
+        });
+        inputValue('bio-material-title', '');
+        inputValue('bio-material-text', '');
+        renderBiography();
+        saveBiographyState(false);
+        setBiographyStatus('Aineisto lisätty.');
+    }
+
+    function addBiographyAnswersToMaterials() {
+        const answers = document.getElementById('bio-answers')?.value || '';
+        if (!answers.trim()) {
+            alert('Kirjoita ensin vastaukset.');
+            return;
+        }
+        addBiographyMaterial('Haastatteluvastaukset', 'interview_answer', answers);
+    }
+
+    async function runBiographyAction(action) {
+        if (!activeBiographyProjectId()) {
+            alert('Valitse ensin käsikirjoitus tai elämäkertaprojekti.');
+            return;
+        }
+        biographyState = collectBiographyForm();
+        const payload = {
+            chapter_title: biographyState.chapter_title,
+            chapter_focus: biographyState.chapter_focus,
+            chapter_plan: biographyState.chapter_plan
+        };
+        const actionLabels = {
+            analyze: 'Päivitetään elämäkerta-analyysiä...',
+            questions: 'Laaditaan tarkentavia kysymyksiä...',
+            outline: 'Ehdotetaan rakennetta...',
+            chapter_plan: 'Tehdään lukusuunnitelmaa...',
+            draft: 'Kirjoitetaan luvun raakaversiota...'
+        };
+        startBiographyTimer();
+        setBiographyStatus(actionLabels[action] || 'Käsitellään elämäkertaa...');
+        try {
+            const res = await apiFetch(`/api/projects/${activeBiographyProjectId()}/biography/run`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ action, data: biographyState, payload })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Elämäkertatoiminto epäonnistui.');
+            biographyState = normalizeBiographyState(data.data);
+            if (window.manuscriptData) {
+                if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
+                window.manuscriptData.analysis.biography = biographyState;
+                localStorage.setItem('skriptlab_manuscript', JSON.stringify(window.manuscriptData));
+            }
+            renderBiography();
+            setBiographyStatus(data.warnings ? data.warnings : `${data.title || 'Toiminto'} valmis. Lähde: ${data.generated_by}.`);
+            loadUsage();
+        } catch (err) {
+            setBiographyStatus(err.message, true);
+            alert('Elämäkertatoiminto epäonnistui: ' + networkFailureMessage(err));
+            loadUsage();
+        } finally {
+            stopBiographyTimer();
+        }
+    }
+
     async function saveReviewedTranslation() {
         const textarea = document.getElementById('translation-review-text');
         const status = document.getElementById('translation-review-status');
@@ -2637,8 +2977,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const miscRunBtn = document.getElementById('misc-run-btn');
     const miscCopyBtn = document.getElementById('misc-copy-btn');
     const miscDownloadBtn = document.getElementById('misc-download-btn');
+    const bioLoadBtn = document.getElementById('bio-load-btn');
+    const bioSaveBtn = document.getElementById('bio-save-btn');
+    const bioAddMaterialBtn = document.getElementById('bio-add-material-btn');
+    const bioAddAnswersBtn = document.getElementById('bio-add-answers-btn');
+    const bioRunAnalysisBtn = document.getElementById('bio-run-analysis-btn');
+    const bioRunQuestionsBtn = document.getElementById('bio-run-questions-btn');
+    const bioRunOutlineBtn = document.getElementById('bio-run-outline-btn');
+    const bioRunChapterPlanBtn = document.getElementById('bio-run-chapter-plan-btn');
+    const bioRunDraftBtn = document.getElementById('bio-run-draft-btn');
     document.querySelectorAll('.translation-tab').forEach(tab => {
-        tab.addEventListener('click', () => showTranslationPanel(tab.dataset.translationPanel));
+        if (tab.dataset.translationPanel) {
+            tab.addEventListener('click', () => showTranslationPanel(tab.dataset.translationPanel));
+        }
+    });
+    document.querySelectorAll('.biography-tab').forEach(tab => {
+        tab.addEventListener('click', () => showBiographyPanel(tab.dataset.bioPanel));
     });
     ['translation-source-select', 'translation-language-select', 'translation-style-select', 'translation-model-select', 'translation-chunk-select'].forEach(id => {
         const element = document.getElementById(id);
@@ -2685,6 +3039,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (miscRunBtn) miscRunBtn.addEventListener('click', runMiscTool);
     if (miscCopyBtn) miscCopyBtn.addEventListener('click', copyMiscOutput);
     if (miscDownloadBtn) miscDownloadBtn.addEventListener('click', downloadMiscOutput);
+    if (bioLoadBtn) bioLoadBtn.addEventListener('click', () => loadBiographyState(true));
+    if (bioSaveBtn) bioSaveBtn.addEventListener('click', () => saveBiographyState(true));
+    if (bioAddMaterialBtn) {
+        bioAddMaterialBtn.addEventListener('click', () => {
+            addBiographyMaterial(
+                document.getElementById('bio-material-title')?.value || '',
+                document.getElementById('bio-material-kind')?.value || 'free_text',
+                document.getElementById('bio-material-text')?.value || ''
+            );
+        });
+    }
+    if (bioAddAnswersBtn) bioAddAnswersBtn.addEventListener('click', addBiographyAnswersToMaterials);
+    if (bioRunAnalysisBtn) bioRunAnalysisBtn.addEventListener('click', () => runBiographyAction('analyze'));
+    if (bioRunQuestionsBtn) bioRunQuestionsBtn.addEventListener('click', () => runBiographyAction('questions'));
+    if (bioRunOutlineBtn) bioRunOutlineBtn.addEventListener('click', () => runBiographyAction('outline'));
+    if (bioRunChapterPlanBtn) bioRunChapterPlanBtn.addEventListener('click', () => runBiographyAction('chapter_plan'));
+    if (bioRunDraftBtn) bioRunDraftBtn.addEventListener('click', () => runBiographyAction('draft'));
 
     // --- 7. File Upload ---
     const fileUpload = document.getElementById('manuscript-upload');
