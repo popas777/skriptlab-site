@@ -196,9 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             const message = String(err?.message || err || '');
             if (feedbackStatus) {
-                feedbackStatus.textContent = message.includes('Failed to fetch')
-                    ? 'Palautteen lähetys ei saanut yhteyttä backend-palveluun. Jos käytät www-osoitetta tai väliaikaista testiosoitetta, odota hetki päivitystä tai avaa sovellus osoitteessa https://skriptlab.com/app/.'
-                    : networkFailureMessage(err);
+                feedbackStatus.textContent = networkFailureMessage(err);
             }
         } finally {
             if (feedbackSubmitBtn) feedbackSubmitBtn.disabled = false;
@@ -520,9 +518,30 @@ document.addEventListener('DOMContentLoaded', () => {
         if (active) active.scrollIntoView({ block: 'nearest' });
     }
 
-    function networkFailureMessage(error) {
+    function networkFailureMessage(error, context = 'general') {
         const message = String(error?.message || error || '');
         if (message.includes('Failed to fetch')) {
+            const host = window.location.hostname;
+            if (['localhost', '127.0.0.1', ''].includes(host)) {
+                return (
+                    'Yhteys backend-palveluun ei onnistunut paikallisesta esikatselusta. '
+                    + 'Paikallinen sovellus käyttää osoitetta http://127.0.0.1:8000, joten backendin pitää olla käynnissä samalla koneella. '
+                    + 'Voit myös kokeilla tuotantoversiota osoitteessa https://skriptlab.com/app/.'
+                );
+            }
+            if (host.endsWith('netlify.app')) {
+                return (
+                    'Tämä väliaikainen Netlify-osoite ei ole backendin sallittu osoite. '
+                    + 'Käytä osoitetta https://skriptlab.com/app/ tai lisää testiosoite Renderin ALLOWED_ORIGINS-asetukseen.'
+                );
+            }
+            if (context === 'cover') {
+                return (
+                    'Kansikuvapyyntö ei saanut vastausta backend-palvelulta. '
+                    + 'Jos käytät skriptlab.com/app-osoitetta, kuvamallikutsu todennäköisesti kesti liian kauan tai backend käynnistyi uudelleen. '
+                    + 'Kokeile hetken päästä uudelleen.'
+                );
+            }
             return (
                 'Yhteys backend-palveluun katkesi ennen kuin vastaus saatiin. '
                 + 'Pitkän käsikirjoituksen analyysissä tämä johtuu yleensä siitä, että pyyntö kestää liian kauan, '
@@ -1908,12 +1927,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 coverLatestPreview.innerHTML = 'Kansikuvaa ei saatu generoitua.';
             }
             const message = String(err?.message || err || '');
-            setIllustrationStatus(
-                message.includes('Failed to fetch')
-                    ? 'Kansikuvapyyntö ei saanut yhteyttä backend-palveluun. Odota hetki ja kokeile uudelleen.'
-                    : message,
-                true
-            );
+            setIllustrationStatus(message.includes('Failed to fetch') ? networkFailureMessage(err, 'cover') : message, true);
         } finally {
             if (coverGenerateBtn) coverGenerateBtn.disabled = false;
         }
