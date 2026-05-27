@@ -183,7 +183,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (feedbackStatus) feedbackStatus.textContent = 'Palaute tallennettu. Kiitos.';
             window.setTimeout(closeFeedbackModal, 700);
         } catch (err) {
-            if (feedbackStatus) feedbackStatus.textContent = networkFailureMessage(err);
+            const message = String(err?.message || err || '');
+            if (feedbackStatus) {
+                feedbackStatus.textContent = message.includes('Failed to fetch')
+                    ? 'Palautteen lähetys ei saanut yhteyttä backend-palveluun. Jos käytät www-osoitetta tai väliaikaista testiosoitetta, odota hetki päivitystä tai avaa sovellus osoitteessa https://skriptlab.com/app/.'
+                    : networkFailureMessage(err);
+            }
         } finally {
             if (feedbackSubmitBtn) feedbackSubmitBtn.disabled = false;
         }
