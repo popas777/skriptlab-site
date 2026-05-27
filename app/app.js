@@ -177,8 +177,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(payload)
             });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.detail || 'Palautteen tallennus epäonnistui.');
+            if (!res.ok) throw new Error(await apiErrorMessage(res, 'Palautteen tallennus epäonnistui.'));
+            await res.json();
             if (feedbackMessage) feedbackMessage.value = '';
             if (feedbackStatus) feedbackStatus.textContent = 'Palaute tallennettu. Kiitos.';
             window.setTimeout(closeFeedbackModal, 700);
