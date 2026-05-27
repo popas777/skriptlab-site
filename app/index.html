@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=30">
+    <link rel="stylesheet" href="styles.css?v=31">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -755,47 +755,62 @@
             <div id="view-kuvitus" class="view-section hidden">
                 <div class="header">
                     <div class="header-info">
-                        <h2>Kuvitus ja Visuaalit</h2>
-                        <p>Käsikirjoitus: [Ei aktiivista teosta] (Kuvat generoidaan tekoälyllä)</p>
+                        <h2>Kuvitus</h2>
+                        <p id="illustration-current-project">Käsikirjoitus: [Ei aktiivista teosta]</p>
                     </div>
                 </div>
 
                 <div class="illustration-section" style="margin-bottom: 40px;">
-                    <h3 style="margin-bottom: 20px; color: var(--text-primary);">1. Kansikuvaehdotukset (AI-analyysin promptteina)</h3>
-                    <div class="grid-cards">
-                        <div class="card glass-panel" style="display: flex; flex-direction: column;">
-                            <h4 style="color: var(--ai-gradient-start); margin-bottom:12px;">Ehdotus 1: Tunnelmallinen metsä</h4>
-                            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom:20px; flex:1; font-style: italic; line-height: 1.5;">
-                                "Hyperrealistic, cinematic dark fantasy book cover for '[Teoksen nimi]'. Mysterious ancient forest, glowing purple and teal lighting, highly detailed."
-                            </p>
-                            <div class="img-placeholder" id="cover1-box" style="min-height: 50px;">
-                                <button class="btn btn-primary" style="width:100%" onclick="generateCover(1)">✨ Generoi Kuva (0.1€)</button>
+                    <h3 style="margin-bottom: 20px; color: var(--text-primary);">Kansikuva</h3>
+                    <div class="card glass-panel illustration-cover-grid" style="display:grid; grid-template-columns:minmax(0, 1fr) minmax(280px, 380px); gap:24px; align-items:start;">
+                        <div>
+                            <label style="font-size:13px; color:var(--text-secondary); display:block; margin-bottom:8px;">Kuvamalli</label>
+                            <select id="cover-model-select" style="width:100%; margin-bottom:16px;">
+                                <option value="">Ladataan kuvamalleja...</option>
+                            </select>
+
+                            <label style="font-size:13px; color:var(--text-secondary); display:block; margin-bottom:8px;">Kuvasuhde</label>
+                            <select id="cover-aspect-select" style="width:100%; margin-bottom:16px;">
+                                <option value="3:4">Kirjan etukansi 3:4</option>
+                                <option value="9:16">Korkea kansiluonnos 9:16</option>
+                                <option value="1:1">Neliö 1:1</option>
+                            </select>
+
+                            <label style="font-size:13px; color:var(--text-secondary); display:block; margin-bottom:8px;">Kansikuvaprompti</label>
+                            <textarea id="cover-prompt" rows="9" style="width:100%; resize:vertical;" placeholder="Kirjoita kansikuvan tunnelma, aihe, symboliikka, värit ja mahdollinen typografinen suunta. Jos jätät kentän tyhjäksi, käytetään analyysin kansipromptia."></textarea>
+
+                            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:16px;">
+                                <button class="btn btn-secondary" id="cover-load-prompt-btn" type="button">Lataa analyysin prompti</button>
+                                <button class="btn btn-primary" id="cover-generate-btn" type="button">Generoi kansikuva</button>
+                            </div>
+                            <p id="illustration-status" style="margin-top:14px; color:var(--text-secondary);">Valitse käsikirjoitus ja generoi ensimmäinen kansikuvaehdotus.</p>
+                        </div>
+
+                        <div>
+                            <div id="cover-latest-preview" style="min-height:420px; border:1px dashed var(--border-color); border-radius:12px; display:flex; align-items:center; justify-content:center; padding:18px; color:var(--text-secondary); text-align:center; background:rgba(0,0,0,0.04);">
+                                Kansikuva ilmestyy tähän.
                             </div>
                         </div>
-                        <div class="card glass-panel" style="display: flex; flex-direction: column;">
-                            <h4 style="color: var(--ai-gradient-start); margin-bottom:12px;">Ehdotus 2: Hahmo & Kivi</h4>
-                            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom:20px; flex:1; font-style: italic; line-height: 1.5;">
-                                "Dramatic dark fantasy cover. A mysterious cloaked figure holding a glowing magical purple stone in shadowy woods. High contrast, neon accents."
-                            </p>
-                            <div class="img-placeholder" id="cover2-box" style="min-height: 50px;">
-                                <button class="btn btn-primary" style="width:100%" onclick="generateCover(2)">✨ Generoi Kuva (0.1€)</button>
-                            </div>
-                        </div>
+                    </div>
+
+                    <div style="margin-top:24px;">
+                        <h3 style="margin-bottom: 14px; color: var(--text-primary);">Tallennetut kansikuvat</h3>
+                        <div id="cover-gallery" class="grid-cards" style="grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));"></div>
+                        <p id="cover-empty-state" style="color:var(--text-secondary);">Ei vielä tallennettuja kansikuvia.</p>
                     </div>
                 </div>
 
                 <div class="illustration-section">
-                    <h3 style="margin-bottom: 20px; color: var(--text-primary);">2. Sisäkuvitukset (Kappalekohtainen)</h3>
+                    <h3 style="margin-bottom: 20px; color: var(--text-primary);">Sisäkuvitukset</h3>
                     <div class="card glass-panel" style="display: flex; gap: 32px; align-items:flex-start; flex-wrap: wrap;">
                         <div style="flex:1; min-width: 250px;">
-                            <label style="font-size: 13px; color: var(--text-secondary); display:block; margin-bottom:8px;">Valittu kappale (Referenssi luvusta 1):</label>
+                            <label style="font-size: 13px; color: var(--text-secondary); display:block; margin-bottom:8px;">Seuraava vaihe</label>
                             <div style="padding:20px; background:rgba(0,0,0,0.2); border-radius:12px; border:1px dashed var(--border-color); font-size:14px; color:var(--text-secondary); line-height: 1.6;">
-                                "Kylläpä täällä on pimeää," olento sanoi. Aluskasvillisuus rapisi askeleiden alla kun musta kivi alkoi hehkua voimakkaasti.
+                                Sisäkuvitukset lisätään myöhemmin kappale- tai lukukohtaisina luonnoksina. Ensin viimeistellään kansikuvan tallennus, mallivalinta ja kustannusrajat.
                             </div>
-                            <button class="btn btn-secondary" style="margin-top: 20px;" onclick="document.getElementById('inner-img-box').innerHTML = '<div style=\'text-align:center; padding:50px;\'><span class=\'sparkle glow-text\' style=\'font-size:24px;\'>⏳</span><p style=\'margin-top:10px; color:var(--text-secondary);\'>Generoidaan taidetta...</p></div>'; setTimeout(() => document.getElementById('inner-img-box').innerHTML = '<img src=\'cover_2.png\' style=\'width:100%; border-radius:8px; opacity:0.8;\'>', 2000);">✨ Generoi luonnos hahmosta tähän kohtaan</button>
                         </div>
                         <div id="inner-img-box" style="width: 250px; height: 250px; background: rgba(0,0,0,0.1); border: 2px dashed rgba(5,150,105,0.3); border-radius: 12px; display:flex; align-items:center; justify-content:center; color: var(--text-secondary); text-align:center; padding:20px; box-shadow: inset 0 0 20px rgba(0,0,0,0.5);">
-                            Kappaleen erikoiskuva ilmestyy tähän. Voi siirtää suoraan taittoon.
+                            Sisäkuvitusten paikka.
                         </div>
                     </div>
                 </div>
@@ -1306,6 +1321,6 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=2"></script>
-    <script src="app.js?v=35"></script>
+    <script src="app.js?v=36"></script>
 </body>
 </html>

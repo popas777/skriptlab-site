@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let miscModels = [];
     let miscTimerInterval = null;
     let latestMiscText = '';
+    let imageModels = [];
     let biographyState = {};
     let biographyTimerInterval = null;
     let currentViewId = 'view-kirjani';
@@ -105,6 +106,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const feedbackMessage = document.getElementById('feedback-message');
     const feedbackStatus = document.getElementById('feedback-status');
     const feedbackModalTitle = document.getElementById('feedback-modal-title');
+    const illustrationCurrentProject = document.getElementById('illustration-current-project');
+    const illustrationStatus = document.getElementById('illustration-status');
+    const coverModelSelect = document.getElementById('cover-model-select');
+    const coverAspectSelect = document.getElementById('cover-aspect-select');
+    const coverPrompt = document.getElementById('cover-prompt');
+    const coverLoadPromptBtn = document.getElementById('cover-load-prompt-btn');
+    const coverGenerateBtn = document.getElementById('cover-generate-btn');
+    const coverLatestPreview = document.getElementById('cover-latest-preview');
+    const coverGallery = document.getElementById('cover-gallery');
+    const coverEmptyState = document.getElementById('cover-empty-state');
     if (logoutLink) {
         logoutLink.addEventListener('click', () => {
             window.SkriptLabAuth.clearSession();
@@ -1121,6 +1132,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (item.getAttribute('data-view') === 'view-elamakerta') {
                 loadBiographyState(false);
             }
+            if (item.getAttribute('data-view') === 'view-kuvitus') {
+                loadImageModels();
+                loadCoverImages();
+            }
             if(item.getAttribute('data-view') !== 'view-kirjani') {
                 document.getElementById('top-book-name').textContent = window.manuscriptData
                     ? `Käsikirjoitus: ${window.manuscriptData.title}`
@@ -1750,13 +1765,175 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- 5. Kuvitus Logic ---
-    window.generateCover = function(num) {
-        const box = document.getElementById(`cover${num}-box`);
-        box.innerHTML = `<div style="text-align:center; padding:40px;"><span class="sparkle glow-text" style="font-size:24px;">⏳</span><br><p style="color:var(--text-secondary); margin-top:12px;">Maalataan (Midjourney/Dall-e)...</p></div>`;
-        setTimeout(() => {
-            box.innerHTML = `<img src="cover_${num}.png" style="width:100%; border-radius:12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); animation: fadeIn 0.5s ease;">`;
-        }, 1500);
-    };
+    function setIllustrationStatus(message, isError = false) {
+        if (!illustrationStatus) return;
+        illustrationStatus.textContent = message;
+        illustrationStatus.style.color = isError ? '#ffb4b4' : 'var(--text-secondary)';
+    }
+
+    function analysisCoverPrompt() {
+        const analysis = window.manuscriptData?.analysis || {};
+        if (analysis.cover_prompt) return String(analysis.cover_prompt).trim();
+        const prompts = analysis.cover_prompts;
+        if (Array.isArray(prompts) && prompts.length) return String(prompts[0]).trim();
+        if (typeof prompts === 'string') {
+            const firstLine = prompts.split('\n').map(line => line.trim()).filter(Boolean)[0] || '';
+            return firstLine.replace(/^[\d.)\-\s]+/, '').trim();
+        }
+        return '';
+    }
+
+    function updateIllustrationProjectText() {
+        if (!illustrationCurrentProject) return;
+        const title = window.manuscriptData?.title || '[Ei aktiivista teosta]';
+        illustrationCurrentProject.textContent = `Käsikirjoitus: ${title}`;
+    }
+
+    async function loadImageModels() {
+        if (!coverModelSelect) return;
+        try {
+            const res = await apiFetch('/api/models/image');
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Kuvamallien lataus epäonnistui.');
+            imageModels = data || [];
+            if (!imageModels.length) {
+                coverModelSelect.innerHTML = '<option value="">Ei käytössä olevia kuvamalleja</option>';
+                return;
+            }
+            coverModelSelect.innerHTML = imageModels
+                .map(model => `<option value="${escapeHtml(`${model.provider}:${model.model_name}`)}">${escapeHtml(model.display_name)}</option>`)
+                .join('');
+        } catch (err) {
+            coverModelSelect.innerHTML = '<option value="">Kuvamalleja ei saatu ladattua</option>';
+            setIllustrationStatus(err.message, true);
+        }
+    }
+
+    function renderCoverImages(items = []) {
+        updateIllustrationProjectText();
+        if (!coverGallery || !coverEmptyState || !coverLatestPreview) return;
+        coverGallery.innerHTML = '';
+        coverEmptyState.hidden = items.length > 0;
+
+        if (!items.length) {
+            coverLatestPreview.innerHTML = 'Kansikuva ilmestyy tähän.';
+            return;
+        }
+
+        coverLatestPreview.innerHTML = `<img src="${items[0].data_url}" alt="Viimeisin kansikuva" style="width:100%; max-height:520px; object-fit:contain; border-radius:10px;">`;
+        items.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'card glass-panel';
+            card.style.display = 'flex';
+            card.style.flexDirection = 'column';
+            card.style.gap = '12px';
+            card.innerHTML = `
+                <img src="${item.data_url}" alt="${escapeHtml(item.title)}" style="width:100%; aspect-ratio:3 / 4; object-fit:cover; border-radius:8px; border:1px solid var(--border-color);">
+                <div>
+                    <strong style="font-size:14px;">${escapeHtml(item.title)}</strong>
+                    <p class="card-meta" style="margin:6px 0 0;">${escapeHtml(item.model || 'Kuvamalli')}</p>
+                </div>
+                <details style="font-size:12px; color:var(--text-secondary);">
+                    <summary>Prompti</summary>
+                    <p style="white-space:pre-wrap; margin-top:8px;">${escapeHtml(item.prompt || '')}</p>
+                </details>
+            `;
+            coverGallery.appendChild(card);
+        });
+    }
+
+    async function loadCoverImages() {
+        updateIllustrationProjectText();
+        if (!window.manuscriptData?.id) {
+            renderCoverImages([]);
+            setIllustrationStatus('Valitse tai tallenna käsikirjoitus ennen kansikuvan generointia.');
+            return;
+        }
+        try {
+            const res = await apiFetch(`/api/projects/${window.manuscriptData.id}/cover-images`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Kansikuvien lataus epäonnistui.');
+            renderCoverImages(data || []);
+            if (data?.length) setIllustrationStatus('Kansikuvat ladattu.');
+        } catch (err) {
+            setIllustrationStatus(err.message, true);
+        }
+    }
+
+    async function generateCoverImage() {
+        if (!window.manuscriptData) {
+            setIllustrationStatus('Valitse ensin käsikirjoitus.', true);
+            return;
+        }
+        if (!window.manuscriptData.id) {
+            const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
+            if (savedProject?.id) window.manuscriptData = savedProject;
+        }
+        if (!window.manuscriptData?.id) {
+            setIllustrationStatus('Käsikirjoitusta ei saatu tallennettua ennen kansikuvaa.', true);
+            return;
+        }
+
+        const prompt = (coverPrompt?.value || '').trim();
+        const fallbackPrompt = analysisCoverPrompt();
+        if (!prompt && fallbackPrompt && coverPrompt) {
+            coverPrompt.value = fallbackPrompt;
+        }
+
+        if (coverGenerateBtn) coverGenerateBtn.disabled = true;
+        if (coverLatestPreview) {
+            coverLatestPreview.innerHTML = '<div style="text-align:center; color:var(--text-secondary);">Generoidaan kansikuvaa...</div>';
+        }
+        setIllustrationStatus('Kansikuvaa generoidaan. Tässä voi mennä hetki.');
+
+        try {
+            const res = await apiFetch(`/api/projects/${window.manuscriptData.id}/cover-images`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    prompt: (coverPrompt?.value || '').trim(),
+                    model: coverModelSelect?.value || null,
+                    aspect_ratio: coverAspectSelect?.value || '3:4',
+                    title_text: window.manuscriptData.title || '',
+                    author_text: window.manuscriptData.author || ''
+                })
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.detail || 'Kansikuvan generointi epäonnistui.');
+            setIllustrationStatus('Kansikuva tallennettu käsikirjoitukselle.');
+            await loadCoverImages();
+            loadUsage();
+        } catch (err) {
+            if (coverLatestPreview) {
+                coverLatestPreview.innerHTML = 'Kansikuvaa ei saatu generoitua.';
+            }
+            const message = String(err?.message || err || '');
+            setIllustrationStatus(
+                message.includes('Failed to fetch')
+                    ? 'Kansikuvapyyntö ei saanut yhteyttä backend-palveluun. Odota hetki ja kokeile uudelleen.'
+                    : message,
+                true
+            );
+        } finally {
+            if (coverGenerateBtn) coverGenerateBtn.disabled = false;
+        }
+    }
+
+    if (coverLoadPromptBtn) {
+        coverLoadPromptBtn.addEventListener('click', () => {
+            const prompt = analysisCoverPrompt();
+            if (!prompt) {
+                setIllustrationStatus('Analyysista ei löytynyt kansikuvapromptia. Voit kirjoittaa promptin käsin.', true);
+                return;
+            }
+            if (coverPrompt) coverPrompt.value = prompt;
+            setIllustrationStatus('Analyysin kansikuvaprompti ladattu kenttään.');
+        });
+    }
+
+    if (coverGenerateBtn) {
+        coverGenerateBtn.addEventListener('click', generateCoverImage);
+    }
 
     // --- 6. Global Task Manager ---
     window.startLongTask = function(title, desc, durationSeconds) {
@@ -1949,6 +2126,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.renderNavList) window.renderNavList();
         updateTranslationProjectSelect();
         updateMiscProjectSelect();
+        renderCoverImages([]);
     }
 
     function setActiveManuscript(data) {
@@ -1969,6 +2147,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderWritingView();
         if (window.renderNavList) window.renderNavList();
         updateMiscProjectSelect();
+        if (currentViewId === 'view-kuvitus') loadCoverImages();
     }
 
     function emptyProjectMessage() {
