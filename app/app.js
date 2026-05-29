@@ -496,6 +496,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     item.appendChild(titleInput);
 
+                    if (handlers.showParagraphs === false) {
+                        groupEl.appendChild(item);
+                        return;
+                    }
+
                     const paragraphList = document.createElement('div');
                     paragraphList.className = 'paragraph-list';
                     const paragraphs = chapter.paragraphs || [];
@@ -855,6 +860,166 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.renderNavList) window.renderNavList();
     }
 
+    function currentWritingParagraphs() {
+        const textEl = document.getElementById('writing-text');
+        const text = textEl ? textEl.value : '';
+        const paragraphs = splitIntoParagraphs(text);
+        return paragraphs.length ? paragraphs : [''];
+    }
+
+    function paragraphIndexAtOffset(text, offset) {
+        const source = String(text || '');
+        const cursor = Math.max(0, offset || 0);
+        const matches = Array.from(source.matchAll(/\S[\s\S]*?(?=\n\s*\n|$)/g));
+        if (!matches.length) return 0;
+        let activeIndex = 0;
+        matches.forEach((match, index) => {
+            if ((match.index || 0) <= cursor) activeIndex = index;
+        });
+        return activeIndex;
+    }
+
+    function paragraphOffsetByIndex(text, targetIndex) {
+        const source = String(text || '');
+        const matches = Array.from(source.matchAll(/\S[\s\S]*?(?=\n\s*\n|$)/g));
+        const match = matches[Math.max(0, Math.min(targetIndex, matches.length - 1))];
+        return match ? match.index : 0;
+    }
+
+    function updateWritingPositionFromCursor() {
+        const textEl = document.getElementById('writing-text');
+        if (!textEl || writingSelection.cIndex === null || writingSelection.cIndex === undefined) return;
+        const paragraphs = currentWritingParagraphs();
+        writingSelection.pIndex = Math.min(paragraphIndexAtOffset(textEl.value, textEl.selectionStart), paragraphs.length - 1);
+        updateWritingPositionStatus();
+    }
+
+    function updateWritingPositionStatus() {
+        const jumpInput = document.getElementById('writing-paragraph-jump');
+        const statusEl = document.getElementById('writing-position-status');
+        const chapter = window.manuscriptData?.chapters?.[writingSelection.cIndex];
+        const chapters = window.manuscriptData?.chapters || [];
+        const paragraphs = currentWritingParagraphs();
+        const pIndex = Math.min(Math.max(writingSelection.pIndex || 0, 0), Math.max(0, paragraphs.length - 1));
+        if (jumpInput) {
+            jumpInput.max = String(Math.max(1, paragraphs.length));
+            jumpInput.value = String(pIndex + 1);
+        }
+        if (statusEl) {
+            statusEl.textContent = chapter
+                ? `Luku ${writingSelection.cIndex + 1}/${chapters.length}: ${chapter.title || 'Nimetön luku'} · kappale ${pIndex + 1}/${Math.max(1, paragraphs.length)}`
+                : 'Valitse luku.';
+        }
+    }
+
+    function jumpToWritingParagraph() {
+        const textEl = document.getElementById('writing-text');
+        const jumpInput = document.getElementById('writing-paragraph-jump');
+        if (!textEl || !jumpInput) return;
+        const paragraphs = currentWritingParagraphs();
+        const requested = Number.parseInt(jumpInput.value, 10);
+        if (!Number.isFinite(requested) || requested < 1 || requested > paragraphs.length) {
+            alert(`Anna kappalenumero väliltä 1-${paragraphs.length}.`);
+            return;
+        }
+        const nextIndex = requested - 1;
+        const offset = paragraphOffsetByIndex(textEl.value, nextIndex);
+        writingSelection.pIndex = nextIndex;
+        textEl.focus();
+        textEl.setSelectionRange(offset, offset);
+        const lineHeight = Number.parseFloat(window.getComputedStyle(textEl).lineHeight) || 28;
+        const before = textEl.value.slice(0, offset);
+        textEl.scrollTop = Math.max(0, before.split('\n').length * lineHeight - textEl.clientHeight / 3);
+        updateWritingPositionStatus();
+    }
+
+    function setWritingToolStatus(message) {
+        const statusEl = document.getElementById('writing-tool-status');
+        if (statusEl) statusEl.textContent = message || '';
+    }
+
+    function cleanManuscriptText(text) {
+        const lines = String(text || '')
+            .replace(/\r\n?/g, '\n')
+            .replace(/\u00a0/g, ' ')
+            .replace(/\f/g, '\n\n')
+            .replace(/<KAPPALE\d*>/gi, '')
+            .replace(/\*\*/g, '')
+            .replace(/__/g, '')
+            .split('\n')
+            .map(line => line
+                .replace(/[ \t]+/g, ' ')
+                .replace(/^[ \t]*#{1,6}\s+/, '')
+                .replace(/^[ \t]*[-*_#=]{3,}[ \t]*$/, '')
+                .replace(/^[ \t]*(sivu|page)\s+\d+[ \t]*$/i, '')
+                .replace(/^[ \t]*[-–—]?\s*\d+\s*[-–—]?[ \t]*$/, '')
+                .replace(/[\u200b-\u200f\u202a-\u202e]/g, '')
+                .trim()
+            );
+
+        const blocks = [];
+        let current = [];
+        lines.forEach(line => {
+            if (!line) {
+                if (current.length) {
+                    blocks.push(current);
+                    current = [];
+                }
+                return;
+            }
+            current.push(line);
+        });
+        if (current.length) blocks.push(current);
+
+        return blocks
+            .map(block => block.join(' ').replace(/\s+([,.!?;:])/g, '$1').trim())
+            .filter(Boolean)
+            .join('\n\n')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
+    }
+
+    function cleanCurrentWritingChapter() {
+        const textEl = document.getElementById('writing-text');
+        if (!textEl || !window.manuscriptData?.chapters?.[writingSelection.cIndex]) {
+            alert('Valitse puhdistettava luku ensin.');
+            return;
+        }
+        const cleaned = cleanManuscriptText(textEl.value);
+        textEl.value = cleaned;
+        writingSelection.pIndex = 0;
+        saveWritingText(false);
+        renderWritingView();
+        setWritingToolStatus('Teksti puhdistettu valitusta luvusta.');
+    }
+
+    function restructureWritingManuscript() {
+        if (!window.manuscriptData?.chapters?.length) {
+            alert('Lataa tai valitse käsikirjoitus ensin.');
+            return;
+        }
+        saveWritingText(false);
+        const sourceText = cleanManuscriptText(getFullManuscriptText(window.manuscriptData));
+        if (!sourceText) {
+            alert('Käsikirjoituksesta ei löytynyt jaoteltavaa tekstiä.');
+            return;
+        }
+        const chapters = parseRestructuredChapters(sourceText, window.manuscriptData.title || 'Käsikirjoitus');
+        const paragraphCount = chapters.reduce((sum, chapter) => sum + (chapter.paragraphs || []).length, 0);
+        const saveNew = confirm(`Uusi jako näyttää sisältävän ${chapters.length} lukua ja ${paragraphCount} kappaletta.\n\nTallennetaanko uusi luku- ja kappalejako?`);
+        if (!saveNew) {
+            setWritingToolStatus('Uutta jakoa ei tallennettu.');
+            return;
+        }
+        window.manuscriptData.chapters = chapters;
+        writingSelection = { cIndex: firstBodyChapterIndex(chapters), pIndex: 0 };
+        window.currentEditSelection = { cIndex: writingSelection.cIndex, pIndex: 0 };
+        persistManuscriptEdits();
+        renderWritingView();
+        if (window.loadParagraph) window.loadParagraph(writingSelection.cIndex, 0, null);
+        setWritingToolStatus('Uusi luku- ja kappalejako tallennettu.');
+    }
+
     function renderWritingView() {
         const chapterList = document.getElementById('writing-chapter-list');
         const titleEl = document.getElementById('writing-selection-title');
@@ -866,6 +1031,7 @@ document.addEventListener('DOMContentLoaded', () => {
             titleEl.textContent = 'Ei käsikirjoitusta';
             textEl.value = '';
             renderChapterParagraphNav(chapterList, null, null);
+            updateWritingPositionStatus();
             return;
         }
 
@@ -904,7 +1070,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 chapter.title = title || `Luku ${cIndex + 1}`;
                 persistManuscriptEdits();
                 renderWritingView();
-            }
+            },
+            showParagraphs: false
         });
 
         const selectedChapter = window.manuscriptData.chapters[writingSelection.cIndex];
@@ -912,6 +1079,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ? `${selectedChapter.title}, koko luku`
             : 'Valitse luku';
         textEl.value = (selectedChapter?.paragraphs || []).join('\n\n');
+        updateWritingPositionStatus();
     }
 
     function saveWritingText(showAlert = true) {
@@ -2047,10 +2215,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const bookFontSizeSelect = document.getElementById('book-font-size-select');
     const bookWidthSelect = document.getElementById('book-width-select');
     const saveWritingBtn = document.getElementById('save-writing-btn');
+    const cleanWritingTextBtn = document.getElementById('clean-writing-text-btn');
+    const restructureWritingBtn = document.getElementById('restructure-writing-btn');
     const addWritingChapterBtn = document.getElementById('add-writing-chapter-btn');
     const deleteWritingChapterBtn = document.getElementById('delete-writing-chapter-btn');
     const addWritingParagraphBtn = document.getElementById('add-writing-paragraph-btn');
     const deleteWritingParagraphBtn = document.getElementById('delete-writing-paragraph-btn');
+    const writingParagraphJumpBtn = document.getElementById('writing-paragraph-jump-btn');
+    const writingParagraphJumpInput = document.getElementById('writing-paragraph-jump');
+    const writingTextArea = document.getElementById('writing-text');
 
     if (refreshBookPreviewBtn) refreshBookPreviewBtn.addEventListener('click', renderBookOverview);
     if (downloadBookTextBtn) downloadBookTextBtn.addEventListener('click', downloadCurrentBookText);
@@ -2060,10 +2233,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (select) select.addEventListener('change', applyBookReaderSettings);
     });
     if (saveWritingBtn) saveWritingBtn.addEventListener('click', () => saveWritingText(true));
+    if (cleanWritingTextBtn) cleanWritingTextBtn.addEventListener('click', cleanCurrentWritingChapter);
+    if (restructureWritingBtn) restructureWritingBtn.addEventListener('click', restructureWritingManuscript);
     if (addWritingChapterBtn) addWritingChapterBtn.addEventListener('click', () => addChapterNearSelection('writing'));
     if (deleteWritingChapterBtn) deleteWritingChapterBtn.addEventListener('click', () => deleteSelectedChapter('writing'));
     if (addWritingParagraphBtn) addWritingParagraphBtn.addEventListener('click', addWritingParagraph);
     if (deleteWritingParagraphBtn) deleteWritingParagraphBtn.addEventListener('click', deleteWritingParagraph);
+    if (writingParagraphJumpBtn) writingParagraphJumpBtn.addEventListener('click', jumpToWritingParagraph);
+    if (writingParagraphJumpInput) {
+        writingParagraphJumpInput.addEventListener('keydown', event => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                jumpToWritingParagraph();
+            }
+        });
+    }
+    if (writingTextArea) {
+        ['keyup', 'click', 'input', 'select'].forEach(eventName => {
+            writingTextArea.addEventListener(eventName, updateWritingPositionFromCursor);
+        });
+    }
 
     function createManuscriptFromText(title, text) {
         let bookData = {

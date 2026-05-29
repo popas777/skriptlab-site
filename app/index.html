@@ -177,6 +177,8 @@
                         <p>Käsikirjoitus: [Ei aktiivista teosta] (kirjoittaminen ja tekstin jatkaminen)</p>
                     </div>
                     <div class="header-actions">
+                        <button class="btn btn-secondary" id="clean-writing-text-btn">Putsaa teksti</button>
+                        <button class="btn btn-secondary" id="restructure-writing-btn">Jaottele uusiksi</button>
                         <button class="btn btn-secondary" id="add-writing-chapter-btn">Uusi luku</button>
                         <button class="btn btn-secondary btn-danger-soft" id="delete-writing-chapter-btn">Poista luku</button>
                         <button class="btn btn-secondary" id="add-writing-paragraph-btn">Uusi kappale</button>
@@ -187,11 +189,20 @@
                 <div class="writing-workspace">
                     <aside class="writing-nav glass-panel">
                         <h3>Luvut ja kappaleet</h3>
+                        <div class="writing-jump-panel">
+                            <label for="writing-paragraph-jump">Siirry kappaleeseen</label>
+                            <div class="writing-jump-row">
+                                <input id="writing-paragraph-jump" type="number" min="1" value="1">
+                                <button class="btn btn-secondary" id="writing-paragraph-jump-btn">Siirry</button>
+                            </div>
+                            <p id="writing-position-status">Valitse luku.</p>
+                        </div>
                         <div id="writing-chapter-list" class="chapter-list"></div>
                     </aside>
                     <section class="writing-editor glass-panel">
                         <div class="panel-header">
                             <h3 id="writing-selection-title">Valitse luku</h3>
+                            <span id="writing-tool-status" class="writing-tool-status"></span>
                         </div>
                         <textarea id="writing-text" class="writing-text" placeholder="Valitse luku tai aloita uusi käsikirjoitus lataamalla teksti Käsikirjoitukseni-näkymässä. Erottele kappaleet tyhjällä rivillä."></textarea>
                     </section>
