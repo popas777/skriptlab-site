@@ -582,6 +582,114 @@ document.addEventListener('DOMContentLoaded', () => {
         }).filter(Boolean).join('\n\n\n');
     }
 
+    let showManuscriptMarkup = localStorage.getItem('skriptlab_show_manuscript_markup') === 'true';
+
+    function markdownLevelForChapter(chapter, index = 0) {
+        const label = `${chapter?.id || ''} ${chapter?.title || ''}`.toLowerCase();
+        if (label.includes('aliluku') || /^(\d+\.\d+|[ivxlcdm]+\.\d+)\b/i.test(label.trim())) return 2;
+        return 1;
+    }
+
+    function stripMarkdownHeading(value) {
+        return String(value || '').replace(/^#{1,6}\s+/, '').trim();
+    }
+
+    function chapterMarkdownHeading(chapter, index = 0) {
+        const level = markdownLevelForChapter(chapter, index);
+        return `${'#'.repeat(level)} ${stripMarkdownHeading(chapter?.title || `Luku ${index + 1}`)}`;
+    }
+
+    function manuscriptToMarkdown(data = window.manuscriptData) {
+        if (!data || !Array.isArray(data.chapters)) return '';
+        return data.chapters.map((chapter, index) => {
+            const parts = [chapterMarkdownHeading(chapter, index)];
+            (chapter.paragraphs || []).forEach(paragraph => {
+                if (String(paragraph || '').trim()) parts.push(String(paragraph).trim());
+            });
+            return parts.join('\n\n');
+        }).join('\n\n');
+    }
+
+    function chapterTextForEditor(chapter, index = 0) {
+        const paragraphs = (chapter?.paragraphs || []).join('\n\n');
+        return showManuscriptMarkup
+            ? [chapterMarkdownHeading(chapter, index), paragraphs].filter(Boolean).join('\n\n')
+            : paragraphs;
+    }
+
+    function parseChapterEditorText(chapter, text) {
+        const parts = splitIntoParagraphs(text);
+        if (!parts.length) return { title: chapter?.title || 'Nimetön luku', paragraphs: [''] };
+        const first = parts[0] || '';
+        const heading = first.match(/^(#{1,6})\s+(.+)$/);
+        if (!heading) {
+            return { title: chapter?.title || 'Nimetön luku', paragraphs: parts };
+        }
+        const level = heading[1].length;
+        const title = stripMarkdownHeading(heading[2]) || chapter?.title || 'Nimetön luku';
+        return {
+            title,
+            idPrefix: level > 1 ? 'aliluku' : 'luku',
+            paragraphs: parts.slice(1).length ? parts.slice(1) : ['']
+        };
+    }
+
+    function applyParsedChapterText(chapter, text) {
+        const parsed = parseChapterEditorText(chapter, text);
+        chapter.title = parsed.title;
+        if (parsed.idPrefix && !String(chapter.id || '').startsWith(parsed.idPrefix)) {
+            chapter.id = `${parsed.idPrefix}_${Date.now()}`;
+        }
+        chapter.paragraphs = parsed.paragraphs;
+    }
+
+    function updateMarkupButtons() {
+        const label = showManuscriptMarkup ? 'Piilota merkinnät' : 'Näytä merkinnät';
+        ['toggle-writing-markup-btn', 'toggle-editor-markup-btn'].forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) btn.textContent = label;
+        });
+    }
+
+    function toggleManuscriptMarkup() {
+        saveWritingText(false);
+        showManuscriptMarkup = !showManuscriptMarkup;
+        localStorage.setItem('skriptlab_show_manuscript_markup', String(showManuscriptMarkup));
+        updateMarkupButtons();
+        renderWritingView();
+        if (window.currentEditSelection?.cIndex !== null && window.loadParagraph) {
+            window.loadParagraph(window.currentEditSelection.cIndex, window.currentEditSelection.pIndex || 0, null);
+        }
+    }
+
+    function viewMarkdownFile() {
+        const markdown = manuscriptToMarkdown();
+        if (!markdown) {
+            alert('Ei katseltavaa markdown-sisältöä.');
+            return;
+        }
+        const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        window.setTimeout(() => URL.revokeObjectURL(url), 15000);
+    }
+
+    function showMarkdownHelp() {
+        alert([
+            'Taittomerkinnät:',
+            '',
+            '# Luvun otsikko',
+            '## Aliluvun otsikko',
+            '### Väliotsikko',
+            '',
+            'Tyhjä rivi erottaa kappaleet.',
+            '*kursiivi* merkitsee kursivoitavaa tekstiä.',
+            '**lihavointi** kannattaa yleensä poistaa kaunokirjan leipätekstistä ennen taittoa.',
+            '',
+            'Kirjoita- ja Toimitus-osioissa Näytä merkinnät näyttää nämä otsikkomerkit. Piilota merkinnät näyttää tekstin lukumuodossa.'
+        ].join('\n'));
+    }
+
     function renderAnalysisSections(analysis) {
         const editor = document.getElementById('analysis-editor');
         const saveBtn = document.getElementById('save-analysis-btn');
@@ -863,8 +971,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function currentWritingParagraphs() {
         const textEl = document.getElementById('writing-text');
         const text = textEl ? textEl.value : '';
-        const paragraphs = splitIntoParagraphs(text);
-        return paragraphs.length ? paragraphs : [''];
+        const chapter = window.manuscriptData?.chapters?.[writingSelection.cIndex] || {};
+        const parsed = parseChapterEditorText(chapter, text);
+        return parsed.paragraphs.length ? parsed.paragraphs : [''];
     }
 
     function paragraphIndexAtOffset(text, offset) {
@@ -876,13 +985,16 @@ document.addEventListener('DOMContentLoaded', () => {
         matches.forEach((match, index) => {
             if ((match.index || 0) <= cursor) activeIndex = index;
         });
-        return activeIndex;
+        const hasHeading = showManuscriptMarkup && /^(#{1,6})\s+/.test(matches[0]?.[0] || '');
+        return Math.max(0, activeIndex - (hasHeading ? 1 : 0));
     }
 
     function paragraphOffsetByIndex(text, targetIndex) {
         const source = String(text || '');
         const matches = Array.from(source.matchAll(/\S[\s\S]*?(?=\n\s*\n|$)/g));
-        const match = matches[Math.max(0, Math.min(targetIndex, matches.length - 1))];
+        const hasHeading = showManuscriptMarkup && /^(#{1,6})\s+/.test(matches[0]?.[0] || '');
+        const actualIndex = Math.max(0, Math.min(targetIndex + (hasHeading ? 1 : 0), matches.length - 1));
+        const match = matches[actualIndex];
         return match ? match.index : 0;
     }
 
@@ -985,8 +1097,12 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Valitse puhdistettava luku ensin.');
             return;
         }
-        const cleaned = cleanManuscriptText(textEl.value);
-        textEl.value = cleaned;
+        const chapter = window.manuscriptData.chapters[writingSelection.cIndex];
+        const parsed = parseChapterEditorText(chapter, textEl.value);
+        const cleaned = cleanManuscriptText(parsed.paragraphs.join('\n\n'));
+        textEl.value = showManuscriptMarkup
+            ? [`${parsed.idPrefix === 'aliluku' ? '##' : '#'} ${parsed.title}`, cleaned].filter(Boolean).join('\n\n')
+            : cleaned;
         writingSelection.pIndex = 0;
         saveWritingText(false);
         renderWritingView();
@@ -1078,8 +1194,9 @@ document.addEventListener('DOMContentLoaded', () => {
         titleEl.textContent = selectedChapter
             ? `${selectedChapter.title}, koko luku`
             : 'Valitse luku';
-        textEl.value = (selectedChapter?.paragraphs || []).join('\n\n');
+        textEl.value = chapterTextForEditor(selectedChapter, writingSelection.cIndex);
         updateWritingPositionStatus();
+        updateMarkupButtons();
     }
 
     function saveWritingText(showAlert = true) {
@@ -1087,8 +1204,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!textEl || !window.manuscriptData) return;
         const chapter = window.manuscriptData.chapters?.[writingSelection.cIndex];
         if (!chapter) return;
-        const paragraphs = splitIntoParagraphs(textEl.value);
-        chapter.paragraphs = paragraphs.length ? paragraphs : [''];
+        applyParsedChapterText(chapter, textEl.value);
         writingSelection.pIndex = Math.min(writingSelection.pIndex || 0, chapter.paragraphs.length - 1);
         persistManuscriptEdits();
         if (showAlert) alert('Luku tallennettu ja kappalerakenne päivitetty.');
@@ -1338,6 +1454,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadImageModels();
                 loadCoverImages();
             }
+            if (item.getAttribute('data-view') === 'view-taitto') {
+                loadLayoutAssets();
+            }
             if (learningMaterialViews.has(item.getAttribute('data-view'))) {
                 loadLearningMaterialState(false);
             }
@@ -1556,6 +1675,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const editorWorkspace = document.getElementById('editor-workspace');
     const addEditorChapterBtn = document.getElementById('add-editor-chapter-btn');
     const deleteEditorChapterBtn = document.getElementById('delete-editor-chapter-btn');
+    const toggleEditorMarkupBtn = document.getElementById('toggle-editor-markup-btn');
+    const viewEditorMarkdownBtn = document.getElementById('view-editor-markdown-btn');
     const toggleEditorNavBtn = document.getElementById('toggle-editor-nav-btn');
     const toggleEditorCommentsBtn = document.getElementById('toggle-editor-comments-btn');
     const massEditToggle = document.getElementById('mass-edit-toggle');
@@ -1579,7 +1700,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const chapter = window.manuscriptData.chapters[sel.cIndex];
         if (editScopeSelect && editScopeSelect.value === 'chapter') {
-            return (chapter.paragraphs || []).join('\n\n').trim();
+            return chapterTextForEditor(chapter, sel.cIndex).trim();
         }
         return (chapter.paragraphs?.[sel.pIndex] || '').trim();
     }
@@ -1796,6 +1917,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (addEditorChapterBtn) addEditorChapterBtn.addEventListener('click', () => addChapterNearSelection('editor'));
     if (deleteEditorChapterBtn) deleteEditorChapterBtn.addEventListener('click', () => deleteSelectedChapter('editor'));
+    if (toggleEditorMarkupBtn) toggleEditorMarkupBtn.addEventListener('click', toggleManuscriptMarkup);
+    if (viewEditorMarkdownBtn) viewEditorMarkdownBtn.addEventListener('click', viewMarkdownFile);
+    updateMarkupButtons();
 
     if (massEditToggle && massEditBody) {
         massEditToggle.addEventListener('click', () => {
@@ -2065,8 +2189,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     <summary>Prompti</summary>
                     <p style="white-space:pre-wrap; margin-top:8px;">${escapeHtml(item.prompt || '')}</p>
                 </details>
+                <button class="btn btn-secondary btn-danger-soft delete-cover-btn" type="button" data-asset-id="${item.id}">Poista kansikuva</button>
             `;
             coverGallery.appendChild(card);
+        });
+        coverGallery.querySelectorAll('.delete-cover-btn').forEach(button => {
+            button.addEventListener('click', () => deleteCoverImage(button.dataset.assetId));
         });
     }
 
@@ -2083,6 +2211,20 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!res.ok) throw new Error(data.detail || 'Kansikuvien lataus epäonnistui.');
             renderCoverImages(data || []);
             if (data?.length) setIllustrationStatus('Kansikuvat ladattu.');
+        } catch (err) {
+            setIllustrationStatus(err.message, true);
+        }
+    }
+
+    async function deleteCoverImage(assetId) {
+        if (!window.manuscriptData?.id || !assetId) return;
+        if (!confirm('Poistetaanko kansikuva?')) return;
+        setIllustrationStatus('Poistetaan kansikuvaa...');
+        try {
+            const res = await apiFetch(`/api/projects/${window.manuscriptData.id}/assets/${assetId}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error(await apiErrorMessage(res, 'Kansikuvan poisto epäonnistui.'));
+            await loadCoverImages();
+            setIllustrationStatus('Kansikuva poistettu.');
         } catch (err) {
             setIllustrationStatus(err.message, true);
         }
@@ -2158,6 +2300,90 @@ document.addEventListener('DOMContentLoaded', () => {
         coverGenerateBtn.addEventListener('click', generateCoverImage);
     }
 
+    function layoutFileName(asset) {
+        const safeTitle = (window.manuscriptData?.title || 'kasikirjoitus').toLowerCase().replace(/[^a-z0-9åäö]+/gi, '-').replace(/^-|-$/g, '') || 'kasikirjoitus';
+        return asset.asset_type === 'layout_pdf' ? `${safeTitle}.pdf` : `${safeTitle}.tex`;
+    }
+
+    function downloadAsset(asset) {
+        if (!asset?.data_url) return;
+        const link = document.createElement('a');
+        link.href = asset.data_url;
+        link.download = layoutFileName(asset);
+        link.click();
+    }
+
+    function renderLayoutAssets(items = []) {
+        const container = document.getElementById('layout-assets');
+        const status = document.getElementById('layout-status');
+        if (!container) return;
+        container.innerHTML = '';
+        if (!items.length) {
+            if (status) status.textContent = 'Ei ajettua taittoa vielä.';
+            return;
+        }
+        if (status) status.textContent = 'Taittotiedostot tallennettu käsikirjoitukselle.';
+        items.forEach(asset => {
+            const card = document.createElement('div');
+            card.className = 'card glass-panel';
+            card.innerHTML = `
+                <strong>${escapeHtml(asset.asset_type === 'layout_pdf' ? 'PDF-taittovedos' : 'LaTeX-lähde')}</strong>
+                <p class="card-meta">${escapeHtml(asset.title || '')}</p>
+                <p class="card-meta">${escapeHtml(asset.model || 'python:layout-generator')}</p>
+                <button class="btn btn-secondary layout-download-btn" type="button">Lataa ${asset.asset_type === 'layout_pdf' ? 'PDF' : 'LaTeX'}</button>
+            `;
+            card.querySelector('.layout-download-btn')?.addEventListener('click', () => downloadAsset(asset));
+            container.appendChild(card);
+        });
+    }
+
+    async function loadLayoutAssets() {
+        if (!window.manuscriptData?.id) {
+            renderLayoutAssets([]);
+            return;
+        }
+        const status = document.getElementById('layout-status');
+        try {
+            const res = await apiFetch(`/api/projects/${window.manuscriptData.id}/layout-assets`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Taittotiedostojen lataus epäonnistui.');
+            renderLayoutAssets(data || []);
+        } catch (err) {
+            if (status) status.textContent = err.message;
+        }
+    }
+
+    async function runLayout() {
+        const button = document.getElementById('layout-run-btn');
+        const status = document.getElementById('layout-status');
+        if (!window.manuscriptData?.id) {
+            alert('Valitse tai tallenna käsikirjoitus ensin.');
+            return;
+        }
+        if (button) button.disabled = true;
+        if (status) status.textContent = 'Tallennetaan nykyinen toimitettu versio ja ajetaan taitto...';
+        try {
+            const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
+            if (savedProject?.id) window.manuscriptData = savedProject;
+            const res = await apiFetch(`/api/projects/${window.manuscriptData.id}/layout/run`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    layout_style: document.getElementById('layout-size-select')?.value || 'A5',
+                    include_markdown_markers: true
+                })
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.detail || 'Taiton ajo epäonnistui.');
+            renderLayoutAssets([data.pdf, data.latex].filter(Boolean));
+        } catch (err) {
+            if (status) status.textContent = err.message;
+            alert('Taiton ajo epäonnistui: ' + err.message);
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
     // --- 6. Global Task Manager ---
     window.startLongTask = function(title, desc, durationSeconds) {
         const overlay = document.getElementById('global-task-overlay');
@@ -2217,6 +2443,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveWritingBtn = document.getElementById('save-writing-btn');
     const cleanWritingTextBtn = document.getElementById('clean-writing-text-btn');
     const restructureWritingBtn = document.getElementById('restructure-writing-btn');
+    const toggleWritingMarkupBtn = document.getElementById('toggle-writing-markup-btn');
+    const viewWritingMarkdownBtn = document.getElementById('view-writing-markdown-btn');
+    const markdownHelpBtn = document.getElementById('markdown-help-btn');
     const addWritingChapterBtn = document.getElementById('add-writing-chapter-btn');
     const deleteWritingChapterBtn = document.getElementById('delete-writing-chapter-btn');
     const addWritingParagraphBtn = document.getElementById('add-writing-paragraph-btn');
@@ -2235,6 +2464,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (saveWritingBtn) saveWritingBtn.addEventListener('click', () => saveWritingText(true));
     if (cleanWritingTextBtn) cleanWritingTextBtn.addEventListener('click', cleanCurrentWritingChapter);
     if (restructureWritingBtn) restructureWritingBtn.addEventListener('click', restructureWritingManuscript);
+    if (toggleWritingMarkupBtn) toggleWritingMarkupBtn.addEventListener('click', toggleManuscriptMarkup);
+    if (viewWritingMarkdownBtn) viewWritingMarkdownBtn.addEventListener('click', viewMarkdownFile);
+    if (markdownHelpBtn) markdownHelpBtn.addEventListener('click', showMarkdownHelp);
     if (addWritingChapterBtn) addWritingChapterBtn.addEventListener('click', () => addChapterNearSelection('writing'));
     if (deleteWritingChapterBtn) deleteWritingChapterBtn.addEventListener('click', () => deleteSelectedChapter('writing'));
     if (addWritingParagraphBtn) addWritingParagraphBtn.addEventListener('click', addWritingParagraph);
@@ -2279,6 +2511,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             let isChapter = /^luku\s*\d+/i.test(lowerLine)
+                         || /^#{1,6}\s+\S+/.test(line.trim())
                          || /^chapter\s*\d+/i.test(lowerLine)
                          || /^osa\s*\d+/i.test(lowerLine)
                          || /^\d+\.\s*$/.test(lowerLine)
@@ -2290,7 +2523,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     bookData.chapters.push(currentChapter);
                 }
                 lukuCount++;
-                currentChapter = { id: `luku_${lukuCount}`, title: line.substring(0, 50), paragraphs: [] };
+                const headingMatch = line.trim().match(/^(#{1,6})\s+(.+)$/);
+                const headingLevel = headingMatch ? headingMatch[1].length : 1;
+                const headingTitle = headingMatch ? headingMatch[2].trim() : line.trim();
+                currentChapter = { id: `${headingLevel > 1 ? 'aliluku' : 'luku'}_${lukuCount}`, title: headingTitle.substring(0, 80), paragraphs: [] };
             } else {
                 currentChapter.paragraphs.push(line);
             }
@@ -2467,12 +2703,27 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const saved = await res.json().catch(() => null);
             if (!res.ok) throw new Error(saved?.detail || 'Nimen tallennus epäonnistui.');
-            Object.assign(data, saved);
+            const metadata = {
+                id: data.id,
+                title: saved?.title || nextTitle,
+                author: saved?.author || nextAuthor,
+                source_filename: saved?.source_filename ?? data.source_filename,
+                owner_user_id: saved?.owner_user_id ?? data.owner_user_id,
+                owner_email: saved?.owner_email ?? data.owner_email,
+                owner_display_name: saved?.owner_display_name ?? data.owner_display_name,
+                access_level: saved?.access_level ?? data.access_level,
+                shared_with: saved?.shared_with ?? data.shared_with
+            };
+            Object.assign(data, metadata);
             if (window.manuscriptData && Number(window.manuscriptData.id) === Number(data.id)) {
-                Object.assign(window.manuscriptData, saved);
+                window.manuscriptData.title = metadata.title;
+                window.manuscriptData.author = metadata.author;
                 localStorage.setItem('skriptlab_manuscript', JSON.stringify(window.manuscriptData));
             }
-            updateAvailableProject(saved);
+            const projectIndex = availableProjects.findIndex(project => String(project.id) === String(data.id));
+            if (projectIndex >= 0) {
+                availableProjects[projectIndex] = Object.assign({}, availableProjects[projectIndex], metadata);
+            }
             window.updateDynamicTexts();
             renderBookOverview();
             renderWritingView();
@@ -3086,6 +3337,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (output) output.value = '';
         startMiscTimer();
         try {
+            if (window.manuscriptData?.id && String(window.manuscriptData.id) === String(payload.project_id)) {
+                if (status) status.textContent = 'Tallennetaan nykyinen toimitettu versio oheisaineistoa varten...';
+                const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
+                if (savedProject?.id) {
+                    window.manuscriptData = savedProject;
+                    const projectIndex = availableProjects.findIndex(project => String(project.id) === String(savedProject.id));
+                    if (projectIndex >= 0) availableProjects[projectIndex] = savedProject;
+                }
+            }
+            if (status) status.textContent = `${selectedLabel} työn alla...`;
             const res = await apiFetch('/api/misc-tools/run', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -4160,6 +4421,7 @@ ${state.validation || 'Ei validointia.'}`;
     const miscRunBtn = document.getElementById('misc-run-btn');
     const miscCopyBtn = document.getElementById('misc-copy-btn');
     const miscDownloadBtn = document.getElementById('misc-download-btn');
+    const layoutRunBtn = document.getElementById('layout-run-btn');
     const bioLoadBtn = document.getElementById('bio-load-btn');
     const bioSaveBtn = document.getElementById('bio-save-btn');
     const bioAddMaterialBtn = document.getElementById('bio-add-material-btn');
@@ -4222,6 +4484,7 @@ ${state.validation || 'Ei validointia.'}`;
     if (miscRunBtn) miscRunBtn.addEventListener('click', runMiscTool);
     if (miscCopyBtn) miscCopyBtn.addEventListener('click', copyMiscOutput);
     if (miscDownloadBtn) miscDownloadBtn.addEventListener('click', downloadMiscOutput);
+    if (layoutRunBtn) layoutRunBtn.addEventListener('click', runLayout);
     if (bioLoadBtn) bioLoadBtn.addEventListener('click', () => loadBiographyState(true));
     if (bioSaveBtn) bioSaveBtn.addEventListener('click', () => saveBiographyState(true));
     if (bioAddMaterialBtn) {
@@ -4397,6 +4660,9 @@ ${state.validation || 'Ei validointia.'}`;
         
         if (originalText) {
             let html = '';
+            if (showManuscriptMarkup) {
+                html += `<div style="padding:10px 12px; margin-bottom:8px; color:var(--text-primary); font-weight:700; border-left:3px solid var(--border-color);">${escapeHtml(chapterMarkdownHeading(chapter, cIndex))}</div>`;
+            }
             chapter.paragraphs.forEach((p, idx) => {
                 const isSelected = idx === pIndex;
                 html += `<div data-pindex="${idx}" style="
@@ -4424,7 +4690,7 @@ ${state.validation || 'Ei validointia.'}`;
         
         if (editedText) {
             setEditableText((editScopeSelect && editScopeSelect.value === 'chapter')
-                ? (chapter.paragraphs || []).join('\n\n')
+                ? chapterTextForEditor(chapter, cIndex)
                 : (chapter.paragraphs[pIndex] || ''));
             renderEditedDiffPreview();
         }
@@ -4456,10 +4722,7 @@ ${state.validation || 'Ei validointia.'}`;
             
             // Päivitä manuscriptData
             if (editScopeSelect && editScopeSelect.value === 'chapter') {
-                window.manuscriptData.chapters[sel.cIndex].paragraphs = newText
-                    .split(/\n\s*\n/)
-                    .map(part => part.trim())
-                    .filter(Boolean);
+                applyParsedChapterText(window.manuscriptData.chapters[sel.cIndex], newText);
                 sel.pIndex = 0;
             } else {
                 window.manuscriptData.chapters[sel.cIndex].paragraphs[sel.pIndex] = newText;

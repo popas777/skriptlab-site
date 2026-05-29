@@ -179,6 +179,9 @@
                     <div class="header-actions">
                         <button class="btn btn-secondary" id="clean-writing-text-btn">Putsaa teksti</button>
                         <button class="btn btn-secondary" id="restructure-writing-btn">Jaottele uusiksi</button>
+                        <button class="btn btn-secondary" id="toggle-writing-markup-btn">Näytä merkinnät</button>
+                        <button class="btn btn-secondary" id="view-writing-markdown-btn">Katso .md</button>
+                        <button class="btn btn-secondary" id="markdown-help-btn">Merkintäohje</button>
                         <button class="btn btn-secondary" id="add-writing-chapter-btn">Uusi luku</button>
                         <button class="btn btn-secondary btn-danger-soft" id="delete-writing-chapter-btn">Poista luku</button>
                         <button class="btn btn-secondary" id="add-writing-paragraph-btn">Uusi kappale</button>
@@ -1194,7 +1197,7 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                         <p>Käsikirjoitus: [Ei aktiivista teosta] (Memoir, XeLaTeX & Pandoc konfiguraatio)</p>
                     </div>
                     <div class="header-actions">
-                        <button class="btn btn-primary" onclick="startLongTask('Ajetaan Taitto.py', 'Muunnetaan Markdownia XeLaTeX-muotoon ja generoidaan PDF/EPUB...', 45);">🚀 Tulosta Kirja (taitto.py)</button>
+                        <button class="btn btn-primary" id="layout-run-btn">Tulosta Kirja</button>
                     </div>
                 </div>
 
@@ -1204,7 +1207,7 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                         <h3 style="margin-bottom:20px; color:var(--text-primary);">Taittomääritykset</h3>
                         
                         <label style="font-size: 13px; color: var(--text-secondary); display:block; margin-bottom:8px;">Kirjan koko ja mittasuhteet</label>
-                        <select style="width:100%; padding:12px; border-radius:8px; background:rgba(0,0,0,0.2); border:1px solid var(--border-color); color:var(--text-primary); margin-bottom:20px; font-family:inherit; outline:none;">
+                        <select id="layout-size-select" style="width:100%; padding:12px; border-radius:8px; background:rgba(0,0,0,0.2); border:1px solid var(--border-color); color:var(--text-primary); margin-bottom:20px; font-family:inherit; outline:none;">
                             <option value="A5">A5 Normaaliromaani (148 x 210 mm) - 11pt</option>
                             <option value="B5">B5 Iso Kaunokirja/Tieto (176 x 250 mm) - 12pt</option>
                             <option value="G5">G5 Tieteis/Fantasia (169 x 239 mm) - 11pt</option>
@@ -1245,7 +1248,11 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                     </div>
                 </div>
 
-                <!-- Taitetut tiedostot siirretty Versiot-välilehdelle -->
+                <div class="card glass-panel" style="margin-top:18px;">
+                    <h3>Taitetut tiedostot</h3>
+                    <p id="layout-status" style="color:var(--text-secondary); font-size:13px; margin:10px 0 14px;">Ei ajettua taittoa vielä.</p>
+                    <div id="layout-assets" class="grid-cards" style="grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));"></div>
+                </div>
             </div>
 
             <!-- 10. VIEW: AUDIO -->
@@ -1453,6 +1460,8 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                     <div class="header-actions">
                         <button class="btn btn-secondary" id="add-editor-chapter-btn">Uusi luku</button>
                         <button class="btn btn-secondary btn-danger-soft" id="delete-editor-chapter-btn">Poista luku</button>
+                        <button class="btn btn-secondary" id="toggle-editor-markup-btn">Näytä merkinnät</button>
+                        <button class="btn btn-secondary" id="view-editor-markdown-btn">Katso .md</button>
                         <button class="btn btn-secondary" id="toggle-editor-nav-btn">Piilota navigaatio</button>
                         <button class="btn btn-secondary" id="toggle-editor-comments-btn">Näytä kommentit</button>
                     </div>
