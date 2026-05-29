@@ -1509,8 +1509,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 1000);
 
             try {
-                const rawMsText = localStorage.getItem('skriptlab_raw_text') || getFullManuscriptText();
-                if(!rawMsText) {
+                const projectText = getFullManuscriptText(window.manuscriptData);
+                if(!projectText) {
                     throw new Error('Käsikirjoitusta ei ole vielä ladattu oikein! Lataa tiedosto Käsikirjoitukseni-näkymästä ensin.');
                 }
 
@@ -1525,7 +1525,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const startRes = await apiFetch('/api/analyze/jobs', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({text: rawMsText, project_id: projectId})
+                    body: JSON.stringify({project_id: projectId})
                 });
                 const startedJob = await startRes.json().catch(() => null);
                 if (!startRes.ok) throw new Error(startedJob?.detail || 'Analyysin käynnistys epäonnistui.');
@@ -2454,6 +2454,36 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
+    async function saveProjectCardMetadata(data, titleInput, authorInput, statusEl) {
+        if (!data?.id) return;
+        const nextTitle = (titleInput?.value || '').trim() || 'Nimetön';
+        const nextAuthor = (authorInput?.value || '').trim() || 'Tuntematon';
+        if (statusEl) statusEl.textContent = 'Tallennetaan nimeä...';
+        try {
+            const res = await apiFetch(`/api/projects/${data.id}/metadata`, {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ title: nextTitle, author: nextAuthor })
+            });
+            const saved = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(saved?.detail || 'Nimen tallennus epäonnistui.');
+            Object.assign(data, saved);
+            if (window.manuscriptData && Number(window.manuscriptData.id) === Number(data.id)) {
+                Object.assign(window.manuscriptData, saved);
+                localStorage.setItem('skriptlab_manuscript', JSON.stringify(window.manuscriptData));
+            }
+            updateAvailableProject(saved);
+            window.updateDynamicTexts();
+            renderBookOverview();
+            renderWritingView();
+            updateTranslationProjectSelect();
+            updateMiscProjectSelect();
+            if (statusEl) statusEl.textContent = 'Nimi tallennettu.';
+        } catch (err) {
+            if (statusEl) statusEl.textContent = err.message;
+        }
+    }
+
     function addManuscriptCard(data, statusText, gridCards) {
         gridCards = gridCards || document.querySelector('#view-kirjani .grid-cards');
         if (!gridCards) return;
@@ -2476,6 +2506,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 <label style="font-size:11px; color:var(--text-secondary);">Kirjailija:</label>
                 <input type="text" class="book-author-input" value="${escapeHtml(data.author)}" ${editable ? '' : 'readonly'} style="width:100%; background:transparent; border:none; border-bottom:1px solid #333; color:var(--text-primary); font-family:inherit; font-size:13px; outline:none; padding:2px 0;">
             </div>
+            ${editable ? `
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;" onclick="event.stopPropagation();">
+                    <button class="save-project-name-btn" style="padding:7px 10px; font-size:12px; border-radius:6px; border:1px solid var(--border-color); background:rgba(255,255,255,0.08); color:var(--text-primary); cursor:pointer;">Tallenna nimi</button>
+                    <span class="project-name-status" style="font-size:12px; color:var(--text-secondary);"></span>
+                </div>
+            ` : ''}
             <p class="card-meta">${escapeHtml(statusText)}</p>
             ${projectOwnerLine(data)}
             ${projectSharedLine(data)}
@@ -2486,6 +2522,8 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         const titleInput = newCard.querySelector('.book-title-input');
         const authorInput = newCard.querySelector('.book-author-input');
+        const saveNameBtn = newCard.querySelector('.save-project-name-btn');
+        const nameStatus = newCard.querySelector('.project-name-status');
         const deleteBtn = newCard.querySelector('.delete-project-btn');
         const shareBtn = newCard.querySelector('.share-project-btn');
         const shareInput = newCard.querySelector('.share-email-input');
@@ -2494,17 +2532,23 @@ document.addEventListener('DOMContentLoaded', () => {
             titleInput.addEventListener('change', () => {
                 data.title = titleInput.value.trim() || 'Nimetön';
                 if (window.manuscriptData && window.manuscriptData.id === data.id) window.manuscriptData.title = data.title;
-                window.saveManuscriptToDB(data);
                 window.updateDynamicTexts();
                 renderBookOverview();
+                if (nameStatus) nameStatus.textContent = 'Nimeä ei ole vielä tallennettu.';
             });
             authorInput.addEventListener('change', () => {
                 data.author = authorInput.value.trim() || 'Tuntematon';
                 if (window.manuscriptData && window.manuscriptData.id === data.id) window.manuscriptData.author = data.author;
-                window.saveManuscriptToDB(data);
                 window.updateDynamicTexts();
                 renderBookOverview();
+                if (nameStatus) nameStatus.textContent = 'Nimeä ei ole vielä tallennettu.';
             });
+            if (saveNameBtn) {
+                saveNameBtn.addEventListener('click', event => {
+                    event.stopPropagation();
+                    saveProjectCardMetadata(data, titleInput, authorInput, nameStatus);
+                });
+            }
         }
         if (shareBtn && shareInput) {
             shareBtn.addEventListener('click', event => {
