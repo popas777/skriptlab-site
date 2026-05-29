@@ -21,6 +21,10 @@ function projectPayloadForSave(data) {
     return payload;
 }
 
+function chapterPayloadForSave(chapter) {
+    return JSON.parse(JSON.stringify(chapter || { id: '', title: 'Luku', paragraphs: [''] }));
+}
+
 if (!window.SkriptLabAuth.requireLogin()) {
     throw new Error("Login required.");
 }
@@ -61,6 +65,41 @@ window.saveManuscriptToDB = function(data) {
 
 window.flushManuscriptSaveQueue = function() {
     return manuscriptSaveQueue.catch(() => null);
+};
+
+window.saveProjectChapterToDB = function(data, chapterIndex) {
+    const chapter = data?.chapters?.[chapterIndex];
+    if (!data?.id || !chapter) return window.saveManuscriptToDB(data);
+    const requestId = ++manuscriptSaveRequestId;
+    markLocalManuscriptDraft(data);
+    manuscriptSaveQueue = manuscriptSaveQueue.catch(() => null).then(async () => {
+        try {
+            const res = await apiFetch(`/api/projects/${data.id}/chapters/${chapterIndex}`, {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(chapterPayloadForSave(chapter))
+            });
+            const saved = await res.json();
+            if (!res.ok) throw new Error(saved.detail || "Luvun tallennus epäonnistui.");
+            const currentChapters = data.chapters;
+            const currentTitle = data.title;
+            const currentAuthor = data.author;
+            const currentAnalysis = data.analysis;
+            Object.assign(data, saved);
+            data.chapters = currentChapters;
+            if (currentTitle) data.title = currentTitle;
+            if (currentAuthor) data.author = currentAuthor;
+            if (currentAnalysis) data.analysis = currentAnalysis;
+            delete data._needs_db_sync;
+            markLocalManuscriptDraft(data, requestId !== manuscriptSaveRequestId);
+            return data;
+        } catch (e) {
+            console.error("Chapter DB save fail", e);
+            markLocalManuscriptDraft(data, true);
+            return data;
+        }
+    });
+    return manuscriptSaveQueue;
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -175,8 +214,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!saved) {
                 logoutLink.textContent = originalText || 'Kirjaudu ulos';
                 logoutLink.style.pointerEvents = '';
-                alert('Uusimpia muutoksia ei saatu tallennettua tietokantaan. Kirjautumista ei tehty, jotta muutokset eivät katoa. Kokeile hetken päästä uudelleen.');
-                return;
+                const leaveAnyway = confirm('Uusimpia muutoksia ei saatu varmistettua tietokantaan. Kirjaudutaanko silti ulos? Paikallinen luonnos poistuu uloskirjautuessa.');
+                if (!leaveAnyway) return;
             }
             window.SkriptLabAuth.clearSession();
             window.location.href = 'login.html';
@@ -1034,7 +1073,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.clearTimeout(writingAutosaveTimer);
         writingAutosaveTimer = window.setTimeout(() => {
             if (syncWritingEditorToManuscript()) {
-                window.saveManuscriptToDB(window.manuscriptData);
+                window.saveProjectChapterToDB(window.manuscriptData, writingSelection.cIndex);
                 renderBookOverview();
             }
         }, 1200);
@@ -1042,15 +1081,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function flushPendingManuscriptEdits() {
         window.clearTimeout(writingAutosaveTimer);
+        let savePromise = null;
         if (currentViewId === 'view-kirjoita') {
-            syncWritingEditorToManuscript();
+            if (syncWritingEditorToManuscript()) {
+                savePromise = window.saveProjectChapterToDB(window.manuscriptData, writingSelection.cIndex);
+            }
         }
         if (currentViewId === 'view-toimitus') {
             window.clearTimeout(editingAutosaveTimer);
-            syncEditedTargetToManuscript({ showAlerts: false });
+            if (syncEditedTargetToManuscript({ showAlerts: false })) {
+                savePromise = window.saveProjectChapterToDB(window.manuscriptData, window.currentEditSelection?.cIndex);
+            }
         }
         if (window.manuscriptData) {
-            await window.saveManuscriptToDB(window.manuscriptData);
+            await (savePromise || window.saveManuscriptToDB(window.manuscriptData));
             await window.flushManuscriptSaveQueue();
             return !window.manuscriptData._db_sync_pending;
         }
@@ -1289,11 +1333,19 @@ document.addEventListener('DOMContentLoaded', () => {
         updateMarkupButtons();
     }
 
-    function saveWritingText(showAlert = true) {
+    async function saveWritingText(showAlert = true) {
         window.clearTimeout(writingAutosaveTimer);
         if (!syncWritingEditorToManuscript()) return;
-        persistManuscriptEdits();
-        if (showAlert) alert('Luku tallennettu ja kappalerakenne päivitetty.');
+        await window.saveProjectChapterToDB(window.manuscriptData, writingSelection.cIndex);
+        renderBookOverview();
+        if (window.renderNavList) window.renderNavList();
+        if (showAlert) {
+            if (window.manuscriptData._db_sync_pending) {
+                alert('Lukua ei saatu tallennettua tietokantaan. Paikallinen luonnos on tallessa, mutta kokeile tallennusta uudelleen.');
+            } else {
+                alert('Luku tallennettu tietokantaan ja kappalerakenne päivitetty.');
+            }
+        }
     }
 
     function addWritingParagraph() {
@@ -4856,29 +4908,34 @@ ${state.validation || 'Ei validointia.'}`;
         window.clearTimeout(editingAutosaveTimer);
         editingAutosaveTimer = window.setTimeout(() => {
             if (syncEditedTargetToManuscript({ showAlerts: false })) {
-                window.saveManuscriptToDB(window.manuscriptData);
+                window.saveProjectChapterToDB(window.manuscriptData, window.currentEditSelection?.cIndex);
                 renderBookOverview();
             }
         }, 1200);
     }
 
-    function saveEditedTargetText(showSavedText = false) {
+    async function saveEditedTargetText(showSavedText = false) {
         const sel = window.currentEditSelection;
         const editedText = document.getElementById('edited-text');
         window.clearTimeout(editingAutosaveTimer);
         if (!syncEditedTargetToManuscript()) return false;
-        persistManuscriptEdits();
+        const originalText = saveEditTargetBtn?.textContent || 'Tallenna';
+        if (showSavedText && saveEditTargetBtn) saveEditTargetBtn.textContent = 'Tallennetaan...';
+        await window.saveProjectChapterToDB(window.manuscriptData, sel.cIndex);
         window.loadParagraph(sel.cIndex, sel.pIndex, null);
         renderWritingView();
 
         editedText.style.backgroundColor = 'rgba(16, 185, 129, 0.2)';
         setTimeout(() => { editedText.style.backgroundColor = 'transparent'; }, 800);
         if (showSavedText && saveEditTargetBtn) {
-            const originalText = saveEditTargetBtn.textContent;
-            saveEditTargetBtn.textContent = 'Tallennettu';
+            const saved = !window.manuscriptData._db_sync_pending;
+            saveEditTargetBtn.textContent = saved ? 'Tallennettu' : 'Tallennus epäonnistui';
             setTimeout(() => { saveEditTargetBtn.textContent = originalText || 'Tallenna'; }, 1200);
+            if (!saved) {
+                alert('Muutosta ei saatu tallennettua tietokantaan. Paikallinen luonnos on tallessa, mutta kokeile tallennusta uudelleen.');
+            }
         }
-        return true;
+        return !window.manuscriptData._db_sync_pending;
     }
 
     if (replaceBtn) replaceBtn.addEventListener('click', () => saveEditedTargetText(false));
