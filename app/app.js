@@ -2,6 +2,7 @@ const API_BASE_URL = (window.SKRIPTLAB_CONFIG && window.SKRIPTLAB_CONFIG.API_BAS
 const apiUrl = (path) => `${API_BASE_URL}${path}`;
 const apiFetch = (path, options) => window.SkriptLabAuth.fetch(path, options);
 const ACTIVE_PROJECT_ID_KEY = "skriptlab_active_project_id";
+let manuscriptSaveSequence = 0;
 
 if (!window.SkriptLabAuth.requireLogin()) {
     throw new Error("Login required.");
@@ -9,6 +10,7 @@ if (!window.SkriptLabAuth.requireLogin()) {
 
 window.saveManuscriptToDB = async function(data) {
     if (!data) return;
+    const saveSequence = ++manuscriptSaveSequence;
     try {
         const res = await apiFetch('/api/projects', {
             method: 'POST',
@@ -17,7 +19,10 @@ window.saveManuscriptToDB = async function(data) {
         });
         const saved = await res.json();
         if (!res.ok) throw new Error(saved.detail || "Tallennus epäonnistui.");
+        if (saveSequence !== manuscriptSaveSequence) return data;
+        const currentChapters = Array.isArray(data.chapters) && data.chapters.length ? data.chapters : saved.chapters;
         Object.assign(data, saved);
+        if (currentChapters) data.chapters = currentChapters;
         if (data.id) localStorage.setItem(ACTIVE_PROJECT_ID_KEY, String(data.id));
         localStorage.setItem('skriptlab_manuscript', JSON.stringify(data));
         return data;
@@ -862,10 +867,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 await window.saveManuscriptToDB(latest);
             }
 
-            window.manuscriptData = Object.assign({}, window.manuscriptData, latest);
+            const currentChapters = Array.isArray(window.manuscriptData.chapters)
+                ? window.manuscriptData.chapters
+                : latest.chapters;
+            window.manuscriptData = Object.assign({}, window.manuscriptData, latest, { chapters: currentChapters });
             if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
             localStorage.setItem('skriptlab_manuscript', JSON.stringify(window.manuscriptData));
-            localStorage.setItem('skriptlab_raw_text', getFullManuscriptText(window.manuscriptData));
             updateAvailableProject(window.manuscriptData);
             window.updateDynamicTexts();
             renderAnalysisSummary(window.manuscriptData.analysis);
@@ -963,7 +970,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function persistManuscriptEdits() {
         if (!window.manuscriptData) return;
         window.saveManuscriptToDB(window.manuscriptData);
-        localStorage.setItem('skriptlab_raw_text', getFullManuscriptText(window.manuscriptData));
         renderBookOverview();
         if (window.renderNavList) window.renderNavList();
     }
@@ -1575,49 +1581,10 @@ document.addEventListener('DOMContentLoaded', () => {
         sidebarVocab.textContent = r.glossary ? "Valmis sanasto" : "-";
         sidebarStyle.style.color = "var(--ai-gradient-start)";
         sidebarVocab.style.color = "var(--ai-gradient-start)";
-
-        let structData = r.structure;
-        if (typeof structData === 'string' && structData.length > 2) {
-            try {
-                let si = structData.indexOf('[');
-                let ei = structData.lastIndexOf(']');
-                if (si !== -1 && ei !== -1) {
-                    structData = JSON.parse(structData.substring(si, ei + 1));
-                }
-            } catch(parseErr) {
-                console.error('Structure-JSON parsinta epäonnistui:', parseErr);
-                structData = null;
-            }
-        }
-
-        if(structData && Array.isArray(structData) && structData.length > 0) {
-           let freshChapters = structData.map((item, idx) => {
-               let cId = item.id || `luku_${idx}`;
-               let cTitle = item.title || item.nimi || (cId === "alku" ? "Alku / Nimiölehti" : (cId === "sisallys" ? "Sisällysluettelo" : cId));
-               let cParagraphs = item.paragraphs || item.kappaleet || [];
-               let cleanedParagraphs = cParagraphs.map(p => p.replace(/<KAPPALE[\d]+>/gi, '').replace(/<KAPPALE>/gi, '').trim());
-               return {
-                   id: cId,
-                   title: cTitle,
-                   paragraphs: cleanedParagraphs
-               };
-           });
-           if(window.manuscriptData) {
-               window.manuscriptData.chapters = freshChapters;
-           } else {
-               window.manuscriptData = { title: "A", author: "B", chapters: freshChapters };
-           }
-           const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
-           if (savedProject?.id) {
-               window.manuscriptData = savedProject;
-               updateAvailableProject(savedProject);
-           }
-           renderBookOverview();
-           if(window.renderNavList) window.renderNavList();
-           loadUsage();
-        } else {
-             alert("Varoitus: analyysi valmistui, mutta kappalerakennetta ei voitu eritellä.");
-        }
+        renderBookOverview();
+        renderWritingView();
+        if(window.renderNavList) window.renderNavList();
+        loadUsage();
     }
 
     if(runAnalysisBtn) {
@@ -2625,7 +2592,6 @@ document.addEventListener('DOMContentLoaded', () => {
         window.manuscriptData = data;
         if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
         localStorage.setItem('skriptlab_manuscript', JSON.stringify(window.manuscriptData));
-        localStorage.setItem('skriptlab_raw_text', getFullManuscriptText(window.manuscriptData));
         if (data.id) localStorage.setItem(ACTIVE_PROJECT_ID_KEY, String(data.id));
         window.updateDynamicTexts();
         biographyState = normalizeBiographyState(window.manuscriptData.analysis?.biography || {});
