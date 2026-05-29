@@ -1426,42 +1426,50 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function persistPendingModuleEdits(nextViewId) {
+        if (currentViewId === 'view-kirjoita' && nextViewId !== 'view-kirjoita') {
+            saveWritingText(false);
+        }
+    }
+
     navItems.forEach(item => {
         item.addEventListener('click', () => {
-            openModule(item.getAttribute('data-view'));
-            if (item.getAttribute('data-view') === 'view-kirja') {
+            const nextViewId = item.getAttribute('data-view');
+            persistPendingModuleEdits(nextViewId);
+            openModule(nextViewId);
+            if (nextViewId === 'view-kirja') {
                 renderBookOverview();
             }
-            if (item.getAttribute('data-view') === 'view-kirjoita') {
+            if (nextViewId === 'view-kirjoita') {
                 renderWritingView();
             }
-            if (item.getAttribute('data-view') === 'view-analyysi') {
+            if (nextViewId === 'view-analyysi') {
                 loadSavedAnalysisForActiveProject(false);
             }
-            if (item.getAttribute('data-view') === 'view-kaannokset') {
+            if (nextViewId === 'view-kaannokset') {
                 loadTranslationModels();
                 updateTranslationProjectSelect();
                 updateTranslationEstimate();
             }
-            if (item.getAttribute('data-view') === 'view-muut-toiminnot') {
+            if (nextViewId === 'view-muut-toiminnot') {
                 loadMiscModels();
                 updateMiscProjectSelect();
             }
-            if (item.getAttribute('data-view') === 'view-elamakerta') {
+            if (nextViewId === 'view-elamakerta') {
                 loadBiographyState(false);
             }
-            if (item.getAttribute('data-view') === 'view-kuvitus') {
+            if (nextViewId === 'view-kuvitus') {
                 loadImageModels();
                 loadCoverImages();
             }
-            if (item.getAttribute('data-view') === 'view-taitto') {
+            if (nextViewId === 'view-taitto') {
                 loadLayoutAssets();
             }
-            if (learningMaterialViews.has(item.getAttribute('data-view'))) {
+            if (learningMaterialViews.has(nextViewId)) {
                 loadLearningMaterialState(false);
             }
-            if(item.getAttribute('data-view') !== 'view-kirjani') {
-                document.getElementById('top-book-name').textContent = learningMaterialViews.has(item.getAttribute('data-view'))
+            if(nextViewId !== 'view-kirjani') {
+                document.getElementById('top-book-name').textContent = learningMaterialViews.has(nextViewId)
                     ? `Oppimateriaali: ${activeLearningProject()?.title || 'Valitse projekti...'}`
                     : (window.manuscriptData
                         ? `Käsikirjoitus: ${window.manuscriptData.title}`
