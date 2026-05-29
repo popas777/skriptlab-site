@@ -59,6 +59,10 @@ window.saveManuscriptToDB = function(data) {
     return manuscriptSaveQueue;
 };
 
+window.flushManuscriptSaveQueue = function() {
+    return manuscriptSaveQueue.catch(() => null);
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     const currentUser = window.SkriptLabAuth.getUser();
     let availableProjects = [];
@@ -162,8 +166,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const coverGallery = document.getElementById('cover-gallery');
     const coverEmptyState = document.getElementById('cover-empty-state');
     if (logoutLink) {
-        logoutLink.addEventListener('click', () => {
+        logoutLink.addEventListener('click', async (event) => {
+            event.preventDefault();
+            const originalText = logoutLink.textContent;
+            logoutLink.textContent = 'Tallennetaan...';
+            logoutLink.style.pointerEvents = 'none';
+            const saved = await flushPendingManuscriptEdits();
+            if (!saved) {
+                logoutLink.textContent = originalText || 'Kirjaudu ulos';
+                logoutLink.style.pointerEvents = '';
+                alert('Uusimpia muutoksia ei saatu tallennettua tietokantaan. Kirjautumista ei tehty, jotta muutokset eivät katoa. Kokeile hetken päästä uudelleen.');
+                return;
+            }
             window.SkriptLabAuth.clearSession();
+            window.location.href = 'login.html';
         });
     }
     if (adminLink && currentUser && currentUser.role === 'admin') {
@@ -1024,6 +1040,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1200);
     }
 
+    async function flushPendingManuscriptEdits() {
+        window.clearTimeout(writingAutosaveTimer);
+        if (currentViewId === 'view-kirjoita') {
+            syncWritingEditorToManuscript();
+        }
+        if (currentViewId === 'view-toimitus') {
+            window.clearTimeout(editingAutosaveTimer);
+            syncEditedTargetToManuscript({ showAlerts: false });
+        }
+        if (window.manuscriptData) {
+            await window.saveManuscriptToDB(window.manuscriptData);
+            await window.flushManuscriptSaveQueue();
+            return !window.manuscriptData._db_sync_pending;
+        }
+        await window.flushManuscriptSaveQueue();
+        return true;
+    }
+
     function currentWritingParagraphs() {
         const textEl = document.getElementById('writing-text');
         const text = textEl ? textEl.value : '';
@@ -1709,6 +1743,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const aiItalicizeBtn = document.getElementById('ai-italicize-btn');
     const aiRestructureBtn = document.getElementById('ai-restructure-btn');
     const massEditStatus = document.getElementById('mass-edit-status');
+    let editingAutosaveTimer = null;
 
     function setAiButtonIdle() {
         if (aiBtn) aiBtn.innerHTML = '<span class="sparkle">✨</span><br>Analysoi ja ehdota';
@@ -2510,6 +2545,9 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('beforeunload', () => {
         if (currentViewId === 'view-kirjoita') {
             syncWritingEditorToManuscript();
+        }
+        if (currentViewId === 'view-toimitus') {
+            syncEditedTargetToManuscript({ showAlerts: false });
         }
     });
 
@@ -4775,25 +4813,60 @@ ${state.validation || 'Ei validointia.'}`;
     const saveEditTargetBtn = document.getElementById('save-edit-target-btn');
     const deleteEditParagraphBtn = document.getElementById('delete-edit-paragraph-btn');
 
-    function saveEditedTargetText(showSavedText = false) {
+    function syncEditedTargetToManuscript(options = {}) {
+        const showAlerts = options.showAlerts !== false;
         const sel = window.currentEditSelection;
         const editedText = document.getElementById('edited-text');
         if (sel.cIndex === null || sel.pIndex === null || !editedText) {
-            alert('Valitse ensin kappale ennen tallentamista!');
-            return false;
+            if (showAlerts) {
+                alert('Valitse ensin kappale ennen tallentamista!');
+                return false;
+            }
+            return true;
+        }
+        const chapter = window.manuscriptData?.chapters?.[sel.cIndex];
+        if (!chapter) {
+            if (showAlerts) {
+                alert('Valitse ensin kappale ennen tallentamista!');
+                return false;
+            }
+            return true;
         }
         const newText = getEditableText().trim();
         if (!newText) {
-            alert('Muokattu teksti on tyhjä!');
-            return false;
+            if (showAlerts) {
+                alert('Muokattu teksti on tyhjä!');
+                return false;
+            }
+            return true;
         }
 
         if (editScopeSelect && editScopeSelect.value === 'chapter') {
-            applyParsedChapterText(window.manuscriptData.chapters[sel.cIndex], newText);
+            applyParsedChapterText(chapter, newText);
             sel.pIndex = 0;
         } else {
-            window.manuscriptData.chapters[sel.cIndex].paragraphs[sel.pIndex] = newText;
+            chapter.paragraphs[sel.pIndex] = newText;
         }
+        markLocalManuscriptDraft(window.manuscriptData);
+        return true;
+    }
+
+    function scheduleEditedTargetAutosave() {
+        if (!syncEditedTargetToManuscript({ showAlerts: false })) return;
+        window.clearTimeout(editingAutosaveTimer);
+        editingAutosaveTimer = window.setTimeout(() => {
+            if (syncEditedTargetToManuscript({ showAlerts: false })) {
+                window.saveManuscriptToDB(window.manuscriptData);
+                renderBookOverview();
+            }
+        }, 1200);
+    }
+
+    function saveEditedTargetText(showSavedText = false) {
+        const sel = window.currentEditSelection;
+        const editedText = document.getElementById('edited-text');
+        window.clearTimeout(editingAutosaveTimer);
+        if (!syncEditedTargetToManuscript()) return false;
         persistManuscriptEdits();
         window.loadParagraph(sel.cIndex, sel.pIndex, null);
         renderWritingView();
@@ -4810,6 +4883,7 @@ ${state.validation || 'Ei validointia.'}`;
 
     if (replaceBtn) replaceBtn.addEventListener('click', () => saveEditedTargetText(false));
     if (saveEditTargetBtn) saveEditTargetBtn.addEventListener('click', () => saveEditedTargetText(true));
+    if (editableText) editableText.addEventListener('input', scheduleEditedTargetAutosave);
 
     if (deleteEditParagraphBtn) {
         deleteEditParagraphBtn.addEventListener('click', () => {
