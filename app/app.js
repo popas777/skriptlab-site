@@ -4772,39 +4772,44 @@ ${state.validation || 'Ei validointia.'}`;
 
     // Korvaa alkuperäinen -napin logiikka
     const replaceBtn = document.getElementById('replace-original-btn');
+    const saveEditTargetBtn = document.getElementById('save-edit-target-btn');
     const deleteEditParagraphBtn = document.getElementById('delete-edit-paragraph-btn');
-    if (replaceBtn) {
-        replaceBtn.addEventListener('click', () => {
-            const sel = window.currentEditSelection;
-            const editedText = document.getElementById('edited-text');
-            if (sel.cIndex === null || sel.pIndex === null || !editedText) {
-                alert('Valitse ensin kappale ennen korvaamista!');
-                return;
-            }
-            const newText = getEditableText().trim();
-            if (!newText) {
-                alert('Muokattu teksti on tyhjä!');
-                return;
-            }
-            
-            // Päivitä manuscriptData
-            if (editScopeSelect && editScopeSelect.value === 'chapter') {
-                applyParsedChapterText(window.manuscriptData.chapters[sel.cIndex], newText);
-                sel.pIndex = 0;
-            } else {
-                window.manuscriptData.chapters[sel.cIndex].paragraphs[sel.pIndex] = newText;
-            }
-            persistManuscriptEdits();
-            
-            // Päivitä näkymä
-            window.loadParagraph(sel.cIndex, sel.pIndex, null);
-            renderWritingView();
-            
-            // Vihreä välähdys onnistumisesta
-            editedText.style.backgroundColor = 'rgba(16, 185, 129, 0.2)';
-            setTimeout(() => { editedText.style.backgroundColor = 'transparent'; }, 800);
-        });
+
+    function saveEditedTargetText(showSavedText = false) {
+        const sel = window.currentEditSelection;
+        const editedText = document.getElementById('edited-text');
+        if (sel.cIndex === null || sel.pIndex === null || !editedText) {
+            alert('Valitse ensin kappale ennen tallentamista!');
+            return false;
+        }
+        const newText = getEditableText().trim();
+        if (!newText) {
+            alert('Muokattu teksti on tyhjä!');
+            return false;
+        }
+
+        if (editScopeSelect && editScopeSelect.value === 'chapter') {
+            applyParsedChapterText(window.manuscriptData.chapters[sel.cIndex], newText);
+            sel.pIndex = 0;
+        } else {
+            window.manuscriptData.chapters[sel.cIndex].paragraphs[sel.pIndex] = newText;
+        }
+        persistManuscriptEdits();
+        window.loadParagraph(sel.cIndex, sel.pIndex, null);
+        renderWritingView();
+
+        editedText.style.backgroundColor = 'rgba(16, 185, 129, 0.2)';
+        setTimeout(() => { editedText.style.backgroundColor = 'transparent'; }, 800);
+        if (showSavedText && saveEditTargetBtn) {
+            const originalText = saveEditTargetBtn.textContent;
+            saveEditTargetBtn.textContent = 'Tallennettu';
+            setTimeout(() => { saveEditTargetBtn.textContent = originalText || 'Tallenna'; }, 1200);
+        }
+        return true;
     }
+
+    if (replaceBtn) replaceBtn.addEventListener('click', () => saveEditedTargetText(false));
+    if (saveEditTargetBtn) saveEditTargetBtn.addEventListener('click', () => saveEditedTargetText(true));
 
     if (deleteEditParagraphBtn) {
         deleteEditParagraphBtn.addEventListener('click', () => {
