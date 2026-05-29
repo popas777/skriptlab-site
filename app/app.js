@@ -1224,139 +1224,159 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function setAnalysisProgress(job) {
+        const title = document.getElementById('analysis-loader-title');
+        const status = document.getElementById('analysis-loader-status');
+        const progressText = document.getElementById('analysis-progress-text');
+        const pulse = document.getElementById('analysis-pulse-bar');
+        const current = Number(job?.current || 0);
+        const total = Number(job?.total || 0);
+        if (title) title.textContent = job?.status === 'queued' ? 'Analyysi jonossa...' : 'Analyysi käynnissä...';
+        if (status) status.textContent = job?.message || 'Käsikirjoitusta analysoidaan osissa.';
+        if (progressText) {
+            progressText.textContent = total
+                ? `Osa ${Math.min(current, total)} / ${total}${job?.label ? `: ${job.label}` : ''}`
+                : 'Valmistellaan pitkän käsikirjoituksen analyysia.';
+        }
+        if (pulse && total) {
+            pulse.style.animation = 'none';
+            pulse.style.width = `${Math.max(8, Math.min(100, Math.round((current / total) * 100)))}%`;
+        }
+    }
+
+    function wait(ms) {
+        return new Promise(resolve => window.setTimeout(resolve, ms));
+    }
+
+    async function pollAnalysisJob(jobId) {
+        while (true) {
+            const res = await apiFetch(`/api/analyze/jobs/${jobId}`);
+            const job = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(job?.detail || 'Analyysin tilan haku epäonnistui.');
+            setAnalysisProgress(job);
+            if ((job.status === 'completed' || job.status === 'partial') && job.data) return job;
+            if (job.status === 'failed') throw new Error(job.message || 'Analyysi epäonnistui.');
+            await wait(3000);
+        }
+    }
+
+    async function applyAnalysisResult(r) {
+        if (!r) throw new Error('Analyysin data puuttuu.');
+        if (window.manuscriptData) {
+            window.manuscriptData.analysis = r;
+            const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
+            if (savedProject?.id) {
+                window.manuscriptData = savedProject;
+                updateAvailableProject(savedProject);
+            }
+        }
+
+        renderAnalysisSummary(r);
+        renderAnalysisSections(r);
+        runAnalysisBtn.style.display = 'block';
+        runAnalysisBtn.textContent = '🔄 Analysoi Uudelleen';
+
+        sidebarStyle.textContent = r.style ? "Tyyli valmis" : "Virhe";
+        sidebarVocab.textContent = r.glossary ? "Valmis sanasto" : "-";
+        sidebarStyle.style.color = "var(--ai-gradient-start)";
+        sidebarVocab.style.color = "var(--ai-gradient-start)";
+
+        let structData = r.structure;
+        if (typeof structData === 'string' && structData.length > 2) {
+            try {
+                let si = structData.indexOf('[');
+                let ei = structData.lastIndexOf(']');
+                if (si !== -1 && ei !== -1) {
+                    structData = JSON.parse(structData.substring(si, ei + 1));
+                }
+            } catch(parseErr) {
+                console.error('Structure-JSON parsinta epäonnistui:', parseErr);
+                structData = null;
+            }
+        }
+
+        if(structData && Array.isArray(structData) && structData.length > 0) {
+           let freshChapters = structData.map((item, idx) => {
+               let cId = item.id || `luku_${idx}`;
+               let cTitle = item.title || item.nimi || (cId === "alku" ? "Alku / Nimiölehti" : (cId === "sisallys" ? "Sisällysluettelo" : cId));
+               let cParagraphs = item.paragraphs || item.kappaleet || [];
+               let cleanedParagraphs = cParagraphs.map(p => p.replace(/<KAPPALE[\d]+>/gi, '').replace(/<KAPPALE>/gi, '').trim());
+               return {
+                   id: cId,
+                   title: cTitle,
+                   paragraphs: cleanedParagraphs
+               };
+           });
+           if(window.manuscriptData) {
+               window.manuscriptData.chapters = freshChapters;
+           } else {
+               window.manuscriptData = { title: "A", author: "B", chapters: freshChapters };
+           }
+           const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
+           if (savedProject?.id) {
+               window.manuscriptData = savedProject;
+               updateAvailableProject(savedProject);
+           }
+           renderBookOverview();
+           if(window.renderNavList) window.renderNavList();
+           loadUsage();
+        } else {
+             alert("Varoitus: analyysi valmistui, mutta kappalerakennetta ei voitu eritellä.");
+        }
+    }
+
     if(runAnalysisBtn) {
-        runAnalysisBtn.addEventListener('click', () => {
+        runAnalysisBtn.addEventListener('click', async () => {
             runAnalysisBtn.style.display = 'none';
             analysisLoader.classList.remove('hidden');
-            
-            // Käynnistetään ajastin
+
             let analysisSeconds = 0;
             const timerEl = document.getElementById('analysis-timer');
+            if(timerEl) timerEl.textContent = '0:00';
             const analysisInterval = setInterval(() => {
                 analysisSeconds++;
                 const m = Math.floor(analysisSeconds / 60);
                 const s = analysisSeconds % 60;
                 if(timerEl) timerEl.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
             }, 1000);
-            
-            // Haetaan ladattu raakateksti lokaalista muistista
-            const rawMsText = localStorage.getItem('skriptlab_raw_text') || getFullManuscriptText();
-            if(!rawMsText) {
-                clearInterval(analysisInterval);
-                alert('Käsikirjoitusta ei ole vielä ladattu oikein! Lataa tiedosto Käsikirjoitukseni-näkymästä ensin.');
-                analysisLoader.classList.add('hidden');
-                runAnalysisBtn.style.display = 'block';
-                return;
-            }
 
-            Promise.resolve().then(async () => {
+            try {
+                const rawMsText = localStorage.getItem('skriptlab_raw_text') || getFullManuscriptText();
+                if(!rawMsText) {
+                    throw new Error('Käsikirjoitusta ei ole vielä ladattu oikein! Lataa tiedosto Käsikirjoitukseni-näkymästä ensin.');
+                }
+
                 let projectId = window.manuscriptData?.id || null;
                 if (!projectId && window.manuscriptData) {
                     const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
                     projectId = savedProject?.id || null;
                     if (savedProject?.id) window.manuscriptData = savedProject;
                 }
-                return apiFetch('/api/analyze', {
+                if (!projectId) throw new Error('Käsikirjoitusta ei saatu tallennettua ennen analyysia.');
+
+                const startRes = await apiFetch('/api/analyze/jobs', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({text: rawMsText, project_id: projectId})
                 });
-            })
-            .then(async res => {
-                if(!res.ok) {
-                    throw new Error(await apiErrorMessage(res, "Analyysi epäonnistui."));
-                }
-                return res.json();
-            })
-            .then(async data => {
+                const startedJob = await startRes.json().catch(() => null);
+                if (!startRes.ok) throw new Error(startedJob?.detail || 'Analyysin käynnistys epäonnistui.');
+                setAnalysisProgress(startedJob);
+                const finishedJob = await pollAnalysisJob(startedJob.job_id);
                 clearInterval(analysisInterval);
                 analysisLoader.classList.add('hidden');
                 analysisResults.classList.remove('hidden');
-                
-                if(data.status === "success" && data.data) {
-                    const r = data.data;
-                    if (window.manuscriptData) {
-                        window.manuscriptData.analysis = r;
-                        const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
-                        if (savedProject?.id) {
-                            window.manuscriptData = savedProject;
-                            updateAvailableProject(savedProject);
-                        }
-                    }
-                    
-                    renderAnalysisSummary(r);
-                    renderAnalysisSections(r);
-                    runAnalysisBtn.style.display = 'block';
-                    runAnalysisBtn.textContent = '🔄 Analysoi Uudelleen';
-                    
-                    // Päivitetään sivupalkin tyyli- ja sanastotiedot
-                    sidebarStyle.textContent = r.style ? "Tyyli valmis" : "Virhe";
-                    sidebarVocab.textContent = r.glossary ? "Valmis sanasto" : "-";
-                    sidebarStyle.style.color = "var(--ai-gradient-start)";
-                    sidebarVocab.style.color = "var(--ai-gradient-start)";
-                    
-                    // Korvataan aiempi lokaali regex-ratkaisu TODELLISELLA RAKENTEELLA!
-                    let structData = r.structure;
-                    // Jos structure tuli stringinä, yritetään parsia
-                    if (typeof structData === 'string' && structData.length > 2) {
-                        try {
-                            let si = structData.indexOf('[');
-                            let ei = structData.lastIndexOf(']');
-                            if (si !== -1 && ei !== -1) {
-                                structData = JSON.parse(structData.substring(si, ei + 1));
-                            }
-                        } catch(parseErr) {
-                            console.error('Structure-JSON parsinta epäonnistui:', parseErr);
-                            structData = null;
-                        }
-                    }
-                    
-                    if(structData && Array.isArray(structData) && structData.length > 0) {
-                       // Muunnetaan Analyzerin JSON-rakenne meidän Frontend-manuscriptData formaattiin:
-                       let freshChapters = structData.map((item, idx) => {
-                           let cId = item.id || `luku_${idx}`;
-                           // Tuki sekä 'title'/'nimi' kenttänimille
-                           let cTitle = item.title || item.nimi || (cId === "alku" ? "Alku / Nimiölehti" : (cId === "sisallys" ? "Sisällysluettelo" : cId));
-                           // Tuki sekä 'paragraphs'/'kappaleet' kenttänimille
-                           let cParagraphs = item.paragraphs || item.kappaleet || [];
-                           let cleanedParagraphs = cParagraphs.map(p => p.replace(/<KAPPALE[\d]+>/gi, '').replace(/<KAPPALE>/gi, '').trim());
-                           return {
-                               id: cId,
-                               title: cTitle,
-                               paragraphs: cleanedParagraphs
-                           };
-                       });
-                       if(window.manuscriptData) {
-                           window.manuscriptData.chapters = freshChapters;
-                       } else {
-                           // Fallback
-                           window.manuscriptData = { title: "A", author: "B", chapters: freshChapters };
-                       }
-                       // Tallennetaan pysyvästi
-                       const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
-                       if (savedProject?.id) {
-                           window.manuscriptData = savedProject;
-                           updateAvailableProject(savedProject);
-                       }
-                       renderBookOverview();
-                       // Kutsutaan UI refresh
-                       if(window.renderNavList) window.renderNavList();
-                       loadUsage();
-                    } else {
-                         alert("Varoitus: Skripti vastasi, mutta ei pystynyt erittelemään kappaleita (structure dict puuttuu)");
-                    }
-                    
-                } else {
-                     throw new Error("Data response viallinen");
+                await applyAnalysisResult(finishedJob.data);
+                if (finishedJob.status === 'partial') {
+                    alert('Analyysi valmistui osittaisena. Osa käsikirjoituksen kohdista voi vaatia uuden ajon tai käsittelyn pienemmissä osissa.');
                 }
-            })
-            .catch(e => {
+            } catch(e) {
                 clearInterval(analysisInterval);
                 alert('Analyysi epäonnistui:\n' + networkFailureMessage(e));
                 analysisLoader.classList.add('hidden');
                 runAnalysisBtn.style.display = 'block';
                 loadUsage();
-            });
+            }
         });
     }
 
