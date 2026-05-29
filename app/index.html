@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=31">
+    <link rel="stylesheet" href="styles.css?v=32">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -72,6 +72,14 @@
                     <li class="active" data-view="view-kirjani">Käsikirjoitukseni</li>
                     <li data-view="view-kirjoita">Kirjoita</li>
                     <li data-view="view-elamakerta">Elämäkerta</li>
+                    <li data-view="view-om-projekti">OM - Projektin luonti</li>
+                    <li data-view="view-om-ops">OM - OPS</li>
+                    <li data-view="view-om-brief">OM - Opetusbrief</li>
+                    <li data-view="view-om-runko">OM - Emomateriaali</li>
+                    <li data-view="view-om-materiaalit">OM - Materiaalit</li>
+                    <li data-view="view-om-validointi">OM - Validointi</li>
+                    <li data-view="view-om-kokonaisuus">OM - Kokonaisuus</li>
+                    <li data-view="view-om-vienti">OM - Katselu ja tulostus</li>
                     <li data-view="view-sopimukset">Sopimukset</li>
                     <li data-view="view-aikajana">Aikajana</li>
                     <li data-view="view-analyysi">Analyysi</li>
@@ -397,6 +405,226 @@
                             <textarea id="bio-approval-notes" style="width:100%; min-height:240px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:14px; font-family:inherit; line-height:1.6;"></textarea>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- 1.4 VIEW: OPPIMATERIAALI -->
+            <div id="view-om-projekti" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>OM - Projektin luonti</h2>
+                        <p id="om-current-project">Ei valittua oppimateriaaliprojektia.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" id="om-refresh-btn" type="button">Päivitä projektit</button>
+                        <button class="btn btn-primary" id="om-create-project-btn" type="button">Luo projekti</button>
+                    </div>
+                </div>
+                <div class="grid-cards om-grid" style="grid-template-columns:minmax(280px,420px) minmax(0,1fr); align-items:start;">
+                    <div class="card glass-panel">
+                        <h3>Projektit</h3>
+                        <div class="settings-row">
+                            <label>Valitse oppimateriaaliprojekti</label>
+                            <select id="om-project-select"></select>
+                        </div>
+                        <p id="om-status" style="color:var(--text-secondary); font-size:13px; line-height:1.5;">Oppimateriaaliprojektit latautuvat tähän.</p>
+                    </div>
+                    <div class="card glass-panel">
+                        <h3>Perustiedot</h3>
+                        <div class="grid-cards" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px;">
+                            <div class="settings-row"><label>Oppiaine</label><input id="om-subject" type="text" placeholder="Esim. historia"></div>
+                            <div class="settings-row"><label>Vuosiluokka</label><input id="om-grade" type="text" placeholder="Esim. 7"></div>
+                            <div class="settings-row"><label>Jakson nimi</label><input id="om-title" type="text" placeholder="Jakson nimi"></div>
+                            <div class="settings-row"><label>Viikkotuntimäärä</label><input id="om-weekly-hours" type="text" placeholder="Esim. 2"></div>
+                            <div class="settings-row"><label>Kesto viikkoina</label><input id="om-duration-weeks" type="text" placeholder="Esim. 5"></div>
+                            <div class="settings-row"><label>Vaikeustaso</label>
+                                <select id="om-difficulty">
+                                    <option value="helppo">Helppo</option>
+                                    <option value="normaali" selected>Normaali</option>
+                                    <option value="haastava">Haastava</option>
+                                </select>
+                            </div>
+                            <div class="settings-row"><label>Materiaalin kieli</label><input id="om-language" type="text" value="suomi"></div>
+                            <div class="settings-row"><label>Kohderyhmä</label><input id="om-target-group" type="text" placeholder="Ryhmä, osaamistaso, konteksti"></div>
+                        </div>
+                        <div class="settings-row">
+                            <label>Käytössä oleva oppikirja tai lähdemateriaali</label>
+                            <textarea id="om-source-material" style="width:100%; min-height:120px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:12px; font-family:inherit; line-height:1.5;"></textarea>
+                        </div>
+                        <div class="settings-row">
+                            <label>Erityistarpeet</label>
+                            <textarea id="om-special-needs" placeholder="S2, tuki, ylöspäin eriyttäminen..." style="width:100%; min-height:90px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:12px; font-family:inherit; line-height:1.5;"></textarea>
+                        </div>
+                        <button class="btn btn-secondary" id="om-save-project-btn" type="button">Tallenna perustiedot</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-om-ops" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>OM - OPS</h2>
+                        <p id="om-ops-project">Valitse oppimateriaaliprojekti.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" id="om-save-ops-btn" type="button">Tallenna tavoitteet</button>
+                    </div>
+                </div>
+                <div class="grid-cards om-grid" style="grid-template-columns:minmax(280px,420px) minmax(0,1fr); align-items:start;">
+                    <div class="card glass-panel">
+                        <h3>Lisää tavoite</h3>
+                        <div class="settings-row"><label>Tunniste</label><input id="om-target-id" type="text" placeholder="Esim. T1"></div>
+                        <div class="settings-row"><label>Tavoiteteksti</label><textarea id="om-target-text" style="width:100%; min-height:120px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:12px; font-family:inherit; line-height:1.5;"></textarea></div>
+                        <div class="settings-row"><label>Sisältöalue</label><input id="om-target-content-area" type="text"></div>
+                        <div class="settings-row"><label>Arviointiin liittyvä huomio</label><textarea id="om-target-assessment-note" style="width:100%; min-height:90px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:12px; font-family:inherit; line-height:1.5;"></textarea></div>
+                        <div class="settings-row"><label>Painoarvo</label>
+                            <select id="om-target-weight">
+                                <option value="matala">Matala</option>
+                                <option value="normaali" selected>Normaali</option>
+                                <option value="korkea">Korkea</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" id="om-add-target-btn" type="button">Lisää tavoite</button>
+                    </div>
+                    <div class="card glass-panel">
+                        <h3>Tavoitematriisi</h3>
+                        <div id="om-target-list" class="om-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-om-brief" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>OM - Opetusbrief</h2>
+                        <p id="om-brief-project">Valitse oppimateriaaliprojekti.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" id="om-save-brief-btn" type="button">Tallenna brief</button>
+                    </div>
+                </div>
+                <div class="grid-cards om-grid" style="grid-template-columns:minmax(280px,520px) minmax(0,1fr); align-items:start;">
+                    <div class="card glass-panel">
+                        <h3>Brief</h3>
+                        <div class="grid-cards" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px;">
+                            <div class="settings-row"><label>Jakson pituus</label><input id="om-period-length" type="text"></div>
+                            <div class="settings-row"><label>Tuntimäärä</label><input id="om-hours-total" type="text"></div>
+                        </div>
+                        <div class="settings-row"><label>Käsiteltävät käsitteet</label><textarea id="om-concepts" style="width:100%; min-height:90px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:12px; font-family:inherit; line-height:1.5;"></textarea></div>
+                        <div class="settings-row"><label>Tekstikirjan tai pohjamateriaalin tiivistelmä</label><textarea id="om-source-summary" style="width:100%; min-height:140px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:12px; font-family:inherit; line-height:1.5;"></textarea></div>
+                        <div class="settings-row"><label>Halutut tehtävätyypit</label><input id="om-task-types" type="text" placeholder="monivalinta, soveltava, pari, kirjoitustehtävä..."></div>
+                        <div class="settings-row"><label>Materiaalimuodot</label><input id="om-material-formats" type="text" placeholder="oppijan teksti, tehtävät, opettajan ohje..."></div>
+                        <div class="settings-row"><label>Arviointitapa</label><input id="om-assessment-method" type="text"></div>
+                        <div class="settings-row"><label>Opettajan omat painotukset</label><textarea id="om-teacher-priorities" style="width:100%; min-height:100px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:12px; font-family:inherit; line-height:1.5;"></textarea></div>
+                    </div>
+                    <div class="card glass-panel">
+                        <h3>Yhteenveto</h3>
+                        <pre id="om-brief-summary" class="om-pre">Täytä briefin kentät.</pre>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-om-runko" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>OM - Emomateriaali</h2>
+                        <p id="om-outline-project">Valitse oppimateriaaliprojekti.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" id="om-save-outline-btn" type="button">Tallenna runko</button>
+                        <button class="btn btn-primary" id="om-generate-outline-btn" type="button">Muodosta runko</button>
+                    </div>
+                </div>
+                <div class="card glass-panel">
+                    <textarea id="om-outline" class="om-editor" placeholder="Jakson kuvaus, tavoitteet, käsitteet, tuntikohtainen eteneminen, tehtäväaiheet ja arviointikohdat."></textarea>
+                </div>
+            </div>
+
+            <div id="view-om-materiaalit" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>OM - Materiaalit</h2>
+                        <p id="om-materials-project">Valitse oppimateriaaliprojekti.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" id="om-save-materials-btn" type="button">Tallenna materiaalit</button>
+                        <button class="btn btn-primary" id="om-generate-materials-btn" type="button">Luo kaikki materiaalit</button>
+                    </div>
+                </div>
+                <div class="grid-cards om-grid" style="grid-template-columns:minmax(240px,340px) minmax(0,1fr); align-items:start;">
+                    <div class="card glass-panel">
+                        <h3>Materiaali</h3>
+                        <div class="settings-row"><label>Valittu osa</label>
+                            <select id="om-material-type">
+                                <option value="learner_text">Oppijan teksti</option>
+                                <option value="tasks">Tehtävät</option>
+                                <option value="teacher_guide">Opettajan ohje</option>
+                                <option value="assessment">Arviointitehtävä tai koeaihio</option>
+                            </select>
+                        </div>
+                        <div class="settings-row"><label>Tavoitteet</label><input id="om-material-targets" type="text"></div>
+                        <div class="settings-row"><label>Käsitteet</label><input id="om-material-concepts" type="text"></div>
+                        <div class="settings-row"><label>Taso</label><input id="om-material-level" type="text"></div>
+                        <div class="settings-row"><label>Status</label>
+                            <select id="om-material-status">
+                                <option value="luonnos">Luonnos</option>
+                                <option value="tarkistettava">Tarkistettava</option>
+                                <option value="valmis">Valmis</option>
+                            </select>
+                        </div>
+                        <div class="settings-row"><label>Uudelleenluonnin lisäohje</label><textarea id="om-regenerate-instructions" style="width:100%; min-height:90px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:12px; font-family:inherit; line-height:1.5;"></textarea></div>
+                        <button class="btn btn-secondary" id="om-regenerate-material-btn" type="button">Luo uudelleen tästä kohdasta</button>
+                    </div>
+                    <div class="card glass-panel">
+                        <h3 id="om-material-editor-title">Oppijan teksti</h3>
+                        <textarea id="om-material-content" class="om-editor"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-om-validointi" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>OM - Validointi</h2>
+                        <p id="om-validation-project">Valitse oppimateriaaliprojekti.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" id="om-save-validation-btn" type="button">Tallenna validointi</button>
+                        <button class="btn btn-primary" id="om-run-validation-btn" type="button">Validoi tavoitematriisia vasten</button>
+                    </div>
+                </div>
+                <div class="card glass-panel">
+                    <textarea id="om-validation" class="om-editor"></textarea>
+                </div>
+            </div>
+
+            <div id="view-om-kokonaisuus" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>OM - Kokonaisuus</h2>
+                        <p id="om-overview-project">Valitse oppimateriaaliprojekti.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" id="om-save-statuses-btn" type="button">Tallenna statukset</button>
+                    </div>
+                </div>
+                <div id="om-overview" class="grid-cards" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); align-items:start;"></div>
+            </div>
+
+            <div id="view-om-vienti" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>OM - Katselu ja tulostus</h2>
+                        <p id="om-export-project">Valitse oppimateriaaliprojekti.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" id="om-refresh-export-btn" type="button">Päivitä katselu</button>
+                        <button class="btn btn-secondary" id="om-print-btn" type="button">Tulosta</button>
+                        <button class="btn btn-primary" id="om-download-txt-btn" type="button">Lataa TXT</button>
+                    </div>
+                </div>
+                <div class="card glass-panel">
+                    <pre id="om-export-preview" class="om-export-preview">Ei valittua oppimateriaaliprojektia.</pre>
                 </div>
             </div>
 
@@ -1321,6 +1549,6 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=2"></script>
-    <script src="app.js?v=36"></script>
+    <script src="app.js?v=37"></script>
 </body>
 </html>

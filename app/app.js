@@ -44,8 +44,21 @@ document.addEventListener('DOMContentLoaded', () => {
     let imageModels = [];
     let biographyState = {};
     let biographyTimerInterval = null;
-    let currentViewId = 'view-kirjani';
+    let learningMaterialState = {};
+    let learningMaterialTimerInterval = null;
+    let editingLearningTargetIndex = null;
+    let currentViewId = currentUser && currentUser.role === 'oppimateriaali' ? 'view-om-projekti' : 'view-kirjani';
     const fullWorkspaceRoles = new Set(['admin', 'test_user']);
+    const learningMaterialViews = new Set([
+        'view-om-projekti',
+        'view-om-ops',
+        'view-om-brief',
+        'view-om-runko',
+        'view-om-materiaalit',
+        'view-om-validointi',
+        'view-om-kokonaisuus',
+        'view-om-vienti'
+    ]);
     const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-muut-toiminnot', 'view-elamakerta']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset']);
     const biographyViews = new Set(['view-kirjani', 'view-kirjoita', 'view-elamakerta', 'view-toimitus', 'view-kuvitus', 'view-taitto', 'view-muut-toiminnot', 'view-kirja']);
@@ -56,7 +69,8 @@ document.addEventListener('DOMContentLoaded', () => {
         toimittaja: 'Toimittaja',
         kaantaja: 'Kääntäjä',
         kirjailija: 'Kirjailija',
-        elamakerta: 'Elämäkerta'
+        elamakerta: 'Elämäkerta',
+        oppimateriaali: 'Oppimateriaali'
     };
     const canSeeAllModules = currentUser && fullWorkspaceRoles.has(currentUser.role);
     const usageEls = {
@@ -1098,6 +1112,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (canSeeAllModules) return true;
         if (currentUser && currentUser.role === 'kaantaja') return translatorViews.has(viewId);
         if (currentUser && currentUser.role === 'elamakerta') return biographyViews.has(viewId);
+        if (currentUser && currentUser.role === 'oppimateriaali') return learningMaterialViews.has(viewId);
         return betaCoreViews.has(viewId);
     }
 
@@ -1110,7 +1125,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function openModule(viewId) {
         if (!isViewAllowed(viewId)) {
-            viewId = 'view-kirjani';
+            viewId = currentUser && currentUser.role === 'oppimateriaali' ? 'view-om-projekti' : 'view-kirjani';
         }
         currentViewId = viewId;
 
@@ -1155,15 +1170,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadImageModels();
                 loadCoverImages();
             }
+            if (learningMaterialViews.has(item.getAttribute('data-view'))) {
+                loadLearningMaterialState(false);
+            }
             if(item.getAttribute('data-view') !== 'view-kirjani') {
-                document.getElementById('top-book-name').textContent = window.manuscriptData
-                    ? `Käsikirjoitus: ${window.manuscriptData.title}`
-                    : 'Käsikirjoitus: Valitse projekti...';
+                document.getElementById('top-book-name').textContent = learningMaterialViews.has(item.getAttribute('data-view'))
+                    ? `Oppimateriaali: ${activeLearningProject()?.title || 'Valitse projekti...'}`
+                    : (window.manuscriptData
+                        ? `Käsikirjoitus: ${window.manuscriptData.title}`
+                        : 'Käsikirjoitus: Valitse projekti...');
             } else {
                 document.getElementById('top-book-name').textContent = 'Käsikirjoitus: Valitse projekti...';
             }
         });
     });
+    openModule(currentViewId);
     
     // Alistetaan globaaliksi, jotta onclickit HTML:ssä toimivat
     window.openModule = openModule;
@@ -2299,6 +2320,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!projects || projects.length === 0) {
             updateTranslationProjectSelect();
             updateMiscProjectSelect();
+            updateLearningProjectSelect();
             gridCards.innerHTML = emptyProjectMessage();
             clearActiveManuscript();
             return;
@@ -2319,6 +2341,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         updateTranslationProjectSelect();
         updateMiscProjectSelect();
+        updateLearningProjectSelect();
     }
 
     async function loadProjects() {
@@ -2943,6 +2966,590 @@ document.addEventListener('DOMContentLoaded', () => {
     function checkboxValue(id, value = false) {
         const el = document.getElementById(id);
         if (el) el.checked = Boolean(value);
+    }
+
+    const learningMaterialTypes = {
+        learner_text: 'Oppijan teksti',
+        tasks: 'Tehtävät',
+        teacher_guide: 'Opettajan ohje',
+        assessment: 'Arviointitehtävä tai koeaihio'
+    };
+
+    function defaultLearningMaterials() {
+        return Object.fromEntries(Object.entries(learningMaterialTypes).map(([key, label]) => [key, {
+            title: label,
+            content: '',
+            targets: [],
+            concepts: '',
+            level: '',
+            status: 'luonnos'
+        }]));
+    }
+
+    function defaultLearningMaterialState() {
+        return {
+            project: {
+                subject: '',
+                grade: '',
+                title: '',
+                weekly_hours: '',
+                duration_weeks: '',
+                source_material: '',
+                target_group: '',
+                difficulty: 'normaali',
+                language: 'suomi',
+                special_needs: ''
+            },
+            ops_targets: [],
+            brief: {
+                period_length: '',
+                hours_total: '',
+                concepts: '',
+                source_summary: '',
+                task_types: '',
+                material_formats: '',
+                assessment_method: '',
+                teacher_priorities: ''
+            },
+            outline: '',
+            materials: defaultLearningMaterials(),
+            validation: '',
+            statuses: {
+                project: 'luonnos',
+                ops: 'luonnos',
+                brief: 'luonnos',
+                outline: 'luonnos',
+                materials: 'luonnos',
+                validation: 'luonnos',
+                export: 'luonnos'
+            }
+        };
+    }
+
+    function normalizeLearningMaterialState(data) {
+        const state = defaultLearningMaterialState();
+        const incoming = data || {};
+        if (incoming.project && typeof incoming.project === 'object') Object.assign(state.project, incoming.project);
+        if (incoming.brief && typeof incoming.brief === 'object') Object.assign(state.brief, incoming.brief);
+        if (incoming.statuses && typeof incoming.statuses === 'object') Object.assign(state.statuses, incoming.statuses);
+        state.ops_targets = Array.isArray(incoming.ops_targets) ? incoming.ops_targets : [];
+        state.outline = incoming.outline || '';
+        state.validation = incoming.validation || '';
+        if (incoming.materials && typeof incoming.materials === 'object') {
+            Object.entries(learningMaterialTypes).forEach(([key, label]) => {
+                const item = incoming.materials[key] || {};
+                state.materials[key] = {
+                    title: item.title || label,
+                    content: item.content || '',
+                    targets: Array.isArray(item.targets) ? item.targets : [],
+                    concepts: item.concepts || '',
+                    level: item.level || '',
+                    status: item.status || 'luonnos'
+                };
+            });
+        }
+        return state;
+    }
+
+    function isLearningMaterialProject(project) {
+        return project && project.analysis && project.analysis.project_kind === 'learning_material';
+    }
+
+    function learningMaterialProjects() {
+        return (availableProjects || []).filter(isLearningMaterialProject);
+    }
+
+    function activeLearningProject() {
+        const select = document.getElementById('om-project-select');
+        const selectedId = select?.value || (isLearningMaterialProject(window.manuscriptData) ? window.manuscriptData.id : null);
+        if (!selectedId) return null;
+        return learningMaterialProjects().find(project => String(project.id) === String(selectedId)) || null;
+    }
+
+    function activeLearningProjectId() {
+        return activeLearningProject()?.id || null;
+    }
+
+    function setLearningMaterialStatus(message, isError = false) {
+        const status = document.getElementById('om-status');
+        if (!status) return;
+        status.textContent = message;
+        status.style.color = isError ? '#ffb4b4' : 'var(--text-secondary)';
+    }
+
+    function updateLearningProjectSelect() {
+        const select = document.getElementById('om-project-select');
+        if (!select) return;
+        const projects = learningMaterialProjects();
+        const previous = select.value || (isLearningMaterialProject(window.manuscriptData) ? String(window.manuscriptData.id) : '');
+        select.innerHTML = projects.length
+            ? projects.map(project => `<option value="${project.id}">${escapeHtml(project.title || 'Nimetön oppimateriaali')}</option>`).join('')
+            : '<option value="">Ei oppimateriaaliprojekteja</option>';
+        if (previous && projects.some(project => String(project.id) === previous)) {
+            select.value = previous;
+        } else if (projects[0]) {
+            select.value = String(projects[0].id);
+        }
+        const selected = activeLearningProject();
+        if (selected && (learningMaterialViews.has(currentViewId) || (currentUser && currentUser.role === 'oppimateriaali'))) {
+            setActiveManuscript(selected);
+            localStorage.setItem(ACTIVE_PROJECT_ID_KEY, String(selected.id));
+        }
+    }
+
+    function collectLearningProjectFields(state = normalizeLearningMaterialState(learningMaterialState)) {
+        state.project.subject = document.getElementById('om-subject')?.value || state.project.subject || '';
+        state.project.grade = document.getElementById('om-grade')?.value || state.project.grade || '';
+        state.project.title = document.getElementById('om-title')?.value || state.project.title || '';
+        state.project.weekly_hours = document.getElementById('om-weekly-hours')?.value || state.project.weekly_hours || '';
+        state.project.duration_weeks = document.getElementById('om-duration-weeks')?.value || state.project.duration_weeks || '';
+        state.project.source_material = document.getElementById('om-source-material')?.value || state.project.source_material || '';
+        state.project.target_group = document.getElementById('om-target-group')?.value || state.project.target_group || '';
+        state.project.difficulty = document.getElementById('om-difficulty')?.value || state.project.difficulty || 'normaali';
+        state.project.language = document.getElementById('om-language')?.value || state.project.language || 'suomi';
+        state.project.special_needs = document.getElementById('om-special-needs')?.value || state.project.special_needs || '';
+        return state;
+    }
+
+    function collectLearningBriefFields(state = normalizeLearningMaterialState(learningMaterialState)) {
+        state.brief.period_length = document.getElementById('om-period-length')?.value || state.brief.period_length || '';
+        state.brief.hours_total = document.getElementById('om-hours-total')?.value || state.brief.hours_total || '';
+        state.brief.concepts = document.getElementById('om-concepts')?.value || state.brief.concepts || '';
+        state.brief.source_summary = document.getElementById('om-source-summary')?.value || state.brief.source_summary || '';
+        state.brief.task_types = document.getElementById('om-task-types')?.value || state.brief.task_types || '';
+        state.brief.material_formats = document.getElementById('om-material-formats')?.value || state.brief.material_formats || '';
+        state.brief.assessment_method = document.getElementById('om-assessment-method')?.value || state.brief.assessment_method || '';
+        state.brief.teacher_priorities = document.getElementById('om-teacher-priorities')?.value || state.brief.teacher_priorities || '';
+        return state;
+    }
+
+    function saveCurrentLearningMaterialEditor() {
+        const select = document.getElementById('om-material-type');
+        const key = select?.dataset.previous || select?.value;
+        if (!key || !learningMaterialTypes[key]) return;
+        learningMaterialState = normalizeLearningMaterialState(learningMaterialState);
+        learningMaterialState.materials[key].content = document.getElementById('om-material-content')?.value || learningMaterialState.materials[key].content || '';
+        learningMaterialState.materials[key].targets = (document.getElementById('om-material-targets')?.value || '')
+            .split(',')
+            .map(item => item.trim())
+            .filter(Boolean);
+        learningMaterialState.materials[key].concepts = document.getElementById('om-material-concepts')?.value || '';
+        learningMaterialState.materials[key].level = document.getElementById('om-material-level')?.value || '';
+        learningMaterialState.materials[key].status = document.getElementById('om-material-status')?.value || 'luonnos';
+    }
+
+    function collectLearningMaterialForm() {
+        learningMaterialState = normalizeLearningMaterialState(learningMaterialState);
+        collectLearningProjectFields(learningMaterialState);
+        collectLearningBriefFields(learningMaterialState);
+        const outline = document.getElementById('om-outline');
+        if (outline) learningMaterialState.outline = outline.value || '';
+        saveCurrentLearningMaterialEditor();
+        const validation = document.getElementById('om-validation');
+        if (validation) learningMaterialState.validation = validation.value || '';
+        return learningMaterialState;
+    }
+
+    function renderLearningProjectFields() {
+        const project = learningMaterialState.project || {};
+        inputValue('om-subject', project.subject);
+        inputValue('om-grade', project.grade);
+        inputValue('om-title', project.title);
+        inputValue('om-weekly-hours', project.weekly_hours);
+        inputValue('om-duration-weeks', project.duration_weeks);
+        inputValue('om-source-material', project.source_material);
+        inputValue('om-target-group', project.target_group);
+        setSelectValue('om-difficulty', project.difficulty || 'normaali');
+        inputValue('om-language', project.language || 'suomi');
+        inputValue('om-special-needs', project.special_needs);
+    }
+
+    function renderLearningTargets() {
+        const list = document.getElementById('om-target-list');
+        if (!list) return;
+        const targets = Array.isArray(learningMaterialState.ops_targets) ? learningMaterialState.ops_targets : [];
+        if (!targets.length) {
+            list.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Ei vielä OPS-tavoitteita.</div>';
+            return;
+        }
+        list.innerHTML = targets.map((target, index) => `
+            <div class="om-list-item">
+                <div style="display:flex; justify-content:space-between; gap:12px; align-items:start;">
+                    <div>
+                        <h4>${escapeHtml(target.id || `T${index + 1}`)} · ${escapeHtml(target.content_area || 'Sisältöalue puuttuu')}</h4>
+                        <p>${escapeHtml(target.text || '')}</p>
+                        <p>Arviointi: ${escapeHtml(target.assessment_note || '-')}</p>
+                        <p>Painoarvo: ${escapeHtml(target.weight || 'normaali')}</p>
+                    </div>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
+                        <button class="btn btn-secondary om-edit-target-btn" data-index="${index}" type="button" style="font-size:11px; padding:4px 8px;">Muokkaa</button>
+                        <button class="btn btn-secondary btn-danger-soft om-delete-target-btn" data-index="${index}" type="button" style="font-size:11px; padding:4px 8px;">Poista</button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+        list.querySelectorAll('.om-edit-target-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                const target = learningMaterialState.ops_targets[Number(button.dataset.index)];
+                if (!target) return;
+                editingLearningTargetIndex = Number(button.dataset.index);
+                inputValue('om-target-id', target.id);
+                inputValue('om-target-text', target.text);
+                inputValue('om-target-content-area', target.content_area);
+                inputValue('om-target-assessment-note', target.assessment_note);
+                setSelectValue('om-target-weight', target.weight || 'normaali');
+            });
+        });
+        list.querySelectorAll('.om-delete-target-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                learningMaterialState.ops_targets.splice(Number(button.dataset.index), 1);
+                renderLearningTargets();
+                saveLearningMaterialState(false);
+            });
+        });
+    }
+
+    function renderLearningBrief() {
+        const brief = learningMaterialState.brief || {};
+        inputValue('om-period-length', brief.period_length);
+        inputValue('om-hours-total', brief.hours_total);
+        inputValue('om-concepts', brief.concepts);
+        inputValue('om-source-summary', brief.source_summary);
+        inputValue('om-task-types', brief.task_types);
+        inputValue('om-material-formats', brief.material_formats);
+        inputValue('om-assessment-method', brief.assessment_method);
+        inputValue('om-teacher-priorities', brief.teacher_priorities);
+        const summary = document.getElementById('om-brief-summary');
+        if (summary) {
+            const project = learningMaterialState.project || {};
+            summary.textContent = [
+                `Jakso: ${project.title || '-'}`,
+                `Oppiaine ja vuosiluokka: ${project.subject || '-'} ${project.grade || ''}`.trim(),
+                `Tuntimäärä: ${brief.hours_total || project.weekly_hours || '-'} / kesto: ${brief.period_length || project.duration_weeks || '-'}`,
+                `Kohderyhmä: ${project.target_group || '-'}`,
+                `Vaikeustaso: ${project.difficulty || '-'}`,
+                `Käsitteet: ${brief.concepts || '-'}`,
+                `Tehtävätyypit: ${brief.task_types || '-'}`,
+                `Materiaalimuodot: ${brief.material_formats || '-'}`,
+                `Arviointitapa: ${brief.assessment_method || '-'}`,
+                `Erityistarpeet: ${project.special_needs || '-'}`
+            ].join('\n');
+        }
+    }
+
+    function renderSelectedLearningMaterial() {
+        const select = document.getElementById('om-material-type');
+        if (!select) return;
+        const key = select.value || 'learner_text';
+        const item = learningMaterialState.materials?.[key] || defaultLearningMaterials()[key];
+        const title = document.getElementById('om-material-editor-title');
+        if (title) title.textContent = item.title || learningMaterialTypes[key];
+        inputValue('om-material-targets', (item.targets || []).join(', '));
+        inputValue('om-material-concepts', item.concepts);
+        inputValue('om-material-level', item.level);
+        setSelectValue('om-material-status', item.status || 'luonnos');
+        inputValue('om-material-content', item.content);
+        select.dataset.previous = key;
+    }
+
+    function renderLearningOverview() {
+        const container = document.getElementById('om-overview');
+        if (!container) return;
+        const state = normalizeLearningMaterialState(learningMaterialState);
+        const materialReadyCount = Object.values(state.materials).filter(item => (item.content || '').trim()).length;
+        const cards = [
+            ['project', 'Projektin perustiedot', state.project.title ? 'Täytetty' : 'Puuttuu jakson nimi'],
+            ['ops', 'OPS-tavoitteet', `${state.ops_targets.length} tavoitetta`],
+            ['brief', 'Opetusbrief', state.brief.concepts ? 'Käsitteet lisätty' : 'Käsitteet puuttuvat'],
+            ['outline', 'Emomateriaali', state.outline ? 'Runko olemassa' : 'Runko puuttuu'],
+            ['materials', 'Materiaalit', `${materialReadyCount}/4 osaa luotu`],
+            ['validation', 'Validointi', state.validation ? 'Validointiraportti olemassa' : 'Validointi puuttuu'],
+            ['export', 'Katselu ja tulostus', 'Kooste päivittyy projektin tiedoista']
+        ];
+        container.innerHTML = cards.map(([key, title, note]) => `
+            <div class="card glass-panel">
+                <h3>${escapeHtml(title)}</h3>
+                <p style="color:var(--text-secondary); font-size:13px; line-height:1.5; min-height:38px;">${escapeHtml(note)}</p>
+                <select class="om-status-select" data-status-key="${key}">
+                    <option value="luonnos" ${state.statuses[key] === 'luonnos' ? 'selected' : ''}>Luonnos</option>
+                    <option value="tarkistettava" ${state.statuses[key] === 'tarkistettava' ? 'selected' : ''}>Tarkistettava</option>
+                    <option value="valmis" ${state.statuses[key] === 'valmis' ? 'selected' : ''}>Valmis</option>
+                </select>
+            </div>
+        `).join('');
+        container.querySelectorAll('.om-status-select').forEach(select => {
+            select.addEventListener('change', () => {
+                learningMaterialState.statuses[select.dataset.statusKey] = select.value;
+            });
+        });
+    }
+
+    function learningMaterialExportText() {
+        const state = normalizeLearningMaterialState(learningMaterialState);
+        const project = state.project;
+        const brief = state.brief;
+        const targetLines = state.ops_targets.map(target => `${target.id}: ${target.text}\nSisältöalue: ${target.content_area || '-'}\nArviointi: ${target.assessment_note || '-'}\nPainoarvo: ${target.weight || 'normaali'}`).join('\n\n') || 'Ei tavoitteita.';
+        const materialLines = Object.entries(learningMaterialTypes).map(([key, label]) => {
+            const item = state.materials[key] || {};
+            return `${label}\nTavoitteet: ${(item.targets || []).join(', ') || '-'}\nKäsitteet: ${item.concepts || '-'}\nTaso: ${item.level || '-'}\nStatus: ${item.status || 'luonnos'}\n\n${item.content || 'Ei sisältöä.'}`;
+        }).join('\n\n---\n\n');
+        return `${project.title || 'Oppimateriaaliprojekti'}
+
+Oppiaine: ${project.subject || '-'}
+Vuosiluokka: ${project.grade || '-'}
+Kesto: ${project.duration_weeks || '-'} viikkoa
+Viikkotunnit: ${project.weekly_hours || '-'}
+Kohderyhmä: ${project.target_group || '-'}
+Vaikeustaso: ${project.difficulty || '-'}
+Kieli: ${project.language || '-'}
+Erityistarpeet: ${project.special_needs || '-'}
+
+OPS-TAVOITEMATRIISI
+${targetLines}
+
+OPETUSBRIEF
+Jakson pituus: ${brief.period_length || '-'}
+Tuntimäärä: ${brief.hours_total || '-'}
+Käsitteet: ${brief.concepts || '-'}
+Tehtävätyypit: ${brief.task_types || '-'}
+Materiaalimuodot: ${brief.material_formats || '-'}
+Arviointitapa: ${brief.assessment_method || '-'}
+Opettajan painotukset: ${brief.teacher_priorities || '-'}
+
+RUNKO
+${state.outline || 'Ei runkoa.'}
+
+MATERIAALIT
+${materialLines}
+
+VALIDOINTI
+${state.validation || 'Ei validointia.'}`;
+    }
+
+    function renderLearningExport() {
+        const preview = document.getElementById('om-export-preview');
+        if (preview) preview.textContent = learningMaterialExportText();
+    }
+
+    function renderLearningMaterial() {
+        learningMaterialState = normalizeLearningMaterialState(learningMaterialState);
+        const selected = activeLearningProject();
+        const topName = document.getElementById('top-book-name');
+        if (topName && learningMaterialViews.has(currentViewId)) {
+            topName.textContent = selected ? `Oppimateriaali: ${selected.title}` : 'Oppimateriaali: Valitse projekti...';
+        }
+        const sidebarTitle = document.getElementById('sidebar-current-title');
+        const sidebarStyle = document.getElementById('sidebar-style');
+        const sidebarVocab = document.getElementById('sidebar-vocab');
+        if (currentUser && currentUser.role === 'oppimateriaali') {
+            if (sidebarTitle) sidebarTitle.textContent = selected?.title || 'Ei oppimateriaaliprojektia';
+            if (sidebarStyle) sidebarStyle.textContent = `${learningMaterialState.ops_targets.length || 0} OPS-tavoitetta`;
+            if (sidebarVocab) sidebarVocab.textContent = learningMaterialState.statuses?.materials || 'luonnos';
+        }
+        const labels = [
+            'om-current-project',
+            'om-ops-project',
+            'om-brief-project',
+            'om-outline-project',
+            'om-materials-project',
+            'om-validation-project',
+            'om-overview-project',
+            'om-export-project'
+        ];
+        labels.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = selected ? `Oppimateriaaliprojekti: ${selected.title}` : 'Valitse tai luo oppimateriaaliprojekti.';
+        });
+        renderLearningProjectFields();
+        renderLearningTargets();
+        renderLearningBrief();
+        inputValue('om-outline', learningMaterialState.outline);
+        renderSelectedLearningMaterial();
+        inputValue('om-validation', learningMaterialState.validation);
+        renderLearningOverview();
+        renderLearningExport();
+    }
+
+    async function loadLearningMaterialState(showFeedback = true) {
+        updateLearningProjectSelect();
+        const projectId = activeLearningProjectId();
+        if (!projectId) {
+            learningMaterialState = defaultLearningMaterialState();
+            renderLearningMaterial();
+            if (showFeedback) setLearningMaterialStatus('Luo ensin oppimateriaaliprojekti.', true);
+            return null;
+        }
+        try {
+            if (showFeedback) setLearningMaterialStatus('Ladataan oppimateriaalitietoja...');
+            const res = await apiFetch(`/api/projects/${projectId}/learning-material`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Oppimateriaalitietojen lataus epäonnistui.');
+            learningMaterialState = normalizeLearningMaterialState(data.data);
+            if (window.manuscriptData) {
+                if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
+                window.manuscriptData.analysis.project_kind = 'learning_material';
+                window.manuscriptData.analysis.learning_material = learningMaterialState;
+            }
+            renderLearningMaterial();
+            if (showFeedback) setLearningMaterialStatus('Oppimateriaalitiedot ladattu.');
+            return learningMaterialState;
+        } catch (err) {
+            setLearningMaterialStatus(networkFailureMessage(err), true);
+            return null;
+        }
+    }
+
+    async function saveLearningMaterialState(showFeedback = true) {
+        const projectId = activeLearningProjectId();
+        if (!projectId) {
+            if (showFeedback) setLearningMaterialStatus('Luo tai valitse oppimateriaaliprojekti ensin.', true);
+            return null;
+        }
+        collectLearningMaterialForm();
+        try {
+            if (showFeedback) setLearningMaterialStatus('Tallennetaan oppimateriaalitietoja...');
+            const res = await apiFetch(`/api/projects/${projectId}/learning-material`, {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ data: learningMaterialState })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Oppimateriaalitietojen tallennus epäonnistui.');
+            learningMaterialState = normalizeLearningMaterialState(data.data);
+            if (window.manuscriptData) {
+                window.manuscriptData.title = learningMaterialState.project.title || window.manuscriptData.title;
+                window.manuscriptData.author = learningMaterialState.project.subject || window.manuscriptData.author;
+                if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
+                window.manuscriptData.analysis.project_kind = 'learning_material';
+                window.manuscriptData.analysis.learning_material = learningMaterialState;
+            }
+            renderLearningMaterial();
+            if (showFeedback) setLearningMaterialStatus('Oppimateriaalitiedot tallennettu.');
+            await loadProjects();
+            renderLearningMaterial();
+            return learningMaterialState;
+        } catch (err) {
+            setLearningMaterialStatus(networkFailureMessage(err), true);
+            return null;
+        }
+    }
+
+    async function createLearningMaterialProject() {
+        const state = collectLearningProjectFields(defaultLearningMaterialState());
+        if (!state.project.title.trim()) {
+            setLearningMaterialStatus('Anna jakson nimi ennen projektin luontia.', true);
+            return;
+        }
+        try {
+            setLearningMaterialStatus('Luodaan oppimateriaaliprojektia...');
+            const res = await apiFetch('/api/learning-material/projects', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(state.project)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Oppimateriaaliprojektin luonti epäonnistui.');
+            setActiveManuscript(data);
+            localStorage.setItem(ACTIVE_PROJECT_ID_KEY, String(data.id));
+            learningMaterialState = normalizeLearningMaterialState(data.analysis?.learning_material || state);
+            await loadProjects();
+            updateLearningProjectSelect();
+            renderLearningMaterial();
+            setLearningMaterialStatus('Oppimateriaaliprojekti luotu.');
+        } catch (err) {
+            setLearningMaterialStatus(networkFailureMessage(err), true);
+        }
+    }
+
+    function addOrUpdateLearningTarget() {
+        learningMaterialState = collectLearningMaterialForm();
+        const target = {
+            id: document.getElementById('om-target-id')?.value.trim() || `T${learningMaterialState.ops_targets.length + 1}`,
+            text: document.getElementById('om-target-text')?.value.trim() || '',
+            content_area: document.getElementById('om-target-content-area')?.value.trim() || '',
+            assessment_note: document.getElementById('om-target-assessment-note')?.value.trim() || '',
+            weight: document.getElementById('om-target-weight')?.value || 'normaali'
+        };
+        if (!target.text) {
+            setLearningMaterialStatus('Tavoiteteksti puuttuu.', true);
+            return;
+        }
+        if (editingLearningTargetIndex !== null && learningMaterialState.ops_targets[editingLearningTargetIndex]) {
+            learningMaterialState.ops_targets[editingLearningTargetIndex] = target;
+            editingLearningTargetIndex = null;
+        } else {
+            learningMaterialState.ops_targets.push(target);
+        }
+        inputValue('om-target-id', '');
+        inputValue('om-target-text', '');
+        inputValue('om-target-content-area', '');
+        inputValue('om-target-assessment-note', '');
+        setSelectValue('om-target-weight', 'normaali');
+        renderLearningTargets();
+        saveLearningMaterialState(false);
+    }
+
+    function startLearningMaterialTimer() {
+        window.clearInterval(learningMaterialTimerInterval);
+        let seconds = 0;
+        setLearningMaterialStatus('Käsitellään oppimateriaalia... 0:00');
+        learningMaterialTimerInterval = window.setInterval(() => {
+            seconds++;
+            const minutes = Math.floor(seconds / 60);
+            const rest = seconds % 60;
+            setLearningMaterialStatus(`Käsitellään oppimateriaalia... ${minutes}:${rest < 10 ? '0' : ''}${rest}`);
+        }, 1000);
+    }
+
+    function stopLearningMaterialTimer() {
+        window.clearInterval(learningMaterialTimerInterval);
+        learningMaterialTimerInterval = null;
+    }
+
+    async function runLearningMaterialAction(action, payload = {}) {
+        const projectId = activeLearningProjectId();
+        if (!projectId) {
+            setLearningMaterialStatus('Luo tai valitse oppimateriaaliprojekti ensin.', true);
+            return;
+        }
+        collectLearningMaterialForm();
+        startLearningMaterialTimer();
+        try {
+            const res = await apiFetch(`/api/projects/${projectId}/learning-material/run`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ action, data: learningMaterialState, payload })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Oppimateriaalitoiminto epäonnistui.');
+            learningMaterialState = normalizeLearningMaterialState(data.data);
+            renderLearningMaterial();
+            setLearningMaterialStatus(data.warnings ? data.warnings : `${data.title || 'Toiminto'} valmis. Lähde: ${data.generated_by}.`);
+            loadUsage();
+        } catch (err) {
+            setLearningMaterialStatus(networkFailureMessage(err), true);
+            loadUsage();
+        } finally {
+            stopLearningMaterialTimer();
+        }
+    }
+
+    function saveLearningStatuses() {
+        document.querySelectorAll('.om-status-select').forEach(select => {
+            learningMaterialState.statuses[select.dataset.statusKey] = select.value;
+        });
+        saveLearningMaterialState(true);
+    }
+
+    function downloadLearningMaterialText() {
+        const text = learningMaterialExportText();
+        const title = (learningMaterialState.project?.title || 'oppimateriaali').toLowerCase().replace(/[^a-z0-9åäö]+/gi, '-').replace(/^-|-$/g, '') || 'oppimateriaali';
+        const blob = new Blob([text], {type: 'text/plain;charset=utf-8'});
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${title}.txt`;
+        link.click();
+        URL.revokeObjectURL(link.href);
     }
 
     function collectBiographyForm() {
@@ -3636,11 +4243,64 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    document.getElementById('om-refresh-btn')?.addEventListener('click', () => loadProjects().then(() => loadLearningMaterialState(true)));
+    document.getElementById('om-create-project-btn')?.addEventListener('click', createLearningMaterialProject);
+    document.getElementById('om-save-project-btn')?.addEventListener('click', () => saveLearningMaterialState(true));
+    document.getElementById('om-project-select')?.addEventListener('change', () => {
+        const selected = activeLearningProject();
+        if (selected) {
+            setActiveManuscript(selected);
+            localStorage.setItem(ACTIVE_PROJECT_ID_KEY, String(selected.id));
+        }
+        loadLearningMaterialState(true);
+    });
+    document.getElementById('om-add-target-btn')?.addEventListener('click', addOrUpdateLearningTarget);
+    document.getElementById('om-save-ops-btn')?.addEventListener('click', () => saveLearningMaterialState(true));
+    document.getElementById('om-save-brief-btn')?.addEventListener('click', () => saveLearningMaterialState(true));
+    document.getElementById('om-generate-outline-btn')?.addEventListener('click', () => runLearningMaterialAction('outline'));
+    document.getElementById('om-save-outline-btn')?.addEventListener('click', () => saveLearningMaterialState(true));
+    document.getElementById('om-generate-materials-btn')?.addEventListener('click', () => runLearningMaterialAction('materials'));
+    document.getElementById('om-save-materials-btn')?.addEventListener('click', () => saveLearningMaterialState(true));
+    document.getElementById('om-regenerate-material-btn')?.addEventListener('click', () => {
+        const materialType = document.getElementById('om-material-type')?.value || 'learner_text';
+        runLearningMaterialAction('regenerate', {
+            material_type: materialType,
+            instructions: document.getElementById('om-regenerate-instructions')?.value || '',
+            current_content: document.getElementById('om-material-content')?.value || ''
+        });
+    });
+    document.getElementById('om-run-validation-btn')?.addEventListener('click', () => runLearningMaterialAction('validate'));
+    document.getElementById('om-save-validation-btn')?.addEventListener('click', () => saveLearningMaterialState(true));
+    document.getElementById('om-save-statuses-btn')?.addEventListener('click', saveLearningStatuses);
+    document.getElementById('om-refresh-export-btn')?.addEventListener('click', renderLearningExport);
+    document.getElementById('om-download-txt-btn')?.addEventListener('click', downloadLearningMaterialText);
+    document.getElementById('om-print-btn')?.addEventListener('click', () => window.print());
+    document.getElementById('om-material-type')?.addEventListener('change', () => {
+        saveCurrentLearningMaterialEditor();
+        renderSelectedLearningMaterial();
+    });
+    [
+        'om-period-length',
+        'om-hours-total',
+        'om-concepts',
+        'om-task-types',
+        'om-material-formats',
+        'om-assessment-method',
+        'om-teacher-priorities'
+    ].forEach(id => document.getElementById(id)?.addEventListener('input', () => {
+        collectLearningBriefFields(learningMaterialState);
+        renderLearningBrief();
+    }));
+
     {
         loadUsage();
         loadTranslationModels();
         loadMiscModels();
-        loadProjects().catch(() => {
+        loadProjects().then(() => {
+            if (currentUser && currentUser.role === 'oppimateriaali') {
+                loadLearningMaterialState(false);
+            }
+        }).catch(() => {
             const saved = localStorage.getItem('skriptlab_manuscript');
             if (saved) {
                 try {
