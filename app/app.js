@@ -2960,6 +2960,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const select = document.getElementById('misc-project-select');
         const selectedId = select?.value || window.manuscriptData?.id;
         if (!selectedId) return null;
+        if (window.manuscriptData?.id && String(window.manuscriptData.id) === String(selectedId)) {
+            return window.manuscriptData;
+        }
         return availableProjects.find(project => String(project.id) === String(selectedId)) || null;
     }
 
@@ -3259,12 +3262,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function miscRequestPayload() {
         const project = currentMiscProject();
-        return {
+        const payload = {
             project_id: project ? project.id : null,
             tool: document.getElementById('misc-tool-select')?.value || 'character_index',
             model: document.getElementById('misc-model-select')?.value || null,
             instructions: document.getElementById('misc-instructions')?.value || ''
         };
+        if (project?.id && window.manuscriptData?.id && String(project.id) === String(window.manuscriptData.id)) {
+            payload.title = window.manuscriptData.title || project.title || '';
+            payload.author = window.manuscriptData.author || project.author || '';
+            payload.chapters = Array.isArray(window.manuscriptData.chapters) ? window.manuscriptData.chapters : [];
+        }
+        return payload;
     }
 
     function miscProgressText(seconds) {
