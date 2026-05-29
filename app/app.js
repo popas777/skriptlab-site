@@ -2,35 +2,61 @@ const API_BASE_URL = (window.SKRIPTLAB_CONFIG && window.SKRIPTLAB_CONFIG.API_BAS
 const apiUrl = (path) => `${API_BASE_URL}${path}`;
 const apiFetch = (path, options) => window.SkriptLabAuth.fetch(path, options);
 const ACTIVE_PROJECT_ID_KEY = "skriptlab_active_project_id";
-let manuscriptSaveSequence = 0;
+let manuscriptSaveQueue = Promise.resolve();
+let manuscriptSaveRequestId = 0;
+
+function markLocalManuscriptDraft(data, pendingSync = true) {
+    if (!data) return;
+    data._local_saved_at = Date.now();
+    data._db_sync_pending = Boolean(pendingSync);
+    if (data.id) localStorage.setItem(ACTIVE_PROJECT_ID_KEY, String(data.id));
+    localStorage.setItem('skriptlab_manuscript', JSON.stringify(data));
+}
+
+function projectPayloadForSave(data) {
+    const payload = JSON.parse(JSON.stringify(data || {}));
+    delete payload._local_saved_at;
+    delete payload._db_sync_pending;
+    delete payload._needs_db_sync;
+    return payload;
+}
 
 if (!window.SkriptLabAuth.requireLogin()) {
     throw new Error("Login required.");
 }
 
-window.saveManuscriptToDB = async function(data) {
-    if (!data) return;
-    const saveSequence = ++manuscriptSaveSequence;
-    try {
-        const res = await apiFetch('/api/projects', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(data)
-        });
-        const saved = await res.json();
-        if (!res.ok) throw new Error(saved.detail || "Tallennus epäonnistui.");
-        if (saveSequence !== manuscriptSaveSequence) return data;
-        const currentChapters = Array.isArray(data.chapters) && data.chapters.length ? data.chapters : saved.chapters;
-        Object.assign(data, saved);
-        if (currentChapters) data.chapters = currentChapters;
-        if (data.id) localStorage.setItem(ACTIVE_PROJECT_ID_KEY, String(data.id));
-        localStorage.setItem('skriptlab_manuscript', JSON.stringify(data));
-        return data;
-    } catch (e) {
-        console.error("DB Save fail", e);
-        localStorage.setItem('skriptlab_manuscript', JSON.stringify(data));
-        return data;
-    }
+window.saveManuscriptToDB = function(data) {
+    if (!data) return Promise.resolve(data);
+    const requestId = ++manuscriptSaveRequestId;
+    markLocalManuscriptDraft(data);
+    manuscriptSaveQueue = manuscriptSaveQueue.catch(() => null).then(async () => {
+        try {
+            const res = await apiFetch('/api/projects', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(projectPayloadForSave(data))
+            });
+            const saved = await res.json();
+            if (!res.ok) throw new Error(saved.detail || "Tallennus epäonnistui.");
+            const currentChapters = Array.isArray(data.chapters) && data.chapters.length ? data.chapters : saved.chapters;
+            const currentTitle = data.title;
+            const currentAuthor = data.author;
+            const currentAnalysis = data.analysis;
+            Object.assign(data, saved);
+            if (currentChapters) data.chapters = currentChapters;
+            if (currentTitle) data.title = currentTitle;
+            if (currentAuthor) data.author = currentAuthor;
+            if (currentAnalysis) data.analysis = currentAnalysis;
+            delete data._needs_db_sync;
+            markLocalManuscriptDraft(data, requestId !== manuscriptSaveRequestId);
+            return data;
+        } catch (e) {
+            console.error("DB Save fail", e);
+            markLocalManuscriptDraft(data, true);
+            return data;
+        }
+    });
+    return manuscriptSaveQueue;
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -974,6 +1000,30 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.renderNavList) window.renderNavList();
     }
 
+    function syncWritingEditorToManuscript() {
+        const textEl = document.getElementById('writing-text');
+        if (!textEl || !window.manuscriptData) return false;
+        const chapter = window.manuscriptData.chapters?.[writingSelection.cIndex];
+        if (!chapter) return false;
+        applyParsedChapterText(chapter, textEl.value);
+        writingSelection.pIndex = Math.min(writingSelection.pIndex || 0, chapter.paragraphs.length - 1);
+        markLocalManuscriptDraft(window.manuscriptData);
+        return true;
+    }
+
+    let writingAutosaveTimer = null;
+
+    function scheduleWritingAutosave() {
+        if (!syncWritingEditorToManuscript()) return;
+        window.clearTimeout(writingAutosaveTimer);
+        writingAutosaveTimer = window.setTimeout(() => {
+            if (syncWritingEditorToManuscript()) {
+                window.saveManuscriptToDB(window.manuscriptData);
+                renderBookOverview();
+            }
+        }, 1200);
+    }
+
     function currentWritingParagraphs() {
         const textEl = document.getElementById('writing-text');
         const text = textEl ? textEl.value : '';
@@ -1206,12 +1256,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function saveWritingText(showAlert = true) {
-        const textEl = document.getElementById('writing-text');
-        if (!textEl || !window.manuscriptData) return;
-        const chapter = window.manuscriptData.chapters?.[writingSelection.cIndex];
-        if (!chapter) return;
-        applyParsedChapterText(chapter, textEl.value);
-        writingSelection.pIndex = Math.min(writingSelection.pIndex || 0, chapter.paragraphs.length - 1);
+        window.clearTimeout(writingAutosaveTimer);
+        if (!syncWritingEditorToManuscript()) return;
         persistManuscriptEdits();
         if (showAlert) alert('Luku tallennettu ja kappalerakenne päivitetty.');
     }
@@ -2459,7 +2505,13 @@ document.addEventListener('DOMContentLoaded', () => {
         ['keyup', 'click', 'input', 'select'].forEach(eventName => {
             writingTextArea.addEventListener(eventName, updateWritingPositionFromCursor);
         });
+        writingTextArea.addEventListener('input', scheduleWritingAutosave);
     }
+    window.addEventListener('beforeunload', () => {
+        if (currentViewId === 'view-kirjoita') {
+            syncWritingEditorToManuscript();
+        }
+    });
 
     function createManuscriptFromText(title, text) {
         let bookData = {
@@ -2790,8 +2842,37 @@ document.addEventListener('DOMContentLoaded', () => {
         gridCards.appendChild(newCard);
     }
 
+    function localManuscriptDraft() {
+        const saved = localStorage.getItem('skriptlab_manuscript');
+        if (!saved) return null;
+        try {
+            const parsed = JSON.parse(saved);
+            return parsed && parsed.id ? parsed : null;
+        } catch (err) {
+            return null;
+        }
+    }
+
+    function mergeActiveLocalDraft(projects) {
+        const list = projects || [];
+        const localDraft = localManuscriptDraft();
+        const activeId = localStorage.getItem(ACTIVE_PROJECT_ID_KEY);
+        if (!localDraft?._db_sync_pending || !activeId || String(localDraft.id) !== String(activeId)) {
+            return list;
+        }
+        localDraft._needs_db_sync = true;
+        const index = list.findIndex(project => String(project.id) === String(localDraft.id));
+        if (index >= 0) {
+            const merged = list.slice();
+            merged[index] = Object.assign({}, merged[index], localDraft);
+            return merged;
+        }
+        return [localDraft, ...list];
+    }
+
     function renderProjectCards(projects) {
-        availableProjects = projects || [];
+        projects = mergeActiveLocalDraft(projects || []);
+        availableProjects = projects;
         const gridCards = document.querySelector('#view-kirjani .grid-cards');
         if (!gridCards) return;
         gridCards.innerHTML = '';
@@ -2814,6 +2895,9 @@ document.addEventListener('DOMContentLoaded', () => {
             : (projects.length === 1 ? projects[0] : null);
         if (selected) {
             setActiveManuscript(selected);
+            if (selected._needs_db_sync) {
+                window.saveManuscriptToDB(window.manuscriptData);
+            }
         } else {
             clearActiveManuscript();
         }
