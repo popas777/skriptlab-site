@@ -36,7 +36,8 @@
             color: var(--text-secondary);
             font-size: 14px;
         }
-        .settings-row input {
+        .settings-row input,
+        .settings-row textarea {
             padding: 12px 16px;
             border-radius: 8px;
             border: 1px solid var(--border-color);
@@ -45,7 +46,13 @@
             font-family: inherit;
             outline: none;
         }
-        .settings-row input:focus {
+        .settings-row textarea {
+            resize: vertical;
+            min-height: 110px;
+            line-height: 1.5;
+        }
+        .settings-row input:focus,
+        .settings-row textarea:focus {
             border-color: var(--accent-color);
         }
         .feedback-list .user-item {
@@ -200,12 +207,32 @@
                             <input id="invite-days" type="text" inputmode="numeric" value="30">
                         </div>
                     </div>
+
+                    <div class="settings-row">
+                        <label style="display:flex; flex-direction:row; align-items:center; gap:8px; margin-bottom:0;">
+                            <input id="invite-send-email" type="checkbox" style="width:auto; padding:0;">
+                            Lähetä kutsukoodi sähköpostiin
+                        </label>
+                    </div>
+
+                    <div class="settings-row">
+                        <label>Sähköpostin otsikko</label>
+                        <input id="invite-email-subject" type="text" value="SkriptLab-kutsukoodi">
+                    </div>
+
+                    <div class="settings-row">
+                        <label>Saateteksti</label>
+                        <textarea id="invite-email-message">Hei,
+
+sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
+                    </div>
                     
                     <button id="create-invite-btn" class="btn btn-primary">Luo kutsu</button>
                     <p id="invite-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
                     <div id="new-invite-code" class="hidden" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.28); border-radius: 8px; padding: 12px; margin: 12px 0 24px;">
                         <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px;">Kutsukoodi näytetään vain kerran.</p>
                         <code id="invite-code-value" style="display:block; color: var(--text-primary); font-size: 15px; word-break: break-all;"></code>
+                        <a id="invite-mailto-link" class="btn btn-secondary hidden" href="#" style="display:inline-block; margin-top:10px; font-size:12px; padding:7px 10px;">Avaa sähköpostiohjelmassa</a>
                     </div>
 
                     <div class="settings-row" style="margin-top: 24px;">
@@ -310,10 +337,14 @@
         const inviteRole = document.getElementById('invite-role');
         const inviteMaxUses = document.getElementById('invite-max-uses');
         const inviteDays = document.getElementById('invite-days');
+        const inviteSendEmail = document.getElementById('invite-send-email');
+        const inviteEmailSubject = document.getElementById('invite-email-subject');
+        const inviteEmailMessage = document.getElementById('invite-email-message');
         const createInviteBtn = document.getElementById('create-invite-btn');
         const inviteStatus = document.getElementById('invite-status');
         const newInviteCode = document.getElementById('new-invite-code');
         const inviteCodeValue = document.getElementById('invite-code-value');
+        const inviteMailtoLink = document.getElementById('invite-mailto-link');
         const inviteList = document.getElementById('invite-list');
         const adminUserList = document.getElementById('admin-user-list');
         const usageLimitPanel = document.getElementById('usage-limit-panel');
@@ -361,6 +392,36 @@
         function formatDateTime(value) {
             if (!value) return '-';
             return new Date(value).toLocaleString('fi-FI');
+        }
+
+        function inviteEmailBody(invite, message, code) {
+            const intro = (message || '').trim() || 'Hei,\n\nsinulle on luotu kutsu SkriptLab-palveluun.';
+            const lines = [
+                intro,
+                '',
+                `Kutsukoodi: ${code}`,
+                'Kirjautumissivu: https://skriptlab.com/app/login.html',
+                `Käyttäjäryhmä: ${invite.role}`,
+                '',
+                'Syötä kirjautumissivulla oma sähköpostiosoitteesi ja kutsukoodi.',
+                '',
+                'Ystävällisin terveisin',
+                'SkriptLab'
+            ];
+            if (invite.email) lines.splice(4, 0, `Sähköposti: ${invite.email}`);
+            if (invite.expires_at) lines.splice(invite.email ? 6 : 5, 0, `Koodi on voimassa ${formatDate(invite.expires_at)} asti.`);
+            return lines.join('\n');
+        }
+
+        function updateInviteMailtoLink(invite, code) {
+            if (!inviteMailtoLink || !invite.email || !code) {
+                if (inviteMailtoLink) inviteMailtoLink.classList.add('hidden');
+                return;
+            }
+            const subject = (inviteEmailSubject?.value || 'SkriptLab-kutsukoodi').trim();
+            const body = inviteEmailBody(invite, inviteEmailMessage?.value || '', code);
+            inviteMailtoLink.href = `mailto:${encodeURIComponent(invite.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            inviteMailtoLink.classList.remove('hidden');
         }
 
         function statusBadge(ok, labelOk = 'OK', labelBad = 'Huomio') {
@@ -462,6 +523,13 @@
                         <p>${escapeHtml(providers || 'Ei providereita')}</p>
                     </div>
                     ${statusBadge(Object.values(status.provider_credentials || {}).some(Boolean), 'OK', 'Puuttuu')}
+                </div>
+                <div class="user-item">
+                    <div class="user-info">
+                        <h4>Kutsusähköposti</h4>
+                        <p>${status.invite_email_configured ? 'SMTP-asetukset käytössä' : 'SMTP-asetuksia ei ole asetettu'}</p>
+                    </div>
+                    ${statusBadge(status.invite_email_configured, 'OK', 'Ei käytössä')}
                 </div>
                 <div class="user-item">
                     <div class="user-info">
@@ -699,12 +767,20 @@
                 createInviteBtn.disabled = true;
                 inviteStatus.textContent = 'Luodaan kutsua...';
                 newInviteCode.classList.add('hidden');
+                if (inviteMailtoLink) inviteMailtoLink.classList.add('hidden');
                 try {
+                    const targetEmail = inviteEmail.value.trim();
+                    if (inviteSendEmail?.checked && !targetEmail) {
+                        throw new Error('Lisää sähköpostiosoite, jos haluat lähettää kutsun sähköpostiin.');
+                    }
                     const payload = {
-                        email: inviteEmail.value.trim() || null,
+                        email: targetEmail || null,
                         role: inviteRole.value,
                         max_uses: parseInt(inviteMaxUses.value || '1', 10),
-                        days_valid: parseInt(inviteDays.value || '30', 10)
+                        days_valid: parseInt(inviteDays.value || '30', 10),
+                        send_email: Boolean(inviteSendEmail?.checked),
+                        email_subject: inviteEmailSubject?.value.trim() || null,
+                        email_message: inviteEmailMessage?.value || null
                     };
                     const res = await window.SkriptLabAuth.fetch('/api/admin/invites', {
                         method: 'POST',
@@ -713,8 +789,15 @@
                     });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.detail || 'Kutsun luonti epäonnistui.');
-                    inviteStatus.textContent = `Kutsu luotu: ${data.email || 'avoin kutsu'}`;
+                    if (payload.send_email) {
+                        inviteStatus.textContent = data.email_sent
+                            ? `Kutsu luotu ja lähetetty: ${data.email}`
+                            : `Kutsu luotu, mutta sähköpostia ei lähetetty: ${data.email_error || 'lähetys epäonnistui'}`;
+                    } else {
+                        inviteStatus.textContent = `Kutsu luotu: ${data.email || 'avoin kutsu'}`;
+                    }
                     inviteCodeValue.textContent = data.invite_code;
+                    updateInviteMailtoLink(data, data.invite_code);
                     newInviteCode.classList.remove('hidden');
                     inviteEmail.value = '';
                     await loadInvites();
