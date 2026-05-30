@@ -149,17 +149,7 @@
 
             <!-- 1. VIEW: KIRJANI -->
             <div id="view-kirjani" class="view-section">
-                <div class="header">
-                    <div class="header-info">
-                        <h2>Käsikirjoitukseni</h2>
-                        <p>Aloita uusi käsikirjoitus tai jatka aiemmin tallennettua työtä</p>
-                    </div>
-                    <div class="header-actions">
-                        <input type="file" id="manuscript-upload" accept=".txt,.md,.docx,.pdf,.rtf,.odt,.html,.htm" style="display:none">
-                        <button class="btn btn-secondary" id="create-empty-doc-btn" type="button">+ Tyhjä dokumentti</button>
-                        <button class="btn btn-primary" onclick="document.getElementById('manuscript-upload').click()">+ Lataa Käsikirjoitus</button>
-                    </div>
-                </div>
+                <input type="file" id="manuscript-upload" accept=".txt,.md,.docx,.pdf,.rtf,.odt,.html,.htm" style="display:none">
                 <section class="app-intro-card glass-panel">
                     <div class="app-intro-copy">
                         <span class="app-intro-kicker">Aloita tästä</span>
@@ -171,7 +161,7 @@
                     </div>
                     <div class="app-intro-actions">
                         <button class="btn btn-primary" type="button" onclick="document.getElementById('manuscript-upload').click()">Lataa käsikirjoitus</button>
-                        <button class="btn btn-secondary" type="button" onclick="document.getElementById('create-empty-doc-btn').click()">Aloita tyhjästä</button>
+                        <button class="btn btn-secondary" id="create-empty-doc-btn" type="button">Aloita tyhjästä</button>
                     </div>
                     <div class="app-intro-steps">
                         <div>
