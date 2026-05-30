@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=32">
+    <link rel="stylesheet" href="styles.css?v=33">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -47,7 +47,7 @@
 
     <nav class="top-bar glass-panel">
         <div class="top-bar-left">
-            <button class="icon-btn" id="toggle-sidebar" title="Piilota sivuvalikko">
+            <button class="icon-btn" id="toggle-sidebar" title="Avaa valikko" aria-controls="sidebar" aria-expanded="false">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
             </button>
             <div class="context-info">
@@ -142,6 +142,7 @@
                 <button class="btn btn-secondary" id="settings-btn" type="button">Asetukset</button>
             </div>
         </aside>
+        <div class="sidebar-backdrop" id="sidebar-backdrop" hidden></div>
 
         <!-- Main Content -->
         <main class="main-content">
@@ -1579,6 +1580,6 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=2"></script>
-    <script src="app.js?v=37"></script>
+    <script src="app.js?v=38"></script>
 </body>
 </html>

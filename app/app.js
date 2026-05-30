@@ -1567,10 +1567,52 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 1. Top Bar Logic ---
     const toggleSidebarBtn = document.getElementById('toggle-sidebar');
     const sidebar = document.getElementById('sidebar');
-    
+    const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+    const appWrapper = document.getElementById('app-wrapper');
+    const mobileLayoutQuery = window.matchMedia('(max-width: 860px)');
+
+    function isMobileShell() {
+        return mobileLayoutQuery.matches || appWrapper.classList.contains('mobile-simulate');
+    }
+
+    function setSidebarDrawer(open) {
+        if (!sidebar) return;
+        sidebar.classList.remove('hidden');
+        appWrapper.classList.toggle('sidebar-open', Boolean(open));
+        document.body.classList.toggle('sidebar-drawer-open', Boolean(open));
+        if (sidebarBackdrop) sidebarBackdrop.hidden = !open;
+        if (toggleSidebarBtn) {
+            toggleSidebarBtn.setAttribute('aria-expanded', String(Boolean(open)));
+            toggleSidebarBtn.title = open ? 'Sulje valikko' : 'Avaa valikko';
+        }
+    }
+
+    function syncSidebarMode() {
+        if (isMobileShell()) {
+            setSidebarDrawer(false);
+        } else {
+            appWrapper.classList.remove('sidebar-open');
+            document.body.classList.remove('sidebar-drawer-open');
+            if (sidebarBackdrop) sidebarBackdrop.hidden = true;
+            if (toggleSidebarBtn) {
+                toggleSidebarBtn.setAttribute('aria-expanded', String(!sidebar.classList.contains('hidden')));
+                toggleSidebarBtn.title = sidebar.classList.contains('hidden') ? 'Avaa sivuvalikko' : 'Piilota sivuvalikko';
+            }
+        }
+    }
+
     toggleSidebarBtn.addEventListener('click', () => {
+        if (isMobileShell()) {
+            setSidebarDrawer(!appWrapper.classList.contains('sidebar-open'));
+            return;
+        }
         sidebar.classList.toggle('hidden');
+        syncSidebarMode();
     });
+
+    if (sidebarBackdrop) {
+        sidebarBackdrop.addEventListener('click', () => setSidebarDrawer(false));
+    }
 
     const toggleThemeBtn = document.getElementById('toggle-theme');
     toggleThemeBtn.addEventListener('click', () => {
@@ -1594,10 +1636,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const toggleMobileBtn = document.getElementById('toggle-mobile');
-    const appWrapper = document.getElementById('app-wrapper');
     toggleMobileBtn.addEventListener('click', () => {
         appWrapper.classList.toggle('mobile-simulate');
+        syncSidebarMode();
     });
+    if (mobileLayoutQuery.addEventListener) {
+        mobileLayoutQuery.addEventListener('change', syncSidebarMode);
+    } else if (mobileLayoutQuery.addListener) {
+        mobileLayoutQuery.addListener(syncSidebarMode);
+    }
+    syncSidebarMode();
 
     // --- 2. SPA Navigation Logic ---
     const navItems = document.querySelectorAll('#nav-menu li[data-view]');
@@ -1648,6 +1696,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const nextViewId = item.getAttribute('data-view');
             persistPendingModuleEdits(nextViewId);
             openModule(nextViewId);
+            if (isMobileShell()) setSidebarDrawer(false);
             if (nextViewId === 'view-kirja') {
                 renderBookOverview();
             }
