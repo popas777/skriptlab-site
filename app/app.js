@@ -13,11 +13,14 @@ function markLocalManuscriptDraft(data, pendingSync = true) {
     localStorage.setItem('skriptlab_manuscript', JSON.stringify(data));
 }
 
-function projectPayloadForSave(data) {
+function projectPayloadForSave(data, options = {}) {
     const payload = JSON.parse(JSON.stringify(data || {}));
     delete payload._local_saved_at;
     delete payload._db_sync_pending;
     delete payload._needs_db_sync;
+    delete payload._pending_save_kind;
+    delete payload._pending_chapter_index;
+    payload.replace_chapters = Boolean(options.replaceChapters);
     return payload;
 }
 
@@ -34,24 +37,36 @@ function structurePayloadForSave(data) {
     };
 }
 
+function hasAnalysisPayload(value) {
+    return value && typeof value === 'object' && Object.keys(value).length > 0;
+}
+
 if (!window.SkriptLabAuth.requireLogin()) {
     throw new Error("Login required.");
 }
 
-window.saveManuscriptToDB = function(data) {
+window.saveManuscriptToDB = function(data, options = {}) {
     if (!data) return Promise.resolve(data);
     const requestId = ++manuscriptSaveRequestId;
+    if (options.replaceChapters) {
+        data._pending_save_kind = 'replace_chapters';
+        delete data._pending_chapter_index;
+    } else if (!data._pending_save_kind) {
+        delete data._pending_chapter_index;
+    }
     markLocalManuscriptDraft(data);
     manuscriptSaveQueue = manuscriptSaveQueue.catch(() => null).then(async () => {
         try {
             const res = await apiFetch('/api/projects', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(projectPayloadForSave(data))
+                body: JSON.stringify(projectPayloadForSave(data, options))
             });
             const saved = await res.json();
             if (!res.ok) throw new Error(saved.detail || "Tallennus epäonnistui.");
-            const currentChapters = Array.isArray(data.chapters) && data.chapters.length ? data.chapters : saved.chapters;
+            const currentChapters = options.replaceChapters
+                ? (Array.isArray(data.chapters) && data.chapters.length ? data.chapters : saved.chapters)
+                : (Array.isArray(saved.chapters) ? saved.chapters : data.chapters);
             const currentTitle = data.title;
             const currentAuthor = data.author;
             const currentAnalysis = data.analysis;
@@ -59,8 +74,10 @@ window.saveManuscriptToDB = function(data) {
             if (currentChapters) data.chapters = currentChapters;
             if (currentTitle) data.title = currentTitle;
             if (currentAuthor) data.author = currentAuthor;
-            if (currentAnalysis) data.analysis = currentAnalysis;
+            if (hasAnalysisPayload(currentAnalysis)) data.analysis = currentAnalysis;
             delete data._needs_db_sync;
+            delete data._pending_save_kind;
+            delete data._pending_chapter_index;
             markLocalManuscriptDraft(data, requestId !== manuscriptSaveRequestId);
             return data;
         } catch (e) {
@@ -72,6 +89,10 @@ window.saveManuscriptToDB = function(data) {
     return manuscriptSaveQueue;
 };
 
+window.replaceProjectChaptersInDB = function(data) {
+    return window.saveManuscriptToDB(data, { replaceChapters: true });
+};
+
 window.flushManuscriptSaveQueue = function() {
     return manuscriptSaveQueue.catch(() => null);
 };
@@ -80,6 +101,8 @@ window.saveProjectChapterToDB = function(data, chapterIndex) {
     const chapter = data?.chapters?.[chapterIndex];
     if (!data?.id || !chapter) return window.saveManuscriptToDB(data);
     const requestId = ++manuscriptSaveRequestId;
+    data._pending_save_kind = 'chapter';
+    data._pending_chapter_index = chapterIndex;
     markLocalManuscriptDraft(data);
     manuscriptSaveQueue = manuscriptSaveQueue.catch(() => null).then(async () => {
         try {
@@ -98,8 +121,10 @@ window.saveProjectChapterToDB = function(data, chapterIndex) {
             data.chapters = currentChapters;
             if (currentTitle) data.title = currentTitle;
             if (currentAuthor) data.author = currentAuthor;
-            if (currentAnalysis) data.analysis = currentAnalysis;
+            if (hasAnalysisPayload(currentAnalysis)) data.analysis = currentAnalysis;
             delete data._needs_db_sync;
+            delete data._pending_save_kind;
+            delete data._pending_chapter_index;
             markLocalManuscriptDraft(data, requestId !== manuscriptSaveRequestId);
             return data;
         } catch (e) {
@@ -116,6 +141,8 @@ window.saveProjectStructureToDB = function(data) {
         return window.saveManuscriptToDB(data);
     }
     const requestId = ++manuscriptSaveRequestId;
+    data._pending_save_kind = 'structure';
+    delete data._pending_chapter_index;
     markLocalManuscriptDraft(data);
     manuscriptSaveQueue = manuscriptSaveQueue.catch(() => null).then(async () => {
         try {
@@ -134,8 +161,10 @@ window.saveProjectStructureToDB = function(data) {
             data.chapters = currentChapters;
             if (currentTitle) data.title = currentTitle;
             if (currentAuthor) data.author = currentAuthor;
-            if (currentAnalysis) data.analysis = currentAnalysis;
+            if (hasAnalysisPayload(currentAnalysis)) data.analysis = currentAnalysis;
             delete data._needs_db_sync;
+            delete data._pending_save_kind;
+            delete data._pending_chapter_index;
             markLocalManuscriptDraft(data, requestId !== manuscriptSaveRequestId);
             return data;
         } catch (e) {
@@ -1259,7 +1288,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .trim();
     }
 
-    function cleanCurrentWritingChapter() {
+    async function cleanCurrentWritingChapter() {
         const textEl = document.getElementById('writing-text');
         if (!textEl || !window.manuscriptData?.chapters?.[writingSelection.cIndex]) {
             alert('Valitse puhdistettava luku ensin.');
@@ -1272,17 +1301,17 @@ document.addEventListener('DOMContentLoaded', () => {
             ? [`${parsed.idPrefix === 'aliluku' ? '##' : '#'} ${parsed.title}`, cleaned].filter(Boolean).join('\n\n')
             : cleaned;
         writingSelection.pIndex = 0;
-        saveWritingText(false);
+        await saveWritingText(false);
         renderWritingView();
         setWritingToolStatus('Teksti puhdistettu valitusta luvusta.');
     }
 
-    function restructureWritingManuscript() {
+    async function restructureWritingManuscript() {
         if (!window.manuscriptData?.chapters?.length) {
             alert('Lataa tai valitse käsikirjoitus ensin.');
             return;
         }
-        saveWritingText(false);
+        await saveWritingText(false);
         const sourceText = cleanManuscriptText(getFullManuscriptText(window.manuscriptData));
         if (!sourceText) {
             alert('Käsikirjoituksesta ei löytynyt jaoteltavaa tekstiä.');
@@ -1298,7 +1327,9 @@ document.addEventListener('DOMContentLoaded', () => {
         window.manuscriptData.chapters = chapters;
         writingSelection = { cIndex: firstBodyChapterIndex(chapters), pIndex: 0 };
         window.currentEditSelection = { cIndex: writingSelection.cIndex, pIndex: 0 };
-        persistManuscriptEdits();
+        await window.replaceProjectChaptersInDB(window.manuscriptData);
+        renderBookOverview();
+        if (window.renderNavList) window.renderNavList();
         renderWritingView();
         if (window.loadParagraph) window.loadParagraph(writingSelection.cIndex, 0, null);
         setWritingToolStatus('Uusi luku- ja kappalejako tallennettu.');
@@ -1382,24 +1413,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function addWritingParagraph() {
+    async function addWritingParagraph() {
         if (!window.manuscriptData) {
             alert('Lataa tai valitse käsikirjoitus ensin.');
             return;
         }
+        syncWritingEditorToManuscript();
         const chapterIndex = writingSelection.cIndex ?? firstBodyChapterIndex(window.manuscriptData.chapters);
         const chapter = window.manuscriptData.chapters[chapterIndex];
         if (!chapter) return;
         chapter.paragraphs.push('');
         writingSelection = { cIndex: chapterIndex, pIndex: chapter.paragraphs.length - 1 };
         renderWritingView();
+        await window.saveProjectChapterToDB(window.manuscriptData, chapterIndex);
+        renderBookOverview();
     }
 
-    function deleteWritingParagraph() {
+    async function deleteWritingParagraph() {
         if (!window.manuscriptData) {
             alert('Lataa tai valitse käsikirjoitus ensin.');
             return;
         }
+        syncWritingEditorToManuscript();
         const chapter = window.manuscriptData.chapters?.[writingSelection.cIndex];
         if (!chapter || writingSelection.pIndex === null || writingSelection.pIndex === undefined) {
             alert('Valitse poistettava kappale ensin.');
@@ -1409,7 +1444,9 @@ document.addEventListener('DOMContentLoaded', () => {
         chapter.paragraphs.splice(writingSelection.pIndex, 1);
         if (chapter.paragraphs.length === 0) chapter.paragraphs.push('');
         writingSelection.pIndex = Math.min(writingSelection.pIndex, chapter.paragraphs.length - 1);
-        persistManuscriptEdits();
+        await window.saveProjectChapterToDB(window.manuscriptData, writingSelection.cIndex);
+        renderBookOverview();
+        if (window.renderNavList) window.renderNavList();
         renderWritingView();
     }
 
@@ -1940,19 +1977,20 @@ document.addEventListener('DOMContentLoaded', () => {
         renderEditedDiffPreview();
     }
 
-    function applyMassTextTransform(transform, statusText) {
+    async function applyMassTextTransform(transform, statusText) {
         if (!window.manuscriptData?.chapters?.length) {
             alert('Lataa tai valitse käsikirjoitus ensin.');
             return;
         }
+        syncEditedTargetToManuscript({ showAlerts: false });
         const scope = massEditSelectionScope();
+        const sel = window.currentEditSelection || {};
         if (scope === 'book') {
             window.manuscriptData.chapters.forEach(chapter => {
                 chapter.title = transform(chapter.title || '');
                 chapter.paragraphs = (chapter.paragraphs || []).map(paragraph => transform(paragraph));
             });
         } else {
-            const sel = window.currentEditSelection || {};
             const chapter = window.manuscriptData.chapters[sel.cIndex];
             if (!chapter) {
                 alert('Valitse luku ensin.');
@@ -1961,12 +1999,18 @@ document.addEventListener('DOMContentLoaded', () => {
             chapter.title = transform(chapter.title || '');
             chapter.paragraphs = (chapter.paragraphs || []).map(paragraph => transform(paragraph));
         }
-        persistManuscriptEdits();
+        if (scope === 'book') {
+            await window.replaceProjectChaptersInDB(window.manuscriptData);
+        } else {
+            await window.saveProjectChapterToDB(window.manuscriptData, sel.cIndex);
+        }
+        renderBookOverview();
+        if (window.renderNavList) window.renderNavList();
         renderWritingView();
-        const sel = window.currentEditSelection || { cIndex: firstBodyChapterIndex(), pIndex: 0 };
-        if (window.loadParagraph && window.manuscriptData.chapters[sel.cIndex]) {
-            const pIndex = Math.min(sel.pIndex || 0, window.manuscriptData.chapters[sel.cIndex].paragraphs.length - 1);
-            window.loadParagraph(sel.cIndex, pIndex, null);
+        const nextSel = window.currentEditSelection || { cIndex: firstBodyChapterIndex(), pIndex: 0 };
+        if (window.loadParagraph && window.manuscriptData.chapters[nextSel.cIndex]) {
+            const pIndex = Math.min(nextSel.pIndex || 0, window.manuscriptData.chapters[nextSel.cIndex].paragraphs.length - 1);
+            window.loadParagraph(nextSel.cIndex, pIndex, null);
         }
         if (massEditStatus) massEditStatus.textContent = statusText;
     }
@@ -2126,7 +2170,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!res.ok) throw new Error(data.detail || 'Kursivointi epäonnistui.');
                     applyMassTextToChapter(target.chapter, data.edited_text || sourceText);
                 }
-                persistManuscriptEdits();
+                if (scope === 'book') {
+                    await window.replaceProjectChaptersInDB(window.manuscriptData);
+                } else {
+                    await window.saveProjectChapterToDB(window.manuscriptData, targets[0].index);
+                }
+                renderBookOverview();
+                if (window.renderNavList) window.renderNavList();
                 renderWritingView();
                 const next = window.currentEditSelection || { cIndex: firstBodyChapterIndex(), pIndex: 0 };
                 if (window.loadParagraph && window.manuscriptData.chapters[next.cIndex]) {
@@ -2185,7 +2235,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     writingSelection = { cIndex: sel.cIndex, pIndex: 0 };
                     window.currentEditSelection = { cIndex: sel.cIndex, pIndex: 0 };
                 }
-                persistManuscriptEdits();
+                await window.replaceProjectChaptersInDB(window.manuscriptData);
+                renderBookOverview();
+                if (window.renderNavList) window.renderNavList();
                 renderWritingView();
                 if (window.loadParagraph) window.loadParagraph(window.currentEditSelection.cIndex, 0, null);
                 loadUsage();
@@ -3020,7 +3072,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (selected) {
             setActiveManuscript(selected);
             if (selected._needs_db_sync) {
-                window.saveManuscriptToDB(window.manuscriptData);
+                recoverPendingManuscriptSave(window.manuscriptData);
             }
         } else {
             clearActiveManuscript();
@@ -3028,6 +3080,29 @@ document.addEventListener('DOMContentLoaded', () => {
         updateTranslationProjectSelect();
         updateMiscProjectSelect();
         updateLearningProjectSelect();
+    }
+
+    function recoverPendingManuscriptSave(data) {
+        if (!data) return;
+        let savePromise;
+        if (
+            data._pending_save_kind === 'chapter' &&
+            Number.isInteger(data._pending_chapter_index) &&
+            data.chapters?.[data._pending_chapter_index]
+        ) {
+            savePromise = window.saveProjectChapterToDB(data, data._pending_chapter_index);
+        } else if (data._pending_save_kind === 'structure') {
+            savePromise = window.saveProjectStructureToDB(data);
+        } else if (data._pending_save_kind === 'replace_chapters') {
+            savePromise = window.replaceProjectChaptersInDB(data);
+        } else {
+            savePromise = window.saveManuscriptToDB(data);
+        }
+        savePromise.then(saved => {
+            if (!saved?.id || !window.manuscriptData || String(saved.id) !== String(window.manuscriptData.id)) return;
+            setActiveManuscript(saved);
+            updateAvailableProject(saved);
+        });
     }
 
     async function loadProjects() {
@@ -4734,7 +4809,7 @@ ${state.validation || 'Ei validointia.'}`;
                 const text = data.text;
                 let bookData = createManuscriptFromText(data.title, text);
                 bookData.source_filename = data.filename;
-                bookData = await window.saveManuscriptToDB(bookData);
+                bookData = await window.replaceProjectChaptersInDB(bookData);
                 setActiveManuscript(bookData);
                 await loadProjects();
                 window.openModule('view-kirjoita');
@@ -4977,7 +5052,7 @@ ${state.validation || 'Ei validointia.'}`;
     if (editableText) editableText.addEventListener('input', scheduleEditedTargetAutosave);
 
     if (deleteEditParagraphBtn) {
-        deleteEditParagraphBtn.addEventListener('click', () => {
+        deleteEditParagraphBtn.addEventListener('click', async () => {
             const sel = window.currentEditSelection;
             const chapter = window.manuscriptData?.chapters?.[sel.cIndex];
             if (sel.cIndex === null || sel.pIndex === null || !chapter) {
@@ -4990,7 +5065,9 @@ ${state.validation || 'Ei validointia.'}`;
             const nextIndex = Math.min(sel.pIndex, chapter.paragraphs.length - 1);
             window.currentEditSelection = { cIndex: sel.cIndex, pIndex: nextIndex };
             if (writingSelection.cIndex === sel.cIndex) writingSelection.pIndex = nextIndex;
-            persistManuscriptEdits();
+            await window.saveProjectChapterToDB(window.manuscriptData, sel.cIndex);
+            renderBookOverview();
+            if (window.renderNavList) window.renderNavList();
             window.loadParagraph(sel.cIndex, nextIndex, null);
             renderWritingView();
         });
