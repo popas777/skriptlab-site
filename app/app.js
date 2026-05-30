@@ -210,7 +210,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'view-om-kokonaisuus',
         'view-om-vienti'
     ]);
-    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-muut-toiminnot', 'view-elamakerta']);
+    const writerViews = new Set(['view-kirjani', 'view-kirjoita', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-muut-toiminnot', 'view-kuvitus']);
+    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-muut-toiminnot', 'view-kuvitus']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset']);
     const biographyViews = new Set(['view-kirjani', 'view-kirjoita', 'view-elamakerta', 'view-toimitus', 'view-kuvitus', 'view-taitto', 'view-muut-toiminnot', 'view-kirja']);
     const roleLabels = {
@@ -1724,6 +1725,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function isViewAllowed(viewId) {
         if (canSeeAllModules) return true;
+        if (currentUser && currentUser.role === 'kirjailija') return writerViews.has(viewId);
         if (currentUser && currentUser.role === 'kaantaja') return translatorViews.has(viewId);
         if (currentUser && currentUser.role === 'elamakerta') return biographyViews.has(viewId);
         if (currentUser && currentUser.role === 'oppimateriaali') return learningMaterialViews.has(viewId);
@@ -2471,6 +2473,8 @@ document.addEventListener('DOMContentLoaded', () => {
             coverModelSelect.innerHTML = imageModels
                 .map(model => `<option value="${escapeHtml(`${model.provider}:${model.model_name}`)}">${escapeHtml(model.display_name)}</option>`)
                 .join('');
+            const defaultModel = imageModels.find(model => model.is_default) || imageModels[0];
+            if (defaultModel) coverModelSelect.value = `${defaultModel.provider}:${defaultModel.model_name}`;
         } catch (err) {
             coverModelSelect.innerHTML = '<option value="">Kuvamalleja ei saatu ladattua</option>';
             setIllustrationStatus(err.message, true);
