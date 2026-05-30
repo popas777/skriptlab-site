@@ -252,16 +252,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (logoutLink) {
         logoutLink.addEventListener('click', async (event) => {
             event.preventDefault();
-            const originalText = logoutLink.textContent;
-            logoutLink.textContent = 'Tallennetaan...';
+            logoutLink.textContent = 'Kirjaudutaan...';
             logoutLink.style.pointerEvents = 'none';
-            const saved = await flushPendingManuscriptEdits();
-            if (!saved) {
-                logoutLink.textContent = originalText || 'Kirjaudu ulos';
-                logoutLink.style.pointerEvents = '';
-                const leaveAnyway = confirm('Uusimpia muutoksia ei saatu varmistettua tietokantaan. Kirjaudutaanko silti ulos? Paikallinen luonnos poistuu uloskirjautuessa.');
-                if (!leaveAnyway) return;
-            }
+            await flushPendingManuscriptEdits();
             window.SkriptLabAuth.clearSession();
             window.location.href = 'login.html';
         });
@@ -1138,11 +1131,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 savePromise = window.saveProjectChapterToDB(window.manuscriptData, window.currentEditSelection?.cIndex);
             }
         }
-        if (window.manuscriptData) {
-            await (savePromise || window.saveManuscriptToDB(window.manuscriptData));
-            await window.flushManuscriptSaveQueue();
-            return !window.manuscriptData._db_sync_pending;
-        }
+        if (savePromise) await savePromise;
         await window.flushManuscriptSaveQueue();
         return true;
     }
