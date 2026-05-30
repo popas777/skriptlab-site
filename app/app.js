@@ -192,6 +192,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let imageModels = [];
     let biographyState = {};
     let biographyTimerInterval = null;
+    let biographyDictationRecognition = null;
+    let biographyDictationActive = false;
     let learningMaterialState = {};
     let learningMaterialTimerInterval = null;
     let editingLearningTargetIndex = null;
@@ -3724,6 +3726,128 @@ document.addEventListener('DOMContentLoaded', () => {
         status.style.color = isError ? '#ffb4b4' : 'var(--text-secondary)';
     }
 
+    function setBiographyDictationStatus(message, isError = false) {
+        const status = document.getElementById('bio-dictation-status');
+        if (!status) return;
+        status.textContent = message;
+        status.style.color = isError ? '#ffb4b4' : 'var(--text-secondary)';
+    }
+
+    function setBiographyDictationButton(active) {
+        const button = document.getElementById('bio-dictation-btn');
+        if (!button) return;
+        button.textContent = active ? 'Lopeta sanelu' : 'Sanele';
+        button.classList.toggle('btn-primary', active);
+        button.classList.toggle('btn-secondary', !active);
+    }
+
+    function appendDictationText(textarea, text) {
+        const cleanText = String(text || '').replace(/\s+/g, ' ').trim();
+        if (!textarea || !cleanText) return;
+        const start = textarea.selectionStart ?? textarea.value.length;
+        const end = textarea.selectionEnd ?? textarea.value.length;
+        const before = textarea.value.slice(0, start);
+        const after = textarea.value.slice(end);
+        const needsSpaceBefore = before && !/[\s\n]$/.test(before);
+        const needsSpaceAfter = after && !/^[\s.,!?;:]/.test(after);
+        const insert = `${needsSpaceBefore ? ' ' : ''}${cleanText}${needsSpaceAfter ? ' ' : ''}`;
+        textarea.value = before + insert + after;
+        const cursor = before.length + insert.length;
+        textarea.focus();
+        textarea.setSelectionRange(cursor, cursor);
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function stopBiographyDictation(message = 'Sanelu pysäytetty.') {
+        biographyDictationActive = false;
+        setBiographyDictationButton(false);
+        if (biographyDictationRecognition) {
+            try {
+                biographyDictationRecognition.stop();
+            } catch (err) {
+                // Recognition may already be stopped by the browser.
+            }
+        }
+        setBiographyDictationStatus(message);
+    }
+
+    function startBiographyDictation() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const textarea = document.getElementById('bio-material-text');
+        if (!textarea) return;
+        if (!SpeechRecognition) {
+            setBiographyDictationStatus('Sanelu ei ole käytettävissä tässä selaimessa.', true);
+            return;
+        }
+
+        if (biographyDictationRecognition) {
+            try {
+                biographyDictationRecognition.abort();
+            } catch (err) {
+                // Safe to ignore; a new recognition instance is created below.
+            }
+        }
+
+        const language = document.getElementById('bio-dictation-lang')?.value || 'fi-FI';
+        const recognition = new SpeechRecognition();
+        biographyDictationRecognition = recognition;
+        biographyDictationActive = true;
+        recognition.lang = language;
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        setBiographyDictationButton(true);
+        setBiographyDictationStatus('Kuuntelen...');
+
+        recognition.onresult = event => {
+            let finalTranscript = '';
+            let interimTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const transcript = event.results[i][0]?.transcript || '';
+                if (event.results[i].isFinal) {
+                    finalTranscript += transcript;
+                } else {
+                    interimTranscript += transcript;
+                }
+            }
+            if (finalTranscript) {
+                appendDictationText(textarea, finalTranscript);
+                setBiographyDictationStatus('Sanelu lisätty tekstikenttään.');
+            } else if (interimTranscript) {
+                setBiographyDictationStatus(`Kuuntelen: ${interimTranscript.trim()}`);
+            }
+        };
+
+        recognition.onerror = event => {
+            const message = event.error === 'not-allowed'
+                ? 'Mikrofonin käyttöä ei sallittu.'
+                : 'Sanelu keskeytyi. Kokeile uudelleen.';
+            stopBiographyDictation(message);
+            setBiographyDictationStatus(message, true);
+        };
+
+        recognition.onend = () => {
+            if (!biographyDictationActive) return;
+            biographyDictationActive = false;
+            setBiographyDictationButton(false);
+            setBiographyDictationStatus('Sanelu pysähtyi.');
+        };
+
+        try {
+            recognition.start();
+        } catch (err) {
+            stopBiographyDictation('Sanelua ei saatu käynnistettyä.');
+            setBiographyDictationStatus('Sanelua ei saatu käynnistettyä.', true);
+        }
+    }
+
+    function toggleBiographyDictation() {
+        if (biographyDictationActive) {
+            stopBiographyDictation();
+        } else {
+            startBiographyDictation();
+        }
+    }
+
     function setSelectValue(selectId, value) {
         const select = document.getElementById(selectId);
         if (!select) return;
@@ -4528,6 +4652,7 @@ ${state.validation || 'Ei validointia.'}`;
         });
         inputValue('bio-material-title', '');
         inputValue('bio-material-text', '');
+        if (biographyDictationActive) stopBiographyDictation('Aineisto lisätty ja sanelu pysäytetty.');
         renderBiography();
         saveBiographyState(false);
         setBiographyStatus('Aineisto lisätty.');
@@ -4692,6 +4817,7 @@ ${state.validation || 'Ei validointia.'}`;
     const bioSaveBtn = document.getElementById('bio-save-btn');
     const bioAddMaterialBtn = document.getElementById('bio-add-material-btn');
     const bioAddAnswersBtn = document.getElementById('bio-add-answers-btn');
+    const bioDictationBtn = document.getElementById('bio-dictation-btn');
     const bioRunAnalysisBtn = document.getElementById('bio-run-analysis-btn');
     const bioRunQuestionsBtn = document.getElementById('bio-run-questions-btn');
     const bioRunOutlineBtn = document.getElementById('bio-run-outline-btn');
@@ -4753,6 +4879,14 @@ ${state.validation || 'Ei validointia.'}`;
     if (layoutRunBtn) layoutRunBtn.addEventListener('click', runLayout);
     if (bioLoadBtn) bioLoadBtn.addEventListener('click', () => loadBiographyState(true));
     if (bioSaveBtn) bioSaveBtn.addEventListener('click', () => saveBiographyState(true));
+    if (bioDictationBtn) {
+        if (window.SpeechRecognition || window.webkitSpeechRecognition) {
+            bioDictationBtn.addEventListener('click', toggleBiographyDictation);
+        } else {
+            bioDictationBtn.disabled = true;
+            setBiographyDictationStatus('Sanelu ei ole käytettävissä tässä selaimessa.', true);
+        }
+    }
     if (bioAddMaterialBtn) {
         bioAddMaterialBtn.addEventListener('click', () => {
             addBiographyMaterial(
