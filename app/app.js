@@ -197,6 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let learningMaterialState = {};
     let learningMaterialTimerInterval = null;
     let editingLearningTargetIndex = null;
+    let undoToastTimer = null;
     let currentViewId = currentUser && currentUser.role === 'oppimateriaali' ? 'view-om-projekti' : 'view-kirjani';
     const fullWorkspaceRoles = new Set(['admin', 'test_user']);
     const learningMaterialViews = new Set([
@@ -1249,6 +1250,44 @@ document.addEventListener('DOMContentLoaded', () => {
         if (statusEl) statusEl.textContent = message || '';
     }
 
+    function hideUndoToast() {
+        const toast = document.getElementById('app-undo-toast');
+        if (!toast) return;
+        window.clearTimeout(undoToastTimer);
+        undoToastTimer = null;
+        toast.classList.add('hidden');
+        toast.dataset.active = '';
+        const undoBtn = document.getElementById('app-undo-btn');
+        if (undoBtn) undoBtn.onclick = null;
+    }
+
+    function showUndoToast(message, undoAction) {
+        const toast = document.getElementById('app-undo-toast');
+        const messageEl = document.getElementById('app-undo-message');
+        const undoBtn = document.getElementById('app-undo-btn');
+        const closeBtn = document.getElementById('app-undo-close');
+        if (!toast || !messageEl || !undoBtn) return;
+        const token = String(Date.now());
+        window.clearTimeout(undoToastTimer);
+        toast.dataset.active = token;
+        messageEl.textContent = message;
+        undoBtn.disabled = false;
+        undoBtn.onclick = async () => {
+            if (toast.dataset.active !== token) return;
+            undoBtn.disabled = true;
+            try {
+                await undoAction();
+            } finally {
+                hideUndoToast();
+            }
+        };
+        if (closeBtn) closeBtn.onclick = hideUndoToast;
+        toast.classList.remove('hidden');
+        undoToastTimer = window.setTimeout(() => {
+            if (toast.dataset.active === token) hideUndoToast();
+        }, 9000);
+    }
+
     function cleanManuscriptText(text) {
         const lines = String(text || '')
             .replace(/\r\n?/g, '\n')
@@ -1442,14 +1481,30 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Valitse poistettava kappale ensin.');
             return;
         }
-        if (!confirm(`Poistetaanko kappale ${writingSelection.pIndex + 1}?`)) return;
-        chapter.paragraphs.splice(writingSelection.pIndex, 1);
+        const chapterIndex = writingSelection.cIndex;
+        const paragraphIndex = writingSelection.pIndex;
+        const removedParagraph = chapter.paragraphs[paragraphIndex];
+        chapter.paragraphs.splice(paragraphIndex, 1);
         if (chapter.paragraphs.length === 0) chapter.paragraphs.push('');
-        writingSelection.pIndex = Math.min(writingSelection.pIndex, chapter.paragraphs.length - 1);
-        await window.saveProjectChapterToDB(window.manuscriptData, writingSelection.cIndex);
+        writingSelection.pIndex = Math.min(paragraphIndex, chapter.paragraphs.length - 1);
+        await window.saveProjectChapterToDB(window.manuscriptData, chapterIndex);
         renderBookOverview();
         if (window.renderNavList) window.renderNavList();
         renderWritingView();
+        showUndoToast(`Kappale ${paragraphIndex + 1} poistettu.`, async () => {
+            const targetChapter = window.manuscriptData?.chapters?.[chapterIndex];
+            if (!targetChapter) return;
+            if (targetChapter.paragraphs.length === 1 && !String(targetChapter.paragraphs[0] || '').trim()) {
+                targetChapter.paragraphs.splice(0, 1);
+            }
+            targetChapter.paragraphs.splice(Math.min(paragraphIndex, targetChapter.paragraphs.length), 0, removedParagraph);
+            writingSelection = { cIndex: chapterIndex, pIndex: paragraphIndex };
+            await window.saveProjectChapterToDB(window.manuscriptData, chapterIndex);
+            renderBookOverview();
+            if (window.renderNavList) window.renderNavList();
+            renderWritingView();
+            setWritingToolStatus('Poisto kumottu.');
+        });
     }
 
     function nextChapterTitle() {
@@ -1502,14 +1557,30 @@ document.addEventListener('DOMContentLoaded', () => {
             : (writingSelection.cIndex ?? firstBodyChapterIndex(chapters));
         const chapter = chapters[currentIndex];
         if (!chapter) return;
-        if (!confirm(`Poistetaanko luku "${chapter.title || `Luku ${currentIndex + 1}`}"?`)) return;
+        const removedChapter = JSON.parse(JSON.stringify(chapter));
+        const removedTitle = chapter.title || `Luku ${currentIndex + 1}`;
         chapters.splice(currentIndex, 1);
         const nextIndex = Math.min(currentIndex, chapters.length - 1);
         writingSelection = { cIndex: nextIndex, pIndex: 0 };
         window.currentEditSelection = { cIndex: nextIndex, pIndex: 0 };
         await window.saveProjectStructureToDB(window.manuscriptData);
+        renderBookOverview();
+        if (window.renderNavList) window.renderNavList();
         renderWritingView();
         if (window.loadParagraph) window.loadParagraph(nextIndex, 0, null);
+        showUndoToast(`Luku "${removedTitle}" poistettu.`, async () => {
+            const targetChapters = window.manuscriptData?.chapters;
+            if (!Array.isArray(targetChapters)) return;
+            targetChapters.splice(Math.min(currentIndex, targetChapters.length), 0, removedChapter);
+            writingSelection = { cIndex: currentIndex, pIndex: 0 };
+            window.currentEditSelection = { cIndex: currentIndex, pIndex: 0 };
+            await window.saveProjectStructureToDB(window.manuscriptData);
+            renderBookOverview();
+            if (window.renderNavList) window.renderNavList();
+            renderWritingView();
+            if (window.loadParagraph) window.loadParagraph(currentIndex, 0, null);
+            setWritingToolStatus('Poisto kumottu.');
+        });
     }
 
     function updateUsagePanel(data) {
@@ -5242,17 +5313,34 @@ ${state.validation || 'Ei validointia.'}`;
                 alert('Valitse poistettava kappale ensin.');
                 return;
             }
-            if (!confirm(`Poistetaanko kappale ${sel.pIndex + 1}?`)) return;
-            chapter.paragraphs.splice(sel.pIndex, 1);
+            const chapterIndex = sel.cIndex;
+            const paragraphIndex = sel.pIndex;
+            const removedParagraph = chapter.paragraphs[paragraphIndex];
+            chapter.paragraphs.splice(paragraphIndex, 1);
             if (chapter.paragraphs.length === 0) chapter.paragraphs.push('');
-            const nextIndex = Math.min(sel.pIndex, chapter.paragraphs.length - 1);
-            window.currentEditSelection = { cIndex: sel.cIndex, pIndex: nextIndex };
-            if (writingSelection.cIndex === sel.cIndex) writingSelection.pIndex = nextIndex;
-            await window.saveProjectChapterToDB(window.manuscriptData, sel.cIndex);
+            const nextIndex = Math.min(paragraphIndex, chapter.paragraphs.length - 1);
+            window.currentEditSelection = { cIndex: chapterIndex, pIndex: nextIndex };
+            if (writingSelection.cIndex === chapterIndex) writingSelection.pIndex = nextIndex;
+            await window.saveProjectChapterToDB(window.manuscriptData, chapterIndex);
             renderBookOverview();
             if (window.renderNavList) window.renderNavList();
-            window.loadParagraph(sel.cIndex, nextIndex, null);
+            window.loadParagraph(chapterIndex, nextIndex, null);
             renderWritingView();
+            showUndoToast(`Kappale ${paragraphIndex + 1} poistettu.`, async () => {
+                const targetChapter = window.manuscriptData?.chapters?.[chapterIndex];
+                if (!targetChapter) return;
+                if (targetChapter.paragraphs.length === 1 && !String(targetChapter.paragraphs[0] || '').trim()) {
+                    targetChapter.paragraphs.splice(0, 1);
+                }
+                targetChapter.paragraphs.splice(Math.min(paragraphIndex, targetChapter.paragraphs.length), 0, removedParagraph);
+                window.currentEditSelection = { cIndex: chapterIndex, pIndex: paragraphIndex };
+                if (writingSelection.cIndex === chapterIndex) writingSelection.pIndex = paragraphIndex;
+                await window.saveProjectChapterToDB(window.manuscriptData, chapterIndex);
+                renderBookOverview();
+                if (window.renderNavList) window.renderNavList();
+                window.loadParagraph(chapterIndex, paragraphIndex, null);
+                renderWritingView();
+            });
         });
     }
 
