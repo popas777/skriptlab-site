@@ -152,7 +152,7 @@
                 <div class="header">
                     <div class="header-info">
                         <h2>Käsikirjoitukseni</h2>
-                        <p>Projektit ja tila, joissa olet mukana</p>
+                        <p>Aloita uusi käsikirjoitus tai jatka aiemmin tallennettua työtä</p>
                     </div>
                     <div class="header-actions">
                         <input type="file" id="manuscript-upload" accept=".txt,.md,.docx,.pdf,.rtf,.odt,.html,.htm" style="display:none">
@@ -160,7 +160,34 @@
                         <button class="btn btn-primary" onclick="document.getElementById('manuscript-upload').click()">+ Lataa Käsikirjoitus</button>
                     </div>
                 </div>
-                <p style="color:var(--text-secondary); font-size:13px; margin: -8px 0 16px 2px;">Tuetut tiedostot: TXT, MD, DOCX, PDF, RTF, ODT ja HTML.</p>
+                <section class="app-intro-card glass-panel">
+                    <div class="app-intro-copy">
+                        <span class="app-intro-kicker">Aloita tästä</span>
+                        <h3>Hei, tuo käsikirjoituksesi työtilaan</h3>
+                        <p>
+                            Tälle sivulle voit ladata käsikirjoituksen tai luoda tyhjän dokumentin. Jos haluat jatkaa aiemmin aloitettua työtä, valitse käsikirjoitus alta ja siirry sen jälkeen Kirjoita-, Analyysi- tai Toimitus-osioon.
+                        </p>
+                        <p class="app-intro-note">Tuetut tiedostot: TXT, MD, DOCX, PDF, RTF, ODT ja HTML.</p>
+                    </div>
+                    <div class="app-intro-actions">
+                        <button class="btn btn-primary" type="button" onclick="document.getElementById('manuscript-upload').click()">Lataa käsikirjoitus</button>
+                        <button class="btn btn-secondary" type="button" onclick="document.getElementById('create-empty-doc-btn').click()">Aloita tyhjästä</button>
+                    </div>
+                    <div class="app-intro-steps">
+                        <div>
+                            <strong>1. Valitse tai tuo teksti</strong>
+                            <span>Lataa tiedosto, luo tyhjä dokumentti tai avaa aiempi käsikirjoitus.</span>
+                        </div>
+                        <div>
+                            <strong>2. Jatka oikeassa osiossa</strong>
+                            <span>Kirjoita uutta, analysoi kokonaisuutta tai viimeistele tekstiä Toimitus-osiossa.</span>
+                        </div>
+                        <div>
+                            <strong>3. Työ pysyy tallessa</strong>
+                            <span>Tallenna muutokset työn edetessä, jotta voit palata samaan käsikirjoitukseen myöhemmin.</span>
+                        </div>
+                    </div>
+                </section>
                 <div class="grid-cards" id="kirjani-grid">
                    <!-- Dynaamisesti lisättävät kortit tulevat tähän -->
                    <div style="color:var(--text-secondary); font-size:14px; padding:20px;">
