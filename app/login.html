@@ -102,9 +102,12 @@
         const API_BASE_URL = (window.SKRIPTLAB_CONFIG && window.SKRIPTLAB_CONFIG.API_BASE_URL) || "http://127.0.0.1:8000";
         const apiUrl = (path) => `${API_BASE_URL}${path}`;
     </script>
-    <script src="auth.js?v=1"></script>
+    <script src="auth.js?v=3"></script>
     <script>
-        window.SkriptLabAuth.clearSession();
+        const existingUser = window.SkriptLabAuth.getUser();
+        if (window.SkriptLabAuth.getToken() && existingUser) {
+            window.location.replace(existingUser.role === 'admin' ? 'admin.html' : 'index.html');
+        }
 
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -131,7 +134,7 @@
                 }
 
                 window.SkriptLabAuth.setSession(data.access_token, data.user);
-                window.location.href = data.user.role === 'admin' ? 'admin.html' : 'index.html';
+                window.location.replace(data.user.role === 'admin' ? 'admin.html' : 'index.html');
             } catch (err) {
                 status.textContent = err.message;
                 submit.disabled = false;

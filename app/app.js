@@ -287,7 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
             logoutLink.style.pointerEvents = 'none';
             await flushPendingManuscriptEdits();
             window.SkriptLabAuth.clearSession();
-            window.location.href = 'login.html';
+            window.location.replace('login.html');
         });
     }
     if (adminLink && currentUser && currentUser.role === 'admin') {

@@ -306,7 +306,7 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
         const API_BASE_URL = (window.SKRIPTLAB_CONFIG && window.SKRIPTLAB_CONFIG.API_BASE_URL) || "http://127.0.0.1:8000";
         const apiUrl = (path) => `${API_BASE_URL}${path}`;
     </script>
-    <script src="auth.js?v=1"></script>
+    <script src="auth.js?v=3"></script>
     <script>
         if (!window.SkriptLabAuth.requireLogin()) {
             throw new Error("Login required.");
@@ -314,13 +314,15 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
 
         const currentUser = window.SkriptLabAuth.getUser();
         if (currentUser && currentUser.role !== 'admin') {
-            window.location.href = 'index.html';
+            window.location.replace('index.html');
         }
 
         const logoutLink = document.getElementById('admin-logout-link');
         if (logoutLink) {
-            logoutLink.addEventListener('click', () => {
+            logoutLink.addEventListener('click', (event) => {
+                event.preventDefault();
                 window.SkriptLabAuth.clearSession();
+                window.location.replace('login.html');
             });
         }
 
@@ -431,9 +433,9 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
 
         function renderModels(models) {
             loadedModels = models;
-            const textModels = models.filter(model => model.task_type === 'text' && model.is_enabled && !model.requires_enterprise_approval);
+            const textModels = models.filter(model => model.task_type === 'text' && model.is_enabled);
             defaultModelSelect.innerHTML = textModels.map(model => (
-                `<option value="${model.id}" ${model.is_default ? 'selected' : ''}>${model.display_name} (${model.model_name})</option>`
+                `<option value="${model.id}" ${model.is_default ? 'selected' : ''}>${model.display_name} (${model.model_name}${model.requires_enterprise_approval ? ', pro' : ''})</option>`
             )).join('');
 
             modelRegistryList.innerHTML = models.map(model => {

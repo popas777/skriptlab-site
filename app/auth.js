@@ -59,14 +59,14 @@
             const response = await fetch(apiUrl(path), requestOptions);
             if (response.status === 401) {
                 this.clearSession();
-                window.location.href = "login.html";
+                window.location.replace("login.html");
             }
             return response;
         },
 
         requireLogin() {
             if (!this.getToken()) {
-                window.location.href = "login.html";
+                window.location.replace("login.html");
                 return false;
             }
             return true;
