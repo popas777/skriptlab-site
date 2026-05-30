@@ -1705,13 +1705,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const toggleLangBtn = document.getElementById('toggle-lang');
-    toggleLangBtn.addEventListener('click', () => {
-        if (toggleLangBtn.textContent === 'FI / ENG') {
-            toggleLangBtn.textContent = 'ENG / FI';
-        } else {
-            toggleLangBtn.textContent = 'FI / ENG';
-        }
-    });
+    if (toggleLangBtn) {
+        toggleLangBtn.disabled = true;
+        toggleLangBtn.setAttribute('aria-disabled', 'true');
+    }
 
     const toggleMobileBtn = document.getElementById('toggle-mobile');
     toggleMobileBtn.addEventListener('click', () => {
