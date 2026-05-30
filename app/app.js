@@ -352,6 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
             page_path: window.location.pathname
         };
         if (feedbackSubmitBtn) feedbackSubmitBtn.disabled = true;
+        const originalSubmitText = feedbackSubmitBtn ? feedbackSubmitBtn.textContent : '';
         if (feedbackStatus) feedbackStatus.textContent = 'Tallennetaan palautetta...';
         try {
             const res = await apiFetch('/api/feedback', {
@@ -362,13 +363,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!res.ok) throw new Error(await apiErrorMessage(res, 'Palautteen tallennus epäonnistui.'));
             await res.json();
             if (feedbackMessage) feedbackMessage.value = '';
-            if (feedbackStatus) feedbackStatus.textContent = 'Palaute tallennettu. Kiitos.';
-            window.setTimeout(closeFeedbackModal, 700);
+            if (feedbackStatus) feedbackStatus.textContent = 'Palaute lähetetty.';
+            if (feedbackSubmitBtn) feedbackSubmitBtn.textContent = 'Lähetetty';
+            window.setTimeout(() => {
+                closeFeedbackModal();
+                if (feedbackSubmitBtn) feedbackSubmitBtn.textContent = originalSubmitText || 'Lähetä palaute';
+            }, 1300);
         } catch (err) {
             const message = String(err?.message || err || '');
             if (feedbackStatus) {
                 feedbackStatus.textContent = networkFailureMessage(err);
             }
+            if (feedbackSubmitBtn) feedbackSubmitBtn.textContent = originalSubmitText || 'Lähetä palaute';
         } finally {
             if (feedbackSubmitBtn) feedbackSubmitBtn.disabled = false;
         }
