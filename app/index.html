@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=33">
+    <link rel="stylesheet" href="styles.css?v=34">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -178,15 +178,15 @@
                         <p>Käsikirjoitus: [Ei aktiivista teosta] (kirjoittaminen ja tekstin jatkaminen)</p>
                     </div>
                     <div class="header-actions">
-                        <button class="btn btn-secondary" id="clean-writing-text-btn">Putsaa teksti</button>
-                        <button class="btn btn-secondary" id="restructure-writing-btn">Jaottele uusiksi</button>
-                        <button class="btn btn-secondary" id="toggle-writing-markup-btn">Näytä merkinnät</button>
-                        <button class="btn btn-secondary" id="view-writing-markdown-btn">Katso .md</button>
-                        <button class="btn btn-secondary" id="markdown-help-btn">Merkintäohje</button>
-                        <button class="btn btn-secondary" id="add-writing-chapter-btn">Uusi luku</button>
-                        <button class="btn btn-secondary btn-danger-soft" id="delete-writing-chapter-btn">Poista luku</button>
-                        <button class="btn btn-secondary" id="add-writing-paragraph-btn">Uusi kappale</button>
-                        <button class="btn btn-secondary btn-danger-soft" id="delete-writing-paragraph-btn">Poista kappale</button>
+                        <details class="tool-menu">
+                            <summary class="btn btn-secondary">Työkalut</summary>
+                            <div class="tool-menu-panel">
+                                <button class="btn btn-secondary" id="toggle-writing-markup-btn">Näytä merkinnät</button>
+                                <button class="btn btn-secondary" id="clean-writing-text-btn">Putsaa teksti</button>
+                                <button class="btn btn-secondary" id="restructure-writing-btn">Jaottele uusiksi</button>
+                                <button class="btn btn-secondary" id="markdown-help-btn">Merkintäohje</button>
+                            </div>
+                        </details>
                         <button class="btn btn-primary" id="save-writing-btn">Tallenna teksti</button>
                     </div>
                 </div>
@@ -200,6 +200,12 @@
                                 <button class="btn btn-secondary" id="writing-paragraph-jump-btn">Siirry</button>
                             </div>
                             <p id="writing-position-status">Valitse luku.</p>
+                        </div>
+                        <div class="writing-structure-actions">
+                            <button class="btn btn-secondary" id="add-writing-chapter-btn">Uusi luku</button>
+                            <button class="btn btn-secondary" id="add-writing-paragraph-btn">Uusi kappale</button>
+                            <button class="btn btn-secondary btn-danger-soft" id="delete-writing-chapter-btn">Poista luku</button>
+                            <button class="btn btn-secondary btn-danger-soft" id="delete-writing-paragraph-btn">Poista kappale</button>
                         </div>
                         <div id="writing-chapter-list" class="chapter-list"></div>
                     </aside>

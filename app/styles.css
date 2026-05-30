@@ -366,6 +366,41 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 .btn-secondary:hover { background: rgba(121, 192, 255, 0.05); }
 .btn-primary { background: var(--text-primary); color: var(--bg-color); }
 .btn-primary:hover { opacity: 0.9; box-shadow: 0 0 15px rgba(255,255,255,0.2); }
+.tool-menu {
+    position: relative;
+}
+.tool-menu summary {
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.tool-menu summary::-webkit-details-marker {
+    display: none;
+}
+.tool-menu-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 20;
+    min-width: 210px;
+    display: grid;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: #161b22;
+    box-shadow: 0 18px 40px rgba(0,0,0,0.28);
+}
+[data-theme="light"] .tool-menu-panel {
+    background: #ffffff;
+}
+.tool-menu-panel .btn {
+    display: flex;
+    justify-content: flex-start;
+    width: 100%;
+    text-align: left;
+}
 
 /* Grid Components for Modules */
 .grid-cards {
@@ -997,6 +1032,16 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 .writing-tool-status {
     margin-left: auto;
 }
+.writing-structure-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+    margin: 0 0 12px;
+}
+.writing-structure-actions .btn {
+    padding: 8px 9px;
+    font-size: 12px;
+}
 .writing-nav .chapter-list,
 #editor-chapter-list { max-height: calc(100vh - 250px); }
 .writing-text {
@@ -1152,6 +1197,14 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     }
     .header-actions .btn {
         flex: 1 1 140px;
+        min-width: 0;
+    }
+    .tool-menu {
+        width: 100%;
+    }
+    .tool-menu-panel {
+        left: 0;
+        right: 0;
         min-width: 0;
     }
     .grid-cards,
