@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=36">
+    <link rel="stylesheet" href="styles.css?v=37">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -1130,56 +1130,39 @@
             <div id="view-tuotetiedot" class="view-section hidden">
                 <div class="header">
                     <div class="header-info">
-                        <h2>Tuotetiedot & ONIX</h2>
-                        <p>Käsikirjoitus: [Ei aktiivista teosta] (Tiedot myyntiä ja luettelointia varten)</p>
+                        <h2>Tuotetiedot</h2>
+                        <p id="product-current-project">Käsikirjoitus: [Ei aktiivista teosta]</p>
                     </div>
                     <div class="header-actions">
-                        <button class="btn btn-primary" onclick="alert('ONIX 3.0 XML tiedosto generoitu ja lähetetty markkinointiin ja jakeluun!');">Varaa ISBN & Pura ONIX XML</button>
+                        <button class="btn btn-secondary" id="product-refresh-btn" type="button">Lataa tallennetut</button>
+                        <button class="btn btn-primary" id="product-generate-btn" type="button">Generoi AI:lla</button>
                     </div>
                 </div>
+                <p id="product-status" style="color:var(--text-secondary); margin:-8px 0 22px; font-size:13px;">Tee ensin analyysi, jotta tuotetiedot voidaan muodostaa teoksen metatiedoista.</p>
 
-                <div class="grid-cards" style="grid-template-columns: 1fr 1fr;">
-                    <!-- ONIX Perustiedot -->
+                <div class="grid-cards" style="grid-template-columns: 1fr 1fr; align-items:start;">
                     <div class="card glass-panel">
-                        <h3 style="margin-bottom: 20px; color: var(--text-primary);">ONIX Perustiedot</h3>
+                        <h3 style="margin-bottom: 20px; color: var(--text-primary);">Perustiedot</h3>
                         
-                        <div style="margin-bottom: 16px;">
-                            <label style="font-size: 13px; color: var(--text-secondary); display:block; margin-bottom:6px;">Nimeke (Title) <span class="badge glowing">AI Ote</span></label>
-                            <input type="text" value="[Ei aktiivista teosta]" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit;">
-                        </div>
-                        
-                        <div style="margin-bottom: 16px;">
-                            <label style="font-size: 13px; color: var(--text-secondary); display:block; margin-bottom:6px;">Kirjailija (Contributor)</label>
-                            <input type="text" value="Matti Meikäläinen" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit;">
-                        </div>
-
-                        <div style="margin-bottom: 16px;">
-                            <label style="font-size: 13px; color: var(--text-secondary); display:block; margin-bottom:6px;">Ikäsuositus (Audience) <span class="badge glowing">AI Asteikko</span></label>
-                            <input type="text" value="Young Adult (YA) 15+" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit;">
-                        </div>
-
-                        <div style="margin-bottom: 16px;">
-                            <label style="font-size: 13px; color: var(--text-secondary); display:block; margin-bottom:6px;">BISAC / Thema Koodit <span class="badge glowing">AI Tulkinta</span></label>
-                            <input type="text" value="FIC009000 (Fantasy / General), YX (Sci-Fi/Fantasy)" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit;">
-                        </div>
-
-                        <div style="margin-bottom: 16px;">
-                            <label style="font-size: 13px; color: var(--text-secondary); display:block; margin-bottom:6px;">ISBN-13 <span class="badge" style="background:var(--accent-color); color:#fff; border:none;">Manuaalinen</span></label>
-                            <input type="text" placeholder="Esim. 978-951-XX-XXXX-X" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px dashed var(--accent-color); background: rgba(121, 192, 255, 0.05); color: var(--text-primary); font-family: inherit; outline:none;">
-                        </div>
+                        <div class="settings-row"><label>Nimeke</label><input id="product-title" type="text" placeholder="Kirjan nimi"></div>
+                        <div class="settings-row"><label>Tekijä</label><input id="product-author" type="text" placeholder="Tekijän nimi"></div>
+                        <div class="settings-row"><label>Alaotsikko</label><input id="product-subtitle" type="text" placeholder="Valinnainen alaotsikko"></div>
+                        <div class="settings-row"><label>Tuotemuoto</label><input id="product-format" type="text" placeholder="Painettu kirja / e-kirja / äänikirja"></div>
+                        <div class="settings-row"><label>Kohderyhmä</label><input id="product-audience" type="text" placeholder="Kenelle kirja on suunnattu"></div>
+                        <div class="settings-row"><label>Ikäsuositus</label><input id="product-age" type="text" placeholder="Esim. aikuiset, 12+, ei määritelty"></div>
+                        <div class="settings-row"><label>Genre</label><input id="product-genre" type="text" placeholder="Genre"></div>
+                        <div class="settings-row"><label>Thema-luokat</label><input id="product-thema" type="text" placeholder="Ehdotukset, tarkistettava ennen virallista käyttöä"></div>
+                        <div class="settings-row"><label>Kirjastoluokka</label><input id="product-library-class" type="text" placeholder="Luokkaehdotus"></div>
+                        <div class="settings-row"><label>Avainsanat</label><input id="product-keywords" type="text" placeholder="Avainsanat pilkulla erotettuina"></div>
                     </div>
 
-                    <!-- Takakansi & Muut -->
                     <div class="card glass-panel" style="display: flex; flex-direction: column;">
-                        <h3 style="margin-bottom: 20px; color: var(--text-primary);">Takakansiteksti <span class="badge glowing">AI Kirjoitettu</span></h3>
-                        
-                        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.6;">
-                            Käsikirjoitusanalyysin pohjalta laadittu takakansiluonnos. Voit viilata tekstiä vapaasti ennen sen kiinnittämistä ONIX-dataan ja taittoon.
-                        </p>
-                        
-                        <textarea style="width: 100%; flex: 1; min-height: 200px; padding: 16px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; resize: none; line-height: 1.6; outline:none;">Musta pimeys kietoi ikiaikaisen varjometsän syliinsä. Jotain oli tekeillä aluskasvillisuuden seassa – askeleet olivat huomaamattomat, mutta ilmassa lepäsi odottava jännite.
-
-Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen nimi] vie lukijan henkeäsalpaavalle matkalle syvälle mystiikkaan, missä mikään ei ole sitä miltä näyttää. Uskallatko astua pimeyteen?</textarea>
+                        <h3 style="margin-bottom: 20px; color: var(--text-primary);">Kuvaukset ja vientikooste</h3>
+                        <div class="settings-row"><label>Lyhyt tuotekuvaus</label><textarea id="product-short" style="width:100%; min-height:90px; resize:vertical;"></textarea></div>
+                        <div class="settings-row"><label>Pitkä tuotekuvaus</label><textarea id="product-long" style="width:100%; min-height:150px; resize:vertical;"></textarea></div>
+                        <div class="settings-row"><label>Takakansiteksti</label><textarea id="product-backcover" style="width:100%; min-height:150px; resize:vertical;"></textarea></div>
+                        <div class="settings-row"><label>Myyntikärjet</label><textarea id="product-sales-points" style="width:100%; min-height:110px; resize:vertical;"></textarea></div>
+                        <div class="settings-row"><label>ONIX-kooste</label><textarea id="product-onix" style="width:100%; min-height:130px; resize:vertical;"></textarea></div>
                     </div>
                 </div>
             </div>

@@ -215,10 +215,10 @@ document.addEventListener('DOMContentLoaded', () => {
         'view-om-kokonaisuus',
         'view-om-vienti'
     ]);
-    const writerViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-markkinointi']);
-    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-markkinointi']);
+    const writerViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi']);
+    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset']);
-    const biographyViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-elamakerta', 'view-toimitus', 'view-oikoluku', 'view-kuvitus', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-kirja']);
+    const biographyViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-elamakerta', 'view-toimitus', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-kirja']);
     const roleLabels = {
         admin: 'Admin',
         test_user: 'Test user',
@@ -1892,6 +1892,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadImageModels();
                 loadCoverImages();
             }
+            if (nextViewId === 'view-tuotetiedot') {
+                renderProductInfo();
+            }
+            if (nextViewId === 'view-markkinointi') {
+                renderMarketingMaterialsFromAnalysis(false);
+            }
             if (nextViewId === 'view-taitto') {
                 loadLayoutAssets();
             }
@@ -2586,6 +2592,137 @@ document.addEventListener('DOMContentLoaded', () => {
         if (force || !element.value.trim()) element.value = next;
     }
 
+    const productFieldMap = {
+        title: 'product-title',
+        author: 'product-author',
+        subtitle: 'product-subtitle',
+        product_format: 'product-format',
+        audience: 'product-audience',
+        age_recommendation: 'product-age',
+        genre: 'product-genre',
+        thema_classes: 'product-thema',
+        library_class: 'product-library-class',
+        keywords: 'product-keywords',
+        short_description: 'product-short',
+        long_description: 'product-long',
+        backcover: 'product-backcover',
+        sales_points: 'product-sales-points',
+        onix_summary: 'product-onix'
+    };
+
+    function setProductStatus(message, isError = false) {
+        const status = document.getElementById('product-status');
+        if (!status) return;
+        status.textContent = message;
+        status.style.color = isError ? '#ffb4b4' : 'var(--text-secondary)';
+    }
+
+    function productInfoFromAnalysis() {
+        const analysis = window.manuscriptData?.analysis || {};
+        const saved = analysis.product_info && typeof analysis.product_info === 'object' ? analysis.product_info : {};
+        return {
+            title: saved.title || window.manuscriptData?.title || '',
+            author: saved.author || window.manuscriptData?.author || '',
+            subtitle: saved.subtitle || '',
+            product_format: saved.product_format || 'Painettu kirja / e-kirja',
+            audience: saved.audience || analysis.audience || '',
+            age_recommendation: saved.age_recommendation || '',
+            genre: saved.genre || analysis.genre || '',
+            thema_classes: saved.thema_classes || analysis.thema_classes || '',
+            library_class: saved.library_class || analysis.library_class || '',
+            keywords: saved.keywords || analysis.keywords || '',
+            short_description: saved.short_description || analysis.marketing_short || '',
+            long_description: saved.long_description || analysis.marketing_long || '',
+            backcover: saved.backcover || analysis.backcover || analysis.backcover_text || '',
+            sales_points: saved.sales_points || '',
+            onix_summary: saved.onix_summary || analysis.onix || ''
+        };
+    }
+
+    function setProductFields(info, force = false) {
+        Object.entries(productFieldMap).forEach(([key, id]) => {
+            setMarketingFieldValue(id, info?.[key] || '', force);
+        });
+    }
+
+    function renderProductInfo(force = false) {
+        const current = document.getElementById('product-current-project');
+        if (current) {
+            current.textContent = window.manuscriptData
+                ? `Käsikirjoitus: ${window.manuscriptData.title || 'Nimetön'}`
+                : 'Käsikirjoitus: [Ei aktiivista teosta]';
+        }
+        if (!window.manuscriptData) {
+            setProductFields({}, true);
+            setProductStatus('Valitse käsikirjoitus ensin.', true);
+            return;
+        }
+        const info = productInfoFromAnalysis();
+        setProductFields(info, force);
+        if (!hasSavedAnalysis(window.manuscriptData.analysis)) {
+            setProductStatus('Tee ensin analyysi, jotta tuotetiedot voidaan muodostaa teoksen metatiedoista.', true);
+        } else if (window.manuscriptData.analysis?.product_info) {
+            setProductStatus('Tallennetut tuotetiedot ladattu. Voit generoida uuden luonnoksen AI:lla.');
+        } else {
+            setProductStatus('Analyysi löytyi. Voit generoida tuotetietoluonnoksen AI:lla.');
+        }
+    }
+
+    async function generateProductInfo() {
+        if (!window.manuscriptData) {
+            setProductStatus('Valitse käsikirjoitus ensin.', true);
+            return null;
+        }
+        if (!hasSavedAnalysis(window.manuscriptData.analysis)) {
+            setProductStatus('Tee analyysi ensin. Tuotetiedot hyödyntävät analyysin genreä, kohderyhmää, synopsista ja metatietoja.', true);
+            return null;
+        }
+        if (!window.manuscriptData.id) {
+            const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
+            if (savedProject?.id) window.manuscriptData = savedProject;
+        }
+        if (!window.manuscriptData?.id) {
+            setProductStatus('Käsikirjoitusta ei saatu tallennettua ennen tuotetietojen generointia.', true);
+            return null;
+        }
+
+        const button = document.getElementById('product-generate-btn');
+        if (button) button.disabled = true;
+        setProductStatus('Generoidaan tuotetietoja analyysin ja käsikirjoitustietojen pohjalta...');
+        try {
+            const res = await apiFetch('/api/product-info/generate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ project_id: window.manuscriptData.id })
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.detail || 'Tuotetietojen generointi epäonnistui.');
+            if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
+            window.manuscriptData.analysis.product_info = data;
+            window.manuscriptData.analysis.onix = data.onix_summary || '';
+            window.manuscriptData.analysis.audience = data.audience || window.manuscriptData.analysis.audience;
+            window.manuscriptData.analysis.genre = data.genre || window.manuscriptData.analysis.genre;
+            window.manuscriptData.analysis.thema_classes = data.thema_classes || window.manuscriptData.analysis.thema_classes;
+            window.manuscriptData.analysis.library_class = data.library_class || window.manuscriptData.analysis.library_class;
+            window.manuscriptData.analysis.marketing_short = data.short_description || window.manuscriptData.analysis.marketing_short;
+            window.manuscriptData.analysis.marketing_long = data.long_description || window.manuscriptData.analysis.marketing_long;
+            window.manuscriptData.analysis.backcover = data.backcover || window.manuscriptData.analysis.backcover;
+            setProductFields(data, true);
+            renderAnalysisSummary(window.manuscriptData.analysis);
+            renderMarketingMaterialsFromAnalysis(false);
+            setProductStatus(data.warnings ? `${data.warnings} Lähde: ${data.generated_by}.` : `Tuotetiedot generoitu ja tallennettu. Lähde: ${data.generated_by}.`);
+            loadUsage();
+            return data;
+        } catch (err) {
+            setProductStatus(err.message, true);
+            alert('Tuotetietojen generointi epäonnistui: ' + networkFailureMessage(err));
+            loadUsage();
+            return null;
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
     function renderMarketingMaterialsFromAnalysis(force = false) {
         const current = document.getElementById('marketing-current-project');
         if (current) {
@@ -2649,12 +2786,23 @@ document.addEventListener('DOMContentLoaded', () => {
             setMarketingFieldValue('marketing-facebook', data.facebook_post, true);
             setMarketingFieldValue('marketing-video', data.video_script, true);
             setMarketingFieldValue('marketing-hashtags', data.hashtags, true);
+            if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
+            window.manuscriptData.analysis.marketing_short = data.short_description || '';
+            window.manuscriptData.analysis.marketing_long = data.long_description || '';
+            window.manuscriptData.analysis.instagram_post = data.instagram_post || '';
+            window.manuscriptData.analysis.facebook_post = data.facebook_post || '';
+            window.manuscriptData.analysis.video_script = data.video_script || '';
+            window.manuscriptData.analysis.hashtags = data.hashtags || '';
+            await window.saveManuscriptToDB(window.manuscriptData);
+            renderProductInfo(false);
             setMarketingStatus(data.warnings ? `${data.warnings} Lähde: ${data.generated_by}.` : `Markkinointiaineistot luotu. Lähde: ${data.generated_by}.`);
             loadUsage();
+            return data;
         } catch (err) {
             setMarketingStatus(err.message, true);
             alert('Markkinointiaineistojen luonti epäonnistui: ' + networkFailureMessage(err));
             loadUsage();
+            return null;
         } finally {
             if (button) button.disabled = false;
         }
@@ -3124,6 +3272,8 @@ document.addEventListener('DOMContentLoaded', () => {
             steps.splice(2, 0,
                 { id: 'edit', title: 'Editointi luvuittain', detail: 'Käydään luvut läpi ja sujuvoitetaan teksti varovaisesti.', status: 'pending' },
                 { id: 'proofread', title: 'Oikoluku luvuittain', detail: 'Haetaan selkeät virheet ja hyväksytään suorat korjaukset.', status: 'pending' },
+                { id: 'product', title: 'Tuotetiedot', detail: 'Päätellään kohderyhmä, luokitukset, kuvaukset ja ONIX-kooste.', status: 'pending' },
+                { id: 'marketing', title: 'Markkinointiaineistot', detail: 'Luodaan lyhyt ja pitkä kuvaus, some-tekstit, videokäsikirjoitus ja hashtagit.', status: 'pending' },
                 { id: 'covers', title: 'Kuvitus', detail: 'Luodaan etukannen ja takakannen luonnokset analyysin perusteella.', status: 'pending' }
             );
         }
@@ -3176,7 +3326,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (current) current.textContent = project ? `Käsikirjoitus: ${project.title || 'Nimetön'}` : 'Valitse käsikirjoitus ja käynnistä koko tuotantopolku yhdellä napilla.';
         if (desc) {
             desc.textContent = mode === 'heavy'
-                ? 'Raskas versio analysoi, editoi ja oikolukee luvut, luo oheisaineistot, kannet, taittotiedostot ja EPUB-luonnoksen.'
+                ? 'Raskas versio analysoi, editoi ja oikolukee luvut, luo tuotetiedot, markkinointiaineistot, oheisaineistot, kannet, taittotiedostot ja EPUB-luonnoksen.'
                 : 'Kevyt versio analysoi tekstin, tarkistaa luvutuksen, tekee oheisaineistot ja ajaa taiton.';
         }
         if (chapterCount) chapterCount.textContent = formatNumber(bodyCount || (project?.chapters || []).length);
@@ -3368,6 +3518,20 @@ document.addEventListener('DOMContentLoaded', () => {
         setWorkflowStep('covers', 'done', 'Etukansi ja takakansi tallennettu kuvituksiin.');
     }
 
+    async function runWorkflowProductInfo() {
+        setWorkflowStep('product', 'running', 'Generoidaan tuotetietoja.');
+        const data = await generateProductInfo();
+        if (!data) throw new Error('Tuotetietoja ei saatu generoitua.');
+        setWorkflowStep('product', 'done', 'Tuotetiedot ja ONIX-kooste tallennettu.');
+    }
+
+    async function runWorkflowMarketingMaterials() {
+        setWorkflowStep('marketing', 'running', 'Luodaan markkinointiaineistoja.');
+        const data = await generateMarketingMaterials();
+        if (!data) throw new Error('Markkinointiaineistoja ei saatu generoitua.');
+        setWorkflowStep('marketing', 'done', 'Markkinointiaineistot luotu ja tallennettu analyysitietoihin.');
+    }
+
     async function runWorkflowLayout() {
         setWorkflowStep('layout', 'running', 'Luodaan PDF, LaTeX ja EPUB.');
         const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
@@ -3403,6 +3567,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (mode === 'heavy') {
                 await runWorkflowEditChapters();
                 await runWorkflowProofreadChapters();
+                await runWorkflowProductInfo();
+                await runWorkflowMarketingMaterials();
                 await runWorkflowCovers();
             }
             await runWorkflowMisc(mode);
@@ -3652,6 +3818,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderBookOverview();
         renderWritingView();
         renderProofreadView();
+        renderProductInfo(true);
         if (window.renderNavList) window.renderNavList();
         updateTranslationProjectSelect();
         updateMiscProjectSelect();
@@ -3671,6 +3838,7 @@ document.addEventListener('DOMContentLoaded', () => {
         biographyState = normalizeBiographyState(window.manuscriptData.analysis?.biography || {});
         renderBiography();
         renderAnalysisSummary(window.manuscriptData.analysis);
+        renderProductInfo(true);
         renderBookOverview();
         renderWritingView();
         if (window.renderNavList) window.renderNavList();
@@ -5803,6 +5971,8 @@ ${state.validation || 'Ei validointia.'}`;
     const workflowModeSelect = document.getElementById('workflow-mode');
     const workflowStartBtn = document.getElementById('workflow-start-btn');
     const workflowRefreshBtn = document.getElementById('workflow-refresh-btn');
+    const productGenerateBtn = document.getElementById('product-generate-btn');
+    const productRefreshBtn = document.getElementById('product-refresh-btn');
     const marketingGenerateBtn = document.getElementById('marketing-generate-btn');
     const bioLoadBtn = document.getElementById('bio-load-btn');
     const bioSaveBtn = document.getElementById('bio-save-btn');
@@ -5880,6 +6050,8 @@ ${state.validation || 'Ei validointia.'}`;
     }
     if (workflowStartBtn) workflowStartBtn.addEventListener('click', runAiWorkflow);
     if (workflowRefreshBtn) workflowRefreshBtn.addEventListener('click', renderWorkflowView);
+    if (productGenerateBtn) productGenerateBtn.addEventListener('click', generateProductInfo);
+    if (productRefreshBtn) productRefreshBtn.addEventListener('click', () => renderProductInfo(true));
     if (marketingGenerateBtn) marketingGenerateBtn.addEventListener('click', generateMarketingMaterials);
     document.querySelectorAll('.marketing-copy-btn').forEach(button => {
         button.addEventListener('click', () => copyMarketingField(button.dataset.copyTarget));
