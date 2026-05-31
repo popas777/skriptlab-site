@@ -476,6 +476,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    const frontMatterMaterialKinds = new Set(['title_page', 'copyright_page', 'table_of_contents']);
+
+    function miscAssetKind(asset) {
+        const prompt = String(asset?.prompt || '');
+        const match = prompt.match(/Oheisaineisto:\s*([a-z_]+)/);
+        if (match) return match[1];
+        const title = String(asset?.title || '').toLocaleLowerCase('fi-FI');
+        if (title.includes('nimiö') || title.includes('nimio')) return 'title_page';
+        if (title.includes('copy') || title.includes('copyright')) return 'copyright_page';
+        if (title.includes('sisälly') || title.includes('sisally')) return 'table_of_contents';
+        if (title.includes('henkilö') || title.includes('henkilo')) return 'character_index';
+        if (title.includes('paikka')) return 'place_index';
+        if (title.includes('asia')) return 'subject_index';
+        if (title.includes('lähde') || title.includes('lahde')) return 'bibliography';
+        return 'other';
+    }
+
+    function miscAssetBookSection(asset) {
+        const content = assetTextContent(asset).trim();
+        if (!content) return '';
+        return `${asset.title || 'Oheisaineisto'}\n\n${content}`;
+    }
+
     function normalizeWord(value) {
         return String(value || '').toLocaleLowerCase('fi-FI').replace(/[^\p{L}\p{N}]+/gu, '');
     }
@@ -1120,15 +1143,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function fullBookTextWithMaterials() {
         const baseText = getFullManuscriptText();
-        const includedMaterials = currentMiscAssets
-            .filter(asset => asset.asset_type === 'book_misc_material')
-            .map(asset => {
-                const content = assetTextContent(asset).trim();
-                if (!content) return '';
-                return `${asset.title || 'Oheisaineisto'}\n\n${content}`;
-            })
+        const includedAssets = currentMiscAssets.filter(asset => asset.asset_type === 'book_misc_material');
+        const frontMaterials = includedAssets
+            .filter(asset => frontMatterMaterialKinds.has(miscAssetKind(asset)))
+            .map(miscAssetBookSection)
             .filter(Boolean);
-        return [baseText, ...includedMaterials].filter(part => String(part || '').trim()).join('\n\n\n');
+        const backMaterials = includedAssets
+            .filter(asset => !frontMatterMaterialKinds.has(miscAssetKind(asset)))
+            .map(miscAssetBookSection)
+            .filter(Boolean);
+        return [...frontMaterials, baseText, ...backMaterials].filter(part => String(part || '').trim()).join('\n\n\n');
     }
 
     function renderBookOverview() {
@@ -3956,7 +3980,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         const status = document.getElementById('misc-status');
-        const title = document.getElementById('misc-result-title')?.textContent || miscToolLabel(document.getElementById('misc-tool-select')?.value);
+        const materialKind = document.getElementById('misc-tool-select')?.value || 'other';
+        const title = document.getElementById('misc-result-title')?.textContent || miscToolLabel(materialKind);
         try {
             if (status) status.textContent = 'Tallennetaan oheisaineistoa...';
             const res = await apiFetch(`/api/projects/${project.id}/misc-assets`, {
@@ -3965,6 +3990,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({
                     title,
                     content: text,
+                    material_kind: materialKind,
                     include_in_book: includeInBook
                 })
             });
