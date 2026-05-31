@@ -215,7 +215,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'view-om-kokonaisuus',
         'view-om-vienti'
     ]);
-    const writerViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
+    const writerViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus']);
     const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset']);
     const biographyViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-elamakerta', 'view-toimitus', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-audio', 'view-kirja']);
@@ -3321,15 +3321,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const project = window.manuscriptData;
         const current = document.getElementById('workflow-current-project');
         const desc = document.getElementById('workflow-mode-description');
+        const startButton = document.getElementById('workflow-start-btn');
         const chapterCount = document.getElementById('workflow-chapter-count');
         const charCount = document.getElementById('workflow-char-count');
         const estimate = document.getElementById('workflow-estimate');
         const bodyCount = bodyChapterEntries().length;
         const chars = getFullManuscriptText(project).length;
+        const heavyLocked = currentUser?.role === 'kirjailija' && mode === 'heavy';
         if (!workflowSteps.length) workflowSteps = defaultWorkflowSteps(mode);
         if (current) current.textContent = project ? `Käsikirjoitus: ${project.title || 'Nimetön'}` : 'Valitse käsikirjoitus ja käynnistä koko tuotantopolku yhdellä napilla.';
         if (desc) {
-            desc.textContent = mode === 'heavy'
+            desc.textContent = heavyLocked
+                ? 'Raskas versio kuuluu laajempaan tilaukseen. Kirjailijan perusnäkymässä käytössä on kevyt työnkulku.'
+                : mode === 'heavy'
                 ? 'Raskas versio analysoi, editoi ja oikolukee luvut, luo tuotetiedot, markkinointiaineistot, oheisaineistot, kannet, taittotiedostot, EPUB-luonnoksen ja lisää audion valmisteluvaiheeksi.'
                 : 'Kevyt versio analysoi tekstin, tarkistaa luvutuksen, tekee oheisaineistot ja ajaa taiton.';
         }
@@ -3338,7 +3342,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (estimate) estimate.textContent = mode === 'heavy'
             ? `${Math.max(8, bodyCount * 2)}+ min`
             : `${Math.max(3, Math.ceil(chars / 180000))}+ min`;
-        if (!project) setWorkflowStatus('Valitse käsikirjoitus ensin.');
+        if (startButton && !workflowRunning) {
+            startButton.disabled = heavyLocked;
+            startButton.textContent = heavyLocked ? 'Päivitä tilauksesi' : 'Käynnistä työnkulku';
+        }
+        if (heavyLocked) setWorkflowStatus('Päivitä tilauksesi', true);
+        else if (!project) setWorkflowStatus('Valitse käsikirjoitus ensin.');
         else if (!workflowRunning) setWorkflowStatus('Valmis käynnistämään työnkulku.');
         renderWorkflowSteps();
     }
@@ -3708,6 +3717,10 @@ document.addEventListener('DOMContentLoaded', () => {
     async function runAiWorkflow() {
         if (workflowRunning) return;
         const mode = document.getElementById('workflow-mode')?.value || 'light';
+        if (currentUser?.role === 'kirjailija' && mode === 'heavy') {
+            setWorkflowStatus('Päivitä tilauksesi', true);
+            return;
+        }
         const button = document.getElementById('workflow-start-btn');
         workflowRunning = true;
         workflowSteps = defaultWorkflowSteps(mode);
