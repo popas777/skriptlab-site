@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=34">
+    <link rel="stylesheet" href="styles.css?v=35">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -73,7 +73,7 @@
                     <li data-view="view-kirjoita">Kirjoita</li>
                     <li data-view="view-elamakerta">Elämäkerta</li>
                     <li data-view="view-analyysi">Analyysi</li>
-                    <li data-view="view-toimitus">Toimitus</li>
+                    <li data-view="view-toimitus">Editointi</li>
                     <li data-view="view-oikoluku">Oikoluku</li>
                     <li data-view="view-kuvitus">Kuvitus</li>
                     <li data-view="view-tuotetiedot">Tuotetiedot</li>
@@ -160,7 +160,7 @@
                         <span class="app-intro-kicker">Aloita tästä</span>
                         <h3>Hei, tuo käsikirjoituksesi työtilaan</h3>
                         <p>
-                            Tälle sivulle voit ladata käsikirjoituksen tai luoda tyhjän dokumentin. Jos haluat jatkaa aiemmin aloitettua työtä, valitse käsikirjoitus alta ja siirry sen jälkeen Kirjoita-, Analyysi- tai Toimitus-osioon.
+                            Tälle sivulle voit ladata käsikirjoituksen tai luoda tyhjän dokumentin. Jos haluat jatkaa aiemmin aloitettua työtä, valitse käsikirjoitus alta ja siirry sen jälkeen Kirjoita-, Analyysi- tai Editointi-osioon.
                         </p>
                         <p class="app-intro-note">Tuetut tiedostot: TXT, MD, DOCX, PDF, RTF, ODT ja HTML.</p>
                     </div>
@@ -175,7 +175,7 @@
                         </div>
                         <div>
                             <strong>2. Jatka oikeassa osiossa</strong>
-                            <span>Kirjoita uutta, analysoi kokonaisuutta tai viimeistele tekstiä Toimitus-osiossa.</span>
+                            <span>Kirjoita uutta, analysoi kokonaisuutta tai viimeistele tekstiä Editointi-osiossa.</span>
                         </div>
                         <div>
                             <strong>3. Työ pysyy tallessa</strong>
@@ -234,7 +234,10 @@
                     <section class="writing-editor glass-panel">
                         <div class="panel-header">
                             <h3 id="writing-selection-title">Valitse luku</h3>
-                            <span id="writing-tool-status" class="writing-tool-status"></span>
+                            <div class="panel-status-stack">
+                                <span id="writing-tool-status" class="writing-tool-status"></span>
+                                <span id="writing-save-status" class="save-timestamp">Tallennus: -</span>
+                            </div>
                         </div>
                         <textarea id="writing-text" class="writing-text" placeholder="Valitse luku tai aloita uusi käsikirjoitus lataamalla teksti Käsikirjoitukseni-näkymässä. Erottele kappaleet tyhjällä rivillä."></textarea>
                     </section>
@@ -783,7 +786,7 @@
                         <div class="timeline-marker"></div>
                         <div class="timeline-content">
                             <h4>Käsikirjoitus valmis</h4>
-                            <p>Toimitus ja kielenhuolto yhdessä AI:n kanssa tekeillä. (Mene Toimitus-välilehdelle)</p>
+                            <p>Editointi ja kielenhuolto yhdessä tekeillä. (Mene Editointi-välilehdelle)</p>
                         </div>
                     </div>
                     <div class="timeline-item">
@@ -854,7 +857,7 @@
                             <p style="line-height:1.6; color:var(--text-secondary);" id="mock-analysis-text">
                                 Teksti etenee jouhevasti ja tyyli on mukaansatempaavaa, kieli sopii hienosti modernille yleisölle.<br><br>
                                 <strong>Rakenne-ehdotus:</strong> Alku on nopeatahtinen, mutta keskivaiheilla tempo hidastuu hieman liikaa. Harkitse lukujen tiivistämistä tai joidenkin sivulauseiden poistamista, jotta päästään nopeammin käsiksi itse pääsiemenen etsintään.<br><br>
-                                <strong>Vinkki:</strong> Rakenne voidaan siirtää suoraan toimitusnäkymään, kun analyysi on valmis.
+                                <strong>Vinkki:</strong> Rakenne voidaan siirtää suoraan editointinäkymään, kun analyysi on valmis.
                             </p>
                             <button class="btn btn-secondary hidden" id="toggle-analysis-editor-btn" style="margin-top:16px;">Muokkaa analyysin tuloksia</button>
                             <div id="analysis-editor" class="analysis-editor hidden"></div>
@@ -1049,6 +1052,12 @@
                                 <option value="">Ladataan kuvamalleja...</option>
                             </select>
 
+                            <label style="font-size:13px; color:var(--text-secondary); display:block; margin-bottom:8px;">Kannen osa</label>
+                            <select id="cover-side-select" style="width:100%; margin-bottom:16px;">
+                                <option value="front">Etukansi</option>
+                                <option value="back">Takakansi</option>
+                            </select>
+
                             <label style="font-size:13px; color:var(--text-secondary); display:block; margin-bottom:8px;">Kuvasuhde</label>
                             <select id="cover-aspect-select" style="width:100%; margin-bottom:16px;">
                                 <option value="3:4">Kirjan etukansi 3:4</option>
@@ -1056,27 +1065,27 @@
                                 <option value="1:1">Neliö 1:1</option>
                             </select>
 
-                            <label style="font-size:13px; color:var(--text-secondary); display:block; margin-bottom:8px;">Kansikuvaprompti</label>
-                            <textarea id="cover-prompt" rows="9" style="width:100%; resize:vertical;" placeholder="Kirjoita kansikuvan tunnelma, aihe, symboliikka, värit ja mahdollinen typografinen suunta. Jos jätät kentän tyhjäksi, käytetään analyysin kansipromptia."></textarea>
+                            <label style="font-size:13px; color:var(--text-secondary); display:block; margin-bottom:8px;">Kansiprompti tai takakansiteksti</label>
+                            <textarea id="cover-prompt" rows="9" style="width:100%; resize:vertical;" placeholder="Etukannessa kirjoita tunnelma, aihe, symboliikka ja värit. Takakannessa kirjoita takakansiteksti tai jätä kenttä tyhjäksi, jolloin käytetään analyysin tietoja."></textarea>
 
                             <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:16px;">
                                 <button class="btn btn-secondary" id="cover-load-prompt-btn" type="button">Lataa analyysin prompti</button>
-                                <button class="btn btn-primary" id="cover-generate-btn" type="button">Generoi kansikuva</button>
+                                <button class="btn btn-primary" id="cover-generate-btn" type="button">Generoi kansi</button>
                             </div>
                             <p id="illustration-status" style="margin-top:14px; color:var(--text-secondary);">Valitse käsikirjoitus ja generoi ensimmäinen kansikuvaehdotus.</p>
                         </div>
 
                         <div>
                             <div id="cover-latest-preview" style="min-height:420px; border:1px dashed var(--border-color); border-radius:12px; display:flex; align-items:center; justify-content:center; padding:18px; color:var(--text-secondary); text-align:center; background:rgba(0,0,0,0.04);">
-                                Kansikuva ilmestyy tähän.
+                                Kansikuva tai takakansi ilmestyy tähän.
                             </div>
                         </div>
                     </div>
 
                     <div style="margin-top:24px;">
-                        <h3 style="margin-bottom: 14px; color: var(--text-primary);">Tallennetut kansikuvat</h3>
+                        <h3 style="margin-bottom: 14px; color: var(--text-primary);">Tallennetut kannet</h3>
                         <div id="cover-gallery" class="grid-cards" style="grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));"></div>
-                        <p id="cover-empty-state" style="color:var(--text-secondary);">Ei vielä tallennettuja kansikuvia.</p>
+                        <p id="cover-empty-state" style="color:var(--text-secondary);">Ei vielä tallennettuja kansikuvia tai takakansia.</p>
                     </div>
                 </div>
 
@@ -1483,17 +1492,26 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                         <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
                             <button class="btn btn-secondary" id="misc-copy-btn">Kopioi</button>
                             <button class="btn btn-secondary" id="misc-download-btn">Lataa TXT</button>
+                            <button class="btn btn-secondary" id="misc-save-btn">Tallenna aineisto</button>
+                            <button class="btn btn-primary" id="misc-save-book-btn">Tallenna ja näytä valmiissa kirjassa</button>
                         </div>
                     </div>
                 </div>
+                <div class="card glass-panel" style="margin-top:18px;">
+                    <h3>Tallennetut oheisaineistot</h3>
+                    <p style="font-size:13px; color:var(--text-secondary); margin:8px 0 14px;">Voit säilyttää aineistot erillään tai liittää ne Valmis kirja -näkymän loppuun.</p>
+                    <div id="misc-saved-list" class="grid-cards" style="grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));"></div>
+                    <p id="misc-saved-empty" style="color:var(--text-secondary);">Ei vielä tallennettuja oheisaineistoja.</p>
+                </div>
             </div>
 
-            <!-- 5. VIEW: TOIMITUS (Vierekkäisnäkymä) -->
+            <!-- 5. VIEW: EDITOINTI (Vierekkäisnäkymä) -->
             <div id="view-toimitus" class="view-section hidden">
                 <div class="header">
                     <div class="header-info">
                         <h2 id="toimitus-book-title">[Ei aktiivista teosta] <span class="badge">Luonnos</span></h2>
-                        <p>Luku 1, Kappale 4 (Toimitus/Käännöstila) - Osat palasteltu tietokannasta</p>
+                        <p>Luku 1, Kappale 4 (Editointi/Käännöstila) - Osat palasteltu tietokannasta</p>
+                        <span id="editor-save-status" class="save-timestamp">Tallennus: -</span>
                     </div>
                     <div class="header-actions">
                         <button class="btn btn-secondary" id="add-editor-chapter-btn">Uusi luku</button>
@@ -1608,6 +1626,6 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=41"></script>
+    <script src="app.js?v=42"></script>
 </body>
 </html>

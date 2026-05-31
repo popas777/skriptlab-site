@@ -189,6 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let miscModels = [];
     let miscTimerInterval = null;
     let latestMiscText = '';
+    let currentMiscAssets = [];
     let imageModels = [];
     let biographyState = {};
     let biographyTimerInterval = null;
@@ -275,6 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const illustrationCurrentProject = document.getElementById('illustration-current-project');
     const illustrationStatus = document.getElementById('illustration-status');
     const coverModelSelect = document.getElementById('cover-model-select');
+    const coverSideSelect = document.getElementById('cover-side-select');
     const coverAspectSelect = document.getElementById('cover-aspect-select');
     const coverPrompt = document.getElementById('cover-prompt');
     const coverLoadPromptBtn = document.getElementById('cover-load-prompt-btn');
@@ -431,6 +433,47 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
+    }
+
+    function formatSaveTimestamp(date = new Date()) {
+        return date.toLocaleString('fi-FI', {
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+    }
+
+    function updateSaveTimestamp(elementId, pending = false) {
+        const element = document.getElementById(elementId);
+        if (!element) return;
+        element.textContent = pending
+            ? `Paikallinen luonnos ${formatSaveTimestamp()}`
+            : `Tallennettu ${formatSaveTimestamp()}`;
+        element.classList.toggle('is-pending', pending);
+        element.classList.toggle('is-saved', !pending);
+    }
+
+    function assetTextContent(asset) {
+        const dataUrl = asset?.data_url || '';
+        const commaIndex = dataUrl.indexOf(',');
+        if (commaIndex < 0) return '';
+        const encoded = dataUrl.slice(commaIndex + 1);
+        try {
+            if (dataUrl.slice(0, commaIndex).includes(';base64')) {
+                const binary = window.atob(encoded);
+                const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+                return new TextDecoder('utf-8').decode(bytes);
+            }
+            return decodeURIComponent(encoded);
+        } catch (err) {
+            try {
+                return window.atob(encoded);
+            } catch (fallbackErr) {
+                return '';
+            }
+        }
     }
 
     function normalizeWord(value) {
@@ -849,7 +892,7 @@ document.addEventListener('DOMContentLoaded', () => {
             '*kursiivi* merkitsee kursivoitavaa tekstiä.',
             '**lihavointi** kannattaa yleensä poistaa kaunokirjan leipätekstistä ennen taittoa.',
             '',
-            'Kirjoita- ja Toimitus-osioissa Näytä merkinnät näyttää nämä otsikkomerkit. Piilota merkinnät näyttää tekstin lukumuodossa.'
+            'Kirjoita- ja Editointi-osioissa Näytä merkinnät näyttää nämä otsikkomerkit. Piilota merkinnät näyttää tekstin lukumuodossa.'
         ].join('\n'));
     }
 
@@ -1075,6 +1118,19 @@ document.addEventListener('DOMContentLoaded', () => {
         textEl.classList.add(`book-font-${font}`, `book-size-${size}`, `book-width-${width}`);
     }
 
+    function fullBookTextWithMaterials() {
+        const baseText = getFullManuscriptText();
+        const includedMaterials = currentMiscAssets
+            .filter(asset => asset.asset_type === 'book_misc_material')
+            .map(asset => {
+                const content = assetTextContent(asset).trim();
+                if (!content) return '';
+                return `${asset.title || 'Oheisaineisto'}\n\n${content}`;
+            })
+            .filter(Boolean);
+        return [baseText, ...includedMaterials].filter(part => String(part || '').trim()).join('\n\n\n');
+    }
+
     function renderBookOverview() {
         const titleEl = document.getElementById('book-preview-title');
         const textEl = document.getElementById('book-full-text');
@@ -1088,7 +1144,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const title = window.manuscriptData.title || 'Nimetön käsikirjoitus';
         const author = window.manuscriptData.author || 'Tuntematon';
         titleEl.textContent = `${title} - ${author}`;
-        textEl.textContent = getFullManuscriptText() || 'Käsikirjoituksessa ei ole vielä tekstiä.';
+        textEl.textContent = fullBookTextWithMaterials() || 'Käsikirjoituksessa ei ole vielä tekstiä.';
     }
 
     function downloadCurrentBookText() {
@@ -1096,7 +1152,7 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Valitse tai lataa käsikirjoitus ensin.');
             return;
         }
-        const text = getFullManuscriptText();
+        const text = fullBookTextWithMaterials() || getFullManuscriptText();
         if (!text.trim()) {
             alert('Käsikirjoituksessa ei ole ladattavaa tekstiä.');
             return;
@@ -1150,7 +1206,8 @@ document.addEventListener('DOMContentLoaded', () => {
         window.clearTimeout(writingAutosaveTimer);
         writingAutosaveTimer = window.setTimeout(() => {
             if (syncWritingEditorToManuscript()) {
-                window.saveProjectChapterToDB(window.manuscriptData, writingSelection.cIndex);
+                window.saveProjectChapterToDB(window.manuscriptData, writingSelection.cIndex)
+                    .then(() => updateSaveTimestamp('writing-save-status', Boolean(window.manuscriptData?._db_sync_pending)));
                 renderBookOverview();
             }
         }, 1200);
@@ -1450,6 +1507,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.clearTimeout(writingAutosaveTimer);
         if (!syncWritingEditorToManuscript()) return;
         await window.saveProjectChapterToDB(window.manuscriptData, writingSelection.cIndex);
+        updateSaveTimestamp('writing-save-status', Boolean(window.manuscriptData._db_sync_pending));
         renderBookOverview();
         if (window.renderNavList) window.renderNavList();
         if (showAlert) {
@@ -1774,6 +1832,7 @@ document.addEventListener('DOMContentLoaded', () => {
             openModule(nextViewId);
             if (isMobileShell()) setSidebarDrawer(false);
             if (nextViewId === 'view-kirja') {
+                loadMiscAssetsForActiveProject(true);
                 renderBookOverview();
             }
             if (nextViewId === 'view-kirjoita') {
@@ -1790,6 +1849,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (nextViewId === 'view-muut-toiminnot') {
                 loadMiscModels();
                 updateMiscProjectSelect();
+                loadMiscAssetsForActiveProject();
             }
             if (nextViewId === 'view-elamakerta') {
                 loadBiographyState(false);
@@ -2185,7 +2245,7 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .then(async res => {
                 if(!res.ok) {
-                    throw new Error(await apiErrorMessage(res, 'Toimitus epäonnistui.'));
+                    throw new Error(await apiErrorMessage(res, 'Editointi epäonnistui.'));
                 }
                 return res.json();
             })
@@ -2214,7 +2274,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             })
             .catch(err => {
-                alert('Toimitus epäonnistui: ' + err.message);
+                alert('Editointi epäonnistui: ' + err.message);
                 setAiButtonIdle();
                 aiBtn.style.pointerEvents = 'auto';
                 loadUsage();
@@ -2456,6 +2516,19 @@ document.addEventListener('DOMContentLoaded', () => {
         return '';
     }
 
+    function analysisBackCoverText() {
+        const analysis = window.manuscriptData?.analysis || {};
+        return String(
+            analysis.backcover_text ||
+            analysis.back_cover_text ||
+            analysis.takakansiteksti ||
+            analysis.marketing_blurb ||
+            analysis.blurb ||
+            analysis.synopsis ||
+            ''
+        ).trim();
+    }
+
     function updateIllustrationProjectText() {
         if (!illustrationCurrentProject) return;
         const title = window.manuscriptData?.title || '[Ei aktiivista teosta]';
@@ -2491,12 +2564,13 @@ document.addEventListener('DOMContentLoaded', () => {
         coverEmptyState.hidden = items.length > 0;
 
         if (!items.length) {
-            coverLatestPreview.innerHTML = 'Kansikuva ilmestyy tähän.';
+            coverLatestPreview.innerHTML = 'Kansikuva tai takakansi ilmestyy tähän.';
             return;
         }
 
-        coverLatestPreview.innerHTML = `<img src="${items[0].data_url}" alt="Viimeisin kansikuva" style="width:100%; max-height:520px; object-fit:contain; border-radius:10px;">`;
+        coverLatestPreview.innerHTML = `<img src="${items[0].data_url}" alt="Viimeisin kansi" style="width:100%; max-height:520px; object-fit:contain; border-radius:10px;">`;
         items.forEach(item => {
+            const typeLabel = item.asset_type === 'back_cover_image' ? 'Takakansi' : 'Etukansi';
             const card = document.createElement('div');
             card.className = 'card glass-panel';
             card.style.display = 'flex';
@@ -2506,13 +2580,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 <img src="${item.data_url}" alt="${escapeHtml(item.title)}" style="width:100%; aspect-ratio:3 / 4; object-fit:cover; border-radius:8px; border:1px solid var(--border-color);">
                 <div>
                     <strong style="font-size:14px;">${escapeHtml(item.title)}</strong>
-                    <p class="card-meta" style="margin:6px 0 0;">${escapeHtml(item.model || 'Kuvamalli')}</p>
+                    <p class="card-meta" style="margin:6px 0 0;">${typeLabel} · ${escapeHtml(item.model || 'Kuvamalli')}</p>
                 </div>
                 <details style="font-size:12px; color:var(--text-secondary);">
                     <summary>Prompti</summary>
                     <p style="white-space:pre-wrap; margin-top:8px;">${escapeHtml(item.prompt || '')}</p>
                 </details>
-                <button class="btn btn-secondary btn-danger-soft delete-cover-btn" type="button" data-asset-id="${item.id}">Poista kansikuva</button>
+                <button class="btn btn-secondary btn-danger-soft delete-cover-btn" type="button" data-asset-id="${item.id}">Poista kuva</button>
             `;
             coverGallery.appendChild(card);
         });
@@ -2541,13 +2615,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function deleteCoverImage(assetId) {
         if (!window.manuscriptData?.id || !assetId) return;
-        if (!confirm('Poistetaanko kansikuva?')) return;
-        setIllustrationStatus('Poistetaan kansikuvaa...');
+        if (!confirm('Poistetaanko kuva?')) return;
+        setIllustrationStatus('Poistetaan kuvaa...');
         try {
             const res = await apiFetch(`/api/projects/${window.manuscriptData.id}/assets/${assetId}`, { method: 'DELETE' });
-            if (!res.ok) throw new Error(await apiErrorMessage(res, 'Kansikuvan poisto epäonnistui.'));
+            if (!res.ok) throw new Error(await apiErrorMessage(res, 'Kuvan poisto epäonnistui.'));
             await loadCoverImages();
-            setIllustrationStatus('Kansikuva poistettu.');
+            setIllustrationStatus('Kuva poistettu.');
         } catch (err) {
             setIllustrationStatus(err.message, true);
         }
@@ -2567,17 +2641,18 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const coverSide = coverSideSelect?.value === 'back' ? 'back' : 'front';
         const prompt = (coverPrompt?.value || '').trim();
-        const fallbackPrompt = analysisCoverPrompt();
+        const fallbackPrompt = coverSide === 'back' ? analysisBackCoverText() : analysisCoverPrompt();
         if (!prompt && fallbackPrompt && coverPrompt) {
             coverPrompt.value = fallbackPrompt;
         }
 
         if (coverGenerateBtn) coverGenerateBtn.disabled = true;
         if (coverLatestPreview) {
-            coverLatestPreview.innerHTML = '<div style="text-align:center; color:var(--text-secondary);">Generoidaan kansikuvaa...</div>';
+            coverLatestPreview.innerHTML = `<div style="text-align:center; color:var(--text-secondary);">Generoidaan ${coverSide === 'back' ? 'takakantta' : 'kansikuvaa'}...</div>`;
         }
-        setIllustrationStatus('Kansikuvaa generoidaan. Tässä voi mennä hetki.');
+        setIllustrationStatus(`${coverSide === 'back' ? 'Takakantta' : 'Kansikuvaa'} generoidaan. Tässä voi mennä hetki.`);
 
         try {
             const res = await apiFetch(`/api/projects/${window.manuscriptData.id}/cover-images`, {
@@ -2585,6 +2660,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                     prompt: (coverPrompt?.value || '').trim(),
+                    cover_side: coverSide,
                     model: coverModelSelect?.value || null,
                     aspect_ratio: coverAspectSelect?.value || '3:4',
                     title_text: window.manuscriptData.title || '',
@@ -2593,12 +2669,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const data = await res.json().catch(() => null);
             if (!res.ok) throw new Error(data?.detail || 'Kansikuvan generointi epäonnistui.');
-            setIllustrationStatus('Kansikuva tallennettu käsikirjoitukselle.');
+            setIllustrationStatus(`${coverSide === 'back' ? 'Takakansi' : 'Kansikuva'} tallennettu käsikirjoitukselle.`);
             await loadCoverImages();
             loadUsage();
         } catch (err) {
             if (coverLatestPreview) {
-                coverLatestPreview.innerHTML = 'Kansikuvaa ei saatu generoitua.';
+                coverLatestPreview.innerHTML = `${coverSide === 'back' ? 'Takakantta' : 'Kansikuvaa'} ei saatu generoitua.`;
             }
             const message = String(err?.message || err || '');
             setIllustrationStatus(message.includes('Failed to fetch') ? networkFailureMessage(err, 'cover') : message, true);
@@ -2609,13 +2685,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (coverLoadPromptBtn) {
         coverLoadPromptBtn.addEventListener('click', () => {
-            const prompt = analysisCoverPrompt();
+            const isBackCover = coverSideSelect?.value === 'back';
+            const prompt = isBackCover ? analysisBackCoverText() : analysisCoverPrompt();
             if (!prompt) {
-                setIllustrationStatus('Analyysista ei löytynyt kansikuvapromptia. Voit kirjoittaa promptin käsin.', true);
+                setIllustrationStatus(isBackCover
+                    ? 'Analyysista ei löytynyt takakansitekstiä. Voit kirjoittaa sen käsin.'
+                    : 'Analyysista ei löytynyt kansikuvapromptia. Voit kirjoittaa promptin käsin.', true);
                 return;
             }
             if (coverPrompt) coverPrompt.value = prompt;
-            setIllustrationStatus('Analyysin kansikuvaprompti ladattu kenttään.');
+            setIllustrationStatus(isBackCover ? 'Takakansiteksti ladattu kenttään.' : 'Analyysin kansikuvaprompti ladattu kenttään.');
         });
     }
 
@@ -2958,6 +3037,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderWritingView();
         if (window.renderNavList) window.renderNavList();
         updateMiscProjectSelect();
+        loadMiscAssetsForActiveProject(true);
         if (currentViewId === 'view-kuvitus') loadCoverImages();
     }
 
@@ -3800,6 +3880,142 @@ document.addEventListener('DOMContentLoaded', () => {
         link.download = `${safeTitle}-${tool}.txt`;
         link.click();
         URL.revokeObjectURL(link.href);
+    }
+
+    function renderMiscAssets(items = []) {
+        const list = document.getElementById('misc-saved-list');
+        const empty = document.getElementById('misc-saved-empty');
+        if (!list || !empty) return;
+        list.innerHTML = '';
+        empty.hidden = items.length > 0;
+        items.forEach(item => {
+            const included = item.asset_type === 'book_misc_material';
+            const text = assetTextContent(item).trim();
+            const preview = text.length > 220 ? `${text.slice(0, 220)}...` : text;
+            const card = document.createElement('div');
+            card.className = 'card glass-panel';
+            card.style.display = 'flex';
+            card.style.flexDirection = 'column';
+            card.style.gap = '10px';
+            card.innerHTML = `
+                <div>
+                    <strong>${escapeHtml(item.title || 'Oheisaineisto')}</strong>
+                    <p class="card-meta" style="margin:6px 0 0;">${included ? 'Näkyy valmiissa kirjassa' : 'Tallessa erillisenä'} · ${new Date(item.created_at).toLocaleDateString('fi-FI')}</p>
+                </div>
+                <p style="font-size:13px; color:var(--text-secondary); white-space:pre-wrap; max-height:120px; overflow:hidden;">${escapeHtml(preview || 'Ei tekstisisältöä.')}</p>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:auto;">
+                    <button class="btn btn-secondary toggle-misc-asset-btn" type="button" data-asset-id="${item.id}" data-include="${included ? '0' : '1'}">${included ? 'Poista valmiista kirjasta' : 'Näytä valmiissa kirjassa'}</button>
+                    <button class="btn btn-secondary btn-danger-soft delete-misc-asset-btn" type="button" data-asset-id="${item.id}">Poista</button>
+                </div>
+            `;
+            list.appendChild(card);
+        });
+        list.querySelectorAll('.toggle-misc-asset-btn').forEach(button => {
+            button.addEventListener('click', () => toggleMiscAssetInBook(button.dataset.assetId, button.dataset.include === '1'));
+        });
+        list.querySelectorAll('.delete-misc-asset-btn').forEach(button => {
+            button.addEventListener('click', () => deleteMiscAsset(button.dataset.assetId));
+        });
+    }
+
+    async function loadMiscAssetsForActiveProject(useActiveManuscript = false) {
+        const project = useActiveManuscript ? window.manuscriptData : (currentMiscProject() || window.manuscriptData);
+        if (!project?.id) {
+            currentMiscAssets = [];
+            renderMiscAssets([]);
+            renderBookOverview();
+            return [];
+        }
+        try {
+            const res = await apiFetch(`/api/projects/${project.id}/misc-assets`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Oheisaineistojen lataus epäonnistui.');
+            if (window.manuscriptData?.id && String(project.id) === String(window.manuscriptData.id)) {
+                currentMiscAssets = data || [];
+                renderBookOverview();
+            }
+            renderMiscAssets(data || []);
+            return data || [];
+        } catch (err) {
+            const status = document.getElementById('misc-status');
+            if (status) status.textContent = err.message;
+            return [];
+        }
+    }
+
+    async function saveMiscOutput(includeInBook = false) {
+        const project = currentMiscProject();
+        const output = document.getElementById('misc-output');
+        const text = (output?.value || latestMiscText || '').trim();
+        if (!project?.id) {
+            alert('Valitse ensin käsikirjoitus.');
+            return;
+        }
+        if (!text) {
+            alert('Ei tallennettavaa oheisaineistoa.');
+            return;
+        }
+        const status = document.getElementById('misc-status');
+        const title = document.getElementById('misc-result-title')?.textContent || miscToolLabel(document.getElementById('misc-tool-select')?.value);
+        try {
+            if (status) status.textContent = 'Tallennetaan oheisaineistoa...';
+            const res = await apiFetch(`/api/projects/${project.id}/misc-assets`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    title,
+                    content: text,
+                    include_in_book: includeInBook
+                })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Oheisaineiston tallennus epäonnistui.');
+            if (status) status.textContent = includeInBook
+                ? 'Oheisaineisto tallennettu ja lisätty valmiiseen kirjaan.'
+                : 'Oheisaineisto tallennettu.';
+            await loadMiscAssetsForActiveProject();
+        } catch (err) {
+            if (status) status.textContent = err.message;
+            alert('Oheisaineiston tallennus epäonnistui: ' + err.message);
+        }
+    }
+
+    async function toggleMiscAssetInBook(assetId, includeInBook) {
+        const project = currentMiscProject();
+        if (!project?.id || !assetId) return;
+        const status = document.getElementById('misc-status');
+        try {
+            const res = await apiFetch(`/api/projects/${project.id}/assets/${assetId}`, {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    asset_type: includeInBook ? 'book_misc_material' : 'misc_material'
+                })
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.detail || 'Oheisaineiston päivitys epäonnistui.');
+            if (status) status.textContent = includeInBook
+                ? 'Oheisaineisto näkyy nyt valmiissa kirjassa.'
+                : 'Oheisaineisto poistettiin valmiin kirjan näkymästä.';
+            await loadMiscAssetsForActiveProject();
+        } catch (err) {
+            if (status) status.textContent = err.message;
+        }
+    }
+
+    async function deleteMiscAsset(assetId) {
+        const project = currentMiscProject();
+        if (!project?.id || !assetId) return;
+        if (!confirm('Poistetaanko tallennettu oheisaineisto?')) return;
+        const status = document.getElementById('misc-status');
+        try {
+            const res = await apiFetch(`/api/projects/${project.id}/assets/${assetId}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error(await apiErrorMessage(res, 'Oheisaineiston poisto epäonnistui.'));
+            if (status) status.textContent = 'Oheisaineisto poistettu.';
+            await loadMiscAssetsForActiveProject();
+        } catch (err) {
+            if (status) status.textContent = err.message;
+        }
     }
 
     function defaultBiographyState() {
@@ -4939,6 +5155,8 @@ ${state.validation || 'Ei validointia.'}`;
     const miscRunBtn = document.getElementById('misc-run-btn');
     const miscCopyBtn = document.getElementById('misc-copy-btn');
     const miscDownloadBtn = document.getElementById('misc-download-btn');
+    const miscSaveBtn = document.getElementById('misc-save-btn');
+    const miscSaveBookBtn = document.getElementById('misc-save-book-btn');
     const layoutRunBtn = document.getElementById('layout-run-btn');
     const bioLoadBtn = document.getElementById('bio-load-btn');
     const bioSaveBtn = document.getElementById('bio-save-btn');
@@ -4992,6 +5210,7 @@ ${state.validation || 'Ei validointia.'}`;
             const project = currentMiscProject();
             if (project) setActiveManuscript(project);
             updateMiscProjectSelect();
+            loadMiscAssetsForActiveProject();
         });
     }
     if (miscToolSelect) {
@@ -5003,6 +5222,8 @@ ${state.validation || 'Ei validointia.'}`;
     if (miscRunBtn) miscRunBtn.addEventListener('click', runMiscTool);
     if (miscCopyBtn) miscCopyBtn.addEventListener('click', copyMiscOutput);
     if (miscDownloadBtn) miscDownloadBtn.addEventListener('click', downloadMiscOutput);
+    if (miscSaveBtn) miscSaveBtn.addEventListener('click', () => saveMiscOutput(false));
+    if (miscSaveBookBtn) miscSaveBookBtn.addEventListener('click', () => saveMiscOutput(true));
     if (layoutRunBtn) layoutRunBtn.addEventListener('click', runLayout);
     if (bioLoadBtn) bioLoadBtn.addEventListener('click', () => loadBiographyState(true));
     if (bioSaveBtn) bioSaveBtn.addEventListener('click', () => saveBiographyState(true));
@@ -5121,7 +5342,7 @@ ${state.validation || 'Ei validointia.'}`;
         const chapterLabel = document.getElementById('original-chapter-label');
         if (chapterLabel) chapterLabel.textContent = `- ${chapter.title}`;
         const statusP = document.querySelector('#view-toimitus .header-info p');
-        if (statusP) statusP.textContent = `${chapter.title}, Kappale ${pIndex + 1} (Toimitus/Käännöstila)`;
+        if (statusP) statusP.textContent = `${chapter.title}, Kappale ${pIndex + 1} (Editointi/Käännöstila)`;
 
         if (editScopeSelect?.value === 'paragraph' && normalizeText(getEditableText()) === normalizeText(previousText)) {
             setEditableText(chapter.paragraphs[pIndex] || '');
@@ -5226,7 +5447,7 @@ ${state.validation || 'Ei validointia.'}`;
         
         const statusP = document.querySelector('#view-toimitus .header-info p');
         if (statusP) {
-            statusP.textContent = `${chapter.title}, Kappale ${pIndex + 1} (Toimitus/Käännöstila)`;
+            statusP.textContent = `${chapter.title}, Kappale ${pIndex + 1} (Editointi/Käännöstila)`;
         }
     };
 
@@ -5278,7 +5499,8 @@ ${state.validation || 'Ei validointia.'}`;
         window.clearTimeout(editingAutosaveTimer);
         editingAutosaveTimer = window.setTimeout(() => {
             if (syncEditedTargetToManuscript({ showAlerts: false })) {
-                window.saveProjectChapterToDB(window.manuscriptData, window.currentEditSelection?.cIndex);
+                window.saveProjectChapterToDB(window.manuscriptData, window.currentEditSelection?.cIndex)
+                    .then(() => updateSaveTimestamp('editor-save-status', Boolean(window.manuscriptData?._db_sync_pending)));
                 renderBookOverview();
             }
         }, 1200);
@@ -5292,6 +5514,7 @@ ${state.validation || 'Ei validointia.'}`;
         const originalText = saveEditTargetBtn?.textContent || 'Tallenna';
         if (showSavedText && saveEditTargetBtn) saveEditTargetBtn.textContent = 'Tallennetaan...';
         await window.saveProjectChapterToDB(window.manuscriptData, sel.cIndex);
+        updateSaveTimestamp('editor-save-status', Boolean(window.manuscriptData._db_sync_pending));
         window.loadParagraph(sel.cIndex, sel.pIndex, null);
         renderWritingView();
 

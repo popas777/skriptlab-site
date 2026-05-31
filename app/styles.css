@@ -548,6 +548,26 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 }
 [data-theme="light"] .panel-header { background: rgba(0,0,0,0.02); }
 .panel-header h3 { font-size: 14px; color: var(--text-secondary); }
+.panel-status-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    margin-left: auto;
+}
+.save-timestamp {
+    display: inline-block;
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.3;
+    opacity: 0.78;
+}
+.save-timestamp.is-pending {
+    color: #d97706;
+}
+.save-timestamp.is-saved {
+    color: var(--ai-gradient-start);
+}
 .editor-content {
     padding: 20px; font-family: inherit; font-size: 15px; line-height: 1.8; flex: 1; overflow-y: auto; color: var(--text-secondary);
 }
