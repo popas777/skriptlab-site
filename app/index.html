@@ -1145,24 +1145,25 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                 <div class="header">
                     <div class="header-info">
                         <h2>Markkinointimateriaalit</h2>
-                        <p>Käsikirjoitus: [Ei aktiivista teosta] (AI-generoitu analyysivaiheessa)</p>
+                        <p id="marketing-current-project">Käsikirjoitus: [Ei aktiivista teosta]</p>
                     </div>
                     <div class="header-actions">
                         <button class="btn btn-secondary" onclick="alert('Ladataan markkinointipakettia zip-muodossa...');">Lataa markkinointipaketti (ZIP)</button>
-                        <button class="btn btn-primary" onclick="alert('Generoidaan uusia some-postauksia nykyisen vektorimuistin perusteella...');">✨ Luo uusi kampanja AI:lla</button>
+                        <button class="btn btn-primary" id="marketing-generate-btn">Luo markkinointiaineistot AI:lla</button>
                     </div>
                 </div>
+                <p id="marketing-status" style="color:var(--text-secondary); margin:-8px 0 22px; font-size:13px;">Tee ensin analyysi, jotta aineistot voidaan muodostaa teoksen metatiedoista.</p>
 
                 <!-- Peruskuvaukset -->
                 <h3 style="margin-bottom: 20px; color: var(--text-primary);">1. Myyntitekstit & Kuvaukset</h3>
                 <div class="grid-cards" style="margin-bottom: 40px; grid-template-columns: 1fr 1fr;">
                     <div class="card glass-panel" style="display: flex; flex-direction: column;">
                         <h4 style="color: var(--ai-gradient-start); margin-bottom:12px;">Hissipuhe / Lyhyt kuvaus</h4>
-                        <textarea style="width: 100%; flex: 1; min-height: 100px; padding: 16px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; resize: none; line-height: 1.6; outline:none;">[Teoksen nimi] on lumoava ja synkkä fantasiaseikkailu, jossa ikiaikaiset noidat ja kadonnut kivi uhkaavat suistaa maailman pimeyteen. Se on kertomus rohkeudesta, valosta ja varjojen keskellä selviytymisestä.</textarea>
+                        <textarea id="marketing-short" style="width: 100%; flex: 1; min-height: 100px; padding: 16px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; resize: vertical; line-height: 1.6; outline:none;" placeholder="Lyhyt kuvaus muodostuu analyysin pohjalta."></textarea>
                     </div>
                     <div class="card glass-panel" style="display: flex; flex-direction: column;">
                         <h4 style="color: var(--ai-gradient-start); margin-bottom:12px;">Verkkokaupan kuvaus (Long)</h4>
-                        <textarea style="width: 100%; flex: 1; min-height: 100px; padding: 16px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; resize: none; line-height: 1.6; outline:none;">Sukella syvälle Varjometsän uumeniin uudessa YA-fantasiaromaanissa. Kun metsän ylle laskeutuu selittämätön pimeys, on pienen joukkion löydettävä valo ennen kuin on liian myöhäistä. Kirja vetää lukijansa mukaansa poikkeuksellisella tunnelmalla ja unohtumattomilla hahmoilla, tarjoten hengästyttäviä käänteitä aina viimeiselle sivulle asti.</textarea>
+                        <textarea id="marketing-long" style="width: 100%; flex: 1; min-height: 100px; padding: 16px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; resize: vertical; line-height: 1.6; outline:none;" placeholder="Pidempi verkkokauppa- tai esittelyteksti muodostuu tähän."></textarea>
                     </div>
                 </div>
 
@@ -1174,13 +1175,8 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                         <h3 style="margin-bottom: 12px; display:flex; align-items:center; gap:8px;">
                             <span style="font-size: 20px;">📸</span> Instagram 
                         </h3>
-                        <div style="flex:1; padding:16px; background:rgba(0,0,0,0.2); border-radius:8px; border:1px solid var(--border-color); font-size:14px; color:var(--text-secondary); line-height: 1.6; min-height: 120px;">
-                            "Kylläpä täällä on pimeää," olento sanoi. 🌑🌲<br><br>
-                            Miltä sinusta tuntuisi astua yölliseen Varjometsään? 
-                            [Teoksen nimi] saapuu kirjakauppoihin ensi syksynä! Tägää ystävä, joka rakastaa synkkää fantasiaa. 👇<br><br>
-                            <span style="color: var(--ai-gradient-start);">#MetsänSalaisuus #Uutuuskirja #FantasiaKirjallisuus #Kirjagram #Lukutoukka</span>
-                        </div>
-                        <button class="btn btn-secondary" style="margin-top: 16px; width:100%; border-color: #E1306C; color: #E1306C;" onclick="alert('Kopioitu leikepöydälle!')">Kopioi teksti</button>
+                        <textarea id="marketing-instagram" style="flex:1; width:100%; padding:16px; background:rgba(0,0,0,0.2); border-radius:8px; border:1px solid var(--border-color); font-size:14px; color:var(--text-secondary); line-height:1.6; min-height:180px; resize:vertical;" placeholder="Instagram-teksti muodostuu tähän."></textarea>
+                        <button class="btn btn-secondary marketing-copy-btn" data-copy-target="marketing-instagram" style="margin-top: 16px; width:100%; border-color: #E1306C; color: #E1306C;">Kopioi teksti</button>
                     </div>
 
                     <!-- Facebook -->
@@ -1188,12 +1184,8 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                         <h3 style="margin-bottom: 12px; display:flex; align-items:center; gap:8px;">
                             <span style="font-size: 20px;">📘</span> Facebook 
                         </h3>
-                        <div style="flex:1; padding:16px; background:rgba(0,0,0,0.2); border-radius:8px; border:1px solid var(--border-color); font-size:14px; color:var(--text-secondary); line-height: 1.6; min-height: 120px;">
-                            ✨ UUTUUSKIRJAPALJASTUS! ✨<br><br>
-                            Olemme innoissamme, sillä olemme yhden uskomattoman kirjan äärellä. Kirjailija Matti Meikäläisen yhdessä tiimimme kanssa hioma huippufantasia saapuu pian.<br><br>
-                            Oletko koskaan miettinyt, mitä pimeys kätkee sisälleen? "[Teoksen nimi]" pureutuu tähän ikiaikaiseen pelkoon vieden lukijan eeppiselle matkalle. Ennakkotilaa omasi nyt myymälöistämme!
-                        </div>
-                        <button class="btn btn-secondary" style="margin-top: 16px; width:100%; border-color: #1877F2; color: #1877F2;" onclick="alert('Kopioitu leikepöydälle!')">Kopioi teksti</button>
+                        <textarea id="marketing-facebook" style="flex:1; width:100%; padding:16px; background:rgba(0,0,0,0.2); border-radius:8px; border:1px solid var(--border-color); font-size:14px; color:var(--text-secondary); line-height:1.6; min-height:180px; resize:vertical;" placeholder="Facebook-teksti muodostuu tähän."></textarea>
+                        <button class="btn btn-secondary marketing-copy-btn" data-copy-target="marketing-facebook" style="margin-top: 16px; width:100%; border-color: #1877F2; color: #1877F2;">Kopioi teksti</button>
                     </div>
 
                     <!-- Lyhyt Video Käsikirjoitus (Tiktok/Reels) -->
@@ -1201,14 +1193,9 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                         <h3 style="margin-bottom: 12px; display:flex; align-items:center; gap:8px;">
                             <span style="font-size: 20px;">📱</span> Video / Reels Script 
                         </h3>
-                        <div style="flex:1; padding:16px; background:rgba(0,0,0,0.2); border-radius:8px; border:1px dashed var(--ai-gradient-end); font-size:14px; color:var(--text-secondary); line-height: 1.6; min-height: 120px;">
-                            <strong>Aika:</strong> 15 sekuntia<br>
-                            <strong>Audio:</strong> Dramaattinen, nouseva jännitysmusiikki<br><br>
-                            [0:00-0:03]: Kamera zoomaa pimeään metsään panoroimalla (Käytä kirjan kansikuvaa). Teksti ruudussa: <em>"Luuletko tietäväsi millaista on pimeässä?"</em><br>
-                            [0:04-0:08]: Kuvitus vaihtuu hylättyyn sivuun, jossa hehkuu liila kivi. Teksti ilmestyy nopeasti: <em>"Unohda kaikki mitä luulit tietäväsi."</em><br>
-                            [0:09-0:15]: Kirja lyö kovaa ruutuun beat-dropissa. Voiceover: <em>"[Teoksen nimi]. Kaupoissa Nyt."</em>
-                        </div>
-                        <button class="btn btn-secondary" style="margin-top: 16px; width:100%; border-color: var(--ai-gradient-end); color: var(--ai-gradient-end);" onclick="alert('Kopioitu leikepöydälle!')">Kopioi Käsikirjoitus</button>
+                        <textarea id="marketing-video" style="flex:1; width:100%; padding:16px; background:rgba(0,0,0,0.2); border-radius:8px; border:1px dashed var(--ai-gradient-end); font-size:14px; color:var(--text-secondary); line-height:1.6; min-height:180px; resize:vertical;" placeholder="Video/Reels-käsikirjoitus muodostuu tähän."></textarea>
+                        <textarea id="marketing-hashtags" style="width:100%; margin-top:12px; padding:12px; background:rgba(0,0,0,0.2); border-radius:8px; border:1px solid var(--border-color); color:var(--text-secondary); min-height:70px; resize:vertical;" placeholder="#hashtagit"></textarea>
+                        <button class="btn btn-secondary marketing-copy-btn" data-copy-target="marketing-video" style="margin-top: 16px; width:100%; border-color: var(--ai-gradient-end); color: var(--ai-gradient-end);">Kopioi käsikirjoitus</button>
                     </div>
                 </div>
             </div>

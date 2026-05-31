@@ -213,10 +213,10 @@ document.addEventListener('DOMContentLoaded', () => {
         'view-om-kokonaisuus',
         'view-om-vienti'
     ]);
-    const writerViews = new Set(['view-kirjani', 'view-kirjoita', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus']);
-    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus']);
+    const writerViews = new Set(['view-kirjani', 'view-kirjoita', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-markkinointi']);
+    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-markkinointi']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset']);
-    const biographyViews = new Set(['view-kirjani', 'view-kirjoita', 'view-elamakerta', 'view-toimitus', 'view-oikoluku', 'view-kuvitus', 'view-taitto', 'view-muut-toiminnot', 'view-kirja']);
+    const biographyViews = new Set(['view-kirjani', 'view-kirjoita', 'view-elamakerta', 'view-toimitus', 'view-oikoluku', 'view-kuvitus', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-kirja']);
     const roleLabels = {
         admin: 'Admin',
         test_user: 'Test user',
@@ -1870,6 +1870,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (nextViewId === 'view-oikoluku') {
                 renderProofreadView();
             }
+            if (nextViewId === 'view-markkinointi') {
+                renderMarketingMaterialsFromAnalysis(false);
+            }
             if (nextViewId === 'view-kaannokset') {
                 loadTranslationModels();
                 updateTranslationProjectSelect();
@@ -2564,6 +2567,109 @@ document.addEventListener('DOMContentLoaded', () => {
         illustrationCurrentProject.textContent = `Käsikirjoitus: ${title}`;
     }
 
+    function setMarketingStatus(message, isError = false) {
+        const status = document.getElementById('marketing-status');
+        if (!status) return;
+        status.textContent = message;
+        status.style.color = isError ? '#ffb4b4' : 'var(--text-secondary)';
+    }
+
+    function setMarketingFieldValue(id, value, force = false) {
+        const element = document.getElementById(id);
+        if (!element) return;
+        const next = String(value || '').trim();
+        if (force || !element.value.trim()) element.value = next;
+    }
+
+    function renderMarketingMaterialsFromAnalysis(force = false) {
+        const current = document.getElementById('marketing-current-project');
+        if (current) {
+            current.textContent = window.manuscriptData
+                ? `Käsikirjoitus: ${window.manuscriptData.title || 'Nimetön'}`
+                : 'Käsikirjoitus: [Ei aktiivista teosta]';
+        }
+        const analysis = window.manuscriptData?.analysis || {};
+        const title = window.manuscriptData?.title || 'Teos';
+        const shortText = analysis.marketing_short || analysis.backcover || analysis.synopsis || '';
+        const longText = analysis.marketing_long || analysis.backcover || analysis.synopsis || '';
+        setMarketingFieldValue('marketing-short', shortText, force);
+        setMarketingFieldValue('marketing-long', longText, force);
+        setMarketingFieldValue('marketing-instagram', analysis.instagram_post || '', force);
+        setMarketingFieldValue('marketing-facebook', analysis.facebook_post || '', force);
+        setMarketingFieldValue('marketing-video', analysis.video_script || '', force);
+        setMarketingFieldValue('marketing-hashtags', analysis.hashtags || '', force);
+        if (!window.manuscriptData) {
+            setMarketingStatus('Valitse käsikirjoitus ensin.', true);
+        } else if (!hasSavedAnalysis(analysis)) {
+            setMarketingStatus('Tee ensin analyysi, jotta aineistot voidaan muodostaa teoksen metatiedoista.', true);
+        } else if (!shortText && !longText) {
+            setMarketingStatus(`${title}: analyysi löytyi. Voit luoda markkinointiaineistot AI:lla.`);
+        } else {
+            setMarketingStatus(`${title}: analyysin markkinointitiedot ladattu. Voit luoda uuden kampanjapaketin AI:lla.`);
+        }
+    }
+
+    async function generateMarketingMaterials() {
+        if (!window.manuscriptData) {
+            setMarketingStatus('Valitse käsikirjoitus ensin.', true);
+            return;
+        }
+        if (!hasSavedAnalysis(window.manuscriptData.analysis)) {
+            setMarketingStatus('Tee analyysi ensin. Markkinointiaineistot hyödyntävät analyysin synopsista, genreä, kohderyhmää ja tyyliä.', true);
+            return;
+        }
+        if (!window.manuscriptData.id) {
+            const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
+            if (savedProject?.id) window.manuscriptData = savedProject;
+        }
+        if (!window.manuscriptData?.id) {
+            setMarketingStatus('Käsikirjoitusta ei saatu tallennettua ennen markkinointiaineistoja.', true);
+            return;
+        }
+
+        const button = document.getElementById('marketing-generate-btn');
+        if (button) button.disabled = true;
+        setMarketingStatus('Luodaan markkinointiaineistoja analyysin ja käsikirjoitustietojen pohjalta...');
+        try {
+            const res = await apiFetch('/api/marketing/materials', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ project_id: window.manuscriptData.id })
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.detail || 'Markkinointiaineistojen luonti epäonnistui.');
+            setMarketingFieldValue('marketing-short', data.short_description, true);
+            setMarketingFieldValue('marketing-long', data.long_description, true);
+            setMarketingFieldValue('marketing-instagram', data.instagram_post, true);
+            setMarketingFieldValue('marketing-facebook', data.facebook_post, true);
+            setMarketingFieldValue('marketing-video', data.video_script, true);
+            setMarketingFieldValue('marketing-hashtags', data.hashtags, true);
+            setMarketingStatus(data.warnings ? `${data.warnings} Lähde: ${data.generated_by}.` : `Markkinointiaineistot luotu. Lähde: ${data.generated_by}.`);
+            loadUsage();
+        } catch (err) {
+            setMarketingStatus(err.message, true);
+            alert('Markkinointiaineistojen luonti epäonnistui: ' + networkFailureMessage(err));
+            loadUsage();
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
+    async function copyMarketingField(targetId) {
+        const element = document.getElementById(targetId);
+        const text = element?.value || '';
+        if (!text.trim()) {
+            setMarketingStatus('Ei kopioitavaa tekstiä.', true);
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(text);
+            setMarketingStatus('Teksti kopioitu leikepöydälle.');
+        } catch (err) {
+            setMarketingStatus('Kopiointi epäonnistui. Voit valita tekstin ja kopioida sen käsin.', true);
+        }
+    }
+
     async function loadImageModels() {
         if (!coverModelSelect) return;
         try {
@@ -2978,6 +3084,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderBookOverview();
         renderWritingView();
         renderProofreadView();
+        renderMarketingMaterialsFromAnalysis(false);
         if (window.renderNavList) window.renderNavList();
     }
 
@@ -5358,6 +5465,7 @@ ${state.validation || 'Ei validointia.'}`;
     const layoutRunBtn = document.getElementById('layout-run-btn');
     const proofreadRunBtn = document.getElementById('proofread-run-btn');
     const proofreadChapterSelect = document.getElementById('proofread-chapter-select');
+    const marketingGenerateBtn = document.getElementById('marketing-generate-btn');
     const bioLoadBtn = document.getElementById('bio-load-btn');
     const bioSaveBtn = document.getElementById('bio-save-btn');
     const bioAddMaterialBtn = document.getElementById('bio-add-material-btn');
@@ -5426,6 +5534,10 @@ ${state.validation || 'Ei validointia.'}`;
     if (miscSaveBookBtn) miscSaveBookBtn.addEventListener('click', () => saveMiscOutput(true));
     if (layoutRunBtn) layoutRunBtn.addEventListener('click', runLayout);
     if (proofreadRunBtn) proofreadRunBtn.addEventListener('click', runProofreadChapter);
+    if (marketingGenerateBtn) marketingGenerateBtn.addEventListener('click', generateMarketingMaterials);
+    document.querySelectorAll('.marketing-copy-btn').forEach(button => {
+        button.addEventListener('click', () => copyMarketingField(button.dataset.copyTarget));
+    });
     if (proofreadChapterSelect) {
         proofreadChapterSelect.addEventListener('change', () => {
             proofreadSelection.cIndex = Number(proofreadChapterSelect.value || 0);
