@@ -498,7 +498,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function miscAssetBookSection(asset) {
         const content = assetTextContent(asset).trim();
         if (!content) return '';
-        return `${asset.title || 'Oheisaineisto'}\n\n${content}`;
+        return content;
     }
 
     function normalizeWord(value) {
