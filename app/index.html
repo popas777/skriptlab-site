@@ -1307,29 +1307,59 @@
                 <div class="header">
                     <div class="header-info">
                         <h2>Äänikirja (Audio)</h2>
-                        <p>Käsikirjoitus: [Ei aktiivista teosta] (Ääninäytteleminen ja Syntetisointi)</p>
+                        <p id="audio-current-project">Käsikirjoitus: [Ei aktiivista teosta]</p>
                     </div>
                     <div class="header-actions">
-                        <button class="btn btn-primary" onclick="alert('Generoidaan täysi äänikirja...')">✨ Generoi Koko Äänikirja</button>
+                        <button class="btn btn-secondary" id="audio-test-voice-btn" type="button">Testaa / kuuntele ääntä</button>
+                        <button class="btn btn-primary" id="audio-guide-btn" type="button">Luo sanasto ja ääntämisohjeet</button>
                     </div>
                 </div>
-                <div class="grid-cards" style="grid-template-columns: 1fr 1fr;">
+                <p id="audio-status" style="color:var(--text-secondary); margin:-8px 0 22px; font-size:13px;">Audio-tuotantoa valmistellaan. Täysi äänikirjan generointi lisätään myöhemmin.</p>
+                <div class="grid-cards" style="grid-template-columns: minmax(260px, 360px) minmax(0, 1fr); align-items:start;">
                     <div class="card glass-panel">
-                        <h3>Valitse Ääni</h3>
-                        <p style="color:var(--text-secondary); margin:10px 0;">Valitse tekoäly-lukijan ääni tai lataa omat studioklipsit.</p>
-                        <select style="width:100%; padding:10px; border-radius:8px; background:rgba(0,0,0,0.2); border:1px solid var(--border-color); color:var(--text-primary); margin-top:10px;">
-                            <option>Aino (Rauhallinen, Nuori aikuinen)</option>
-                            <option>Mikael (Syvä, Kertoja)</option>
-                        </select>
-                        <button class="btn btn-secondary" style="margin-top:16px; width:100%;" onclick="alert('Kuuntele näyte...')">Kuuntele Näyte</button>
+                        <h3>Äänen testaus</h3>
+                        <p style="color:var(--text-secondary); margin:10px 0; line-height:1.6;">Tämä käyttää nyt selaimen omaa puhesynteesiä ensimmäisen luvun lyhyeen testiin. Varsinainen lukijaäänen valinta tehdään myöhemmin ulkoisen palvelun tai oman audiomoottorin kautta.</p>
+                        <div class="settings-row">
+                            <label>Lukijaääni</label>
+                            <select id="audio-voice-select">
+                                <option value="">Selaimen oletusääni</option>
+                            </select>
+                        </div>
+                        <div class="settings-row">
+                            <label>Nopeus</label>
+                            <select id="audio-rate-select">
+                                <option value="0.85">Rauhallinen</option>
+                                <option value="1" selected>Normaali</option>
+                                <option value="1.12">Nopea testi</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-secondary" id="audio-stop-voice-btn" type="button" style="margin-top:16px; width:100%;">Pysäytä kuuntelu</button>
                     </div>
                     <div class="card glass-panel" style="display:flex; flex-direction:column;">
-                        <h3>Äännämisohjeet (Glossarystä)</h3>
-                        <p style="color:var(--text-secondary); margin:10px 0; flex:1;">Varmista, että tekoäly ääntää keksityt sanat oikein. Määritelmät tuotu sanastosta.</p>
-                        <ul style="color:var(--text-secondary); list-style:inside; font-size:14px; margin-bottom:16px;">
-                            <li><strong>Varjometsä</strong> -> <em>Paino ensimmäisellä tavulla</em></li>
-                            <li><strong>Kivitaika</strong> -> <em>Kiivi-taika</em></li>
-                        </ul>
+                        <h3>Sanasto ja ääntämisohjeet</h3>
+                        <p style="color:var(--text-secondary); margin:10px 0 14px; line-height:1.6;">Koko kirjasta etsitään nimet, paikat, vieraskieliset sanat ja muut ääntämisen kannalta tärkeät kohdat. Ohjeita voi muokata ennen varsinaista audiotuotantoa.</p>
+                        <textarea id="audio-pronunciation-guide" style="width:100%; min-height:430px; resize:vertical;" placeholder="Ääntämisohjeet muodostuvat tähän Markdown-taulukkona."></textarea>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
+                            <button class="btn btn-secondary" id="audio-save-guide-btn" type="button">Tallenna muokkaukset</button>
+                            <button class="btn btn-secondary" id="audio-reading-notes-btn" type="button" disabled>Merkitse lukuohjeet myöhemmin</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card glass-panel" style="margin-top:18px;">
+                    <h3>Seuraavaksi</h3>
+                    <div class="grid-cards" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px;">
+                        <div>
+                            <strong>1. Lukijaääni</strong>
+                            <p class="card-meta">Valitaan palvelu ja ääni ennen kokonaista audiotuotantoa.</p>
+                        </div>
+                        <div>
+                            <strong>2. Lukuohjeet</strong>
+                            <p class="card-meta">Painotukset, tauot, dialogi ja tunneohjeet rakennetaan myöhemmin.</p>
+                        </div>
+                        <div>
+                            <strong>3. Äänitiedostot</strong>
+                            <p class="card-meta">Luku- tai kappalekohtaiset äänitiedostot tallennetaan projektille.</p>
+                        </div>
                     </div>
                 </div>
             </div>

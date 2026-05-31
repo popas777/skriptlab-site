@@ -215,10 +215,10 @@ document.addEventListener('DOMContentLoaded', () => {
         'view-om-kokonaisuus',
         'view-om-vienti'
     ]);
-    const writerViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi']);
-    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi']);
+    const writerViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
+    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset']);
-    const biographyViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-elamakerta', 'view-toimitus', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-kirja']);
+    const biographyViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-elamakerta', 'view-toimitus', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-audio', 'view-kirja']);
     const roleLabels = {
         admin: 'Admin',
         test_user: 'Test user',
@@ -1898,6 +1898,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (nextViewId === 'view-markkinointi') {
                 renderMarketingMaterialsFromAnalysis(false);
             }
+            if (nextViewId === 'view-audio') {
+                renderAudioView();
+            }
             if (nextViewId === 'view-taitto') {
                 loadLayoutAssets();
             }
@@ -3274,7 +3277,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 { id: 'proofread', title: 'Oikoluku luvuittain', detail: 'Haetaan selkeät virheet ja hyväksytään suorat korjaukset.', status: 'pending' },
                 { id: 'product', title: 'Tuotetiedot', detail: 'Päätellään kohderyhmä, luokitukset, kuvaukset ja ONIX-kooste.', status: 'pending' },
                 { id: 'marketing', title: 'Markkinointiaineistot', detail: 'Luodaan lyhyt ja pitkä kuvaus, some-tekstit, videokäsikirjoitus ja hashtagit.', status: 'pending' },
-                { id: 'covers', title: 'Kuvitus', detail: 'Luodaan etukannen ja takakannen luonnokset analyysin perusteella.', status: 'pending' }
+                { id: 'covers', title: 'Kuvitus', detail: 'Luodaan etukannen ja takakannen luonnokset analyysin perusteella.', status: 'pending' },
+                { id: 'audio', title: 'Audio', detail: 'Merkitään audio seuraavaksi tuotantovaiheeksi. Varsinainen äänen valinta tehdään Audio-osiossa.', status: 'pending' }
             );
         }
         return steps;
@@ -3326,7 +3330,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (current) current.textContent = project ? `Käsikirjoitus: ${project.title || 'Nimetön'}` : 'Valitse käsikirjoitus ja käynnistä koko tuotantopolku yhdellä napilla.';
         if (desc) {
             desc.textContent = mode === 'heavy'
-                ? 'Raskas versio analysoi, editoi ja oikolukee luvut, luo tuotetiedot, markkinointiaineistot, oheisaineistot, kannet, taittotiedostot ja EPUB-luonnoksen.'
+                ? 'Raskas versio analysoi, editoi ja oikolukee luvut, luo tuotetiedot, markkinointiaineistot, oheisaineistot, kannet, taittotiedostot, EPUB-luonnoksen ja lisää audion valmisteluvaiheeksi.'
                 : 'Kevyt versio analysoi tekstin, tarkistaa luvutuksen, tekee oheisaineistot ja ajaa taiton.';
         }
         if (chapterCount) chapterCount.textContent = formatNumber(bodyCount || (project?.chapters || []).length);
@@ -3551,6 +3555,156 @@ document.addEventListener('DOMContentLoaded', () => {
         setWorkflowStep('layout', 'done', 'PDF-taittovedos, LaTeX-lähde ja EPUB-luonnos tallennettu.');
     }
 
+    function runWorkflowAudioPlaceholder() {
+        setWorkflowStep('audio', 'running', 'Audio lisätään tuotantopolun seuraavaksi vaiheeksi.');
+        renderAudioView();
+        setWorkflowStep('audio', 'done', 'Audio-vaihe odottaa lukijaäänen valintaa. Sanasto ja ääntämisohjeet voi luoda Audio-osiossa.');
+    }
+
+    function setAudioStatus(message, isError = false) {
+        const status = document.getElementById('audio-status');
+        if (!status) return;
+        status.textContent = message;
+        status.style.color = isError ? '#ffb4b4' : 'var(--text-secondary)';
+    }
+
+    function audioGuideFromAnalysis() {
+        const audio = window.manuscriptData?.analysis?.audio;
+        return audio && typeof audio === 'object' ? String(audio.pronunciation_guide || '') : '';
+    }
+
+    function populateAudioVoices() {
+        const select = document.getElementById('audio-voice-select');
+        if (!select || !window.speechSynthesis) return;
+        const currentValue = select.value;
+        const voices = window.speechSynthesis.getVoices();
+        const preferred = voices
+            .filter(voice => /^fi|^sv|^en/i.test(voice.lang || ''))
+            .concat(voices.filter(voice => !/^fi|^sv|^en/i.test(voice.lang || '')));
+        select.innerHTML = '<option value="">Selaimen oletusääni</option>' + preferred
+            .map((voice, index) => `<option value="${index}">${escapeHtml(voice.name)} (${escapeHtml(voice.lang || 'kieli ei tiedossa')})</option>`)
+            .join('');
+        if (currentValue && Array.from(select.options).some(option => option.value === currentValue)) {
+            select.value = currentValue;
+        }
+    }
+
+    function renderAudioView(force = false) {
+        const current = document.getElementById('audio-current-project');
+        const guide = document.getElementById('audio-pronunciation-guide');
+        if (current) {
+            current.textContent = window.manuscriptData
+                ? `Käsikirjoitus: ${window.manuscriptData.title || 'Nimetön'}`
+                : 'Käsikirjoitus: [Ei aktiivista teosta]';
+        }
+        populateAudioVoices();
+        if (!window.manuscriptData) {
+            if (guide) guide.value = '';
+            setAudioStatus('Valitse käsikirjoitus ensin.', true);
+            return;
+        }
+        const savedGuide = audioGuideFromAnalysis();
+        if (guide && (force || !guide.value.trim())) guide.value = savedGuide;
+        setAudioStatus(savedGuide
+            ? 'Tallennetut ääntämisohjeet ladattu. Voit muokata ja tallentaa ne.'
+            : 'Voit luoda sanaston ja ääntämisohjeet koko kirjasta.');
+    }
+
+    async function generateAudioGuide() {
+        if (!window.manuscriptData) {
+            setAudioStatus('Valitse käsikirjoitus ensin.', true);
+            return null;
+        }
+        if (!window.manuscriptData.id) {
+            const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
+            if (savedProject?.id) window.manuscriptData = savedProject;
+        }
+        if (!window.manuscriptData?.id) {
+            setAudioStatus('Käsikirjoitusta ei saatu tallennettua ennen ääntämisohjeita.', true);
+            return null;
+        }
+        const button = document.getElementById('audio-guide-btn');
+        if (button) button.disabled = true;
+        setAudioStatus('Luodaan sanastoa ja ääntämisohjeita koko kirjasta...');
+        try {
+            const res = await apiFetch('/api/audio/pronunciation-guide', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ project_id: window.manuscriptData.id })
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.detail || 'Ääntämisohjeiden luonti epäonnistui.');
+            if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
+            window.manuscriptData.analysis.audio = {
+                ...(window.manuscriptData.analysis.audio || {}),
+                pronunciation_guide: data.pronunciation_guide || ''
+            };
+            const guide = document.getElementById('audio-pronunciation-guide');
+            if (guide) guide.value = data.pronunciation_guide || '';
+            setAudioStatus(data.warnings ? `${data.warnings} Lähde: ${data.generated_by}.` : `Sanasto ja ääntämisohjeet luotu. Lähde: ${data.generated_by}.`);
+            loadUsage();
+            return data;
+        } catch (err) {
+            setAudioStatus(err.message, true);
+            alert('Ääntämisohjeiden luonti epäonnistui: ' + networkFailureMessage(err));
+            loadUsage();
+            return null;
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
+    async function saveAudioGuideEdits() {
+        if (!window.manuscriptData) {
+            setAudioStatus('Valitse käsikirjoitus ensin.', true);
+            return;
+        }
+        const guide = document.getElementById('audio-pronunciation-guide')?.value || '';
+        if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
+        window.manuscriptData.analysis.audio = {
+            ...(window.manuscriptData.analysis.audio || {}),
+            pronunciation_guide: guide,
+            updated_at: new Date().toISOString()
+        };
+        await window.saveManuscriptToDB(window.manuscriptData);
+        setAudioStatus('Ääntämisohjeiden muokkaukset tallennettu.');
+    }
+
+    function firstAudioSampleText() {
+        const entry = bodyChapterEntries()[0];
+        if (!entry) return '';
+        const chapterText = (entry.chapter.paragraphs || []).filter(Boolean).join('\n\n').trim();
+        return chapterText.slice(0, 1200);
+    }
+
+    function testAudioVoice() {
+        if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
+            setAudioStatus('Selaimen puhesynteesi ei ole käytettävissä.', true);
+            return;
+        }
+        const text = firstAudioSampleText();
+        if (!text) {
+            setAudioStatus('Ensimmäisestä luvusta ei löytynyt kuunneltavaa tekstiä.', true);
+            return;
+        }
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'fi-FI';
+        utterance.rate = Number(document.getElementById('audio-rate-select')?.value || 1);
+        const voices = window.speechSynthesis.getVoices();
+        const selected = document.getElementById('audio-voice-select')?.value || '';
+        if (selected !== '' && voices[Number(selected)]) utterance.voice = voices[Number(selected)];
+        utterance.onend = () => setAudioStatus('Äänitesti päättyi.');
+        utterance.onerror = () => setAudioStatus('Äänitesti ei onnistunut tällä selaimen äänellä.', true);
+        setAudioStatus('Toistetaan ensimmäisen luvun lyhyt näyte selaimen puhesynteesillä...');
+        window.speechSynthesis.speak(utterance);
+    }
+
+    function stopAudioVoice() {
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        setAudioStatus('Äänitesti pysäytetty.');
+    }
+
     async function runAiWorkflow() {
         if (workflowRunning) return;
         const mode = document.getElementById('workflow-mode')?.value || 'light';
@@ -3573,6 +3727,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             await runWorkflowMisc(mode);
             await runWorkflowLayout();
+            if (mode === 'heavy') {
+                runWorkflowAudioPlaceholder();
+            }
             await loadUsage();
             setWorkflowStatus(mode === 'heavy'
                 ? 'Raskas työnkulku valmis. Tarkista vielä editointi, oikoluku, kannet ja taittotiedostot.'
@@ -3819,6 +3976,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderWritingView();
         renderProofreadView();
         renderProductInfo(true);
+        renderAudioView(true);
         if (window.renderNavList) window.renderNavList();
         updateTranslationProjectSelect();
         updateMiscProjectSelect();
@@ -3839,6 +3997,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderBiography();
         renderAnalysisSummary(window.manuscriptData.analysis);
         renderProductInfo(true);
+        renderAudioView(true);
         renderBookOverview();
         renderWritingView();
         if (window.renderNavList) window.renderNavList();
@@ -5973,6 +6132,10 @@ ${state.validation || 'Ei validointia.'}`;
     const workflowRefreshBtn = document.getElementById('workflow-refresh-btn');
     const productGenerateBtn = document.getElementById('product-generate-btn');
     const productRefreshBtn = document.getElementById('product-refresh-btn');
+    const audioGuideBtn = document.getElementById('audio-guide-btn');
+    const audioSaveGuideBtn = document.getElementById('audio-save-guide-btn');
+    const audioTestVoiceBtn = document.getElementById('audio-test-voice-btn');
+    const audioStopVoiceBtn = document.getElementById('audio-stop-voice-btn');
     const marketingGenerateBtn = document.getElementById('marketing-generate-btn');
     const bioLoadBtn = document.getElementById('bio-load-btn');
     const bioSaveBtn = document.getElementById('bio-save-btn');
@@ -6052,6 +6215,11 @@ ${state.validation || 'Ei validointia.'}`;
     if (workflowRefreshBtn) workflowRefreshBtn.addEventListener('click', renderWorkflowView);
     if (productGenerateBtn) productGenerateBtn.addEventListener('click', generateProductInfo);
     if (productRefreshBtn) productRefreshBtn.addEventListener('click', () => renderProductInfo(true));
+    if (audioGuideBtn) audioGuideBtn.addEventListener('click', generateAudioGuide);
+    if (audioSaveGuideBtn) audioSaveGuideBtn.addEventListener('click', saveAudioGuideEdits);
+    if (audioTestVoiceBtn) audioTestVoiceBtn.addEventListener('click', testAudioVoice);
+    if (audioStopVoiceBtn) audioStopVoiceBtn.addEventListener('click', stopAudioVoice);
+    if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = populateAudioVoices;
     if (marketingGenerateBtn) marketingGenerateBtn.addEventListener('click', generateMarketingMaterials);
     document.querySelectorAll('.marketing-copy-btn').forEach(button => {
         button.addEventListener('click', () => copyMarketingField(button.dataset.copyTarget));
