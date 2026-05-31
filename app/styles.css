@@ -1197,6 +1197,73 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     line-height: 1.8;
 }
 
+.proofread-workspace {
+    display: grid;
+    grid-template-columns: minmax(180px, 220px) minmax(0, 1fr) minmax(320px, 0.9fr);
+    gap: 16px;
+    height: calc(100vh - 160px);
+    min-height: 560px;
+}
+.proofread-nav,
+.proofread-text,
+.proofread-suggestions {
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.proofread-nav {
+    padding: 16px;
+    gap: 12px;
+}
+.proofread-nav select {
+    width: 100%;
+}
+.proofread-nav p {
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.45;
+}
+.proofread-text textarea {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+    border-radius: 0;
+    border: 0;
+    resize: none;
+}
+.proofread-suggestions-list {
+    padding: 14px;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.proofread-suggestion {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: rgba(0,0,0,0.14);
+    padding: 12px;
+}
+[data-theme="light"] .proofread-suggestion {
+    background: rgba(0,0,0,0.03);
+}
+.proofread-suggestion p {
+    margin: 8px 0;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    font-size: 13px;
+}
+.proofread-suggestion strong {
+    color: var(--text-primary);
+}
+.proofread-suggestion-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+
 .action-column { display: flex; align-items: center; justify-content: center; }
 .ai-action-btn {
     background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(5, 150, 105, 0.1));
@@ -1348,6 +1415,7 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     .grid-cards,
     .book-workspace,
     .translation-review-grid,
+    .proofread-workspace,
     #editor-workspace {
         grid-template-columns: 1fr !important;
     }
@@ -1373,6 +1441,15 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     }
     .writing-nav {
         max-height: 250px;
+    }
+    .proofread-workspace {
+        height: auto;
+        min-height: 0;
+    }
+    .proofread-nav,
+    .proofread-text,
+    .proofread-suggestions {
+        min-height: 280px;
     }
     .writing-nav .chapter-list,
     #editor-chapter-list {

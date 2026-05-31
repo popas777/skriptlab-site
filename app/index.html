@@ -979,58 +979,35 @@
             <div id="view-oikoluku" class="view-section hidden">
                 <div class="header">
                     <div class="header-info">
-                        <h2>Oikoluku (Tarkistusvedos)</h2>
-                        <p>Käsikirjoitus: [Ei aktiivista teosta] (AI-oikolukukone: löydetty 24 korjausehdotusta)</p>
+                        <h2>Oikoluku</h2>
+                        <p id="proofread-current-project">Käsikirjoitus: [Ei aktiivista teosta]</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" id="proofread-run-btn">Oikolue luku</button>
                     </div>
                 </div>
 
-                <div class="grid-cards" style="grid-template-columns: 1fr;">
-                    <div class="card glass-panel">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
-                            <h3 style="color:var(--text-primary);">Avoimet korjausehdotukset</h3>
-                            <button class="btn btn-primary" onclick="alert('Kaikki valitut muutokset vietiin suoraan kohdetekstiin!')">✨ Kohdista Muutokset</button>
+                <div class="proofread-workspace">
+                    <aside class="proofread-nav glass-panel">
+                        <h3>Luvut</h3>
+                        <select id="proofread-chapter-select"></select>
+                        <p id="proofread-status">Valitse luku ja käynnistä oikoluku.</p>
+                    </aside>
+                    <section class="proofread-text glass-panel">
+                        <div class="panel-header">
+                            <h3 id="proofread-chapter-title">Valitse luku</h3>
                         </div>
-
-                        <!-- Ehdotus 1 -->
-                        <div style="background:rgba(0,0,0,0.2); padding:16px; border-radius:8px; border:1px solid var(--border-color); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <span class="badge glowing" style="margin-left:0; margin-bottom:8px; display:inline-block; background:rgba(16, 185, 129, 0.2); color:var(--ai-gradient-start); border-color:var(--ai-gradient-start);">Luku 1 - Typo</span>
-                                <p style="color:var(--text-secondary); margin-bottom:4px;"><del>Hän tartui miekan kahvaan voimakkaasti.</del></p>
-                                <p style="color:var(--text-primary);">Hän <span style="color:var(--ai-gradient-start); font-weight:bold;">tarttui</span> miekan kahvaan voimakkaasti.</p>
-                            </div>
-                            <div style="display:flex; gap:8px;">
-                                <button class="btn btn-secondary" style="border-color: #ff5555; color: #ff5555;" onclick="this.parentNode.parentNode.style.display='none'">Hylkää</button>
-                                <button class="btn btn-secondary" style="border-color: var(--ai-gradient-start); color: var(--ai-gradient-start);" onclick="this.parentNode.parentNode.style.opacity='0.5'; this.innerHTML='Hyväksytty'">Hyväksy</button>
-                            </div>
+                        <textarea id="proofread-source-text" class="writing-text" readonly placeholder="Luvun teksti näkyy tässä."></textarea>
+                    </section>
+                    <section class="proofread-suggestions glass-panel">
+                        <div class="panel-header">
+                            <h3>Korjausehdotukset</h3>
+                            <span id="proofread-count" class="save-timestamp">0 ehdotusta</span>
                         </div>
-
-                        <!-- Ehdotus 2 -->
-                        <div style="background:rgba(0,0,0,0.2); padding:16px; border-radius:8px; border:1px solid var(--border-color); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <span class="badge glowing" style="margin-left:0; margin-bottom:8px; display:inline-block; background:rgba(121, 192, 255, 0.2); color:#79c0ff; border-color:#79c0ff;">Luku 2 - Rakennevirhe</span>
-                                <p style="color:var(--text-secondary); margin-bottom:4px;"><del>Talossa, joka sijaitsi mäen päällä, oli olemassa vanha kellari, joka oli pimeä.</del></p>
-                                <p style="color:var(--text-primary);">Mäen päällä sijaitsevassa talossa oli pimeä, vanha kellari.</p>
-                            </div>
-                            <div style="display:flex; gap:8px;">
-                                <button class="btn btn-secondary" style="border-color: #ff5555; color: #ff5555;" onclick="this.parentNode.parentNode.style.display='none'">Hylkää</button>
-                                <button class="btn btn-secondary" style="border-color: var(--ai-gradient-start); color: var(--ai-gradient-start);" onclick="this.parentNode.parentNode.style.opacity='0.5'; this.innerHTML='Hyväksytty'">Hyväksy</button>
-                            </div>
+                        <div id="proofread-suggestions-list" class="proofread-suggestions-list">
+                            <p style="color:var(--text-secondary);">Ei ehdotuksia vielä.</p>
                         </div>
-
-                        <!-- Ehdotus 3 -->
-                        <div style="background:rgba(0,0,0,0.2); padding:16px; border-radius:8px; border:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <span class="badge glowing" style="margin-left:0; margin-bottom:8px; display:inline-block; background:rgba(16, 185, 129, 0.2); color:var(--ai-gradient-start); border-color:var(--ai-gradient-start);">Luku 4 - Lyöntivirhe</span>
-                                <p style="color:var(--text-secondary); margin-bottom:4px;"><del>Kuusi miestä saapuuivat paikalle aamunoitena.</del></p>
-                                <p style="color:var(--text-primary);">Kuusi miestä <span style="color:var(--ai-gradient-start); font-weight:bold;">saapuivat</span> paikalle <span style="color:var(--ai-gradient-start); font-weight:bold;">aamunkoitteessa</span>.</p>
-                            </div>
-                            <div style="display:flex; gap:8px;">
-                                <button class="btn btn-secondary" style="border-color: #ff5555; color: #ff5555;" onclick="this.parentNode.parentNode.style.display='none'">Hylkää</button>
-                                <button class="btn btn-secondary" style="border-color: var(--ai-gradient-start); color: var(--ai-gradient-start);" onclick="this.parentNode.parentNode.style.opacity='0.5'; this.innerHTML='Hyväksytty'">Hyväksy</button>
-                            </div>
-                        </div>
-
-                    </div>
+                    </section>
                 </div>
             </div>
 
@@ -1274,6 +1251,15 @@ Haltioiden aikakausi on hiipumassa, mutta yksi kivi voi muuttaa kaiken. [Teoksen
                             <option>Vain ylätaso: Luku (Chapter)</option>
                             <option>Ei sisällysluetteloa</option>
                         </select>
+
+                        <label style="font-size: 13px; color: var(--text-secondary); display:block; margin:20px 0 8px;">Tavutus</label>
+                        <select id="layout-hyphenation-select" style="width:100%; padding:12px; border-radius:8px; background:rgba(0,0,0,0.2); border:1px solid var(--border-color); color:var(--text-primary); font-family:inherit; outline:none;">
+                            <option value="balanced">Tasapainoinen tavutus</option>
+                            <option value="light">Kevyt tavutus</option>
+                            <option value="strong">Runsas tavutus</option>
+                            <option value="none">Ei tavutusta</option>
+                        </select>
+                        <p style="font-size:12px; color:var(--text-secondary); margin-top:8px; line-height:1.5;">Runsaampi tavutus auttaa kapeissa formaateissa tasaamaan palstoja, mutta voi tehdä lukukokemuksesta levottomamman.</p>
                     </div>
 
                     <!-- Esikatselu -->
