@@ -3278,7 +3278,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 { id: 'product', title: 'Tuotetiedot', detail: 'Päätellään kohderyhmä, luokitukset, kuvaukset ja ONIX-kooste.', status: 'pending' },
                 { id: 'marketing', title: 'Markkinointiaineistot', detail: 'Luodaan lyhyt ja pitkä kuvaus, some-tekstit, videokäsikirjoitus ja hashtagit.', status: 'pending' },
                 { id: 'covers', title: 'Kuvitus', detail: 'Luodaan etukannen ja takakannen luonnokset analyysin perusteella.', status: 'pending' },
-                { id: 'audio', title: 'Audio', detail: 'Merkitään audio seuraavaksi tuotantovaiheeksi. Varsinainen äänen valinta tehdään Audio-osiossa.', status: 'pending' }
+                { id: 'audio', title: 'Audio (Äänikirja)', detail: 'Äänikirja on raskaan työnkulun viimeinen tuotantovaihe ja edellyttää äänen valintaa.', status: 'pending' }
             );
         }
         return steps;
@@ -3565,9 +3565,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function runWorkflowAudioPlaceholder() {
-        setWorkflowStep('audio', 'running', 'Audio lisätään tuotantopolun seuraavaksi vaiheeksi.');
+        setWorkflowStep('audio', 'running', 'Audio (Äänikirja) merkitään viimeiseksi tuotantovaiheeksi.');
         renderAudioView();
-        setWorkflowStep('audio', 'done', 'Audio-vaihe odottaa lukijaäänen valintaa. Sanasto ja ääntämisohjeet voi luoda Audio-osiossa.');
+        setWorkflowStep('audio', 'done', 'Audio (Äänikirja) edellyttää äänen valintaa. Sanasto ja ääntämisohjeet voi luoda Audio-osiossa.');
     }
 
     function setAudioStatus(message, isError = false) {
