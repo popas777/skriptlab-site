@@ -3277,9 +3277,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 { id: 'proofread', title: 'Oikoluku luvuittain', detail: 'Haetaan selkeät virheet ja hyväksytään suorat korjaukset.', status: 'pending' },
                 { id: 'product', title: 'Tuotetiedot', detail: 'Päätellään kohderyhmä, luokitukset, kuvaukset ja ONIX-kooste.', status: 'pending' },
                 { id: 'marketing', title: 'Markkinointiaineistot', detail: 'Luodaan lyhyt ja pitkä kuvaus, some-tekstit, videokäsikirjoitus ja hashtagit.', status: 'pending' },
-                { id: 'covers', title: 'Kuvitus', detail: 'Luodaan etukannen ja takakannen luonnokset analyysin perusteella.', status: 'pending' },
-                { id: 'audio', title: 'Audio (Äänikirja)', detail: 'Äänikirja on raskaan työnkulun viimeinen tuotantovaihe ja edellyttää äänen valintaa.', status: 'pending' }
+                { id: 'covers', title: 'Kuvitus', detail: 'Luodaan etukannen ja takakannen luonnokset analyysin perusteella.', status: 'pending' }
             );
+            steps.push({ id: 'audio', title: 'Audio (Äänikirja)', detail: 'Äänikirja on raskaan työnkulun viimeinen tuotantovaihe ja edellyttää äänen valintaa.', status: 'pending' });
         }
         return steps;
     }
