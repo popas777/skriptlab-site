@@ -202,6 +202,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let editingLearningTargetIndex = null;
     let undoToastTimer = null;
     let currentViewId = currentUser && currentUser.role === 'oppimateriaali' ? 'view-om-projekti' : 'view-kirjani';
+    let workflowRunning = false;
+    let workflowSteps = [];
     const fullWorkspaceRoles = new Set(['admin', 'test_user']);
     const learningMaterialViews = new Set([
         'view-om-projekti',
@@ -213,10 +215,10 @@ document.addEventListener('DOMContentLoaded', () => {
         'view-om-kokonaisuus',
         'view-om-vienti'
     ]);
-    const writerViews = new Set(['view-kirjani', 'view-kirjoita', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-markkinointi']);
-    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-markkinointi']);
+    const writerViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-markkinointi']);
+    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-markkinointi']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset']);
-    const biographyViews = new Set(['view-kirjani', 'view-kirjoita', 'view-elamakerta', 'view-toimitus', 'view-oikoluku', 'view-kuvitus', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-kirja']);
+    const biographyViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-elamakerta', 'view-toimitus', 'view-oikoluku', 'view-kuvitus', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-kirja']);
     const roleLabels = {
         admin: 'Admin',
         test_user: 'Test user',
@@ -1893,6 +1895,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (nextViewId === 'view-taitto') {
                 loadLayoutAssets();
             }
+            if (nextViewId === 'view-ai-tyonkulku') {
+                renderWorkflowView();
+            }
             if (learningMaterialViews.has(nextViewId)) {
                 loadLearningMaterialState(false);
             }
@@ -2839,7 +2844,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function layoutFileName(asset) {
         const safeTitle = (window.manuscriptData?.title || 'kasikirjoitus').toLowerCase().replace(/[^a-z0-9åäö]+/gi, '-').replace(/^-|-$/g, '') || 'kasikirjoitus';
-        return asset.asset_type === 'layout_pdf' ? `${safeTitle}.pdf` : `${safeTitle}.tex`;
+        if (asset.asset_type === 'layout_pdf') return `${safeTitle}.pdf`;
+        if (asset.asset_type === 'layout_epub') return `${safeTitle}.epub`;
+        return `${safeTitle}.tex`;
+    }
+
+    function layoutAssetLabel(asset) {
+        if (asset.asset_type === 'layout_pdf') return 'PDF-taittovedos';
+        if (asset.asset_type === 'layout_epub') return 'EPUB-e-kirja';
+        return 'LaTeX-lähde';
     }
 
     function downloadAsset(asset) {
@@ -2864,10 +2877,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = document.createElement('div');
             card.className = 'card glass-panel';
             card.innerHTML = `
-                <strong>${escapeHtml(asset.asset_type === 'layout_pdf' ? 'PDF-taittovedos' : 'LaTeX-lähde')}</strong>
+                <strong>${escapeHtml(layoutAssetLabel(asset))}</strong>
                 <p class="card-meta">${escapeHtml(asset.title || '')}</p>
                 <p class="card-meta">${escapeHtml(asset.model || 'python:layout-generator')}</p>
-                <button class="btn btn-secondary layout-download-btn" type="button">Lataa ${asset.asset_type === 'layout_pdf' ? 'PDF' : 'LaTeX'}</button>
+                <button class="btn btn-secondary layout-download-btn" type="button">Lataa ${asset.asset_type === 'layout_pdf' ? 'PDF' : asset.asset_type === 'layout_epub' ? 'EPUB' : 'LaTeX'}</button>
             `;
             card.querySelector('.layout-download-btn')?.addEventListener('click', () => downloadAsset(asset));
             container.appendChild(card);
@@ -2913,7 +2926,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const data = await res.json().catch(() => null);
             if (!res.ok) throw new Error(data?.detail || 'Taiton ajo epäonnistui.');
-            renderLayoutAssets([data.pdf, data.latex].filter(Boolean));
+            renderLayoutAssets([data.pdf, data.epub, data.latex].filter(Boolean));
         } catch (err) {
             if (status) status.textContent = err.message;
             alert('Taiton ajo epäonnistui: ' + err.message);
@@ -3060,6 +3073,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const suggestion = proofreadSuggestions[index];
         const chapter = window.manuscriptData?.chapters?.[proofreadSelection.cIndex];
         if (!suggestion || !chapter) return;
+        const changed = applyProofreadSuggestionToChapter(chapter, suggestion);
+        if (!changed) {
+            alert('Alkuperäistä kohtaa ei löytynyt enää luvusta. Ehdotus voi olla vanhentunut.');
+            return;
+        }
+        suggestion.status = 'accepted';
+        await window.saveProjectChapterToDB(window.manuscriptData, proofreadSelection.cIndex);
+        renderBookOverview();
+        renderWritingView();
+        renderProofreadView();
+        renderMarketingMaterialsFromAnalysis(false);
+        if (window.renderNavList) window.renderNavList();
+    }
+
+    function applyProofreadSuggestionToChapter(chapter, suggestion) {
+        if (!chapter || !suggestion?.original || !suggestion?.replacement) return false;
         let changed = false;
         const targetIndex = Number.isInteger(suggestion.paragraph_index) ? suggestion.paragraph_index : -1;
         if (targetIndex >= 0 && chapter.paragraphs?.[targetIndex]?.includes(suggestion.original)) {
@@ -3075,17 +3104,323 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
-        if (!changed) {
-            alert('Alkuperäistä kohtaa ei löytynyt enää luvusta. Ehdotus voi olla vanhentunut.');
-            return;
+        return changed;
+    }
+
+    function bodyChapterEntries() {
+        return (window.manuscriptData?.chapters || [])
+            .map((chapter, index) => ({ chapter, index }))
+            .filter(({ chapter, index }) => chapterPlacement(chapter, index) === 'body' && (chapter.paragraphs || []).join('').trim());
+    }
+
+    function defaultWorkflowSteps(mode = 'light') {
+        const steps = [
+            { id: 'analysis', title: 'Analyysi', detail: 'Muodostetaan kokonaiskuva, tyyli, synopsis ja metatiedot.', status: 'pending' },
+            { id: 'structure', title: 'Kirjanluvutus', detail: 'Tarkistetaan ja tallennetaan luku- ja kappalerakenne.', status: 'pending' },
+            { id: 'misc', title: 'Oheisaineistot', detail: 'Luodaan nimiölehti, copysivu, sisällysluettelo ja tarvittavat hakemistot.', status: 'pending' },
+            { id: 'layout', title: 'Taitto ja e-kirja', detail: 'Luodaan PDF-taittovedos, LaTeX-lähde ja EPUB-luonnos.', status: 'pending' }
+        ];
+        if (mode === 'heavy') {
+            steps.splice(2, 0,
+                { id: 'edit', title: 'Editointi luvuittain', detail: 'Käydään luvut läpi ja sujuvoitetaan teksti varovaisesti.', status: 'pending' },
+                { id: 'proofread', title: 'Oikoluku luvuittain', detail: 'Haetaan selkeät virheet ja hyväksytään suorat korjaukset.', status: 'pending' },
+                { id: 'covers', title: 'Kuvitus', detail: 'Luodaan etukannen ja takakannen luonnokset analyysin perusteella.', status: 'pending' }
+            );
         }
-        suggestion.status = 'accepted';
-        await window.saveProjectChapterToDB(window.manuscriptData, proofreadSelection.cIndex);
+        return steps;
+    }
+
+    function renderWorkflowSteps() {
+        const container = document.getElementById('workflow-steps');
+        if (!container) return;
+        container.innerHTML = workflowSteps.map((step, index) => {
+            const icon = step.status === 'done' ? '✓' : step.status === 'error' ? '!' : step.status === 'running' ? '…' : String(index + 1);
+            return `
+                <div class="workflow-step ${escapeHtml(step.status || 'pending')}">
+                    <div class="workflow-step-icon">${escapeHtml(icon)}</div>
+                    <div>
+                        <strong>${escapeHtml(step.title)}</strong>
+                        <p>${escapeHtml(step.detail || '')}</p>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function setWorkflowStep(id, status, detail) {
+        const step = workflowSteps.find(item => item.id === id);
+        if (!step) return;
+        step.status = status;
+        if (detail) step.detail = detail;
+        renderWorkflowSteps();
+    }
+
+    function setWorkflowStatus(message, isError = false) {
+        const status = document.getElementById('workflow-status');
+        if (!status) return;
+        status.textContent = message;
+        status.style.color = isError ? '#ffb4b4' : 'var(--text-secondary)';
+    }
+
+    function renderWorkflowView() {
+        const mode = document.getElementById('workflow-mode')?.value || 'light';
+        const project = window.manuscriptData;
+        const current = document.getElementById('workflow-current-project');
+        const desc = document.getElementById('workflow-mode-description');
+        const chapterCount = document.getElementById('workflow-chapter-count');
+        const charCount = document.getElementById('workflow-char-count');
+        const estimate = document.getElementById('workflow-estimate');
+        const bodyCount = bodyChapterEntries().length;
+        const chars = getFullManuscriptText(project).length;
+        if (!workflowSteps.length) workflowSteps = defaultWorkflowSteps(mode);
+        if (current) current.textContent = project ? `Käsikirjoitus: ${project.title || 'Nimetön'}` : 'Valitse käsikirjoitus ja käynnistä koko tuotantopolku yhdellä napilla.';
+        if (desc) {
+            desc.textContent = mode === 'heavy'
+                ? 'Raskas versio analysoi, editoi ja oikolukee luvut, luo oheisaineistot, kannet, taittotiedostot ja EPUB-luonnoksen.'
+                : 'Kevyt versio analysoi tekstin, tarkistaa luvutuksen, tekee oheisaineistot ja ajaa taiton.';
+        }
+        if (chapterCount) chapterCount.textContent = formatNumber(bodyCount || (project?.chapters || []).length);
+        if (charCount) charCount.textContent = formatNumber(chars);
+        if (estimate) estimate.textContent = mode === 'heavy'
+            ? `${Math.max(8, bodyCount * 2)}+ min`
+            : `${Math.max(3, Math.ceil(chars / 180000))}+ min`;
+        if (!project) setWorkflowStatus('Valitse käsikirjoitus ensin.');
+        else if (!workflowRunning) setWorkflowStatus('Valmis käynnistämään työnkulku.');
+        renderWorkflowSteps();
+    }
+
+    async function ensureWorkflowProject() {
+        if (!window.manuscriptData?.chapters?.length) throw new Error('Valitse tai lataa käsikirjoitus ensin.');
+        const saved = await window.saveManuscriptToDB(window.manuscriptData);
+        if (saved?.id) {
+            window.manuscriptData = saved;
+            updateAvailableProject(saved);
+        }
+        if (!window.manuscriptData?.id) throw new Error('Käsikirjoitusta ei saatu tallennettua ennen työnkulkua.');
+        return window.manuscriptData;
+    }
+
+    async function runWorkflowAnalysis() {
+        setWorkflowStep('analysis', 'running', 'Analyysi käynnistyy taustatyönä.');
+        const startRes = await apiFetch('/api/analyze/jobs', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ project_id: window.manuscriptData.id })
+        });
+        const startedJob = await startRes.json().catch(() => null);
+        if (!startRes.ok) throw new Error(startedJob?.detail || 'Analyysin käynnistys epäonnistui.');
+        const finishedJob = await pollAnalysisJob(startedJob.job_id);
+        await applyAnalysisResult(finishedJob.data);
+        setWorkflowStep('analysis', finishedJob.status === 'partial' ? 'error' : 'done', finishedJob.status === 'partial' ? 'Analyysi valmistui osittaisena. Työnkulku jatkuu saatavilla olevilla tiedoilla.' : 'Analyysi valmis ja tallennettu.');
+    }
+
+    async function runWorkflowStructure() {
+        setWorkflowStep('structure', 'running', 'Tallennetaan nykyinen luku- ja kappalerakenne.');
+        const text = cleanManuscriptText(getFullManuscriptText(window.manuscriptData));
+        if (!text) throw new Error('Käsikirjoituksesta ei löytynyt tekstiä.');
+        if (!window.manuscriptData.chapters?.length || window.manuscriptData.chapters.length <= 2) {
+            window.manuscriptData.chapters = parseRestructuredChapters(text, window.manuscriptData.title || 'Käsikirjoitus');
+        }
+        await window.replaceProjectChaptersInDB(window.manuscriptData);
         renderBookOverview();
         renderWritingView();
-        renderProofreadView();
-        renderMarketingMaterialsFromAnalysis(false);
         if (window.renderNavList) window.renderNavList();
+        setWorkflowStep('structure', 'done', `${window.manuscriptData.chapters.length} osaa tallennettu.`);
+    }
+
+    async function runWorkflowEditChapters() {
+        const entries = bodyChapterEntries();
+        setWorkflowStep('edit', 'running', `Editoidaan ${entries.length} lukua.`);
+        let edited = 0;
+        for (const { chapter, index } of entries) {
+            const sourceText = (chapter.paragraphs || []).join('\n\n').trim();
+            if (!sourceText) continue;
+            if (sourceText.length > 20000) {
+                setWorkflowStep('edit', 'running', `${chapter.title}: pitkä luku käsitellään kappaleittain.`);
+            } else {
+                setWorkflowStep('edit', 'running', `${chapter.title}: editointi käynnissä.`);
+            }
+            if (sourceText.length <= 20000) {
+                const res = await apiFetch('/api/edit', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        text: sourceText,
+                        temperature: 0.25,
+                        prompt: 'Editoi luku varovaisesti. Korjaa selvät kieli- ja rytmiongelmat, poista turhaa toistoa ja säilytä kirjailijan ääni. Säilytä kappalejako mahdollisimman hyvin. Palauta vain valmis luku.'
+                    })
+                });
+                const data = await res.json().catch(() => null);
+                if (!res.ok) throw new Error(data?.detail || `${chapter.title}: editointi epäonnistui.`);
+                chapter.paragraphs = splitIntoParagraphs(data.edited_text || sourceText);
+            } else {
+                for (let pIndex = 0; pIndex < chapter.paragraphs.length; pIndex++) {
+                    const paragraph = String(chapter.paragraphs[pIndex] || '').trim();
+                    if (!paragraph || paragraph.length > 20000) continue;
+                    const res = await apiFetch('/api/edit', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            text: paragraph,
+                            temperature: 0.2,
+                            prompt: 'Korjaa selvät kieli-, rytmi- ja toisto-ongelmat varovaisesti. Säilytä kirjailijan ääni. Palauta vain korjattu kappale.'
+                        })
+                    });
+                    const data = await res.json().catch(() => null);
+                    if (res.ok && data?.edited_text) chapter.paragraphs[pIndex] = data.edited_text.trim();
+                }
+            }
+            await window.saveProjectChapterToDB(window.manuscriptData, index);
+            edited++;
+        }
+        renderBookOverview();
+        renderWritingView();
+        setWorkflowStep('edit', 'done', `${edited} lukua editoitu ja tallennettu.`);
+    }
+
+    async function runWorkflowProofreadChapters() {
+        const entries = bodyChapterEntries();
+        setWorkflowStep('proofread', 'running', `Oikoluetaan ${entries.length} lukua.`);
+        let applied = 0;
+        const failed = [];
+        for (const { chapter, index } of entries) {
+            setWorkflowStep('proofread', 'running', `${chapter.title}: oikoluku käynnissä.`);
+            try {
+                const res = await apiFetch('/api/proofread/chapter', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ project_id: window.manuscriptData.id, chapter_index: index })
+                });
+                const data = await res.json().catch(() => null);
+                if (!res.ok) throw new Error(data?.detail || 'Oikoluku epäonnistui.');
+                (data.suggestions || []).forEach(suggestion => {
+                    if (applyProofreadSuggestionToChapter(chapter, suggestion)) applied++;
+                });
+                await window.saveProjectChapterToDB(window.manuscriptData, index);
+            } catch (err) {
+                failed.push(chapter.title || `Luku ${index + 1}`);
+            }
+        }
+        renderBookOverview();
+        renderWritingView();
+        setWorkflowStep('proofread', failed.length ? 'error' : 'done', failed.length
+            ? `${applied} korjausta hyväksytty. Epäonnistui: ${failed.join(', ')}.`
+            : `${applied} selkeää korjausta hyväksytty.`);
+    }
+
+    async function runWorkflowMisc(mode) {
+        const tools = mode === 'heavy'
+            ? ['title_page', 'copyright_page', 'table_of_contents', 'character_index', 'place_index', 'subject_index', 'bibliography']
+            : ['title_page', 'copyright_page', 'table_of_contents', 'character_index'];
+        setWorkflowStep('misc', 'running', `Luodaan ${tools.length} oheisaineistoa.`);
+        for (const tool of tools) {
+            const title = miscToolLabel(tool);
+            setWorkflowStep('misc', 'running', `${title} työn alla.`);
+            const res = await apiFetch('/api/misc-tools/run', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    project_id: window.manuscriptData.id,
+                    tool,
+                    title: window.manuscriptData.title || '',
+                    author: window.manuscriptData.author || '',
+                    chapters: window.manuscriptData.chapters || []
+                })
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.detail || `${title} epäonnistui.`);
+            const saveRes = await apiFetch(`/api/projects/${window.manuscriptData.id}/misc-assets`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    title,
+                    content: data.result || '',
+                    material_kind: tool,
+                    include_in_book: true
+                })
+            });
+            const saved = await saveRes.json().catch(() => null);
+            if (!saveRes.ok) throw new Error(saved?.detail || `${title} tallennus epäonnistui.`);
+        }
+        await loadMiscAssetsForActiveProject(true);
+        setWorkflowStep('misc', 'done', 'Oheisaineistot luotu ja lisätty valmiiseen kirjaan.');
+    }
+
+    async function runWorkflowCovers() {
+        setWorkflowStep('covers', 'running', 'Luodaan etukansi ja takakansi.');
+        for (const side of ['front', 'back']) {
+            const prompt = side === 'back' ? analysisBackCoverText() : analysisCoverPrompt();
+            const res = await apiFetch(`/api/projects/${window.manuscriptData.id}/cover-images`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    prompt,
+                    cover_side: side,
+                    aspect_ratio: '3:4',
+                    title_text: window.manuscriptData.title || '',
+                    author_text: window.manuscriptData.author || ''
+                })
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.detail || `${side === 'back' ? 'Takakansi' : 'Kansikuva'} epäonnistui.`);
+        }
+        await loadCoverImages();
+        setWorkflowStep('covers', 'done', 'Etukansi ja takakansi tallennettu kuvituksiin.');
+    }
+
+    async function runWorkflowLayout() {
+        setWorkflowStep('layout', 'running', 'Luodaan PDF, LaTeX ja EPUB.');
+        const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
+        if (savedProject?.id) window.manuscriptData = savedProject;
+        const res = await apiFetch(`/api/projects/${window.manuscriptData.id}/layout/run`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                layout_style: 'A5',
+                include_markdown_markers: true,
+                hyphenation_level: 'balanced'
+            })
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.detail || 'Taiton ajo epäonnistui.');
+        renderLayoutAssets([data.pdf, data.epub, data.latex].filter(Boolean));
+        setWorkflowStep('layout', 'done', 'PDF-taittovedos, LaTeX-lähde ja EPUB-luonnos tallennettu.');
+    }
+
+    async function runAiWorkflow() {
+        if (workflowRunning) return;
+        const mode = document.getElementById('workflow-mode')?.value || 'light';
+        const button = document.getElementById('workflow-start-btn');
+        workflowRunning = true;
+        workflowSteps = defaultWorkflowSteps(mode);
+        if (button) button.disabled = true;
+        renderWorkflowView();
+        setWorkflowStatus('Työnkulku käynnissä. Voit seurata vaiheita tässä näkymässä.');
+        try {
+            await ensureWorkflowProject();
+            await runWorkflowAnalysis();
+            await runWorkflowStructure();
+            if (mode === 'heavy') {
+                await runWorkflowEditChapters();
+                await runWorkflowProofreadChapters();
+                await runWorkflowCovers();
+            }
+            await runWorkflowMisc(mode);
+            await runWorkflowLayout();
+            await loadUsage();
+            setWorkflowStatus(mode === 'heavy'
+                ? 'Raskas työnkulku valmis. Tarkista vielä editointi, oikoluku, kannet ja taittotiedostot.'
+                : 'Kevyt työnkulku valmis. Valmis kirja, oheisaineistot, PDF, LaTeX ja EPUB ovat tarkistettavissa.');
+        } catch (err) {
+            const runningStep = workflowSteps.find(step => step.status === 'running');
+            if (runningStep) setWorkflowStep(runningStep.id, 'error', err.message || 'Vaihe epäonnistui.');
+            setWorkflowStatus(networkFailureMessage(err), true);
+            alert('AI-työnkulku keskeytyi: ' + networkFailureMessage(err));
+        } finally {
+            workflowRunning = false;
+            if (button) button.disabled = false;
+            renderWorkflowView();
+        }
     }
 
     // --- 6. Global Task Manager ---
@@ -5465,6 +5800,9 @@ ${state.validation || 'Ei validointia.'}`;
     const layoutRunBtn = document.getElementById('layout-run-btn');
     const proofreadRunBtn = document.getElementById('proofread-run-btn');
     const proofreadChapterSelect = document.getElementById('proofread-chapter-select');
+    const workflowModeSelect = document.getElementById('workflow-mode');
+    const workflowStartBtn = document.getElementById('workflow-start-btn');
+    const workflowRefreshBtn = document.getElementById('workflow-refresh-btn');
     const marketingGenerateBtn = document.getElementById('marketing-generate-btn');
     const bioLoadBtn = document.getElementById('bio-load-btn');
     const bioSaveBtn = document.getElementById('bio-save-btn');
@@ -5534,6 +5872,14 @@ ${state.validation || 'Ei validointia.'}`;
     if (miscSaveBookBtn) miscSaveBookBtn.addEventListener('click', () => saveMiscOutput(true));
     if (layoutRunBtn) layoutRunBtn.addEventListener('click', runLayout);
     if (proofreadRunBtn) proofreadRunBtn.addEventListener('click', runProofreadChapter);
+    if (workflowModeSelect) {
+        workflowModeSelect.addEventListener('change', () => {
+            if (!workflowRunning) workflowSteps = defaultWorkflowSteps(workflowModeSelect.value || 'light');
+            renderWorkflowView();
+        });
+    }
+    if (workflowStartBtn) workflowStartBtn.addEventListener('click', runAiWorkflow);
+    if (workflowRefreshBtn) workflowRefreshBtn.addEventListener('click', renderWorkflowView);
     if (marketingGenerateBtn) marketingGenerateBtn.addEventListener('click', generateMarketingMaterials);
     document.querySelectorAll('.marketing-copy-btn').forEach(button => {
         button.addEventListener('click', () => copyMarketingField(button.dataset.copyTarget));

@@ -481,6 +481,81 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     line-height: 1.45;
 }
 
+.workflow-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 16px;
+}
+.workflow-summary div {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+}
+.workflow-summary strong,
+.workflow-summary span {
+    display: block;
+}
+.workflow-summary strong {
+    font-size: 20px;
+    color: var(--text-primary);
+}
+.workflow-summary span {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+.workflow-steps {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+}
+.workflow-step {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+}
+.workflow-step-icon {
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: rgba(99, 102, 241, 0.12);
+    color: var(--ai-gradient-start);
+    font-size: 13px;
+    font-weight: 700;
+}
+.workflow-step.running .workflow-step-icon {
+    background: linear-gradient(135deg, var(--ai-gradient-start), var(--ai-gradient-end));
+    color: #fff;
+}
+.workflow-step.done .workflow-step-icon {
+    background: rgba(16, 185, 129, 0.18);
+    color: #059669;
+}
+.workflow-step.error .workflow-step-icon {
+    background: rgba(239, 68, 68, 0.14);
+    color: #ef4444;
+}
+.workflow-step strong {
+    display: block;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+.workflow-step p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
 @media (max-width: 820px) {
     .illustration-cover-grid {
         grid-template-columns: 1fr !important;
@@ -497,6 +572,10 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     }
     .app-intro-steps {
         grid-template-columns: 1fr;
+    }
+    .workflow-grid,
+    .workflow-summary {
+        grid-template-columns: 1fr !important;
     }
 }
 

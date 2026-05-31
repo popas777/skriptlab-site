@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=35">
+    <link rel="stylesheet" href="styles.css?v=36">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -71,6 +71,7 @@
                 <ul id="nav-menu">
                     <li class="active" data-view="view-kirjani">Käsikirjoitukseni</li>
                     <li data-view="view-kirjoita">Kirjoita</li>
+                    <li data-view="view-ai-tyonkulku">AI-työnkulku</li>
                     <li data-view="view-elamakerta">Elämäkerta</li>
                     <li data-view="view-analyysi">Analyysi</li>
                     <li data-view="view-toimitus">Editointi</li>
@@ -241,6 +242,49 @@
                         </div>
                         <textarea id="writing-text" class="writing-text" placeholder="Valitse luku tai aloita uusi käsikirjoitus lataamalla teksti Käsikirjoitukseni-näkymässä. Erottele kappaleet tyhjällä rivillä."></textarea>
                     </section>
+                </div>
+            </div>
+
+            <!-- 1.25 VIEW: AI-TYÖNKULKU -->
+            <div id="view-ai-tyonkulku" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>AI-työnkulku</h2>
+                        <p id="workflow-current-project">Valitse käsikirjoitus ja käynnistä koko tuotantopolku yhdellä napilla.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" id="workflow-refresh-btn" type="button">Päivitä tila</button>
+                        <button class="btn btn-primary" id="workflow-start-btn" type="button">Käynnistä työnkulku</button>
+                    </div>
+                </div>
+
+                <div class="grid-cards workflow-grid" style="grid-template-columns:minmax(280px,420px) minmax(0,1fr); align-items:start;">
+                    <div class="card glass-panel">
+                        <h3>Ajon laajuus</h3>
+                        <div class="settings-row">
+                            <label for="workflow-mode">Valitse työnkulku</label>
+                            <select id="workflow-mode">
+                                <option value="light">Kevyt versio</option>
+                                <option value="heavy">Raskas versio</option>
+                            </select>
+                        </div>
+                        <p id="workflow-mode-description" style="color:var(--text-secondary); font-size:13px; line-height:1.6;">
+                            Kevyt versio analysoi tekstin, tarkistaa luvutuksen, tekee oheisaineistot ja ajaa taiton.
+                        </p>
+                        <div class="workflow-summary">
+                            <div><strong id="workflow-chapter-count">0</strong><span>lukua</span></div>
+                            <div><strong id="workflow-char-count">0</strong><span>merkkiä</span></div>
+                            <div><strong id="workflow-estimate">-</strong><span>arvio</span></div>
+                        </div>
+                        <p id="workflow-status" style="color:var(--text-secondary); font-size:13px; line-height:1.6; margin-top:14px;">
+                            Valitse käsikirjoitus ensin.
+                        </p>
+                    </div>
+
+                    <div class="card glass-panel">
+                        <h3>Vaiheet</h3>
+                        <div id="workflow-steps" class="workflow-steps"></div>
+                    </div>
                 </div>
             </div>
 
