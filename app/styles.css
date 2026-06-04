@@ -1277,9 +1277,13 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     grid-column: 1 / -1;
     margin-top: -6px;
 }
+.writer-mobile-jumpbar {
+    display: none;
+}
 .writer-desk-workspace {
     display: grid;
     grid-template-columns: minmax(190px, 240px) minmax(360px, 1fr) minmax(270px, 340px);
+    grid-template-areas: "structure editor assistant";
     gap: 18px;
     min-height: 560px;
     height: calc(100vh - 260px);
@@ -1290,8 +1294,10 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     border-radius: 8px;
     min-width: 0;
     overflow: hidden;
+    scroll-margin-top: 12px;
 }
 .writer-desk-structure {
+    grid-area: structure;
     padding: 16px;
     overflow-y: auto;
 }
@@ -1302,6 +1308,7 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     margin-bottom: 12px;
 }
 .writer-desk-editor {
+    grid-area: editor;
     display: flex;
     flex-direction: column;
 }
@@ -1320,6 +1327,7 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     line-height: 1.85;
 }
 .writer-desk-assistant {
+    grid-area: assistant;
     display: grid;
     grid-template-rows: auto auto auto auto auto minmax(150px, 1fr) auto auto;
     gap: 10px;
@@ -1656,6 +1664,14 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
         flex: 1 1 140px;
         min-width: 0;
     }
+    .writer-desk-header .header-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .writer-desk-header #writer-desk-save-btn {
+        grid-column: 1 / -1;
+        order: -1;
+    }
     .tool-menu {
         width: 100%;
     }
@@ -1697,31 +1713,114 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     .writer-desk-workspace {
         gap: 12px;
     }
+    .writer-stage-panel {
+        padding: 12px;
+        margin-bottom: 10px;
+    }
+    .writer-stage-summary {
+        gap: 3px;
+    }
+    .writer-stage-summary strong {
+        font-size: 18px;
+    }
+    .writer-stage-summary p,
+    .writer-stage-analysis-status {
+        font-size: 12px;
+    }
     .writer-stage-rail {
-        grid-template-columns: 1fr;
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding-bottom: 2px;
+        scrollbar-width: thin;
     }
     .writer-stage-step {
-        min-height: 72px;
+        flex: 0 0 146px;
+        min-height: 64px;
+        padding: 10px;
+    }
+    .writer-stage-step span {
+        width: 22px;
+        height: 22px;
+    }
+    .writer-stage-step strong {
+        font-size: 12px;
+    }
+    .writer-stage-step small {
+        font-size: 10px;
     }
     .writer-stage-analysis-status {
         margin-top: 0;
     }
-    .writer-desk-workspace {
+    .writer-mobile-jumpbar {
+        position: sticky;
+        top: 0;
+        z-index: 6;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+        padding: 8px;
+        margin-bottom: 12px;
+        border-radius: 8px;
+    }
+    .writer-mobile-jumpbar button {
+        min-height: 38px;
+        border: 1px solid var(--border-color);
+        border-radius: 7px;
+        background: rgba(255,255,255,0.04);
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .writer-mobile-jumpbar button:active {
+        background: rgba(16, 185, 129, 0.14);
+        border-color: var(--ai-gradient-start);
+    }
+    #view-tyopoyta .writer-desk-workspace {
+        display: flex !important;
+        flex-direction: column !important;
+        grid-template-areas:
+            "editor"
+            "assistant"
+            "structure";
         height: auto;
         min-height: 0;
     }
-    .writer-desk-structure {
-        max-height: 260px;
+    #writer-desk-editor-panel {
+        order: 1 !important;
     }
-    .writer-desk-text {
-        min-height: 420px;
-        height: 58dvh;
-        flex: none;
+    #writer-desk-assistant-panel {
+        order: 2 !important;
+    }
+    #writer-desk-structure-panel {
+        order: 3 !important;
+    }
+    .writer-desk-structure {
+        max-height: 300px;
+        padding: 14px;
+    }
+    #writer-desk-editor-panel {
+        min-height: 560px !important;
+    }
+    #writer-desk-text {
+        display: block !important;
+        min-height: 460px !important;
+        height: 62dvh !important;
+        flex: 0 0 auto !important;
         padding: 18px;
         font-size: 16px;
+        line-height: 1.75;
     }
     .writer-desk-assistant {
         grid-template-rows: none;
+        padding: 14px;
+    }
+    #writer-assistant-prompt {
+        min-height: 76px;
+    }
+    #writer-assistant-output {
+        min-height: 150px;
     }
     .writing-nav {
         max-height: 250px;
@@ -1822,8 +1921,90 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 .app-wrapper.mobile-simulate .editor-workspace,
 .app-wrapper.mobile-simulate #editor-workspace,
 .app-wrapper.mobile-simulate .writing-workspace,
+.app-wrapper.mobile-simulate .writer-stage-panel,
+.app-wrapper.mobile-simulate .writer-desk-workspace,
 .app-wrapper.mobile-simulate .book-workspace {
     grid-template-columns: 1fr !important;
+}
+.app-wrapper.mobile-simulate .writer-desk-header .header-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.app-wrapper.mobile-simulate .writer-desk-header #writer-desk-save-btn {
+    grid-column: 1 / -1;
+    order: -1;
+}
+.app-wrapper.mobile-simulate .writer-stage-panel {
+    padding: 12px;
+    margin-bottom: 10px;
+}
+.app-wrapper.mobile-simulate .writer-stage-rail {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+}
+.app-wrapper.mobile-simulate .writer-stage-step {
+    flex: 0 0 146px;
+    min-height: 64px;
+    padding: 10px;
+}
+.app-wrapper.mobile-simulate .writer-mobile-jumpbar {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    padding: 8px;
+    margin-bottom: 12px;
+    border-radius: 8px;
+}
+.app-wrapper.mobile-simulate .writer-mobile-jumpbar button {
+    min-height: 38px;
+    border: 1px solid var(--border-color);
+    border-radius: 7px;
+    background: rgba(255,255,255,0.04);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+}
+.app-wrapper.mobile-simulate #view-tyopoyta .writer-desk-workspace {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-areas:
+        "editor"
+        "assistant"
+        "structure";
+    height: auto;
+    min-height: 0;
+    gap: 12px;
+}
+.app-wrapper.mobile-simulate #writer-desk-editor-panel {
+    order: 1 !important;
+}
+.app-wrapper.mobile-simulate #writer-desk-assistant-panel {
+    order: 2 !important;
+    grid-template-rows: none;
+    padding: 14px;
+}
+.app-wrapper.mobile-simulate #writer-desk-structure-panel {
+    order: 3 !important;
+    max-height: 300px;
+    padding: 14px;
+}
+.app-wrapper.mobile-simulate #writer-desk-editor-panel {
+    min-height: 560px !important;
+}
+.app-wrapper.mobile-simulate #writer-desk-text {
+    display: block !important;
+    min-height: 460px !important;
+    height: 62dvh !important;
+    flex: 0 0 auto !important;
+    padding: 18px;
+    font-size: 16px;
+    line-height: 1.75;
 }
 .app-wrapper.mobile-simulate .header {
     flex-direction: column;
