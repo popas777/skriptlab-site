@@ -2,6 +2,7 @@ const API_BASE_URL = (window.SKRIPTLAB_CONFIG && window.SKRIPTLAB_CONFIG.API_BAS
 const apiUrl = (path) => `${API_BASE_URL}${path}`;
 const apiFetch = (path, options) => window.SkriptLabAuth.fetch(path, options);
 const ACTIVE_PROJECT_ID_KEY = "skriptlab_active_project_id";
+const WRITER_DESK_STRUCTURE_VISIBLE_KEY = "skriptlab_writer_desk_structure_visible";
 let manuscriptSaveQueue = Promise.resolve();
 let manuscriptSaveRequestId = 0;
 
@@ -204,6 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let writerDeskSelection = { cIndex: null, pIndex: 0 };
     let writerDeskAutosaveTimer = null;
     let writerDeskAssistantDraftKind = '';
+    let writerDeskStructureVisible = localStorage.getItem(WRITER_DESK_STRUCTURE_VISIBLE_KEY) === 'true';
     function defaultViewForUser() {
         if (currentUser?.role === 'oppimateriaali') return 'view-om-projekti';
         if (currentUser?.role === 'kirjailija') {
@@ -1682,6 +1684,32 @@ document.addEventListener('DOMContentLoaded', () => {
         if (statusEl) statusEl.textContent = message || '';
     }
 
+    function setWriterDeskStructureVisible(visible, options = {}) {
+        writerDeskStructureVisible = Boolean(visible);
+        localStorage.setItem(WRITER_DESK_STRUCTURE_VISIBLE_KEY, String(writerDeskStructureVisible));
+        updateWriterDeskStructureVisibility();
+        if (options.scrollIntoView && writerDeskStructureVisible) {
+            const panel = document.getElementById('writer-desk-structure-panel');
+            window.requestAnimationFrame(() => panel?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+        }
+    }
+
+    function toggleWriterDeskStructure() {
+        document.querySelector('.writer-desk-more-menu')?.removeAttribute('open');
+        setWriterDeskStructureVisible(!writerDeskStructureVisible, { scrollIntoView: true });
+    }
+
+    function updateWriterDeskStructureVisibility() {
+        const workspace = document.querySelector('#view-tyopoyta .writer-desk-workspace');
+        const panel = document.getElementById('writer-desk-structure-panel');
+        const toggleBtn = document.getElementById('writer-desk-toggle-structure-btn');
+        const mobileJumpBtn = document.querySelector('[data-writer-scroll="writer-desk-structure-panel"]');
+        if (workspace) workspace.classList.toggle('structure-hidden', !writerDeskStructureVisible);
+        if (panel) panel.classList.toggle('hidden', !writerDeskStructureVisible);
+        if (toggleBtn) toggleBtn.textContent = writerDeskStructureVisible ? 'Piilota luvut' : 'Näytä luvut';
+        if (mobileJumpBtn) mobileJumpBtn.textContent = writerDeskStructureVisible ? 'Luvut' : 'Näytä luvut';
+    }
+
     function setWriterAssistantStatus(message, isError = false) {
         const statusEl = document.getElementById('writer-assistant-status');
         if (!statusEl) return;
@@ -1773,6 +1801,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderWriterDeskStructureOnly() {
         const chapterList = document.getElementById('writer-desk-chapter-list');
         if (!chapterList) return;
+        updateWriterDeskStructureVisibility();
         renderChapterParagraphNav(chapterList, writerDeskSelection.cIndex, writerDeskSelection.pIndex, {
             onChapterSelect: cIndex => {
                 saveWriterDeskText(false);
@@ -1816,6 +1845,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderWriterStage();
         renderWriterAssistantActions();
+        updateWriterDeskStructureVisibility();
         if (!window.manuscriptData || !Array.isArray(window.manuscriptData.chapters) || window.manuscriptData.chapters.length === 0) {
             if (currentProjectEl) currentProjectEl.textContent = 'Valitse käsikirjoitus tai luo tyhjä dokumentti Käsikirjoitukseni-näkymässä.';
             titleEl.textContent = 'Ei käsikirjoitusta';
@@ -4380,8 +4410,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const bookWidthSelect = document.getElementById('book-width-select');
     const saveWritingBtn = document.getElementById('save-writing-btn');
     const writerDeskSaveBtn = document.getElementById('writer-desk-save-btn');
+    const writerDeskToggleStructureBtn = document.getElementById('writer-desk-toggle-structure-btn');
     const writerDeskOpenProjectsBtn = document.getElementById('writer-desk-open-projects-btn');
     const writerDeskToggleMarkupBtn = document.getElementById('writer-desk-toggle-markup-btn');
+    const writerDeskMarkdownHelpBtn = document.getElementById('writer-desk-markdown-help-btn');
     const writerDeskParagraphJumpBtn = document.getElementById('writer-desk-paragraph-jump-btn');
     const writerDeskParagraphJumpInput = document.getElementById('writer-desk-paragraph-jump');
     const writerDeskTextArea = document.getElementById('writer-desk-text');
@@ -4411,8 +4443,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     if (saveWritingBtn) saveWritingBtn.addEventListener('click', () => saveWritingText(true));
     if (writerDeskSaveBtn) writerDeskSaveBtn.addEventListener('click', () => saveWriterDeskText(true));
-    if (writerDeskOpenProjectsBtn) writerDeskOpenProjectsBtn.addEventListener('click', () => window.openModule('view-kirjani'));
-    if (writerDeskToggleMarkupBtn) writerDeskToggleMarkupBtn.addEventListener('click', toggleManuscriptMarkup);
+    if (writerDeskToggleStructureBtn) writerDeskToggleStructureBtn.addEventListener('click', toggleWriterDeskStructure);
+    if (writerDeskOpenProjectsBtn) writerDeskOpenProjectsBtn.addEventListener('click', event => {
+        event.currentTarget.closest('details')?.removeAttribute('open');
+        window.openModule('view-kirjani');
+    });
+    if (writerDeskToggleMarkupBtn) writerDeskToggleMarkupBtn.addEventListener('click', event => {
+        event.currentTarget.closest('details')?.removeAttribute('open');
+        toggleManuscriptMarkup();
+    });
+    if (writerDeskMarkdownHelpBtn) writerDeskMarkdownHelpBtn.addEventListener('click', event => {
+        event.currentTarget.closest('details')?.removeAttribute('open');
+        showMarkdownHelp();
+    });
     if (writerDeskParagraphJumpBtn) writerDeskParagraphJumpBtn.addEventListener('click', jumpToWriterDeskParagraph);
     if (writerDeskParagraphJumpInput) {
         writerDeskParagraphJumpInput.addEventListener('keydown', event => {
@@ -4441,6 +4484,10 @@ document.addEventListener('DOMContentLoaded', () => {
     writerMobileJumpButtons.forEach(button => {
         button.addEventListener('click', () => {
             const target = document.getElementById(button.dataset.writerScroll);
+            if (button.dataset.writerScroll === 'writer-desk-structure-panel' && !writerDeskStructureVisible) {
+                setWriterDeskStructureVisible(true, { scrollIntoView: true });
+                return;
+            }
             if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
     });

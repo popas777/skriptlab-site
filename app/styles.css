@@ -1280,6 +1280,16 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 .writer-mobile-jumpbar {
     display: none;
 }
+.writer-desk-more-menu {
+    flex: 0 0 auto;
+}
+.writer-desk-more-summary {
+    min-width: 44px;
+    padding-left: 12px;
+    padding-right: 12px;
+    font-weight: 700;
+    line-height: 1;
+}
 .writer-desk-workspace {
     display: grid;
     grid-template-columns: minmax(190px, 240px) minmax(360px, 1fr) minmax(270px, 340px);
@@ -1287,6 +1297,10 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     gap: 18px;
     min-height: 560px;
     height: calc(100vh - 260px);
+}
+.writer-desk-workspace.structure-hidden {
+    grid-template-columns: minmax(420px, 1fr) minmax(270px, 340px);
+    grid-template-areas: "editor assistant";
 }
 .writer-desk-structure,
 .writer-desk-editor,
@@ -1666,11 +1680,31 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     }
     .writer-desk-header .header-actions {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+    }
+    .writer-desk-header #writer-desk-toggle-structure-btn {
+        grid-column: 1 / -1;
+        order: 1;
     }
     .writer-desk-header #writer-desk-save-btn {
-        grid-column: 1 / -1;
-        order: -1;
+        grid-column: auto;
+        order: 2;
+    }
+    .writer-desk-header .writer-desk-more-menu {
+        width: auto;
+        order: 3;
+    }
+    .writer-desk-header .writer-desk-more-summary {
+        width: 44px;
+        min-width: 44px;
+        padding-left: 0;
+        padding-right: 0;
+    }
+    .writer-desk-header .tool-menu-panel {
+        left: auto;
+        right: 0;
+        min-width: 210px;
     }
     .tool-menu {
         width: 100%;
@@ -1928,11 +1962,31 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 }
 .app-wrapper.mobile-simulate .writer-desk-header .header-actions {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+}
+.app-wrapper.mobile-simulate .writer-desk-header #writer-desk-toggle-structure-btn {
+    grid-column: 1 / -1;
+    order: 1;
 }
 .app-wrapper.mobile-simulate .writer-desk-header #writer-desk-save-btn {
-    grid-column: 1 / -1;
-    order: -1;
+    grid-column: auto;
+    order: 2;
+}
+.app-wrapper.mobile-simulate .writer-desk-header .writer-desk-more-menu {
+    width: auto;
+    order: 3;
+}
+.app-wrapper.mobile-simulate .writer-desk-header .writer-desk-more-summary {
+    width: 44px;
+    min-width: 44px;
+    padding-left: 0;
+    padding-right: 0;
+}
+.app-wrapper.mobile-simulate .writer-desk-header .tool-menu-panel {
+    left: auto;
+    right: 0;
+    min-width: 210px;
 }
 .app-wrapper.mobile-simulate .writer-stage-panel {
     padding: 12px;

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=37">
+    <link rel="stylesheet" href="styles.css?v=38">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -202,9 +202,16 @@
                         <p id="writer-desk-current-project">Valitse käsikirjoitus ja jatka tekstin työstämistä yhdessä näkymässä.</p>
                     </div>
                     <div class="header-actions">
-                        <button class="btn btn-secondary" id="writer-desk-toggle-markup-btn">Näytä merkinnät</button>
-                        <button class="btn btn-secondary" id="writer-desk-open-projects-btn">Käsikirjoitukseni</button>
-                        <button class="btn btn-primary" id="writer-desk-save-btn">Tallenna</button>
+                        <button class="btn btn-secondary" id="writer-desk-toggle-structure-btn" type="button">Näytä luvut</button>
+                        <button class="btn btn-primary" id="writer-desk-save-btn" type="button">Tallenna</button>
+                        <details class="tool-menu writer-desk-more-menu">
+                            <summary class="btn btn-secondary writer-desk-more-summary" title="Lisätoiminnot" aria-label="Lisätoiminnot">...</summary>
+                            <div class="tool-menu-panel">
+                                <button class="btn btn-secondary" id="writer-desk-toggle-markup-btn" type="button">Näytä merkinnät</button>
+                                <button class="btn btn-secondary" id="writer-desk-markdown-help-btn" type="button">Merkintäohje</button>
+                                <button class="btn btn-secondary" id="writer-desk-open-projects-btn" type="button">Käsikirjoitukseni</button>
+                            </div>
+                        </details>
                     </div>
                 </div>
 
@@ -234,8 +241,14 @@
                     <p id="writer-stage-analysis-status" class="writer-stage-analysis-status">Semanttinen analyysi: odottaa.</p>
                 </section>
 
+                <nav class="writer-mobile-jumpbar glass-panel" aria-label="Työpöydän pikavalinnat">
+                    <button type="button" data-writer-scroll="writer-desk-editor-panel">Teksti</button>
+                    <button type="button" data-writer-scroll="writer-desk-assistant-panel">Avustaja</button>
+                    <button type="button" data-writer-scroll="writer-desk-structure-panel">Luvut</button>
+                </nav>
+
                 <div class="writer-desk-workspace">
-                    <aside class="writer-desk-structure glass-panel">
+                    <aside class="writer-desk-structure glass-panel" id="writer-desk-structure-panel">
                         <h3>Rakenne</h3>
                         <div class="writing-jump-panel">
                             <label for="writer-desk-paragraph-jump">Siirry kappaleeseen</label>
@@ -248,7 +261,7 @@
                         <div id="writer-desk-chapter-list" class="chapter-list"></div>
                     </aside>
 
-                    <section class="writer-desk-editor glass-panel">
+                    <section class="writer-desk-editor glass-panel" id="writer-desk-editor-panel">
                         <div class="panel-header">
                             <h3 id="writer-desk-selection-title">Valitse luku</h3>
                             <div class="panel-status-stack">
@@ -259,7 +272,7 @@
                         <textarea id="writer-desk-text" class="writer-desk-text" placeholder="Valitse tai lataa käsikirjoitus ensin. Työpöytä näyttää valitun luvun, rakenteen ja avustajan samassa näkymässä."></textarea>
                     </section>
 
-                    <aside class="writer-desk-assistant glass-panel">
+                    <aside class="writer-desk-assistant glass-panel" id="writer-desk-assistant-panel">
                         <div>
                             <h3>Avustaja</h3>
                             <p id="writer-assistant-context">Avustaja käyttää valittua lukua ja käsikirjoituksen vaihetta.</p>
@@ -1744,6 +1757,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=42"></script>
+    <script src="app.js?v=43"></script>
 </body>
 </html>
