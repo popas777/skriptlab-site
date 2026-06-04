@@ -201,7 +201,20 @@ document.addEventListener('DOMContentLoaded', () => {
     let learningMaterialTimerInterval = null;
     let editingLearningTargetIndex = null;
     let undoToastTimer = null;
-    let currentViewId = currentUser && currentUser.role === 'oppimateriaali' ? 'view-om-projekti' : 'view-kirjani';
+    let writerDeskSelection = { cIndex: null, pIndex: 0 };
+    let writerDeskAutosaveTimer = null;
+    let writerDeskAssistantDraftKind = '';
+    function defaultViewForUser() {
+        if (currentUser?.role === 'oppimateriaali') return 'view-om-projekti';
+        if (currentUser?.role === 'kirjailija') {
+            return localStorage.getItem('skriptlab_manuscript') ? 'view-tyopoyta' : 'view-kirjani';
+        }
+        return 'view-kirjani';
+    }
+    function primaryWritingView() {
+        return currentUser?.role === 'kirjailija' ? 'view-tyopoyta' : 'view-kirjoita';
+    }
+    let currentViewId = defaultViewForUser();
     let workflowRunning = false;
     let workflowSteps = [];
     const fullWorkspaceRoles = new Set(['admin', 'test_user']);
@@ -215,7 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'view-om-kokonaisuus',
         'view-om-vienti'
     ]);
-    const writerViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus']);
+    const writerViews = new Set(['view-kirjani', 'view-tyopoyta', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus']);
     const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset']);
     const biographyViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-elamakerta', 'view-toimitus', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-audio', 'view-kirja']);
@@ -228,6 +241,26 @@ document.addEventListener('DOMContentLoaded', () => {
         kirjailija: 'Kirjailija',
         elamakerta: 'Elämäkerta',
         oppimateriaali: 'Oppimateriaali'
+    };
+    const writerStageConfig = {
+        draft: {
+            label: 'Luonnos',
+            role: 'Kirjailija',
+            description: 'Vapaa kirjoittaminen, ideointi ja jäsentely. Tekstin ei tarvitse olla valmis tai tasainen.',
+            assistantHint: 'Keskity ideoihin, kohtauksiin, henkilöihin, ääneen ja siihen, mitä seuraavaksi kannattaa kirjoittaa.'
+        },
+        manuscript: {
+            label: 'Käsikirjoitus',
+            role: 'Editori / kustannustoimittaja',
+            description: 'Rakenne vakautuu: ositus, luvut, kappalejako, yhtenäistäminen ja editointi tehdään hallitusti.',
+            assistantHint: 'Keskity rakenteeseen, jatkuvuuteen, rytmiin, toistoon, kappalejakoon ja tekstin yhtenäistämiseen.'
+        },
+        production: {
+            label: 'Tuotantovalmiiksi viimeistely',
+            role: 'Graafikko / taittaja',
+            description: 'Sisältö on lukittu tai lähes lukittu. Muutokset pidetään pieninä ja teksti valmistellaan taittoa varten.',
+            assistantHint: 'Keskity viimeisiin korjauksiin, taittomerkintöihin, otsikoihin, oheisaineistoihin ja tuotantoon siirtämiseen.'
+        }
     };
     const canSeeAllModules = currentUser && fullWorkspaceRoles.has(currentUser.role);
     const usageEls = {
@@ -878,18 +911,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateMarkupButtons() {
         const label = showManuscriptMarkup ? 'Piilota merkinnät' : 'Näytä merkinnät';
-        ['toggle-writing-markup-btn', 'toggle-editor-markup-btn'].forEach(id => {
+        ['toggle-writing-markup-btn', 'toggle-editor-markup-btn', 'writer-desk-toggle-markup-btn'].forEach(id => {
             const btn = document.getElementById(id);
             if (btn) btn.textContent = label;
         });
     }
 
     function toggleManuscriptMarkup() {
-        saveWritingText(false);
+        if (currentViewId === 'view-tyopoyta') saveWriterDeskText(false);
+        else saveWritingText(false);
         showManuscriptMarkup = !showManuscriptMarkup;
         localStorage.setItem('skriptlab_show_manuscript_markup', String(showManuscriptMarkup));
         updateMarkupButtons();
         renderWritingView();
+        renderWriterDeskView();
         if (window.currentEditSelection?.cIndex !== null && window.loadParagraph) {
             window.loadParagraph(window.currentEditSelection.cIndex, window.currentEditSelection.pIndex || 0, null);
         }
@@ -1244,6 +1279,12 @@ document.addEventListener('DOMContentLoaded', () => {
     async function flushPendingManuscriptEdits() {
         window.clearTimeout(writingAutosaveTimer);
         let savePromise = null;
+        if (currentViewId === 'view-tyopoyta') {
+            window.clearTimeout(writerDeskAutosaveTimer);
+            if (syncWriterDeskEditorToManuscript()) {
+                savePromise = window.saveProjectChapterToDB(window.manuscriptData, writerDeskSelection.cIndex);
+            }
+        }
         if (currentViewId === 'view-kirjoita') {
             if (syncWritingEditorToManuscript()) {
                 savePromise = window.saveProjectChapterToDB(window.manuscriptData, writingSelection.cIndex);
@@ -1547,6 +1588,344 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function currentWriterStage() {
+        const stage = window.manuscriptData?.analysis?.writer_stage || 'draft';
+        return writerStageConfig[stage] ? stage : 'draft';
+    }
+
+    async function setWriterStage(stage) {
+        if (!writerStageConfig[stage]) return;
+        if (!window.manuscriptData) {
+            setWriterDeskToolStatus('Valitse käsikirjoitus ennen työvaiheen vaihtoa.');
+            return;
+        }
+        window.manuscriptData.analysis = window.manuscriptData.analysis || {};
+        window.manuscriptData.analysis.writer_stage = stage;
+        markLocalManuscriptDraft(window.manuscriptData);
+        renderWriterStage();
+        await window.saveManuscriptToDB(window.manuscriptData);
+        updateSaveTimestamp('writer-desk-save-status', Boolean(window.manuscriptData._db_sync_pending));
+        renderWriterDeskAssistantContext();
+    }
+
+    function renderWriterStage() {
+        const stage = currentWriterStage();
+        const config = writerStageConfig[stage] || writerStageConfig.draft;
+        const currentEl = document.getElementById('writer-stage-current');
+        const descEl = document.getElementById('writer-stage-description');
+        const analysisEl = document.getElementById('writer-stage-analysis-status');
+        if (currentEl) currentEl.textContent = config.label;
+        if (descEl) descEl.textContent = config.description;
+        document.querySelectorAll('[data-writer-stage]').forEach(button => {
+            const active = button.dataset.writerStage === stage;
+            button.classList.toggle('active', active);
+            button.disabled = !window.manuscriptData;
+        });
+        if (analysisEl) {
+            const analysisReady = hasSavedAnalysis(window.manuscriptData?.analysis);
+            const stageNote = stage === 'draft'
+                ? 'Luonnosvaiheessa analyysi voi odottaa.'
+                : 'Käsikirjoitusvaiheessa analyysi toimii taustatietona editoinnille.';
+            analysisEl.textContent = analysisReady
+                ? `Semanttinen analyysi: valmis. ${stageNote}`
+                : `Semanttinen analyysi: odottaa. ${stageNote}`;
+        }
+    }
+
+    function setWriterDeskToolStatus(message) {
+        const statusEl = document.getElementById('writer-desk-tool-status');
+        if (statusEl) statusEl.textContent = message || '';
+    }
+
+    function setWriterAssistantStatus(message, isError = false) {
+        const statusEl = document.getElementById('writer-assistant-status');
+        if (!statusEl) return;
+        statusEl.textContent = message || '';
+        statusEl.style.color = isError ? '#f87171' : '';
+    }
+
+    function syncWriterDeskEditorToManuscript() {
+        const textEl = document.getElementById('writer-desk-text');
+        if (!textEl || !window.manuscriptData) return false;
+        const chapter = window.manuscriptData.chapters?.[writerDeskSelection.cIndex];
+        if (!chapter) return false;
+        applyParsedChapterText(chapter, textEl.value);
+        writerDeskSelection.pIndex = Math.min(writerDeskSelection.pIndex || 0, chapter.paragraphs.length - 1);
+        markLocalManuscriptDraft(window.manuscriptData);
+        return true;
+    }
+
+    function currentWriterDeskParagraphs() {
+        const textEl = document.getElementById('writer-desk-text');
+        const text = textEl ? textEl.value : '';
+        const chapter = window.manuscriptData?.chapters?.[writerDeskSelection.cIndex] || {};
+        const parsed = parseChapterEditorText(chapter, text);
+        return parsed.paragraphs.length ? parsed.paragraphs : [''];
+    }
+
+    function updateWriterDeskPositionStatus() {
+        const jumpInput = document.getElementById('writer-desk-paragraph-jump');
+        const statusEl = document.getElementById('writer-desk-position-status');
+        const chapter = window.manuscriptData?.chapters?.[writerDeskSelection.cIndex];
+        const chapters = window.manuscriptData?.chapters || [];
+        const paragraphs = currentWriterDeskParagraphs();
+        const pIndex = Math.min(Math.max(writerDeskSelection.pIndex || 0, 0), Math.max(0, paragraphs.length - 1));
+        if (jumpInput) {
+            jumpInput.max = String(Math.max(1, paragraphs.length));
+            jumpInput.value = String(pIndex + 1);
+        }
+        if (statusEl) {
+            statusEl.textContent = chapter
+                ? `Luku ${writerDeskSelection.cIndex + 1}/${chapters.length}: ${chapter.title || 'Nimetön luku'} · kappale ${pIndex + 1}/${Math.max(1, paragraphs.length)}`
+                : 'Valitse luku.';
+        }
+    }
+
+    function updateWriterDeskPositionFromCursor() {
+        const textEl = document.getElementById('writer-desk-text');
+        if (!textEl || writerDeskSelection.cIndex === null || writerDeskSelection.cIndex === undefined) return;
+        const paragraphs = currentWriterDeskParagraphs();
+        writerDeskSelection.pIndex = Math.min(paragraphIndexAtOffset(textEl.value, textEl.selectionStart), paragraphs.length - 1);
+        updateWriterDeskPositionStatus();
+        renderWriterDeskStructureOnly();
+    }
+
+    function jumpToWriterDeskParagraph() {
+        const textEl = document.getElementById('writer-desk-text');
+        const jumpInput = document.getElementById('writer-desk-paragraph-jump');
+        if (!textEl || !jumpInput) return;
+        const paragraphs = currentWriterDeskParagraphs();
+        const requested = Number.parseInt(jumpInput.value, 10);
+        if (!Number.isFinite(requested) || requested < 1 || requested > paragraphs.length) {
+            setWriterDeskToolStatus(`Anna kappalenumero väliltä 1-${paragraphs.length}.`);
+            return;
+        }
+        const nextIndex = requested - 1;
+        const offset = paragraphOffsetByIndex(textEl.value, nextIndex);
+        writerDeskSelection.pIndex = nextIndex;
+        textEl.focus();
+        textEl.setSelectionRange(offset, offset);
+        const lineHeight = Number.parseFloat(window.getComputedStyle(textEl).lineHeight) || 28;
+        const before = textEl.value.slice(0, offset);
+        textEl.scrollTop = Math.max(0, before.split('\n').length * lineHeight - textEl.clientHeight / 3);
+        updateWriterDeskPositionStatus();
+        renderWriterDeskStructureOnly();
+    }
+
+    function scheduleWriterDeskAutosave() {
+        if (!syncWriterDeskEditorToManuscript()) return;
+        window.clearTimeout(writerDeskAutosaveTimer);
+        writerDeskAutosaveTimer = window.setTimeout(() => {
+            if (syncWriterDeskEditorToManuscript()) {
+                window.saveProjectChapterToDB(window.manuscriptData, writerDeskSelection.cIndex)
+                    .then(() => updateSaveTimestamp('writer-desk-save-status', Boolean(window.manuscriptData?._db_sync_pending)));
+                renderBookOverview();
+                renderWriterDeskAssistantContext();
+            }
+        }, 1200);
+    }
+
+    function renderWriterDeskStructureOnly() {
+        const chapterList = document.getElementById('writer-desk-chapter-list');
+        if (!chapterList) return;
+        renderChapterParagraphNav(chapterList, writerDeskSelection.cIndex, writerDeskSelection.pIndex, {
+            onChapterSelect: cIndex => {
+                saveWriterDeskText(false);
+                writerDeskSelection = { cIndex, pIndex: 0 };
+                renderWriterDeskView();
+            },
+            onParagraphSelect: (cIndex, pIndex) => {
+                saveWriterDeskText(false);
+                writerDeskSelection = { cIndex, pIndex };
+                renderWriterDeskView();
+            },
+            onChapterRename: (cIndex, title) => {
+                saveWriterDeskText(false);
+                const chapter = window.manuscriptData?.chapters?.[cIndex];
+                if (!chapter) return;
+                chapter.title = title || `Luku ${cIndex + 1}`;
+                window.saveProjectStructureToDB(window.manuscriptData);
+                renderWriterDeskView();
+                renderWritingView();
+            }
+        });
+    }
+
+    function renderWriterDeskAssistantContext() {
+        const contextEl = document.getElementById('writer-assistant-context');
+        if (!contextEl) return;
+        const stage = currentWriterStage();
+        const config = writerStageConfig[stage] || writerStageConfig.draft;
+        const chapter = window.manuscriptData?.chapters?.[writerDeskSelection.cIndex];
+        const paragraphCount = Array.isArray(chapter?.paragraphs) ? chapter.paragraphs.length : 0;
+        contextEl.textContent = chapter
+            ? `${config.label}: ${config.assistantHint} Valittuna ${chapter.title || 'luku'}, ${paragraphCount} kappaletta.`
+            : 'Valitse käsikirjoitus ja luku, niin avustaja osaa rajata ehdotukset oikeaan kohtaan.';
+    }
+
+    function renderWriterDeskView() {
+        const titleEl = document.getElementById('writer-desk-selection-title');
+        const textEl = document.getElementById('writer-desk-text');
+        const currentProjectEl = document.getElementById('writer-desk-current-project');
+        if (!titleEl || !textEl) return;
+
+        renderWriterStage();
+        if (!window.manuscriptData || !Array.isArray(window.manuscriptData.chapters) || window.manuscriptData.chapters.length === 0) {
+            if (currentProjectEl) currentProjectEl.textContent = 'Valitse käsikirjoitus tai luo tyhjä dokumentti Käsikirjoitukseni-näkymässä.';
+            titleEl.textContent = 'Ei käsikirjoitusta';
+            textEl.value = '';
+            renderChapterParagraphNav(document.getElementById('writer-desk-chapter-list'), null, null);
+            updateWriterDeskPositionStatus();
+            renderWriterDeskAssistantContext();
+            return;
+        }
+
+        if (currentProjectEl) currentProjectEl.textContent = `Käsikirjoitus: ${window.manuscriptData.title || 'Nimetön'}`;
+        if (writerDeskSelection.cIndex === null || !window.manuscriptData.chapters[writerDeskSelection.cIndex]) {
+            writerDeskSelection = { cIndex: firstBodyChapterIndex(window.manuscriptData.chapters), pIndex: 0 };
+        }
+        const activeChapter = window.manuscriptData.chapters[writerDeskSelection.cIndex];
+        if (!Array.isArray(activeChapter.paragraphs)) activeChapter.paragraphs = [];
+        if (activeChapter.paragraphs.length === 0) activeChapter.paragraphs.push('');
+        if (
+            writerDeskSelection.pIndex === null ||
+            writerDeskSelection.pIndex === undefined ||
+            writerDeskSelection.pIndex < 0 ||
+            writerDeskSelection.pIndex >= activeChapter.paragraphs.length
+        ) {
+            writerDeskSelection.pIndex = 0;
+        }
+
+        renderWriterDeskStructureOnly();
+        titleEl.textContent = `${activeChapter.title || 'Nimetön luku'}, koko luku`;
+        if (document.activeElement !== textEl) textEl.value = chapterTextForEditor(activeChapter, writerDeskSelection.cIndex);
+        updateWriterDeskPositionStatus();
+        updateMarkupButtons();
+        renderWriterDeskAssistantContext();
+    }
+
+    async function saveWriterDeskText(showStatus = true) {
+        window.clearTimeout(writerDeskAutosaveTimer);
+        if (!syncWriterDeskEditorToManuscript()) return;
+        await window.saveProjectChapterToDB(window.manuscriptData, writerDeskSelection.cIndex);
+        updateSaveTimestamp('writer-desk-save-status', Boolean(window.manuscriptData._db_sync_pending));
+        renderBookOverview();
+        renderWritingView();
+        if (window.renderNavList) window.renderNavList();
+        if (showStatus) {
+            setWriterDeskToolStatus(window.manuscriptData._db_sync_pending
+                ? 'Paikallinen luonnos on tallessa. Tietokantatallennus jäi odottamaan yhteyttä.'
+                : 'Tallennettu.');
+        }
+    }
+
+    function writerAssistantPrompt(action, userPrompt) {
+        const stage = currentWriterStage();
+        const config = writerStageConfig[stage] || writerStageConfig.draft;
+        const analysis = window.manuscriptData?.analysis || {};
+        const style = truncateText(analysis.style || analysis.tyyli || '', 700);
+        const glossary = truncateText(analysis.glossary || analysis.sanasto || '', 700);
+        const sharedContext = [
+            `Työvaihe: ${config.label} (${config.role}).`,
+            `Tämän vaiheen tavoite: ${config.description}`,
+            style ? `Tyylianalyysin tiivistelmä: ${style}` : '',
+            glossary ? `Sanaston tai termien tiivistelmä: ${glossary}` : '',
+            userPrompt ? `Käyttäjän tarkennus: ${userPrompt}` : ''
+        ].filter(Boolean).join('\n');
+        const actions = {
+            brainstorm: 'Anna 5-8 konkreettista ideaa, kysymystä tai etenemisvaihtoehtoa valitun luvun jatkotyöstöön. Älä kirjoita lukua uudelleen.',
+            structure: 'Ehdota valitulle luvulle selkeämpää rakennetta, ositusta ja kappalejärjestystä. Nosta myös puuttuvat tai epäselvät kohdat. Älä kirjoita lukua uudelleen.',
+            edit: 'Editoi valittu luku varovaisesti. Korjaa selvät kieli-, rytmi- ja jatkuvuusongelmat, säilytä kirjailijan oma ääni ja palauta vain valmis luku ilman selityksiä.',
+            next: 'Kerro, mikä olisi järkevin seuraava työaskel tämän luvun ja koko käsikirjoituksen kannalta. Anna lyhyt, priorisoitu lista.'
+        };
+        return `${sharedContext}\n\nTehtävä: ${actions[action] || actions.next}`;
+    }
+
+    async function runWriterAssistant() {
+        if (!window.manuscriptData?.chapters?.length) {
+            setWriterAssistantStatus('Valitse käsikirjoitus ensin.', true);
+            return;
+        }
+        syncWriterDeskEditorToManuscript();
+        const chapter = window.manuscriptData.chapters[writerDeskSelection.cIndex];
+        if (!chapter) {
+            setWriterAssistantStatus('Valitse luku ensin.', true);
+            return;
+        }
+        const action = document.getElementById('writer-assistant-action')?.value || 'next';
+        const userPrompt = document.getElementById('writer-assistant-prompt')?.value || '';
+        const outputEl = document.getElementById('writer-assistant-output');
+        const runBtn = document.getElementById('writer-assistant-run-btn');
+        const applyBtn = document.getElementById('writer-assistant-apply-btn');
+        const sourceText = chapterTextForEditor(chapter, writerDeskSelection.cIndex);
+        if (!sourceText.trim()) {
+            setWriterAssistantStatus('Valitussa luvussa ei ole vielä käsiteltävää tekstiä.', true);
+            return;
+        }
+        if (sourceText.length > 20000) {
+            setWriterAssistantStatus('Valittu luku on yli 20 000 merkkiä. Avustaja käsittelee tässä näkymässä yhden rajatun luvun tai lyhyemmän osan kerrallaan.', true);
+            return;
+        }
+
+        if (runBtn) runBtn.disabled = true;
+        if (applyBtn) applyBtn.disabled = true;
+        writerDeskAssistantDraftKind = '';
+        setWriterAssistantStatus('Avustaja käsittelee valittua lukua...');
+        if (outputEl) outputEl.value = '';
+        try {
+            const res = await apiFetch('/api/edit', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    text: sourceText,
+                    temperature: action === 'brainstorm' ? 0.55 : 0.25,
+                    prompt: writerAssistantPrompt(action, userPrompt)
+                })
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.detail || 'Avustajan pyyntö epäonnistui.');
+            const responseText = data?.edited_text || data?.result || data?.text || '';
+            if (!responseText.trim()) throw new Error('Avustaja ei palauttanut tekstiä.');
+            if (outputEl) outputEl.value = responseText.trim();
+            writerDeskAssistantDraftKind = action;
+            if (applyBtn) applyBtn.disabled = action !== 'edit';
+            setWriterAssistantStatus(action === 'edit'
+                ? 'Editointiehdotus valmis. Voit kopioida sitä käsin tai korvata koko luvun.'
+                : 'Ehdotus valmis.');
+            loadUsage();
+        } catch (err) {
+            setWriterAssistantStatus(networkFailureMessage(err), true);
+            loadUsage();
+        } finally {
+            if (runBtn) runBtn.disabled = false;
+        }
+    }
+
+    async function applyWriterAssistantDraft() {
+        const outputEl = document.getElementById('writer-assistant-output');
+        const nextText = outputEl?.value || '';
+        const chapter = window.manuscriptData?.chapters?.[writerDeskSelection.cIndex];
+        if (!chapter || !nextText.trim() || writerDeskAssistantDraftKind !== 'edit') return;
+        const chapterIndex = writerDeskSelection.cIndex;
+        const previous = JSON.parse(JSON.stringify(chapter));
+        applyParsedChapterText(chapter, nextText);
+        writerDeskSelection.pIndex = 0;
+        await window.saveProjectChapterToDB(window.manuscriptData, chapterIndex);
+        updateSaveTimestamp('writer-desk-save-status', Boolean(window.manuscriptData._db_sync_pending));
+        renderWriterDeskView();
+        renderWritingView();
+        renderBookOverview();
+        setWriterAssistantStatus('Luku korvattu editointiehdotuksella.');
+        showUndoToast('Luku korvattu editointiehdotuksella.', async () => {
+            window.manuscriptData.chapters[chapterIndex] = previous;
+            await window.saveProjectChapterToDB(window.manuscriptData, chapterIndex);
+            renderWriterDeskView();
+            renderWritingView();
+            renderBookOverview();
+            setWriterAssistantStatus('Muutos peruttu.');
+        });
+    }
+
     async function addWritingParagraph() {
         if (!window.manuscriptData) {
             alert('Lataa tai valitse käsikirjoitus ensin.');
@@ -1830,7 +2209,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function openModule(viewId) {
         if (!isViewAllowed(viewId)) {
-            viewId = currentUser && currentUser.role === 'oppimateriaali' ? 'view-om-projekti' : 'view-kirjani';
+            viewId = defaultViewForUser();
         }
         currentViewId = viewId;
 
@@ -1851,6 +2230,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentViewId === 'view-kirjoita' && nextViewId !== 'view-kirjoita') {
             saveWritingText(false);
         }
+        if (currentViewId === 'view-tyopoyta' && nextViewId !== 'view-tyopoyta') {
+            saveWriterDeskText(false);
+        }
     }
 
     navItems.forEach(item => {
@@ -1865,6 +2247,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (nextViewId === 'view-kirjoita') {
                 renderWritingView();
+            }
+            if (nextViewId === 'view-tyopoyta') {
+                renderWriterDeskView();
             }
             if (nextViewId === 'view-analyysi') {
                 loadSavedAnalysisForActiveProject(false);
@@ -3816,6 +4201,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const bookFontSizeSelect = document.getElementById('book-font-size-select');
     const bookWidthSelect = document.getElementById('book-width-select');
     const saveWritingBtn = document.getElementById('save-writing-btn');
+    const writerDeskSaveBtn = document.getElementById('writer-desk-save-btn');
+    const writerDeskOpenProjectsBtn = document.getElementById('writer-desk-open-projects-btn');
+    const writerDeskToggleMarkupBtn = document.getElementById('writer-desk-toggle-markup-btn');
+    const writerDeskParagraphJumpBtn = document.getElementById('writer-desk-paragraph-jump-btn');
+    const writerDeskParagraphJumpInput = document.getElementById('writer-desk-paragraph-jump');
+    const writerDeskTextArea = document.getElementById('writer-desk-text');
+    const writerAssistantRunBtn = document.getElementById('writer-assistant-run-btn');
+    const writerAssistantApplyBtn = document.getElementById('writer-assistant-apply-btn');
     const cleanWritingTextBtn = document.getElementById('clean-writing-text-btn');
     const restructureWritingBtn = document.getElementById('restructure-writing-btn');
     const toggleWritingMarkupBtn = document.getElementById('toggle-writing-markup-btn');
@@ -3837,6 +4230,29 @@ document.addEventListener('DOMContentLoaded', () => {
         if (select) select.addEventListener('change', applyBookReaderSettings);
     });
     if (saveWritingBtn) saveWritingBtn.addEventListener('click', () => saveWritingText(true));
+    if (writerDeskSaveBtn) writerDeskSaveBtn.addEventListener('click', () => saveWriterDeskText(true));
+    if (writerDeskOpenProjectsBtn) writerDeskOpenProjectsBtn.addEventListener('click', () => window.openModule('view-kirjani'));
+    if (writerDeskToggleMarkupBtn) writerDeskToggleMarkupBtn.addEventListener('click', toggleManuscriptMarkup);
+    if (writerDeskParagraphJumpBtn) writerDeskParagraphJumpBtn.addEventListener('click', jumpToWriterDeskParagraph);
+    if (writerDeskParagraphJumpInput) {
+        writerDeskParagraphJumpInput.addEventListener('keydown', event => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                jumpToWriterDeskParagraph();
+            }
+        });
+    }
+    if (writerDeskTextArea) {
+        ['keyup', 'click', 'input', 'select'].forEach(eventName => {
+            writerDeskTextArea.addEventListener(eventName, updateWriterDeskPositionFromCursor);
+        });
+        writerDeskTextArea.addEventListener('input', scheduleWriterDeskAutosave);
+    }
+    document.querySelectorAll('[data-writer-stage]').forEach(button => {
+        button.addEventListener('click', () => setWriterStage(button.dataset.writerStage));
+    });
+    if (writerAssistantRunBtn) writerAssistantRunBtn.addEventListener('click', runWriterAssistant);
+    if (writerAssistantApplyBtn) writerAssistantApplyBtn.addEventListener('click', applyWriterAssistantDraft);
     if (cleanWritingTextBtn) cleanWritingTextBtn.addEventListener('click', cleanCurrentWritingChapter);
     if (restructureWritingBtn) restructureWritingBtn.addEventListener('click', restructureWritingManuscript);
     if (toggleWritingMarkupBtn) toggleWritingMarkupBtn.addEventListener('click', toggleManuscriptMarkup);
@@ -3862,6 +4278,9 @@ document.addEventListener('DOMContentLoaded', () => {
         writingTextArea.addEventListener('input', scheduleWritingAutosave);
     }
     window.addEventListener('beforeunload', () => {
+        if (currentViewId === 'view-tyopoyta') {
+            syncWriterDeskEditorToManuscript();
+        }
         if (currentViewId === 'view-kirjoita') {
             syncWritingEditorToManuscript();
         }
@@ -3958,7 +4377,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const saved = await window.saveManuscriptToDB(bookData);
         setActiveManuscript(saved);
         await loadProjects();
-        window.openModule('view-kirjoita');
+        window.openModule(primaryWritingView());
+        renderWriterDeskView();
         renderWritingView();
     }
 
@@ -3986,6 +4406,7 @@ document.addEventListener('DOMContentLoaded', () => {
         biographyState = defaultBiographyState();
         renderBiography();
         renderBookOverview();
+        renderWriterDeskView();
         renderWritingView();
         renderProofreadView();
         renderProductInfo(true);
@@ -4012,6 +4433,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderProductInfo(true);
         renderAudioView(true);
         renderBookOverview();
+        renderWriterDeskView();
         renderWritingView();
         if (window.renderNavList) window.renderNavList();
         updateMiscProjectSelect();
@@ -4136,7 +4558,8 @@ document.addEventListener('DOMContentLoaded', () => {
         newCard.dataset.projectId = data.id || '';
         newCard.addEventListener('click', () => {
             setActiveManuscript(data);
-            openModule('view-kirjoita');
+            openModule(primaryWritingView());
+            renderWriterDeskView();
             renderWritingView();
         });
         newCard.innerHTML = `
@@ -6313,7 +6736,8 @@ ${state.validation || 'Ei validointia.'}`;
                 bookData = await window.replaceProjectChaptersInDB(bookData);
                 setActiveManuscript(bookData);
                 await loadProjects();
-                window.openModule('view-kirjoita');
+                window.openModule(primaryWritingView());
+                renderWriterDeskView();
                 renderWritingView();
                 alert('Lataus ok! Voit jatkaa kirjoittamista tai siirtyä analyysiin.');
             })

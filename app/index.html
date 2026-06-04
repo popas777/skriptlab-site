@@ -70,6 +70,7 @@
             <nav class="sidebar-nav">
                 <ul id="nav-menu">
                     <li class="active" data-view="view-kirjani">Käsikirjoitukseni</li>
+                    <li data-view="view-tyopoyta">Työpöytä</li>
                     <li data-view="view-kirjoita">Kirjoita</li>
                     <li data-view="view-ai-tyonkulku">AI-työnkulku</li>
                     <li data-view="view-elamakerta">Elämäkerta</li>
@@ -161,7 +162,7 @@
                         <span class="app-intro-kicker">Aloita tästä</span>
                         <h3>Hei, tuo käsikirjoituksesi työtilaan</h3>
                         <p>
-                            Tälle sivulle voit ladata käsikirjoituksen tai luoda tyhjän dokumentin. Jos haluat jatkaa aiemmin aloitettua työtä, valitse käsikirjoitus alta ja siirry sen jälkeen Kirjoita-, Analyysi- tai Editointi-osioon.
+                            Tälle sivulle voit ladata käsikirjoituksen tai luoda tyhjän dokumentin. Jos haluat jatkaa aiemmin aloitettua työtä, valitse käsikirjoitus alta ja jatka Työpöydällä.
                         </p>
                         <p class="app-intro-note">Tuetut tiedostot: TXT, MD, DOCX, PDF, RTF, ODT ja HTML.</p>
                     </div>
@@ -176,7 +177,7 @@
                         </div>
                         <div>
                             <strong>2. Jatka oikeassa osiossa</strong>
-                            <span>Kirjoita uutta, analysoi kokonaisuutta tai viimeistele tekstiä Editointi-osiossa.</span>
+                            <span>Työpöydällä näet rakenteen, tekstin ja avustajan samassa näkymässä.</span>
                         </div>
                         <div>
                             <strong>3. Työ pysyy tallessa</strong>
@@ -190,6 +191,93 @@
                        Ohjelmistossa ei ole vielä aktiivisia käsikirjoitushankkeita ladattuna.<br>
                        Käytä <strong>Lataa Käsikirjoitus</strong> -painiketta aloittaaksesi uuden hankkeen editoinnin.
                    </div>
+                </div>
+            </div>
+
+            <!-- 1.1 VIEW: TYÖPÖYTÄ -->
+            <div id="view-tyopoyta" class="view-section hidden">
+                <div class="header writer-desk-header">
+                    <div class="header-info">
+                        <h2>Työpöytä</h2>
+                        <p id="writer-desk-current-project">Valitse käsikirjoitus ja jatka tekstin työstämistä yhdessä näkymässä.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" id="writer-desk-toggle-markup-btn">Näytä merkinnät</button>
+                        <button class="btn btn-secondary" id="writer-desk-open-projects-btn">Käsikirjoitukseni</button>
+                        <button class="btn btn-primary" id="writer-desk-save-btn">Tallenna</button>
+                    </div>
+                </div>
+
+                <section class="writer-stage-panel glass-panel">
+                    <div class="writer-stage-summary">
+                        <span class="writer-stage-eyebrow">Työvaihe</span>
+                        <strong id="writer-stage-current">Luonnos</strong>
+                        <p id="writer-stage-description">Vapaa kirjoittaminen, ideointi ja jäsentely.</p>
+                    </div>
+                    <div class="writer-stage-rail" id="writer-stage-rail">
+                        <button class="writer-stage-step" type="button" data-writer-stage="draft">
+                            <span>1</span>
+                            <strong>Luonnos</strong>
+                            <small>Kirjailija</small>
+                        </button>
+                        <button class="writer-stage-step" type="button" data-writer-stage="manuscript">
+                            <span>2</span>
+                            <strong>Käsikirjoitus</strong>
+                            <small>Editori</small>
+                        </button>
+                        <button class="writer-stage-step" type="button" data-writer-stage="production">
+                            <span>3</span>
+                            <strong>Tuotantovalmis</strong>
+                            <small>Taitto</small>
+                        </button>
+                    </div>
+                    <p id="writer-stage-analysis-status" class="writer-stage-analysis-status">Semanttinen analyysi: odottaa.</p>
+                </section>
+
+                <div class="writer-desk-workspace">
+                    <aside class="writer-desk-structure glass-panel">
+                        <h3>Rakenne</h3>
+                        <div class="writing-jump-panel">
+                            <label for="writer-desk-paragraph-jump">Siirry kappaleeseen</label>
+                            <div class="writing-jump-row">
+                                <input id="writer-desk-paragraph-jump" type="number" min="1" value="1">
+                                <button class="btn btn-secondary" id="writer-desk-paragraph-jump-btn">Siirry</button>
+                            </div>
+                            <p id="writer-desk-position-status">Valitse luku.</p>
+                        </div>
+                        <div id="writer-desk-chapter-list" class="chapter-list"></div>
+                    </aside>
+
+                    <section class="writer-desk-editor glass-panel">
+                        <div class="panel-header">
+                            <h3 id="writer-desk-selection-title">Valitse luku</h3>
+                            <div class="panel-status-stack">
+                                <span id="writer-desk-tool-status" class="writing-tool-status"></span>
+                                <span id="writer-desk-save-status" class="save-timestamp">Tallennus: -</span>
+                            </div>
+                        </div>
+                        <textarea id="writer-desk-text" class="writer-desk-text" placeholder="Valitse tai lataa käsikirjoitus ensin. Työpöytä näyttää valitun luvun, rakenteen ja avustajan samassa näkymässä."></textarea>
+                    </section>
+
+                    <aside class="writer-desk-assistant glass-panel">
+                        <div>
+                            <h3>Avustaja</h3>
+                            <p id="writer-assistant-context">Avustaja käyttää valittua lukua ja käsikirjoituksen vaihetta.</p>
+                        </div>
+                        <label for="writer-assistant-action">Mitä tehdään?</label>
+                        <select id="writer-assistant-action">
+                            <option value="brainstorm">Ideoi ja auta jatkamaan</option>
+                            <option value="structure">Jäsentele lukua</option>
+                            <option value="edit">Ehdota editointia</option>
+                            <option value="next">Ehdota seuraava askel</option>
+                        </select>
+                        <label for="writer-assistant-prompt">Tarkennus</label>
+                        <textarea id="writer-assistant-prompt" placeholder="Esimerkiksi: haluan lisää jännitettä, dialogi tuntuu pitkältä, hahmon motiivi kaipaa selkeytystä."></textarea>
+                        <button class="btn btn-primary" id="writer-assistant-run-btn" type="button">Kysy avustajalta</button>
+                        <textarea id="writer-assistant-output" placeholder="Vastaus näkyy tässä."></textarea>
+                        <button class="btn btn-secondary" id="writer-assistant-apply-btn" type="button" disabled>Korvaa luku vastauksella</button>
+                        <p id="writer-assistant-status"></p>
+                    </aside>
                 </div>
             </div>
 
