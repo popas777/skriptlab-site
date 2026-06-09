@@ -184,9 +184,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let latestTranslationText = '';
     let currentTranslationHistory = [];
     let selectedTranslation = null;
+    let latestFinnishTranslationText = '';
+    let currentFinnishTranslationHistory = [];
+    let selectedFinnishTranslation = null;
     let syncingTranslationScroll = false;
     let translationTimerInterval = null;
+    let finnishTranslationTimerInterval = null;
     let latestTranslationEstimate = null;
+    let latestFinnishTranslationEstimate = null;
     let miscModels = [];
     let miscTimerInterval = null;
     let latestMiscText = '';
@@ -232,7 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ]);
     const writerViews = new Set(['view-kirjani', 'view-tyopoyta', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus']);
     const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
-    const translatorViews = new Set([...betaCoreViews, 'view-kaannokset']);
+    const translatorViews = new Set([...betaCoreViews, 'view-kaannokset', 'view-suomentaja']);
     const biographyViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-elamakerta', 'view-toimitus', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-audio', 'view-kirja', 'view-julkaise']);
     const roleLabels = {
         admin: 'Admin',
@@ -1164,6 +1169,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderWritingView();
             if (window.renderNavList) window.renderNavList();
             updateTranslationProjectSelect();
+            updateFinnishTranslationProjectSelect();
 
             if (showFeedback && !hasSavedAnalysis(window.manuscriptData.analysis)) {
                 alert('Tälle käsikirjoitukselle ei löytynyt vielä tallennettua analyysiä.');
@@ -2596,6 +2602,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadTranslationModels();
                 updateTranslationProjectSelect();
                 updateTranslationEstimate();
+            }
+            if (nextViewId === 'view-suomentaja') {
+                loadTranslationModels();
+                updateFinnishTranslationProjectSelect();
+                updateFinnishTranslationEstimate();
             }
             if (nextViewId === 'view-muut-toiminnot') {
                 loadMiscModels();
@@ -4783,6 +4794,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderAudioView(true);
         if (window.renderNavList) window.renderNavList();
         updateTranslationProjectSelect();
+        updateFinnishTranslationProjectSelect();
         updateMiscProjectSelect();
         renderCoverImages([]);
     }
@@ -4806,6 +4818,8 @@ document.addEventListener('DOMContentLoaded', () => {
         renderWriterDeskView();
         renderWritingView();
         if (window.renderNavList) window.renderNavList();
+        updateTranslationProjectSelect();
+        updateFinnishTranslationProjectSelect();
         updateMiscProjectSelect();
         loadMiscAssetsForActiveProject(true);
         if (currentViewId === 'view-kuvitus') loadCoverImages();
@@ -4909,6 +4923,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderBookOverview();
             renderWritingView();
             updateTranslationProjectSelect();
+            updateFinnishTranslationProjectSelect();
             updateMiscProjectSelect();
             if (statusEl) statusEl.textContent = 'Nimi tallennettu.';
         } catch (err) {
@@ -5034,6 +5049,7 @@ document.addEventListener('DOMContentLoaded', () => {
         gridCards.innerHTML = '';
         if (!projects || projects.length === 0) {
             updateTranslationProjectSelect();
+            updateFinnishTranslationProjectSelect();
             updateMiscProjectSelect();
             updateLearningProjectSelect();
             gridCards.innerHTML = emptyProjectMessage();
@@ -5058,6 +5074,7 @@ document.addEventListener('DOMContentLoaded', () => {
             clearActiveManuscript();
         }
         updateTranslationProjectSelect();
+        updateFinnishTranslationProjectSelect();
         updateMiscProjectSelect();
         updateLearningProjectSelect();
     }
@@ -5099,6 +5116,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return availableProjects.find(project => String(project.id) === String(selectedId)) || null;
     }
 
+    function currentFinnishTranslationProject() {
+        const select = document.getElementById('finnish-translation-project-select');
+        const selectedId = select?.value || window.manuscriptData?.id;
+        if (!selectedId) return null;
+        return availableProjects.find(project => String(project.id) === String(selectedId)) || null;
+    }
+
     function projectTextForTranslation(project) {
         return project ? getFullManuscriptText(project) : '';
     }
@@ -5116,6 +5140,10 @@ document.addEventListener('DOMContentLoaded', () => {
         return 'Käännös vaatii ensin käsikirjoituksen analyysin. Tee analyysi Analyysi-välilehdellä tai paina siellä Lataa tallennettu analyysi.';
     }
 
+    function finnishTranslationAnalysisMessage() {
+        return 'Suomennos vaatii ensin käsikirjoituksen analyysin. Tee analyysi Analyysi-välilehdellä tai paina siellä Lataa tallennettu analyysi.';
+    }
+
     function updateTranslationAnalysisNotice(project = currentTranslationProject()) {
         const notice = document.getElementById('translation-analysis-notice');
         const startBtn = document.getElementById('translation-start-btn');
@@ -5124,6 +5152,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (notice) {
             notice.classList.toggle('hidden', !missing);
             notice.textContent = missing ? translationAnalysisMessage() : '';
+        }
+        if (startBtn) startBtn.disabled = missing;
+        if (estimateBtn) estimateBtn.disabled = missing;
+        return !missing;
+    }
+
+    function updateFinnishTranslationAnalysisNotice(project = currentFinnishTranslationProject()) {
+        const notice = document.getElementById('finnish-translation-analysis-notice');
+        const startBtn = document.getElementById('finnish-translation-start-btn');
+        const estimateBtn = document.getElementById('finnish-translation-estimate-btn');
+        const missing = Boolean(project?.id && !hasTranslationAnalysis(project));
+        if (notice) {
+            notice.classList.toggle('hidden', !missing);
+            notice.textContent = missing ? finnishTranslationAnalysisMessage() : '';
         }
         if (startBtn) startBtn.disabled = missing;
         if (estimateBtn) estimateBtn.disabled = missing;
@@ -5141,7 +5183,8 @@ document.addEventListener('DOMContentLoaded', () => {
             target_language: payload?.target_language || 'en',
             style: payload?.style || 'faithful',
             model: payload?.model || null,
-            chunk_words: payload?.chunk_words || 2000
+            chunk_words: payload?.chunk_words || 2000,
+            instructions: payload?.instructions || ''
         });
     }
 
@@ -5178,12 +5221,42 @@ document.addEventListener('DOMContentLoaded', () => {
         if (timer) timer.classList.add('hidden');
     }
 
+    function startFinnishTranslationTimer(estimate = null) {
+        const timer = document.getElementById('finnish-translation-timer');
+        window.clearInterval(finnishTranslationTimerInterval);
+        let seconds = 0;
+        if (timer) {
+            timer.textContent = translationProgressText(seconds, estimate);
+            timer.classList.remove('hidden');
+        }
+        finnishTranslationTimerInterval = window.setInterval(() => {
+            seconds++;
+            if (timer) timer.textContent = translationProgressText(seconds, estimate);
+        }, 1000);
+    }
+
+    function stopFinnishTranslationTimer() {
+        window.clearInterval(finnishTranslationTimerInterval);
+        finnishTranslationTimerInterval = null;
+        const timer = document.getElementById('finnish-translation-timer');
+        if (timer) timer.classList.add('hidden');
+    }
+
     function showTranslationPanel(panelId) {
         document.querySelectorAll('.translation-panel').forEach(panel => {
             panel.classList.toggle('hidden', panel.id !== panelId);
         });
         document.querySelectorAll('.translation-tab[data-translation-panel]').forEach(tab => {
             tab.classList.toggle('active', tab.dataset.translationPanel === panelId);
+        });
+    }
+
+    function showFinnishTranslationPanel(panelId) {
+        document.querySelectorAll('.suomentaja-panel').forEach(panel => {
+            panel.classList.toggle('hidden', panel.id !== panelId);
+        });
+        document.querySelectorAll('.suomentaja-tab[data-suomentaja-panel]').forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.suomentajaPanel === panelId);
         });
     }
 
@@ -5217,6 +5290,38 @@ document.addEventListener('DOMContentLoaded', () => {
         updateTranslationAnalysisNotice(project);
         renderSelectedTranslationForReview();
         renderTranslationHistory();
+    }
+
+    function updateFinnishTranslationProjectSelect() {
+        const select = document.getElementById('finnish-translation-project-select');
+        const currentText = document.getElementById('finnish-translation-current-project');
+        if (!select) return;
+        const previousValue = select.value || window.manuscriptData?.id || '';
+        select.innerHTML = '';
+        availableProjects.forEach(project => {
+            const option = document.createElement('option');
+            option.value = project.id;
+            option.textContent = `${project.title || 'Nimetön'}${project.owner_email ? ` (${project.owner_email})` : ''}`;
+            select.appendChild(option);
+        });
+        if (previousValue && availableProjects.some(project => String(project.id) === String(previousValue))) {
+            select.value = String(previousValue);
+        } else if (window.manuscriptData?.id) {
+            select.value = String(window.manuscriptData.id);
+        }
+        const project = currentFinnishTranslationProject();
+        if (selectedFinnishTranslation && project && String(selectedFinnishTranslation.project_id) !== String(project.id)) {
+            selectedFinnishTranslation = null;
+            currentFinnishTranslationHistory = [];
+        }
+        if (currentText) {
+            currentText.textContent = project
+                ? `Suomennettava teos: ${project.title || 'Nimetön'}`
+                : 'Valitse vieraskielinen käsikirjoitus ja suomennosasetukset.';
+        }
+        updateFinnishTranslationAnalysisNotice(project);
+        renderSelectedFinnishTranslationForReview();
+        renderFinnishTranslationHistory();
     }
 
     function currentMiscProject() {
@@ -5255,22 +5360,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function loadTranslationModels() {
-        const select = document.getElementById('translation-model-select');
-        if (!select) return;
+        const selects = ['translation-model-select', 'finnish-translation-model-select']
+            .map(id => document.getElementById(id))
+            .filter(Boolean);
+        if (!selects.length) return;
         try {
             const res = await apiFetch('/api/models/text');
             if (!res.ok) throw new Error(await apiErrorMessage(res, 'Mallien lataus epäonnistui.'));
             translationModels = await res.json();
-            select.innerHTML = '';
-            translationModels.forEach(model => {
-                const option = document.createElement('option');
-                option.value = `${model.provider}:${model.model_name}`;
-                option.textContent = model.display_name || model.model_name;
-                if (model.is_default) option.selected = true;
-                select.appendChild(option);
+            selects.forEach(select => {
+                select.innerHTML = '';
+                translationModels.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = `${model.provider}:${model.model_name}`;
+                    option.textContent = model.display_name || model.model_name;
+                    if (model.is_default) option.selected = true;
+                    select.appendChild(option);
+                });
             });
         } catch (err) {
-            select.innerHTML = '<option value="">Oletusmalli</option>';
+            selects.forEach(select => {
+                select.innerHTML = '<option value="">Oletusmalli</option>';
+            });
         }
     }
 
@@ -5306,6 +5417,19 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
+    function finnishTranslationRequestPayload() {
+        const project = currentFinnishTranslationProject();
+        return {
+            project_id: project ? project.id : null,
+            source_kind: document.getElementById('finnish-translation-source-select')?.value || 'manuscript',
+            target_language: 'fi',
+            style: document.getElementById('finnish-translation-style-select')?.value || 'fi_author_modern',
+            model: document.getElementById('finnish-translation-model-select')?.value || null,
+            chunk_words: parseInt(document.getElementById('finnish-translation-chunk-select')?.value || '2000', 10),
+            instructions: document.getElementById('finnish-translation-instructions')?.value || ''
+        };
+    }
+
     async function fetchTranslationEstimate(payload) {
         const res = await apiFetch('/api/translations/estimate', {
             method: 'POST',
@@ -5316,6 +5440,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!res.ok) throw new Error(data.detail || 'Arvion muodostus epäonnistui.');
         latestTranslationEstimate = Object.assign({ payload_key: translationEstimateKey(payload) }, data);
         return latestTranslationEstimate;
+    }
+
+    async function fetchFinnishTranslationEstimate(payload) {
+        const res = await apiFetch('/api/translations/estimate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Suomennosarvion muodostus epäonnistui.');
+        latestFinnishTranslationEstimate = Object.assign({ payload_key: translationEstimateKey(payload) }, data);
+        return latestFinnishTranslationEstimate;
     }
 
     async function updateTranslationEstimate() {
@@ -5342,6 +5478,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    async function updateFinnishTranslationEstimate() {
+        const estimateEl = document.getElementById('finnish-translation-estimate');
+        const payload = finnishTranslationRequestPayload();
+        if (!estimateEl || !payload.project_id) {
+            if (estimateEl) estimateEl.textContent = 'Valitse ensin vieraskielinen käsikirjoitus.';
+            latestFinnishTranslationEstimate = null;
+            return;
+        }
+        const project = currentFinnishTranslationProject();
+        if (!updateFinnishTranslationAnalysisNotice(project)) {
+            estimateEl.textContent = finnishTranslationAnalysisMessage();
+            latestFinnishTranslationEstimate = null;
+            return;
+        }
+        estimateEl.textContent = 'Lasketaan suomennoksen osia...';
+        try {
+            const data = await fetchFinnishTranslationEstimate(payload);
+            estimateEl.textContent = `${formatNumber(data.word_count)} sanaa, ${data.chunks_count} osaa, arvioitu kesto noin ${formatDuration(data.estimated_seconds)}.`;
+        } catch (err) {
+            latestFinnishTranslationEstimate = null;
+            estimateEl.textContent = err.message;
+        }
+    }
+
     async function renderTranslationHistory() {
         const history = document.getElementById('translation-history');
         const project = currentTranslationProject();
@@ -5358,7 +5518,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await apiFetch(`/api/projects/${project.id}/translations`);
             if (!res.ok) throw new Error(await apiErrorMessage(res, 'Käännöshistorian lataus epäonnistui.'));
             const translations = await res.json();
-            currentTranslationHistory = translations || [];
+            currentTranslationHistory = (translations || []).filter(item => item.target_language !== 'fi');
             if (selectedTranslation && !currentTranslationHistory.some(item => String(item.id) === String(selectedTranslation.id))) {
                 selectedTranslation = null;
             }
@@ -5367,21 +5527,68 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             populateTranslationReviewSelect();
             renderSelectedTranslationForReview();
-            if (!translations.length) {
+            if (!currentTranslationHistory.length) {
                 history.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Ei tallennettuja käännöksiä.</div>';
                 return;
             }
-            history.innerHTML = translations.map(item => `
+            history.innerHTML = currentTranslationHistory.map(item => `
                 <button class="translation-history-item" data-translation-id="${item.id}" style="text-align:left; padding:10px 12px; border-radius:8px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:var(--text-primary); cursor:pointer;">
                     <strong>${escapeHtml(item.target_language_label)}</strong> · ${escapeHtml(item.style_label)} · ${item.chunks_count} osaa · ${escapeHtml(translationStatusLabel(item.status))}
                 </button>
             `).join('');
             history.querySelectorAll('.translation-history-item').forEach(button => {
                 button.addEventListener('click', () => {
-                    const selected = translations.find(item => String(item.id) === String(button.dataset.translationId));
+                    const selected = currentTranslationHistory.find(item => String(item.id) === String(button.dataset.translationId));
                     if (!selected) return;
                     selectTranslationForReview(selected.id);
                     showTranslationPanel('translation-review-panel');
+                });
+            });
+        } catch (err) {
+            history.innerHTML = `<div style="color:#ffb4b4; font-size:13px;">${escapeHtml(err.message)}</div>`;
+        }
+    }
+
+    async function renderFinnishTranslationHistory() {
+        const history = document.getElementById('finnish-translation-history');
+        const project = currentFinnishTranslationProject();
+        if (!history) return;
+        if (!project?.id) {
+            currentFinnishTranslationHistory = [];
+            selectedFinnishTranslation = null;
+            populateFinnishTranslationReviewSelect();
+            renderSelectedFinnishTranslationForReview();
+            history.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Ei valittua käsikirjoitusta.</div>';
+            return;
+        }
+        try {
+            const res = await apiFetch(`/api/projects/${project.id}/translations`);
+            if (!res.ok) throw new Error(await apiErrorMessage(res, 'Suomennoshistorian lataus epäonnistui.'));
+            const translations = await res.json();
+            currentFinnishTranslationHistory = (translations || []).filter(item => item.target_language === 'fi');
+            if (selectedFinnishTranslation && !currentFinnishTranslationHistory.some(item => String(item.id) === String(selectedFinnishTranslation.id))) {
+                selectedFinnishTranslation = null;
+            }
+            if (!selectedFinnishTranslation && currentFinnishTranslationHistory.length) {
+                selectedFinnishTranslation = currentFinnishTranslationHistory[0];
+            }
+            populateFinnishTranslationReviewSelect();
+            renderSelectedFinnishTranslationForReview();
+            if (!currentFinnishTranslationHistory.length) {
+                history.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Ei tallennettuja suomennoksia.</div>';
+                return;
+            }
+            history.innerHTML = currentFinnishTranslationHistory.map(item => `
+                <button class="translation-history-item" data-finnish-translation-id="${item.id}" style="text-align:left; padding:10px 12px; border-radius:8px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:var(--text-primary); cursor:pointer;">
+                    <strong>Suomi</strong> · ${escapeHtml(item.style_label)} · ${item.chunks_count} osaa · ${escapeHtml(translationStatusLabel(item.status))}
+                </button>
+            `).join('');
+            history.querySelectorAll('[data-finnish-translation-id]').forEach(button => {
+                button.addEventListener('click', () => {
+                    const selected = currentFinnishTranslationHistory.find(item => String(item.id) === String(button.dataset.finnishTranslationId));
+                    if (!selected) return;
+                    selectFinnishTranslationForReview(selected.id);
+                    showFinnishTranslationPanel('suomentaja-review-panel');
                 });
             });
         } catch (err) {
@@ -5402,6 +5609,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (selectedTranslation) select.value = String(selectedTranslation.id);
     }
 
+    function populateFinnishTranslationReviewSelect() {
+        const select = document.getElementById('finnish-translation-review-select');
+        if (!select) return;
+        select.innerHTML = '';
+        currentFinnishTranslationHistory.forEach(item => {
+            const option = document.createElement('option');
+            option.value = item.id;
+            option.textContent = `Suomi · ${item.style_label} · ${translationStatusLabel(item.status)}`;
+            select.appendChild(option);
+        });
+        if (selectedFinnishTranslation) select.value = String(selectedFinnishTranslation.id);
+    }
+
     function selectTranslationForReview(translationId) {
         const selected = currentTranslationHistory.find(item => String(item.id) === String(translationId));
         if (!selected) return;
@@ -5409,6 +5629,15 @@ document.addEventListener('DOMContentLoaded', () => {
         latestTranslationText = selected.translated_text || '';
         populateTranslationReviewSelect();
         renderSelectedTranslationForReview();
+    }
+
+    function selectFinnishTranslationForReview(translationId) {
+        const selected = currentFinnishTranslationHistory.find(item => String(item.id) === String(translationId));
+        if (!selected) return;
+        selectedFinnishTranslation = selected;
+        latestFinnishTranslationText = selected.translated_text || '';
+        populateFinnishTranslationReviewSelect();
+        renderSelectedFinnishTranslationForReview();
     }
 
     function renderSelectedTranslationForReview() {
@@ -5438,6 +5667,36 @@ document.addEventListener('DOMContentLoaded', () => {
         if (outputStatus) {
             outputStatus.textContent = `${selectedTranslation.target_language_label}, ${selectedTranslation.style_label}: ${translationStatusLabel(selectedTranslation.status)}`;
             if (selectedTranslation.warnings) outputStatus.textContent += ` Huomautukset: ${formatTranslationWarnings(selectedTranslation.warnings)}`;
+        }
+    }
+
+    function renderSelectedFinnishTranslationForReview() {
+        const project = currentFinnishTranslationProject();
+        const original = document.getElementById('finnish-translation-review-original');
+        const textarea = document.getElementById('finnish-translation-review-text');
+        const status = document.getElementById('finnish-translation-review-status');
+        const output = document.getElementById('finnish-translation-output');
+        const outputStatus = document.getElementById('finnish-translation-status');
+        if (!original || !textarea || !status) return;
+
+        if (!project || !selectedFinnishTranslation) {
+            original.textContent = project ? 'Valitse suomennos.' : 'Valitse käsikirjoitus.';
+            textarea.value = '';
+            status.textContent = 'Valitse suomennos tarkastettavaksi.';
+            return;
+        }
+
+        latestFinnishTranslationText = selectedFinnishTranslation.translated_text || '';
+        original.textContent = projectTextForTranslation(project);
+        textarea.value = latestFinnishTranslationText;
+        status.textContent = `Suomi, ${selectedFinnishTranslation.style_label}: ${translationStatusLabel(selectedFinnishTranslation.status)}.`;
+        if (selectedFinnishTranslation.warnings) {
+            status.textContent += ` Huomautukset: ${formatTranslationWarnings(selectedFinnishTranslation.warnings)}`;
+        }
+        if (output) output.value = latestFinnishTranslationText;
+        if (outputStatus) {
+            outputStatus.textContent = `Suomi, ${selectedFinnishTranslation.style_label}: ${translationStatusLabel(selectedFinnishTranslation.status)}`;
+            if (selectedFinnishTranslation.warnings) outputStatus.textContent += ` Huomautukset: ${formatTranslationWarnings(selectedFinnishTranslation.warnings)}`;
         }
     }
 
@@ -5490,6 +5749,57 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    async function startFinnishTranslation() {
+        const payload = finnishTranslationRequestPayload();
+        const status = document.getElementById('finnish-translation-status');
+        const output = document.getElementById('finnish-translation-output');
+        const button = document.getElementById('finnish-translation-start-btn');
+        if (!payload.project_id) {
+            alert('Valitse ensin vieraskielinen käsikirjoitus.');
+            return;
+        }
+        const project = currentFinnishTranslationProject();
+        if (!updateFinnishTranslationAnalysisNotice(project)) {
+            alert(finnishTranslationAnalysisMessage());
+            return;
+        }
+        if (button) button.disabled = true;
+        try {
+            if (status) status.textContent = 'Valmistellaan suomennosta ja lasketaan osat...';
+            const estimateKey = translationEstimateKey(payload);
+            const estimate = latestFinnishTranslationEstimate?.payload_key === estimateKey
+                ? latestFinnishTranslationEstimate
+                : await fetchFinnishTranslationEstimate(payload);
+            startFinnishTranslationTimer(estimate);
+            if (status) status.textContent = `Suomennos käynnissä. ${estimate.chunks_count} osaa, arvioitu kesto noin ${formatDuration(estimate.estimated_seconds)}.`;
+            const res = await apiFetch('/api/translations', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Suomennos epäonnistui.');
+            latestFinnishTranslationText = data.translated_text || '';
+            if (output) output.value = latestFinnishTranslationText;
+            if (status) {
+                status.textContent = `Suomi, ${data.style_label}: ${translationStatusLabel(data.status)}. ${data.chunks_count} osaa, ${formatNumber(data.word_count)} sanaa.`;
+                if (data.warnings) status.textContent += ` Huomautukset: ${formatTranslationWarnings(data.warnings)}`;
+            }
+            await renderFinnishTranslationHistory();
+            selectFinnishTranslationForReview(data.id);
+            showFinnishTranslationPanel('suomentaja-review-panel');
+            loadUsage();
+        } catch (err) {
+            if (status) status.textContent = err.message;
+            alert('Suomennos epäonnistui: ' + networkFailureMessage(err));
+            loadUsage();
+        } finally {
+            stopFinnishTranslationTimer();
+            if (button) button.disabled = false;
+            updateFinnishTranslationAnalysisNotice();
+        }
+    }
+
     function downloadTranslation() {
         const reviewText = document.getElementById('translation-review-text');
         const text = reviewText && !document.getElementById('translation-review-panel')?.classList.contains('hidden')
@@ -5506,6 +5816,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         link.download = `${safeTitle}-${language}.txt`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+    }
+
+    function downloadFinnishTranslation() {
+        const reviewText = document.getElementById('finnish-translation-review-text');
+        const text = reviewText && !document.getElementById('suomentaja-review-panel')?.classList.contains('hidden')
+            ? reviewText.value
+            : latestFinnishTranslationText;
+        if (!text) {
+            alert('Ei ladattavaa suomennosta.');
+            return;
+        }
+        const project = currentFinnishTranslationProject();
+        const safeTitle = (project?.title || 'suomennos').toLowerCase().replace(/[^a-z0-9åäö]+/gi, '-').replace(/^-|-$/g, '');
+        const blob = new Blob([text], {type: 'text/plain;charset=utf-8'});
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${safeTitle}-fi.txt`;
         link.click();
         URL.revokeObjectURL(link.href);
     }
@@ -6863,6 +7192,40 @@ ${state.validation || 'Ei validointia.'}`;
         }
     }
 
+    async function saveReviewedFinnishTranslation() {
+        const textarea = document.getElementById('finnish-translation-review-text');
+        const status = document.getElementById('finnish-translation-review-status');
+        const button = document.getElementById('finnish-translation-review-save-btn');
+        if (!selectedFinnishTranslation || !textarea) {
+            alert('Valitse ensin tallennettu suomennos.');
+            return;
+        }
+        if (button) button.disabled = true;
+        if (status) status.textContent = 'Tallennetaan suomennoksen muutoksia...';
+        try {
+            const res = await apiFetch(`/api/translations/${selectedFinnishTranslation.id}`, {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ translated_text: textarea.value })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Suomennoksen tallennus epäonnistui.');
+            latestFinnishTranslationText = data.translated_text || '';
+            selectedFinnishTranslation = data;
+            const index = currentFinnishTranslationHistory.findIndex(item => String(item.id) === String(data.id));
+            if (index >= 0) currentFinnishTranslationHistory[index] = data;
+            populateFinnishTranslationReviewSelect();
+            renderSelectedFinnishTranslationForReview();
+            await renderFinnishTranslationHistory();
+            if (status) status.textContent = 'Suomennoksen muutokset tallennettu.';
+        } catch (err) {
+            if (status) status.textContent = err.message;
+            alert('Tallennus epäonnistui: ' + err.message);
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
     function syncTranslationScroll(source, target) {
         if (!source || !target || syncingTranslationScroll) return;
         syncingTranslationScroll = true;
@@ -6923,6 +7286,15 @@ ${state.validation || 'Ei validointia.'}`;
     const translationReviewDownloadBtn = document.getElementById('translation-review-download-btn');
     const translationReviewOriginal = document.getElementById('translation-review-original');
     const translationReviewText = document.getElementById('translation-review-text');
+    const finnishTranslationProjectSelect = document.getElementById('finnish-translation-project-select');
+    const finnishTranslationEstimateBtn = document.getElementById('finnish-translation-estimate-btn');
+    const finnishTranslationStartBtn = document.getElementById('finnish-translation-start-btn');
+    const finnishTranslationDownloadBtn = document.getElementById('finnish-translation-download-btn');
+    const finnishTranslationReviewSelect = document.getElementById('finnish-translation-review-select');
+    const finnishTranslationReviewSaveBtn = document.getElementById('finnish-translation-review-save-btn');
+    const finnishTranslationReviewDownloadBtn = document.getElementById('finnish-translation-review-download-btn');
+    const finnishTranslationReviewOriginal = document.getElementById('finnish-translation-review-original');
+    const finnishTranslationReviewText = document.getElementById('finnish-translation-review-text');
     const miscProjectSelect = document.getElementById('misc-project-select');
     const miscToolSelect = document.getElementById('misc-tool-select');
     const miscRunBtn = document.getElementById('misc-run-btn');
@@ -6958,6 +7330,11 @@ ${state.validation || 'Ei validointia.'}`;
             tab.addEventListener('click', () => showTranslationPanel(tab.dataset.translationPanel));
         }
     });
+    document.querySelectorAll('.suomentaja-tab').forEach(tab => {
+        if (tab.dataset.suomentajaPanel) {
+            tab.addEventListener('click', () => showFinnishTranslationPanel(tab.dataset.suomentajaPanel));
+        }
+    });
     document.querySelectorAll('.biography-tab').forEach(tab => {
         tab.addEventListener('click', () => showBiographyPanel(tab.dataset.bioPanel));
     });
@@ -6989,6 +7366,35 @@ ${state.validation || 'Ei validointia.'}`;
     if (translationReviewOriginal && translationReviewText) {
         translationReviewOriginal.addEventListener('scroll', () => syncTranslationScroll(translationReviewOriginal, translationReviewText));
         translationReviewText.addEventListener('scroll', () => syncTranslationScroll(translationReviewText, translationReviewOriginal));
+    }
+    ['finnish-translation-source-select', 'finnish-translation-style-select', 'finnish-translation-model-select', 'finnish-translation-chunk-select', 'finnish-translation-instructions'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) element.addEventListener('change', updateFinnishTranslationEstimate);
+    });
+    if (finnishTranslationProjectSelect) {
+        finnishTranslationProjectSelect.addEventListener('change', () => {
+            const project = currentFinnishTranslationProject();
+            if (project) setActiveManuscript(project);
+            updateFinnishTranslationEstimate();
+            renderFinnishTranslationHistory();
+        });
+    }
+    if (finnishTranslationEstimateBtn) finnishTranslationEstimateBtn.addEventListener('click', updateFinnishTranslationEstimate);
+    if (finnishTranslationStartBtn) finnishTranslationStartBtn.addEventListener('click', startFinnishTranslation);
+    if (finnishTranslationDownloadBtn) finnishTranslationDownloadBtn.addEventListener('click', downloadFinnishTranslation);
+    if (finnishTranslationReviewSelect) {
+        finnishTranslationReviewSelect.addEventListener('change', () => selectFinnishTranslationForReview(finnishTranslationReviewSelect.value));
+    }
+    if (finnishTranslationReviewSaveBtn) finnishTranslationReviewSaveBtn.addEventListener('click', saveReviewedFinnishTranslation);
+    if (finnishTranslationReviewDownloadBtn) finnishTranslationReviewDownloadBtn.addEventListener('click', downloadFinnishTranslation);
+    if (finnishTranslationReviewText) {
+        finnishTranslationReviewText.addEventListener('input', () => {
+            latestFinnishTranslationText = finnishTranslationReviewText.value;
+        });
+    }
+    if (finnishTranslationReviewOriginal && finnishTranslationReviewText) {
+        finnishTranslationReviewOriginal.addEventListener('scroll', () => syncTranslationScroll(finnishTranslationReviewOriginal, finnishTranslationReviewText));
+        finnishTranslationReviewText.addEventListener('scroll', () => syncTranslationScroll(finnishTranslationReviewText, finnishTranslationReviewOriginal));
     }
     if (miscProjectSelect) {
         miscProjectSelect.addEventListener('change', () => {

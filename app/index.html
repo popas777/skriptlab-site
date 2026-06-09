@@ -83,6 +83,7 @@
                     <li data-view="view-taitto">Taitto</li>
                     <li data-view="view-audio">Audio</li>
                     <li data-view="view-kaannokset">Käännökset</li>
+                    <li data-view="view-suomentaja">Suomentaja</li>
                     <li data-view="view-muut-toiminnot">Oheisaineistot</li>
                     <li data-view="view-kirja">Valmis kirja</li>
                     <li data-view="view-julkaise">Julkaise</li>
@@ -1715,6 +1716,111 @@
                 </div>
             </div>
 
+            <!-- 11.2 VIEW: SUOMENTAJA -->
+            <div id="view-suomentaja" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>Suomentaja</h2>
+                        <p id="finnish-translation-current-project">Valitse vieraskielinen käsikirjoitus ja suomennosasetukset.</p>
+                    </div>
+                </div>
+                <div class="translation-tabs">
+                    <button class="translation-tab suomentaja-tab active" data-suomentaja-panel="suomentaja-create-panel">Luo suomennos</button>
+                    <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-review-panel">Suomennoksen tarkastus</button>
+                </div>
+                <div id="suomentaja-create-panel" class="suomentaja-panel">
+                    <div class="grid-cards" style="grid-template-columns: minmax(280px, 440px) minmax(0, 1fr); align-items:start;">
+                        <div class="card glass-panel">
+                            <h3>Suomennettava teos</h3>
+                            <div class="settings-row">
+                                <label>Käsikirjoitus</label>
+                                <select id="finnish-translation-project-select"></select>
+                            </div>
+                            <div class="settings-row">
+                                <label>Lähde</label>
+                                <select id="finnish-translation-source-select">
+                                    <option value="manuscript">Tuotu käsikirjoitus</option>
+                                    <option value="book">Valmis kirja</option>
+                                </select>
+                            </div>
+                            <div class="settings-row">
+                                <label>Suomennostapa</label>
+                                <select id="finnish-translation-style-select">
+                                    <option value="fi_author_modern" selected>Kirjailijan tyyli, nykysuomi</option>
+                                    <option value="fi_preserve_structure">Pidä alkuperäinen lauserakenne</option>
+                                    <option value="fi_literary">Kaunokirjallinen suomennos</option>
+                                    <option value="fi_clear">Selkeä yleiskielinen suomennos</option>
+                                </select>
+                            </div>
+                            <div class="settings-row">
+                                <label>Malli</label>
+                                <select id="finnish-translation-model-select"></select>
+                            </div>
+                            <div class="settings-row">
+                                <label>Palakoko</label>
+                                <select id="finnish-translation-chunk-select">
+                                    <option value="500">500 sanaa</option>
+                                    <option value="1000">1 000 sanaa</option>
+                                    <option value="2000" selected>2 000 sanaa</option>
+                                    <option value="4000">4 000 sanaa</option>
+                                    <option value="8000">8 000 sanaa</option>
+                                    <option value="10000">10 000 sanaa</option>
+                                </select>
+                            </div>
+                            <div class="settings-row">
+                                <label>Hienosäätö</label>
+                                <textarea id="finnish-translation-instructions" style="width:100%; min-height:110px; resize:vertical;" placeholder="Esim. säilytä dialogin karheus, vältä liian yleiskielistä sävyä, pidä kappalejako täsmälleen samana."></textarea>
+                            </div>
+                            <div class="card-meta" style="line-height:1.55; margin:12px 0;">
+                                Suomentaja käyttää analyysin tyyliä, sanastoa, synopsista ja lukutason havaintoja. Suomennoksessa painotetaan luontevaa nykysuomea, yhdyssanoja, pilkutusta, suomen sanajärjestystä ja käännöslainojen välttämistä.
+                            </div>
+                            <div id="finnish-translation-estimate" style="font-size:13px; color:var(--text-secondary); margin:14px 0;">Arvio muodostetaan, kun käsikirjoitus on valittu.</div>
+                            <div id="finnish-translation-analysis-notice" class="hidden" style="font-size:13px; color:#ffcf70; margin:10px 0;">Suomennos vaatii ensin käsikirjoituksen analyysin.</div>
+                            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                                <button class="btn btn-secondary" id="finnish-translation-estimate-btn">Päivitä arvio</button>
+                                <button class="btn btn-primary" id="finnish-translation-start-btn">Aloita suomennos</button>
+                            </div>
+                        </div>
+                        <div class="card glass-panel">
+                            <h3>Suomennoksen tulos</h3>
+                            <div id="finnish-translation-status" style="font-size:13px; color:var(--text-secondary); margin:10px 0 14px;">Ei suomennosta vielä.</div>
+                            <div id="finnish-translation-timer" class="hidden" style="margin:8px 0 16px; font-size:30px; font-weight:600; color:var(--ai-gradient-start);">0:00</div>
+                            <textarea id="finnish-translation-output" readonly style="width:100%; min-height:420px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:14px; font-family:Georgia,serif; line-height:1.65;"></textarea>
+                            <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+                                <button class="btn btn-secondary" id="finnish-translation-download-btn">Lataa tekstitiedosto</button>
+                            </div>
+                            <h3 style="margin-top:22px;">Tallennetut suomennokset</h3>
+                            <div id="finnish-translation-history" style="display:grid; gap:10px; margin-top:12px;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="suomentaja-review-panel" class="suomentaja-panel hidden">
+                    <div class="card glass-panel">
+                        <div class="translation-review-header">
+                            <div>
+                                <h3>Suomennoksen tarkastus</h3>
+                                <p id="finnish-translation-review-status">Valitse suomennos tarkastettavaksi.</p>
+                            </div>
+                            <div class="translation-review-actions">
+                                <select id="finnish-translation-review-select"></select>
+                                <button class="btn btn-secondary" id="finnish-translation-review-save-btn">Tallenna muutokset</button>
+                                <button class="btn btn-secondary" id="finnish-translation-review-download-btn">Lataa tekstitiedosto</button>
+                            </div>
+                        </div>
+                        <div class="translation-review-grid">
+                            <div class="translation-review-column">
+                                <h4>Alkuperäinen</h4>
+                                <pre id="finnish-translation-review-original" class="translation-review-text">Valitse suomennos.</pre>
+                            </div>
+                            <div class="translation-review-column">
+                                <h4>Suomennos</h4>
+                                <textarea id="finnish-translation-review-text" class="translation-review-textarea" placeholder="Valitse suomennos tarkastettavaksi."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 11.5 VIEW: OHEISAINEISTOT -->
             <div id="view-muut-toiminnot" class="view-section hidden">
                 <div class="header">
@@ -1895,6 +2001,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=45"></script>
+    <script src="app.js?v=46"></script>
 </body>
 </html>
