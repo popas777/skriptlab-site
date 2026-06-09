@@ -230,10 +230,10 @@ document.addEventListener('DOMContentLoaded', () => {
         'view-om-kokonaisuus',
         'view-om-vienti'
     ]);
-    const writerViews = new Set(['view-kirjani', 'view-tyopoyta', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus']);
-    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
+    const writerViews = new Set(['view-kirjani', 'view-tyopoyta', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus']);
+    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset']);
-    const biographyViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-elamakerta', 'view-toimitus', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-audio', 'view-kirja']);
+    const biographyViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-elamakerta', 'view-toimitus', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-audio', 'view-kirja', 'view-julkaise']);
     const roleLabels = {
         admin: 'Admin',
         test_user: 'Test user',
@@ -1260,6 +1260,127 @@ document.addEventListener('DOMContentLoaded', () => {
         const title = window.manuscriptData?.title || 'käsikirjoitus';
         const subject = encodeURIComponent(`Taittotarjous: ${serviceName}`);
         const body = encodeURIComponent(`Hei,\n\nHaluaisin pyytää tarjouksen palvelusta: ${serviceName}\nKäsikirjoitus: ${title}\n\nLisätiedot:\n`);
+        window.location.href = `mailto:skriptlab@skriptlab.com?subject=${subject}&body=${body}`;
+    }
+
+    function renderPublishView() {
+        const currentEl = document.getElementById('publish-current-project');
+        const statusEl = document.getElementById('publish-status');
+        if (currentEl) currentEl.textContent = window.manuscriptData
+            ? `Käsikirjoitus: ${window.manuscriptData.title || 'Nimetön'}`
+            : 'Valitse käsikirjoitus, jos haluat hakemukseen teoksen tiedot mukaan.';
+        if (statusEl && !document.getElementById('publish-application-output')?.value.trim()) {
+            statusEl.textContent = window.manuscriptData
+                ? 'Muodosta hakemuspohja käsikirjoituksen ja omien tietojesi pohjalta.'
+                : 'Voit täyttää hakemuspohjan myös ilman valittua käsikirjoitusta.';
+        }
+    }
+
+    function analysisFieldText(keys) {
+        const analysis = window.manuscriptData?.analysis || {};
+        for (const key of keys) {
+            const value = analysis[key];
+            if (typeof value === 'string' && value.trim()) return value.trim();
+            if (value && typeof value === 'object') {
+                const asText = JSON.stringify(value, null, 2);
+                if (asText.trim() && asText !== '{}') return asText;
+            }
+        }
+        return '';
+    }
+
+    function buildPublishingApplicationText() {
+        const title = window.manuscriptData?.title || 'Nimetön käsikirjoitus';
+        const author = window.manuscriptData?.author || currentUser?.display_name || '';
+        const publisher = document.getElementById('publish-target-publisher')?.value.trim() || 'Vastaanottaja';
+        const stage = document.getElementById('publish-manuscript-stage')?.value || 'Valmis käsikirjoitus';
+        const bio = document.getElementById('publish-author-bio')?.value.trim() || '[Lisää tähän lyhyt kirjailijaesittely ja olennainen tausta.]';
+        const note = document.getElementById('publish-cover-note')?.value.trim() || '[Lisää tähän saate: miksi lähetät teoksen ja miksi se sopisi vastaanottajalle.]';
+        const synopsis = analysisFieldText(['synopsis', 'synopsis_short', 'tiivistelma', 'summary']);
+        const genre = analysisFieldText(['genre', 'genres', 'lajityyppi']);
+        const audience = analysisFieldText(['target_audience', 'kohderyhma', 'audience']);
+        const text = getFullManuscriptText();
+        const characterCount = text.length;
+        const wordCount = text ? text.split(/\s+/).filter(Boolean).length : 0;
+        const metadataLines = [
+            `Teos: ${title}`,
+            author ? `Tekijä: ${author}` : '',
+            `Valmiusaste: ${stage}`,
+            wordCount ? `Laajuus: noin ${wordCount.toLocaleString('fi-FI')} sanaa / ${characterCount.toLocaleString('fi-FI')} merkkiä` : '',
+            genre ? `Lajityyppi: ${genre}` : '',
+            audience ? `Kohderyhmä: ${audience}` : ''
+        ].filter(Boolean);
+        return [
+            `Hei ${publisher},`,
+            '',
+            note,
+            '',
+            ...metadataLines,
+            '',
+            'Lyhyt kuvaus:',
+            synopsis || '[Lisää tähän 1-3 kappaleen tiivis kuvaus teoksesta.]',
+            '',
+            'Kirjailijaesittely:',
+            bio,
+            '',
+            'Liitteet ja seuraavat aineistot:',
+            '- käsikirjoitus tai näyteluvut vastaanottajan ohjeen mukaan',
+            '- synopsis tai pidempi tiivistelmä',
+            '- tekijän yhteystiedot',
+            '- mahdolliset aiemmat julkaisut, palautteet tai muu olennainen tausta',
+            '',
+            'Ystävällisin terveisin,',
+            author || '[Nimesi]'
+        ].join('\n');
+    }
+
+    function buildPublishApplication() {
+        const output = document.getElementById('publish-application-output');
+        const status = document.getElementById('publish-status');
+        if (!output) return;
+        output.value = buildPublishingApplicationText();
+        if (status) status.textContent = 'Hakemuspohja muodostettu. Tarkista sävy, vastaanottajan ohjeet ja liitteet ennen lähettämistä.';
+    }
+
+    async function copyPublishApplication() {
+        const output = document.getElementById('publish-application-output');
+        const status = document.getElementById('publish-status');
+        if (!output) return;
+        if (!output.value.trim()) buildPublishApplication();
+        try {
+            await navigator.clipboard.writeText(output.value);
+            if (status) status.textContent = 'Hakemuspohja kopioitu leikepöydälle.';
+        } catch (err) {
+            if (status) status.textContent = 'Kopiointi ei onnistunut. Voit valita tekstin ja kopioida sen käsin.';
+        }
+    }
+
+    function requestPrintOffer() {
+        const title = window.manuscriptData?.title || 'käsikirjoitus';
+        const quantity = document.getElementById('publish-print-quantity')?.value || '';
+        const format = document.getElementById('publish-print-format')?.value || '';
+        const color = document.getElementById('publish-print-color')?.value || '';
+        const cover = document.getElementById('publish-print-cover')?.value || '';
+        const notes = document.getElementById('publish-print-notes')?.value || '';
+        const detailLines = [
+            `Käsikirjoitus: ${title}`,
+            quantity ? `Painosmäärä: ${quantity}` : '',
+            format ? `Formaatti: ${format}` : '',
+            color ? `Sisäsivut: ${color}` : '',
+            cover ? `Kansi: ${cover}` : ''
+        ].filter(Boolean);
+        const subject = encodeURIComponent(`Painatustarjous: ${title}`);
+        const body = encodeURIComponent([
+            'Hei,',
+            '',
+            'Haluaisin pyytää painatustarjouksen.',
+            ...detailLines,
+            '',
+            'Lisätiedot:',
+            notes,
+            '',
+            'Voitteko kertoa arvion hinnasta, aikataulusta ja siitä, mitä aineistoja tarvitaan seuraavaksi?'
+        ].join('\n'));
         window.location.href = `mailto:skriptlab@skriptlab.com?subject=${subject}&body=${body}`;
     }
 
@@ -2452,6 +2573,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (nextViewId === 'view-kirja') {
                 loadMiscAssetsForActiveProject(true);
                 renderBookOverview();
+            }
+            if (nextViewId === 'view-julkaise') {
+                renderPublishView();
             }
             if (nextViewId === 'view-kirjoita') {
                 renderWritingView();
@@ -4405,6 +4529,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadBookTextBtn = document.getElementById('download-book-text-btn');
     const layoutOfferEbookBtn = document.getElementById('layout-offer-ebook-btn');
     const layoutOfferPrintBtn = document.getElementById('layout-offer-print-btn');
+    const publishBuildApplicationBtn = document.getElementById('publish-build-application-btn');
+    const publishCopyApplicationBtn = document.getElementById('publish-copy-application-btn');
+    const publishPrintOfferBtn = document.getElementById('publish-print-offer-btn');
     const bookFontSelect = document.getElementById('book-font-select');
     const bookFontSizeSelect = document.getElementById('book-font-size-select');
     const bookWidthSelect = document.getElementById('book-width-select');
@@ -4438,6 +4565,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (downloadBookTextBtn) downloadBookTextBtn.addEventListener('click', downloadCurrentBookText);
     if (layoutOfferEbookBtn) layoutOfferEbookBtn.addEventListener('click', () => requestLayoutOffer('E-kirja'));
     if (layoutOfferPrintBtn) layoutOfferPrintBtn.addEventListener('click', () => requestLayoutOffer('Painovalmis PDF'));
+    if (publishBuildApplicationBtn) publishBuildApplicationBtn.addEventListener('click', buildPublishApplication);
+    if (publishCopyApplicationBtn) publishCopyApplicationBtn.addEventListener('click', copyPublishApplication);
+    if (publishPrintOfferBtn) publishPrintOfferBtn.addEventListener('click', requestPrintOffer);
     [bookFontSelect, bookFontSizeSelect, bookWidthSelect].forEach(select => {
         if (select) select.addEventListener('change', applyBookReaderSettings);
     });

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=38">
+    <link rel="stylesheet" href="styles.css?v=39">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -85,6 +85,7 @@
                     <li data-view="view-kaannokset">Käännökset</li>
                     <li data-view="view-muut-toiminnot">Oheisaineistot</li>
                     <li data-view="view-kirja">Valmis kirja</li>
+                    <li data-view="view-julkaise">Julkaise</li>
                     <li data-view="view-sopimukset">Sopimukset</li>
                     <li data-view="view-aikajana">Aikajana</li>
                     <li data-view="view-viimeistely">Versiot</li>
@@ -885,6 +886,143 @@
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- 1.6 VIEW: JULKAISE -->
+            <div id="view-julkaise" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>Julkaise</h2>
+                        <p id="publish-current-project">Käsikirjoitus: [Ei aktiivista teosta]</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" id="publish-copy-application-btn" type="button">Kopioi hakemus</button>
+                        <button class="btn btn-primary" id="publish-build-application-btn" type="button">Muodosta hakemuspohja</button>
+                    </div>
+                </div>
+
+                <div class="publish-workspace">
+                    <section class="card glass-panel publish-card publish-card-primary">
+                        <span class="publish-kicker">Vaihtoehto 1</span>
+                        <h3>Hae kustannussopimusta</h3>
+                        <p>
+                            Kustantajalle lähetettävä paketti kannattaa pitää selkeänä: lyhyt saate, kirjailijaesittely,
+                            teoksen tiivis kuvaus, kohderyhmä, lajityyppi ja tieto käsikirjoituksen valmiusasteesta.
+                            Parempi käsikirjoitus ei takaa sopimusta, mutta auttaa tekstiä näyttäytymään vakavasti arvioitavana kokonaisuutena.
+                        </p>
+
+                        <div class="publish-form-grid">
+                            <label>
+                                Kenelle hakemus suunnataan?
+                                <input id="publish-target-publisher" type="text" placeholder="Kustantamon tai vastaanottajan nimi">
+                            </label>
+                            <label>
+                                Käsikirjoituksen valmiusaste
+                                <select id="publish-manuscript-stage">
+                                    <option>Valmis käsikirjoitus</option>
+                                    <option>Toimitettu käsikirjoitus</option>
+                                    <option>Viimeistelyssä</option>
+                                    <option>Luonnosvaiheessa</option>
+                                </select>
+                            </label>
+                            <label class="publish-wide-field">
+                                Kerro itsestäsi
+                                <textarea id="publish-author-bio" placeholder="Kuka olet, miksi kirjoitit tämän teoksen, aiempi kirjoittaminen, asiantuntemus tai muu olennainen tausta."></textarea>
+                            </label>
+                            <label class="publish-wide-field">
+                                Saate ja omat lisätiedot
+                                <textarea id="publish-cover-note" placeholder="Miksi lähetät juuri tämän teoksen, mitä haluat vastaanottajan tietävän ja miten sinuun saa yhteyden."></textarea>
+                            </label>
+                        </div>
+
+                        <div class="publish-output-block">
+                            <label for="publish-application-output">Hakemuspohja</label>
+                            <textarea id="publish-application-output" placeholder="Muodostettu hakemuspohja näkyy tässä."></textarea>
+                        </div>
+                        <p id="publish-status" class="publish-status">Muodosta hakemuspohja käsikirjoituksen ja omien tietojesi pohjalta.</p>
+                    </section>
+
+                    <section class="card glass-panel publish-card">
+                        <span class="publish-kicker">Vaihtoehto 2</span>
+                        <h3>Omakustanne ja painatus</h3>
+                        <p>
+                            Omakustanne vaatii yleensä viimeistellyn tekstin, kannen, painovalmiin PDF:n, ISBN-tunnuksen,
+                            tuotetiedot, hinnoittelun ja jakelupäätökset. Painatus voidaan tilata, kun kirjan koko,
+                            sivumäärä ja materiaalit ovat tiedossa.
+                        </p>
+                        <div class="publish-form-grid">
+                            <label>
+                                Arvioitu painosmäärä
+                                <input id="publish-print-quantity" type="number" min="1" value="50">
+                            </label>
+                            <label>
+                                Formaatti
+                                <select id="publish-print-format">
+                                    <option>A5 pehmeäkantinen</option>
+                                    <option>A5 kovakantinen</option>
+                                    <option>Pokkari</option>
+                                    <option>Muu formaatti</option>
+                                </select>
+                            </label>
+                            <label>
+                                Sisäsivut
+                                <select id="publish-print-color">
+                                    <option>Mustavalkoinen sisus</option>
+                                    <option>Värillisiä sivuja mukana</option>
+                                    <option>Kokonaan värillinen</option>
+                                </select>
+                            </label>
+                            <label>
+                                Kansi
+                                <select id="publish-print-cover">
+                                    <option>Pehmeä kansi</option>
+                                    <option>Kova kansi</option>
+                                    <option>Tarvitsen suosituksen</option>
+                                </select>
+                            </label>
+                            <label class="publish-wide-field">
+                                Painatuksen lisätiedot
+                                <textarea id="publish-print-notes" placeholder="Toivottu aikataulu, toimitusosoite, erikoistoiveet, kuvat, paperi tai muu huomio."></textarea>
+                            </label>
+                        </div>
+                        <button class="btn btn-primary" id="publish-print-offer-btn" type="button">Pyydä painatustarjous</button>
+                    </section>
+                </div>
+
+                <section class="card glass-panel publish-card publish-platforms">
+                    <span class="publish-kicker">Digitaalinen ja audiojakelu</span>
+                    <h3>Mitä Storytel-, BookBeat- ja Spotify-julkaiseminen yleensä vaatii?</h3>
+                    <div class="publish-platform-grid">
+                        <div>
+                            <h4>Äänikirjan perusaineisto</h4>
+                            <ul>
+                                <li>Valmis ja tarkistettu käsikirjoitus tai lukukäsikirjoitus.</li>
+                                <li>Äänitetty ja masteroitu äänikirja jakelijan teknisten vaatimusten mukaan.</li>
+                                <li>Lukijan, tekijän ja oikeuksien tiedot sekä lupa käyttää ääni- ja kansiaineistoa.</li>
+                                <li>Kansikuva, teoksen kuvaus, kategoriat, avainsanat ja muut tuotetiedot.</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4>Storytel ja BookBeat</h4>
+                            <ul>
+                                <li>Jakelu tapahtuu tyypillisesti kustantajan, aggregaattorin tai jakelukumppanin kautta.</li>
+                                <li>Tarvitaan sopimus, tuotetiedot, oikeusalueet, hinta-/korvaustiedot ja teknisesti hyväksytty aineisto.</li>
+                                <li>Palvelukohtaiset ehdot ja formaattivaatimukset pitää tarkistaa ennen toimitusta.</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4>Spotify</h4>
+                            <ul>
+                                <li>Spotify tarjoaa tekijöille oman äänikirjajulkaisun Author-palvelun kautta.</li>
+                                <li>Tarvitset äänikirjatiedostot, metatiedot, kansiaineiston, oikeudet ja tilin julkaisu- ja maksutietoineen.</li>
+                                <li>Vaatimukset voivat muuttua, joten lopullinen tarkistus tehdään aina julkaisupalvelussa.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <p class="publish-note">
+                        SkriptLab auttaa valmistelemaan tekstiä, metadataa, oheisaineistoja ja tuotantoon tarvittavia koosteita. Varsinainen julkaisu, sopimukset, hinnoittelu ja oikeuksien luovutus päätetään aina erikseen.
+                    </p>
+                </section>
             </div>
 
             <!-- 2. VIEW: SOPIMUKSET -->
@@ -1757,6 +1895,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=43"></script>
+    <script src="app.js?v=44"></script>
 </body>
 </html>

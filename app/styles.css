@@ -1382,6 +1382,98 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 .writer-desk-assistant .btn {
     width: 100%;
 }
+.publish-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
+    gap: 18px;
+    align-items: start;
+}
+.publish-card {
+    border-radius: 8px;
+    display: grid;
+    gap: 16px;
+}
+.publish-card h3 {
+    color: var(--text-primary);
+    font-size: 22px;
+}
+.publish-card h4 {
+    color: var(--text-primary);
+    font-size: 15px;
+    margin-bottom: 8px;
+}
+.publish-card p,
+.publish-card li,
+.publish-status,
+.publish-note {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.6;
+}
+.publish-kicker {
+    color: var(--ai-gradient-start);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: uppercase;
+}
+.publish-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+.publish-form-grid label,
+.publish-output-block {
+    color: var(--text-secondary);
+    display: grid;
+    font-size: 12px;
+    font-weight: 600;
+    gap: 6px;
+}
+.publish-form-grid input,
+.publish-form-grid select,
+.publish-form-grid textarea,
+.publish-output-block textarea {
+    width: 100%;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: rgba(255,255,255,0.055);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 14px;
+    outline: none;
+    padding: 11px 12px;
+}
+.publish-form-grid textarea {
+    min-height: 110px;
+    resize: vertical;
+}
+.publish-wide-field {
+    grid-column: 1 / -1;
+}
+#publish-application-output {
+    min-height: 260px;
+    resize: vertical;
+    line-height: 1.6;
+}
+.publish-platforms {
+    margin-top: 18px;
+}
+.publish-platform-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+}
+.publish-platform-grid > div {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 14px;
+    background: rgba(255,255,255,0.035);
+}
+.publish-platform-grid ul {
+    margin: 0;
+    padding-left: 18px;
+}
 .writing-nav,
 .writing-editor {
     border-radius: 8px;
@@ -1743,6 +1835,14 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
         grid-template-columns: 1fr;
         gap: 12px;
     }
+    .publish-workspace,
+    .publish-platform-grid,
+    .publish-form-grid {
+        grid-template-columns: 1fr;
+    }
+    .publish-card h3 {
+        font-size: 19px;
+    }
     .writer-stage-panel,
     .writer-desk-workspace {
         gap: 12px;
@@ -1957,6 +2057,9 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 .app-wrapper.mobile-simulate .writing-workspace,
 .app-wrapper.mobile-simulate .writer-stage-panel,
 .app-wrapper.mobile-simulate .writer-desk-workspace,
+.app-wrapper.mobile-simulate .publish-workspace,
+.app-wrapper.mobile-simulate .publish-platform-grid,
+.app-wrapper.mobile-simulate .publish-form-grid,
 .app-wrapper.mobile-simulate .book-workspace {
     grid-template-columns: 1fr !important;
 }
