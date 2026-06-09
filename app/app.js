@@ -1569,7 +1569,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 9000);
     }
 
-    function cleanManuscriptText(text) {
+    function cleanManuscriptText(text, options = {}) {
+        const preserveStructure = options.preserveStructure === true;
         const lines = String(text || '')
             .replace(/\r\n?/g, '\n')
             .replace(/\u00a0/g, ' ')
@@ -1578,15 +1579,21 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/\*\*/g, '')
             .replace(/__/g, '')
             .split('\n')
-            .map(line => line
-                .replace(/[ \t]+/g, ' ')
-                .replace(/^[ \t]*#{1,6}\s+/, '')
-                .replace(/^[ \t]*[-*_#=]{3,}[ \t]*$/, '')
-                .replace(/^[ \t]*(sivu|page)\s+\d+[ \t]*$/i, '')
-                .replace(/^[ \t]*[-–—]?\s*\d+\s*[-–—]?[ \t]*$/, '')
-                .replace(/[\u200b-\u200f\u202a-\u202e]/g, '')
-                .trim()
-            );
+            .map(line => {
+                let cleaned = line
+                    .replace(/[ \t]+/g, ' ')
+                    .replace(/^[ \t]*[-*_#=]{3,}[ \t]*$/, '')
+                    .replace(/^[ \t]*(sivu|page)\s+\d+[ \t]*$/i, '')
+                    .replace(/[\u200b-\u200f\u202a-\u202e]/g, '')
+                    .trim();
+                if (!preserveStructure) {
+                    cleaned = cleaned
+                        .replace(/^[ \t]*#{1,6}\s+/, '')
+                        .replace(/^[ \t]*[-–—]?\s*\d+\s*[-–—]?[ \t]*$/, '')
+                        .trim();
+                }
+                return cleaned;
+            });
 
         const blocks = [];
         let current = [];
@@ -1634,7 +1641,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         await saveWritingText(false);
-        const sourceText = cleanManuscriptText(getFullManuscriptText(window.manuscriptData));
+        const sourceText = cleanManuscriptText(getFullManuscriptText(window.manuscriptData), { preserveStructure: true });
         if (!sourceText) {
             alert('Käsikirjoituksesta ei löytynyt jaoteltavaa tekstiä.');
             return;
@@ -2912,6 +2919,89 @@ document.addEventListener('DOMContentLoaded', () => {
         chapter.paragraphs = parts.length ? parts : [''];
     }
 
+    function stripHeadingLine(value) {
+        return String(value || '').replace(/^#{1,6}\s+/, '').trim();
+    }
+
+    function normalizedHeadingLine(value) {
+        return stripHeadingLine(value).replace(/\s+/g, ' ').trim();
+    }
+
+    function isTableOfContentsHeading(value) {
+        const lower = normalizedHeadingLine(value).toLocaleLowerCase('fi-FI');
+        return ['sisällys', 'sisallys', 'sisällysluettelo', 'sisallysluettelo', 'table of contents', 'toc'].includes(lower);
+    }
+
+    function isLikelyTableOfContentsEntry(value) {
+        const text = normalizedHeadingLine(value);
+        if (!text) return false;
+        if (/\.{2,}\s*\d{1,4}$/.test(text)) return true;
+        if (/^(luku|chapter|osa|part)\b.+\s+\d{1,4}$/i.test(text)) return true;
+        if (/^\d+(\.\d+)*\.?\s+.{2,90}\s+\d{1,4}$/.test(text)) return true;
+        return false;
+    }
+
+    function isPartHeadingTitle(value) {
+        const lower = normalizedHeadingLine(value).toLocaleLowerCase('fi-FI');
+        const numberWords = 'ensimmäinen|toinen|kolmas|neljäs|viides|kuudes|seitsemäs|kahdeksas|yhdeksäs|kymmenes';
+        return new RegExp(`^(${numberWords})\\s+osa\\b`, 'i').test(lower)
+            || /^(osa|part)\s+([\divxlcdm]+|[a-zåäö]+)\b/i.test(lower)
+            || /^[ivxlcdm]+\.?\s+osa\b/i.test(lower);
+    }
+
+    function isChapterHeadingTitle(value) {
+        const title = normalizedHeadingLine(value);
+        return /^(luku|chapter)\s+([\divxlcdm]+|[a-zåäö]+)\b/i.test(title)
+            || /^(\d+|[ivxlcdm]+)\.\s+\S.{0,90}$/i.test(title);
+    }
+
+    function isSubchapterHeadingTitle(value) {
+        const title = normalizedHeadingLine(value);
+        return /^(\d+\.\d+(\.\d+)*|[ivxlcdm]+\.\d+)\.?\s+\S/i.test(title)
+            || /^aliluku\s+([\divxlcdm]+|[a-zåäö]+)\b/i.test(title);
+    }
+
+    function isGenericNumberedHeading(value) {
+        return /^(luku|chapter|osa|part)\s+([\divxlcdm]+|[a-zåäö]+)\.?$/i.test(normalizedHeadingLine(value));
+    }
+
+    function isLikelyImplicitHeading(value, index, blocks, currentChapter, options = {}) {
+        const title = normalizedHeadingLine(value);
+        if (!title || title.length < 3 || title.length > 90) return false;
+        if (/[.!?;:]$/.test(title) || /^["“”'’]/.test(title)) return false;
+        if ((title.match(/\s+/g) || []).length > 8) return false;
+        if (!blocks[index + 1]) return false;
+        if (!currentChapter?.paragraphs?.length) return false;
+        const minParagraphs = options.allowAfterOneParagraph ? 1 : 2;
+        if (currentChapter.paragraphs.length < minParagraphs) return false;
+        return true;
+    }
+
+    function classifyRestructureHeading(value, index, blocks, currentChapter) {
+        const raw = String(value || '').trim();
+        const title = normalizedHeadingLine(raw);
+        if (!title) return null;
+        const markdown = raw.match(/^(#{1,6})\s+(.+)$/);
+        if (isTableOfContentsHeading(title)) return { kind: 'toc', title: 'Sisällysluettelo' };
+        if (markdown) {
+            const level = markdown[1].length;
+            const markdownTitle = normalizedHeadingLine(markdown[2]);
+            if (isPartHeadingTitle(markdownTitle)) return { kind: 'part', title: markdownTitle };
+            return { kind: level > 1 ? 'subchapter' : 'chapter', title: markdownTitle || title };
+        }
+        if (isPartHeadingTitle(title)) return { kind: 'part', title };
+        if (isSubchapterHeadingTitle(title)) return { kind: 'subchapter', title };
+        if (isChapterHeadingTitle(title)) return { kind: 'chapter', title };
+        if (isLikelyImplicitHeading(title, index, blocks, currentChapter)) return { kind: 'chapter', title };
+        return null;
+    }
+
+    function chapterHasContent(chapter) {
+        if (!chapter) return false;
+        if (/^osa_/.test(String(chapter.id || ''))) return true;
+        return (chapter.paragraphs || []).some(paragraph => String(paragraph || '').trim());
+    }
+
     function selectedItalicRules() {
         return Array.from(document.querySelectorAll('.italic-rule-option:checked'))
             .map(input => input.value)
@@ -2976,17 +3066,82 @@ document.addEventListener('DOMContentLoaded', () => {
         if (massEditStatus) massEditStatus.textContent = statusText;
     }
 
-    function parseRestructuredChapters(text, fallbackTitle) {
-        const parsed = createManuscriptFromText(fallbackTitle || 'Uusi rakenne', text);
-        const chapters = (parsed.chapters || []).filter(chapter => {
-            const joined = (chapter.paragraphs || []).join(' ').trim();
-            return joined && !/^\(Ei .+ havaittu\)$/i.test(joined);
+    function parseRestructuredChapters(text, fallbackTitle, options = {}) {
+        const skipTableOfContents = options.skipTableOfContents !== false;
+        const blocks = splitIntoParagraphs(text);
+        const chapters = [];
+        let currentChapter = {
+            id: 'luku_1',
+            title: fallbackTitle || 'Käsikirjoitus',
+            paragraphs: []
+        };
+        let chapterCount = 0;
+        let partCount = 0;
+        let subchapterCount = 0;
+        let skippingToc = false;
+
+        const pushCurrent = () => {
+            if (chapterHasContent(currentChapter)) chapters.push(currentChapter);
+        };
+        const startSection = (kind, title) => {
+            pushCurrent();
+            if (kind === 'part') {
+                partCount++;
+                currentChapter = { id: `osa_${partCount}`, title, paragraphs: [] };
+                return;
+            }
+            if (kind === 'subchapter') {
+                subchapterCount++;
+                currentChapter = { id: `aliluku_${subchapterCount}`, title, paragraphs: [] };
+                return;
+            }
+            chapterCount++;
+            currentChapter = { id: `luku_${chapterCount}`, title, paragraphs: [] };
+        };
+
+        blocks.forEach((block, index) => {
+            let heading = classifyRestructureHeading(block, index, blocks, currentChapter);
+            if (skippingToc) {
+                if (!heading && isLikelyTableOfContentsEntry(block)) return;
+                skippingToc = false;
+                if (!heading) {
+                    currentChapter.paragraphs.push(block);
+                    return;
+                }
+            }
+            if (heading?.kind === 'toc') {
+                if (skipTableOfContents) {
+                    skippingToc = true;
+                    return;
+                }
+                startSection('chapter', heading.title);
+                return;
+            }
+            if (
+                !heading &&
+                currentChapter.paragraphs.length === 0 &&
+                isGenericNumberedHeading(currentChapter.title) &&
+                isLikelyImplicitHeading(block, index, blocks, { paragraphs: ['otsikko'] }, { allowAfterOneParagraph: true })
+            ) {
+                currentChapter.title = `${currentChapter.title}: ${normalizedHeadingLine(block)}`;
+                return;
+            }
+            if (heading) {
+                startSection(heading.kind, heading.title);
+                return;
+            }
+            currentChapter.paragraphs.push(block);
         });
-        if (chapters.length) return chapters;
+
+        pushCurrent();
+        if (chapters.length) return cleanupGeneratedPlaceholderChapters({
+            title: fallbackTitle || 'Käsikirjoitus',
+            chapters
+        }).chapters;
         return [{
             id: `luku_${Date.now()}`,
             title: fallbackTitle || 'Uusi luku',
-            paragraphs: splitIntoParagraphs(text)
+            paragraphs: blocks
         }];
     }
 
@@ -3180,7 +3335,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify({
                         text: sourceText,
                         temperature: 0.2,
-                        prompt: 'Jaa teksti uudelleen selkeiksi luvuiksi ja kappaleiksi. Palauta vain valmis käsikirjoitusteksti: luvun otsikko omalle rivilleen, kappaleet tyhjällä rivillä erotettuina. Älä lisää selityksiä.'
+                        prompt: 'Jaa teksti uudelleen selkeiksi osiksi, luvuiksi ja kappaleiksi. Tunnista kirjan osat muodossa Osa 1 / Osa I ja jätä ne omiksi otsikoikseen. Palauta vain valmis käsikirjoitusteksti: osan otsikko omalle rivilleen, luvun otsikko omalle rivilleen, kappaleet tyhjällä rivillä erotettuina. Älä lisää sisällysluetteloa, nimiölehteä, copysivua, sivunumeroita tai selityksiä.'
                     })
                 });
                 const data = await res.json();
@@ -4107,7 +4262,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function runWorkflowStructure() {
         setWorkflowStep('structure', 'running', 'Tallennetaan nykyinen luku- ja kappalerakenne.');
-        const text = cleanManuscriptText(getFullManuscriptText(window.manuscriptData));
+        const text = cleanManuscriptText(getFullManuscriptText(window.manuscriptData), { preserveStructure: true });
         if (!text) throw new Error('Käsikirjoituksesta ei löytynyt tekstiä.');
         if (!window.manuscriptData.chapters?.length || window.manuscriptData.chapters.length <= 2) {
             window.manuscriptData.chapters = parseRestructuredChapters(text, window.manuscriptData.title || 'Käsikirjoitus');
