@@ -2191,8 +2191,8 @@ document.addEventListener('DOMContentLoaded', () => {
             setWriterAssistantStatus('Valitussa luvussa ei ole vielä käsiteltävää tekstiä.', true);
             return;
         }
-        if (sourceText.length > 20000) {
-            setWriterAssistantStatus('Valittu luku on yli 20 000 merkkiä. Avustaja käsittelee tässä näkymässä yhden rajatun luvun tai lyhyemmän osan kerrallaan.', true);
+        if (sourceText.length > 60000) {
+            setWriterAssistantStatus('Valittu luku on yli 60 000 merkkiä. Avustaja käsittelee tässä näkymässä yhden rajatun luvun tai lyhyemmän osan kerrallaan.', true);
             return;
         }
 
@@ -4115,12 +4115,12 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const { chapter, index } of entries) {
             const sourceText = (chapter.paragraphs || []).join('\n\n').trim();
             if (!sourceText) continue;
-            if (sourceText.length > 20000) {
+            if (sourceText.length > 60000) {
                 setWorkflowStep('edit', 'running', `${chapter.title}: pitkä luku käsitellään kappaleittain.`);
             } else {
                 setWorkflowStep('edit', 'running', `${chapter.title}: editointi käynnissä.`);
             }
-            if (sourceText.length <= 20000) {
+            if (sourceText.length <= 60000) {
                 const res = await apiFetch('/api/edit', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -4136,7 +4136,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 for (let pIndex = 0; pIndex < chapter.paragraphs.length; pIndex++) {
                     const paragraph = String(chapter.paragraphs[pIndex] || '').trim();
-                    if (!paragraph || paragraph.length > 20000) continue;
+                    if (!paragraph || paragraph.length > 60000) continue;
                     const res = await apiFetch('/api/edit', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
