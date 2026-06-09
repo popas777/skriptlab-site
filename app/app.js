@@ -4719,11 +4719,17 @@ document.addEventListener('DOMContentLoaded', () => {
             bookData.chapters.push(currentChapter);
         }
 
-        if (!bookData.chapters.find(c => c.id === "alku")) {
-            bookData.chapters.unshift({ id: "alku", title: "Alku / Nimiölehti", paragraphs: ["(Ei erillistä alku-osaa havaittu)"] });
+        if (!sisallysFound && lukuCount === 0 && bookData.chapters.length === 1 && bookData.chapters[0].id === "alku") {
+            bookData.chapters[0].id = "luku_1";
+            bookData.chapters[0].title = title || "Käsikirjoitus";
         }
-        if (!bookData.chapters.find(c => c.id === "sisallys")) {
-            bookData.chapters.splice(1, 0, { id: "sisallys", title: "Sisällysluettelo", paragraphs: ["(Ei sisällysluetteloa havaittu)"] });
+        cleanupGeneratedPlaceholderChapters(bookData);
+        if (!bookData.chapters.length) {
+            bookData.chapters.push({
+                id: "luku_1",
+                title: title || "Käsikirjoitus",
+                paragraphs: rawLines
+            });
         }
 
         return bookData;
@@ -4799,11 +4805,35 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCoverImages([]);
     }
 
+    function isGeneratedPlaceholderChapter(chapter) {
+        const text = Array.isArray(chapter?.paragraphs)
+            ? chapter.paragraphs.join('\n').trim().toLowerCase()
+            : '';
+        return (
+            (chapter?.id === 'sisallys' && text === '(ei sisällysluetteloa havaittu)') ||
+            (chapter?.id === 'alku' && text === '(ei erillistä alku-osaa havaittu)')
+        );
+    }
+
+    function cleanupGeneratedPlaceholderChapters(data) {
+        if (!data || !Array.isArray(data.chapters)) return data;
+        data.chapters = data.chapters.filter(chapter => !isGeneratedPlaceholderChapter(chapter));
+        if (!data.chapters.length) {
+            data.chapters = [{
+                id: 'luku_1',
+                title: data.title || 'Käsikirjoitus',
+                paragraphs: ['']
+            }];
+        }
+        return data;
+    }
+
     function setActiveManuscript(data) {
         if (!data) {
             clearActiveManuscript();
             return;
         }
+        cleanupGeneratedPlaceholderChapters(data);
         window.manuscriptData = data;
         if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
         localStorage.setItem('skriptlab_manuscript', JSON.stringify(window.manuscriptData));
