@@ -5824,9 +5824,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const total = Number(chunk?.total || 0);
         const words = Number(chunk?.source_word_count || 0);
         const status = chunk?.status && chunk.status !== 'completed' ? ` · ${chunk.status}` : '';
+        const location = chunk?.book_location && typeof chunk.book_location === 'object' ? chunk.book_location : {};
+        const primary = location.primary_chapter && typeof location.primary_chapter === 'object' ? location.primary_chapter : {};
+        const chapterLabel = location.chapter_span || primary.title || primary.id || '';
+        const locationLabel = chapterLabel ? ` · ${chapterLabel}` : '';
         return {
             title: total ? `Osa ${index}/${total}` : `Osa ${index}`,
-            meta: `${words ? `${formatNumber(words)} sanaa` : 'Ei sanamäärää'}${status}`
+            meta: `${words ? `${formatNumber(words)} sanaa` : 'Ei sanamäärää'}${locationLabel}${status}`
         };
     }
 
