@@ -184,9 +184,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let latestTranslationText = '';
     let currentTranslationHistory = [];
     let selectedTranslation = null;
+    let selectedTranslationPartIndex = 0;
     let latestFinnishTranslationText = '';
     let currentFinnishTranslationHistory = [];
     let selectedFinnishTranslation = null;
+    let selectedFinnishTranslationPartIndex = 0;
     let syncingTranslationScroll = false;
     let translationTimerInterval = null;
     let finnishTranslationTimerInterval = null;
@@ -5474,6 +5476,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         updateTranslationAnalysisNotice(project);
         renderSelectedTranslationForReview();
+        renderTranslationParts();
         renderTranslationHistory();
     }
 
@@ -5506,6 +5509,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         updateFinnishTranslationAnalysisNotice(project);
         renderSelectedFinnishTranslationForReview();
+        renderFinnishTranslationParts();
         renderFinnishTranslationHistory();
     }
 
@@ -5696,6 +5700,7 @@ document.addEventListener('DOMContentLoaded', () => {
             selectedTranslation = null;
             populateTranslationReviewSelect();
             renderSelectedTranslationForReview();
+            renderTranslationParts();
             history.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Ei valittua käsikirjoitusta.</div>';
             return;
         }
@@ -5712,6 +5717,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             populateTranslationReviewSelect();
             renderSelectedTranslationForReview();
+            renderTranslationParts();
             if (!currentTranslationHistory.length) {
                 history.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Ei tallennettuja käännöksiä.</div>';
                 return;
@@ -5743,6 +5749,7 @@ document.addEventListener('DOMContentLoaded', () => {
             selectedFinnishTranslation = null;
             populateFinnishTranslationReviewSelect();
             renderSelectedFinnishTranslationForReview();
+            renderFinnishTranslationParts();
             history.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Ei valittua käsikirjoitusta.</div>';
             return;
         }
@@ -5759,6 +5766,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             populateFinnishTranslationReviewSelect();
             renderSelectedFinnishTranslationForReview();
+            renderFinnishTranslationParts();
             if (!currentFinnishTranslationHistory.length) {
                 history.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Ei tallennettuja suomennoksia.</div>';
                 return;
@@ -5807,22 +5815,133 @@ document.addEventListener('DOMContentLoaded', () => {
         if (selectedFinnishTranslation) select.value = String(selectedFinnishTranslation.id);
     }
 
+    function translationChunkDetails(item) {
+        return Array.isArray(item?.chunk_details) ? item.chunk_details : [];
+    }
+
+    function translationPartLabel(chunk, fallbackIndex) {
+        const index = Number(chunk?.index || fallbackIndex + 1);
+        const total = Number(chunk?.total || 0);
+        const words = Number(chunk?.source_word_count || 0);
+        const status = chunk?.status && chunk.status !== 'completed' ? ` · ${chunk.status}` : '';
+        return {
+            title: total ? `Osa ${index}/${total}` : `Osa ${index}`,
+            meta: `${words ? `${formatNumber(words)} sanaa` : 'Ei sanamäärää'}${status}`
+        };
+    }
+
+    function renderTranslationParts() {
+        const list = document.getElementById('translation-part-list');
+        const prompt = document.getElementById('translation-part-prompt');
+        const response = document.getElementById('translation-part-response');
+        const status = document.getElementById('translation-parts-status');
+        if (!list || !prompt || !response || !status) return;
+
+        const chunks = translationChunkDetails(selectedTranslation);
+        if (!selectedTranslation) {
+            list.innerHTML = '';
+            prompt.textContent = 'Valitse käännös.';
+            response.textContent = 'Valitse käännös.';
+            status.textContent = 'Valitse käännös ja tarkastele yksittäisiä kutsuja.';
+            return;
+        }
+        if (!chunks.length) {
+            list.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Tällä käännöksellä ei ole osalokia. Luo käännös uudelleen, niin kutsut ja vastaukset tallentuvat.</div>';
+            prompt.textContent = 'Osakohtainen prompti ei ole tallessa tälle vanhalle käännökselle.';
+            response.textContent = selectedTranslation.translated_text || 'Vastausta ei ole.';
+            status.textContent = 'Osaloki puuttuu tältä käännökseltä.';
+            return;
+        }
+
+        selectedTranslationPartIndex = Math.max(0, Math.min(selectedTranslationPartIndex, chunks.length - 1));
+        list.innerHTML = chunks.map((chunk, index) => {
+            const label = translationPartLabel(chunk, index);
+            return `
+                <button class="translation-part-item ${index === selectedTranslationPartIndex ? 'active' : ''}" data-translation-part-index="${index}">
+                    ${escapeHtml(label.title)}
+                    <small>${escapeHtml(label.meta)}</small>
+                </button>
+            `;
+        }).join('');
+        list.querySelectorAll('[data-translation-part-index]').forEach(button => {
+            button.addEventListener('click', () => {
+                selectedTranslationPartIndex = Number(button.dataset.translationPartIndex || 0);
+                renderTranslationParts();
+            });
+        });
+        const selected = chunks[selectedTranslationPartIndex] || {};
+        prompt.textContent = selected.prompt || 'Promptia ei ole tallessa.';
+        response.textContent = selected.response || selected.translation || 'Vastausta ei ole tallessa.';
+        const label = translationPartLabel(selected, selectedTranslationPartIndex);
+        status.textContent = `${label.title}: ${label.meta}.`;
+    }
+
+    function renderFinnishTranslationParts() {
+        const list = document.getElementById('finnish-translation-part-list');
+        const prompt = document.getElementById('finnish-translation-part-prompt');
+        const response = document.getElementById('finnish-translation-part-response');
+        const status = document.getElementById('finnish-translation-parts-status');
+        if (!list || !prompt || !response || !status) return;
+
+        const chunks = translationChunkDetails(selectedFinnishTranslation);
+        if (!selectedFinnishTranslation) {
+            list.innerHTML = '';
+            prompt.textContent = 'Valitse suomennos.';
+            response.textContent = 'Valitse suomennos.';
+            status.textContent = 'Valitse suomennos ja tarkastele yksittäisiä kutsuja.';
+            return;
+        }
+        if (!chunks.length) {
+            list.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Tällä suomennoksella ei ole osalokia. Luo suomennos uudelleen, niin kutsut ja vastaukset tallentuvat.</div>';
+            prompt.textContent = 'Osakohtainen prompti ei ole tallessa tälle vanhalle suomennokselle.';
+            response.textContent = selectedFinnishTranslation.translated_text || 'Vastausta ei ole.';
+            status.textContent = 'Osaloki puuttuu tältä suomennokselta.';
+            return;
+        }
+
+        selectedFinnishTranslationPartIndex = Math.max(0, Math.min(selectedFinnishTranslationPartIndex, chunks.length - 1));
+        list.innerHTML = chunks.map((chunk, index) => {
+            const label = translationPartLabel(chunk, index);
+            return `
+                <button class="translation-part-item ${index === selectedFinnishTranslationPartIndex ? 'active' : ''}" data-finnish-translation-part-index="${index}">
+                    ${escapeHtml(label.title)}
+                    <small>${escapeHtml(label.meta)}</small>
+                </button>
+            `;
+        }).join('');
+        list.querySelectorAll('[data-finnish-translation-part-index]').forEach(button => {
+            button.addEventListener('click', () => {
+                selectedFinnishTranslationPartIndex = Number(button.dataset.finnishTranslationPartIndex || 0);
+                renderFinnishTranslationParts();
+            });
+        });
+        const selected = chunks[selectedFinnishTranslationPartIndex] || {};
+        prompt.textContent = selected.prompt || 'Promptia ei ole tallessa.';
+        response.textContent = selected.response || selected.translation || 'Vastausta ei ole tallessa.';
+        const label = translationPartLabel(selected, selectedFinnishTranslationPartIndex);
+        status.textContent = `${label.title}: ${label.meta}.`;
+    }
+
     function selectTranslationForReview(translationId) {
         const selected = currentTranslationHistory.find(item => String(item.id) === String(translationId));
         if (!selected) return;
         selectedTranslation = selected;
+        selectedTranslationPartIndex = 0;
         latestTranslationText = selected.translated_text || '';
         populateTranslationReviewSelect();
         renderSelectedTranslationForReview();
+        renderTranslationParts();
     }
 
     function selectFinnishTranslationForReview(translationId) {
         const selected = currentFinnishTranslationHistory.find(item => String(item.id) === String(translationId));
         if (!selected) return;
         selectedFinnishTranslation = selected;
+        selectedFinnishTranslationPartIndex = 0;
         latestFinnishTranslationText = selected.translated_text || '';
         populateFinnishTranslationReviewSelect();
         renderSelectedFinnishTranslationForReview();
+        renderFinnishTranslationParts();
     }
 
     function renderSelectedTranslationForReview() {
