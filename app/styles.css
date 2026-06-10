@@ -1140,6 +1140,23 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     margin-top: 3px;
     color: var(--text-muted);
 }
+.translation-prompt-sections {
+    overflow: auto;
+    padding-right: 4px;
+}
+.translation-prompt-sections .translation-review-text {
+    height: auto;
+    min-height: 120px;
+    max-height: 220px;
+    margin-bottom: 14px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.55;
+}
+.translation-prompt-sections #translation-part-prompt,
+.translation-prompt-sections #finnish-translation-part-prompt {
+    max-height: 360px;
+}
 @media (max-width: 980px) {
     .translation-review-header {
         display: grid;

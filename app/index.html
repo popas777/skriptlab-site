@@ -1615,7 +1615,7 @@
                 <div class="translation-tabs">
                     <button class="translation-tab active" data-translation-panel="translation-create-panel">Luo käännös</button>
                     <button class="translation-tab" data-translation-panel="translation-review-panel">Käännöksen tarkastus</button>
-                    <button class="translation-tab" data-translation-panel="translation-parts-panel">Osat</button>
+                    <button class="translation-tab" data-translation-panel="translation-parts-panel">Tarkasta käännöspaloittain</button>
                 </div>
                 <div id="translation-create-panel" class="translation-panel">
                 <div class="grid-cards" style="grid-template-columns: minmax(280px, 420px) minmax(0, 1fr); align-items:start;">
@@ -1719,21 +1719,29 @@
                     <div class="card glass-panel">
                         <div class="translation-review-header">
                             <div>
-                                <h3>Käännösosat</h3>
-                                <p id="translation-parts-status">Valitse käännös ja tarkastele yksittäisiä kutsuja.</p>
+                                <h3>Tarkasta käännöspaloittain</h3>
+                                <p id="translation-parts-status">Valitse käännös ja tarkastele palakohtainen kutsu ja vastaus.</p>
                             </div>
                         </div>
                         <div class="translation-parts-grid">
                             <div class="translation-part-list-wrap">
-                                <h4>Osat</h4>
+                                <h4>Käännöspalat</h4>
                                 <div id="translation-part-list" class="translation-part-list"></div>
                             </div>
-                            <div class="translation-review-column">
-                                <h4>Lähetetty kutsu</h4>
+                            <div class="translation-review-column translation-prompt-sections">
+                                <h4>Ohjeet</h4>
+                                <pre id="translation-part-instructions" class="translation-review-text">Valitse käännösosa.</pre>
+                                <h4>Analyysin esitiedot</h4>
+                                <pre id="translation-part-analysis" class="translation-review-text">Valitse käännösosa.</pre>
+                                <h4>Konteksti</h4>
+                                <pre id="translation-part-context" class="translation-review-text">Valitse käännösosa.</pre>
+                                <h4>Käännettävä teksti</h4>
+                                <pre id="translation-part-source" class="translation-review-text">Valitse käännösosa.</pre>
+                                <h4>Koko lähetetty kutsu</h4>
                                 <pre id="translation-part-prompt" class="translation-review-text">Valitse käännösosa.</pre>
                             </div>
                             <div class="translation-review-column">
-                                <h4>Vastaus</h4>
+                                <h4>Mallin vastaus</h4>
                                 <pre id="translation-part-response" class="translation-review-text">Valitse käännösosa.</pre>
                             </div>
                         </div>
@@ -1752,7 +1760,7 @@
                 <div class="translation-tabs">
                     <button class="translation-tab suomentaja-tab active" data-suomentaja-panel="suomentaja-create-panel">Luo suomennos</button>
                     <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-review-panel">Suomennoksen tarkastus</button>
-                    <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-parts-panel">Osat</button>
+                    <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-parts-panel">Tarkasta käännöspaloittain</button>
                 </div>
                 <div id="suomentaja-create-panel" class="suomentaja-panel">
                     <div class="grid-cards" style="grid-template-columns: minmax(280px, 440px) minmax(0, 1fr); align-items:start;">
@@ -1849,21 +1857,29 @@
                     <div class="card glass-panel">
                         <div class="translation-review-header">
                             <div>
-                                <h3>Suomennososat</h3>
-                                <p id="finnish-translation-parts-status">Valitse suomennos ja tarkastele yksittäisiä kutsuja.</p>
+                                <h3>Tarkasta käännöspaloittain</h3>
+                                <p id="finnish-translation-parts-status">Valitse suomennos ja tarkastele palakohtainen kutsu ja vastaus.</p>
                             </div>
                         </div>
                         <div class="translation-parts-grid">
                             <div class="translation-part-list-wrap">
-                                <h4>Osat</h4>
+                                <h4>Käännöspalat</h4>
                                 <div id="finnish-translation-part-list" class="translation-part-list"></div>
                             </div>
-                            <div class="translation-review-column">
-                                <h4>Lähetetty kutsu</h4>
+                            <div class="translation-review-column translation-prompt-sections">
+                                <h4>Ohjeet</h4>
+                                <pre id="finnish-translation-part-instructions" class="translation-review-text">Valitse suomennososa.</pre>
+                                <h4>Analyysin esitiedot</h4>
+                                <pre id="finnish-translation-part-analysis" class="translation-review-text">Valitse suomennososa.</pre>
+                                <h4>Konteksti</h4>
+                                <pre id="finnish-translation-part-context" class="translation-review-text">Valitse suomennososa.</pre>
+                                <h4>Käännettävä teksti</h4>
+                                <pre id="finnish-translation-part-source" class="translation-review-text">Valitse suomennososa.</pre>
+                                <h4>Koko lähetetty kutsu</h4>
                                 <pre id="finnish-translation-part-prompt" class="translation-review-text">Valitse suomennososa.</pre>
                             </div>
                             <div class="translation-review-column">
-                                <h4>Vastaus</h4>
+                                <h4>Mallin vastaus</h4>
                                 <pre id="finnish-translation-part-response" class="translation-review-text">Valitse suomennososa.</pre>
                             </div>
                         </div>

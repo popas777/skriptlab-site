@@ -5830,25 +5830,63 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
+    function translationPartSections(chunk) {
+        const sections = chunk?.prompt_sections && typeof chunk.prompt_sections === 'object'
+            ? chunk.prompt_sections
+            : {};
+        const contextFallback = [
+            chunk?.pre_context ? `EDELTÄVÄ KONTEKSTI:\n${chunk.pre_context}` : '',
+            chunk?.post_context ? `SEURAAVA KONTEKSTI:\n${chunk.post_context}` : ''
+        ].filter(Boolean).join('\n\n');
+        return {
+            instructions: sections.instructions || '',
+            analysis: sections.analysis_context || '',
+            context: sections.context || contextFallback,
+            source: sections.source_text || (chunk?.source_text ? `KÄÄNNETTÄVÄ TEKSTI:\n${chunk.source_text}` : ''),
+            prompt: chunk?.prompt || '',
+            response: chunk?.response || chunk?.translation || ''
+        };
+    }
+
+    function setTranslationPartText(prefix, key, value) {
+        const element = document.getElementById(`${prefix}-part-${key}`);
+        if (element) element.textContent = value || 'Ei tietoa.';
+    }
+
+    function renderTranslationPartDetail(prefix, chunk, emptyMessage) {
+        if (!chunk) {
+            ['instructions', 'analysis', 'context', 'source', 'prompt', 'response'].forEach(key => {
+                setTranslationPartText(prefix, key, emptyMessage);
+            });
+            return;
+        }
+        const sections = translationPartSections(chunk);
+        setTranslationPartText(prefix, 'instructions', sections.instructions);
+        setTranslationPartText(prefix, 'analysis', sections.analysis);
+        setTranslationPartText(prefix, 'context', sections.context);
+        setTranslationPartText(prefix, 'source', sections.source);
+        setTranslationPartText(prefix, 'prompt', sections.prompt);
+        setTranslationPartText(prefix, 'response', sections.response);
+    }
+
     function renderTranslationParts() {
         const list = document.getElementById('translation-part-list');
-        const prompt = document.getElementById('translation-part-prompt');
-        const response = document.getElementById('translation-part-response');
         const status = document.getElementById('translation-parts-status');
-        if (!list || !prompt || !response || !status) return;
+        if (!list || !status) return;
 
         const chunks = translationChunkDetails(selectedTranslation);
         if (!selectedTranslation) {
             list.innerHTML = '';
-            prompt.textContent = 'Valitse käännös.';
-            response.textContent = 'Valitse käännös.';
-            status.textContent = 'Valitse käännös ja tarkastele yksittäisiä kutsuja.';
+            renderTranslationPartDetail('translation', null, 'Valitse käännös.');
+            status.textContent = 'Valitse käännös ja tarkastele käännöspalakohtainen kutsu ja vastaus.';
             return;
         }
         if (!chunks.length) {
             list.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Tällä käännöksellä ei ole osalokia. Luo käännös uudelleen, niin kutsut ja vastaukset tallentuvat.</div>';
-            prompt.textContent = 'Osakohtainen prompti ei ole tallessa tälle vanhalle käännökselle.';
-            response.textContent = selectedTranslation.translated_text || 'Vastausta ei ole.';
+            renderTranslationPartDetail('translation', {
+                prompt: 'Osakohtainen prompti ei ole tallessa tälle vanhalle käännökselle.',
+                response: selectedTranslation.translated_text || 'Vastausta ei ole.'
+            }, '');
             status.textContent = 'Osaloki puuttuu tältä käännökseltä.';
             return;
         }
@@ -5870,31 +5908,29 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
         const selected = chunks[selectedTranslationPartIndex] || {};
-        prompt.textContent = selected.prompt || 'Promptia ei ole tallessa.';
-        response.textContent = selected.response || selected.translation || 'Vastausta ei ole tallessa.';
+        renderTranslationPartDetail('translation', selected, 'Valitse käännösosa.');
         const label = translationPartLabel(selected, selectedTranslationPartIndex);
         status.textContent = `${label.title}: ${label.meta}.`;
     }
 
     function renderFinnishTranslationParts() {
         const list = document.getElementById('finnish-translation-part-list');
-        const prompt = document.getElementById('finnish-translation-part-prompt');
-        const response = document.getElementById('finnish-translation-part-response');
         const status = document.getElementById('finnish-translation-parts-status');
-        if (!list || !prompt || !response || !status) return;
+        if (!list || !status) return;
 
         const chunks = translationChunkDetails(selectedFinnishTranslation);
         if (!selectedFinnishTranslation) {
             list.innerHTML = '';
-            prompt.textContent = 'Valitse suomennos.';
-            response.textContent = 'Valitse suomennos.';
-            status.textContent = 'Valitse suomennos ja tarkastele yksittäisiä kutsuja.';
+            renderTranslationPartDetail('finnish-translation', null, 'Valitse suomennos.');
+            status.textContent = 'Valitse suomennos ja tarkastele käännöspalakohtainen kutsu ja vastaus.';
             return;
         }
         if (!chunks.length) {
             list.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Tällä suomennoksella ei ole osalokia. Luo suomennos uudelleen, niin kutsut ja vastaukset tallentuvat.</div>';
-            prompt.textContent = 'Osakohtainen prompti ei ole tallessa tälle vanhalle suomennokselle.';
-            response.textContent = selectedFinnishTranslation.translated_text || 'Vastausta ei ole.';
+            renderTranslationPartDetail('finnish-translation', {
+                prompt: 'Osakohtainen prompti ei ole tallessa tälle vanhalle suomennokselle.',
+                response: selectedFinnishTranslation.translated_text || 'Vastausta ei ole.'
+            }, '');
             status.textContent = 'Osaloki puuttuu tältä suomennokselta.';
             return;
         }
@@ -5916,8 +5952,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
         const selected = chunks[selectedFinnishTranslationPartIndex] || {};
-        prompt.textContent = selected.prompt || 'Promptia ei ole tallessa.';
-        response.textContent = selected.response || selected.translation || 'Vastausta ei ole tallessa.';
+        renderTranslationPartDetail('finnish-translation', selected, 'Valitse suomennososa.');
         const label = translationPartLabel(selected, selectedFinnishTranslationPartIndex);
         status.textContent = `${label.title}: ${label.meta}.`;
     }
