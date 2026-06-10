@@ -5830,6 +5830,13 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
+    function stripPromptSectionLabel(value, labels) {
+        const text = String(value || '').trim();
+        if (!text) return '';
+        const pattern = new RegExp(`^(${labels.map(label => label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\s*:?\\s*\\n+`, 'i');
+        return text.replace(pattern, '').trim();
+    }
+
     function translationPartSections(chunk) {
         const sections = chunk?.prompt_sections && typeof chunk.prompt_sections === 'object'
             ? chunk.prompt_sections
@@ -5842,7 +5849,7 @@ document.addEventListener('DOMContentLoaded', () => {
             instructions: sections.instructions || '',
             analysis: sections.analysis_context || '',
             context: sections.context || contextFallback,
-            source: sections.source_text || (chunk?.source_text ? `KÄÄNNETTÄVÄ TEKSTI:\n${chunk.source_text}` : ''),
+            source: stripPromptSectionLabel(sections.source_text || chunk?.source_text || '', ['KÄÄNNETTÄVÄ TEKSTI']),
             prompt: chunk?.prompt || '',
             response: chunk?.response || chunk?.translation || ''
         };
