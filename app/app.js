@@ -5554,7 +5554,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .filter(Boolean);
         if (!selects.length) return;
         try {
-            const res = await apiFetch('/api/models/text');
+            const res = await apiFetch('/api/models/text?purpose=translation');
             if (!res.ok) throw new Error(await apiErrorMessage(res, 'Mallien lataus epäonnistui.'));
             translationModels = await res.json();
             selects.forEach(select => {
@@ -5562,7 +5562,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 translationModels.forEach(model => {
                     const option = document.createElement('option');
                     option.value = `${model.provider}:${model.model_name}`;
-                    option.textContent = model.display_name || model.model_name;
+                    option.textContent = `${model.display_name || model.model_name}${model.model_tier === 'pro' ? ' · pro' : ''}`;
                     if (model.is_default) option.selected = true;
                     select.appendChild(option);
                 });
