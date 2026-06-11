@@ -1729,6 +1729,16 @@
                                 <div id="translation-part-list" class="translation-part-list"></div>
                             </div>
                             <div class="translation-review-column translation-prompt-sections">
+                                <div class="translation-part-rerun-box">
+                                    <div>
+                                        <h4>Käytetty malli</h4>
+                                        <p id="translation-part-model-used" class="translation-part-model-used">Valitse käännösosa.</p>
+                                    </div>
+                                    <label>Uudelleenajon malli</label>
+                                    <select id="translation-part-rerun-model"></select>
+                                    <button id="translation-part-rerun-btn" class="btn btn-secondary" type="button">Aja osa uudelleen</button>
+                                    <p id="translation-part-rerun-status" class="card-meta">Voit muokata koko lähetettyä kutsua ennen uudelleenajoa.</p>
+                                </div>
                                 <h4>Käännettävä teksti</h4>
                                 <pre id="translation-part-source" class="translation-review-text translation-source-text">Valitse käännösosa.</pre>
                                 <h4>Ohjeet</h4>
@@ -1738,7 +1748,7 @@
                                 <h4>Konteksti</h4>
                                 <pre id="translation-part-context" class="translation-review-text translation-compact-text">Valitse käännösosa.</pre>
                                 <h4>Koko lähetetty kutsu</h4>
-                                <pre id="translation-part-prompt" class="translation-review-text translation-compact-text">Valitse käännösosa.</pre>
+                                <textarea id="translation-part-prompt" class="translation-review-text translation-compact-text translation-prompt-editor">Valitse käännösosa.</textarea>
                             </div>
                             <div class="translation-review-column">
                                 <h4>Mallin vastaus</h4>
@@ -1867,6 +1877,16 @@
                                 <div id="finnish-translation-part-list" class="translation-part-list"></div>
                             </div>
                             <div class="translation-review-column translation-prompt-sections">
+                                <div class="translation-part-rerun-box">
+                                    <div>
+                                        <h4>Käytetty malli</h4>
+                                        <p id="finnish-translation-part-model-used" class="translation-part-model-used">Valitse suomennososa.</p>
+                                    </div>
+                                    <label>Uudelleenajon malli</label>
+                                    <select id="finnish-translation-part-rerun-model"></select>
+                                    <button id="finnish-translation-part-rerun-btn" class="btn btn-secondary" type="button">Aja osa uudelleen</button>
+                                    <p id="finnish-translation-part-rerun-status" class="card-meta">Voit muokata koko lähetettyä kutsua ennen uudelleenajoa.</p>
+                                </div>
                                 <h4>Käännettävä teksti</h4>
                                 <pre id="finnish-translation-part-source" class="translation-review-text translation-source-text">Valitse suomennososa.</pre>
                                 <h4>Ohjeet</h4>
@@ -1876,7 +1896,7 @@
                                 <h4>Konteksti</h4>
                                 <pre id="finnish-translation-part-context" class="translation-review-text translation-compact-text">Valitse suomennososa.</pre>
                                 <h4>Koko lähetetty kutsu</h4>
-                                <pre id="finnish-translation-part-prompt" class="translation-review-text translation-compact-text">Valitse suomennososa.</pre>
+                                <textarea id="finnish-translation-part-prompt" class="translation-review-text translation-compact-text translation-prompt-editor">Valitse suomennososa.</textarea>
                             </div>
                             <div class="translation-review-column">
                                 <h4>Mallin vastaus</h4>
@@ -2067,6 +2087,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=51"></script>
+    <script src="app.js?v=52"></script>
 </body>
 </html>

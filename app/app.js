@@ -5834,6 +5834,42 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
+    function translationPartModelValue(chunk, item) {
+        return chunk?.model
+            || (chunk?.model_provider && chunk?.model_name ? `${chunk.model_provider}:${chunk.model_name}` : '')
+            || item?.model
+            || '';
+    }
+
+    function translationModelLabel(value) {
+        if (!value) return 'Ei mallia tiedossa';
+        const model = translationModels.find(item => `${item.provider}:${item.model_name}` === value);
+        return model ? `${model.display_name || model.model_name}${model.model_tier === 'pro' ? ' · pro' : ''}` : value;
+    }
+
+    function populateTranslationPartModelSelect(prefix, chunk, item) {
+        const select = document.getElementById(`${prefix}-part-rerun-model`);
+        const used = document.getElementById(`${prefix}-part-model-used`);
+        const button = document.getElementById(`${prefix}-part-rerun-btn`);
+        const modelValue = translationPartModelValue(chunk, item);
+        if (used) used.textContent = translationModelLabel(modelValue);
+        if (!select) return;
+        select.innerHTML = '';
+        translationModels.forEach(model => {
+            const option = document.createElement('option');
+            option.value = `${model.provider}:${model.model_name}`;
+            option.textContent = `${model.display_name || model.model_name}${model.model_tier === 'pro' ? ' · pro' : ''}`;
+            select.appendChild(option);
+        });
+        if (modelValue && translationModels.some(model => `${model.provider}:${model.model_name}` === modelValue)) {
+            select.value = modelValue;
+        } else if (translationModels.length) {
+            const defaultModel = translationModels.find(model => model.is_default) || translationModels[0];
+            select.value = `${defaultModel.provider}:${defaultModel.model_name}`;
+        }
+        if (button) button.disabled = !chunk || !translationModels.length;
+    }
+
     function stripPromptSectionLabel(value, labels) {
         const text = String(value || '').trim();
         if (!text) return '';
@@ -5861,14 +5897,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setTranslationPartText(prefix, key, value) {
         const element = document.getElementById(`${prefix}-part-${key}`);
-        if (element) element.textContent = value || 'Ei tietoa.';
+        if (!element) return;
+        if ('value' in element) {
+            element.value = value || 'Ei tietoa.';
+        } else {
+            element.textContent = value || 'Ei tietoa.';
+        }
     }
 
     function renderTranslationPartDetail(prefix, chunk, emptyMessage) {
+        const item = prefix === 'finnish-translation' ? selectedFinnishTranslation : selectedTranslation;
         if (!chunk) {
             ['instructions', 'analysis', 'context', 'source', 'prompt', 'response'].forEach(key => {
                 setTranslationPartText(prefix, key, emptyMessage);
             });
+            populateTranslationPartModelSelect(prefix, null, item);
             return;
         }
         const sections = translationPartSections(chunk);
@@ -5878,6 +5921,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setTranslationPartText(prefix, 'source', sections.source);
         setTranslationPartText(prefix, 'prompt', sections.prompt);
         setTranslationPartText(prefix, 'response', sections.response);
+        populateTranslationPartModelSelect(prefix, chunk, item);
     }
 
     function renderTranslationParts() {
@@ -5966,6 +6010,70 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTranslationPartDetail('finnish-translation', selected, 'Valitse suomennososa.');
         const label = translationPartLabel(selected, selectedFinnishTranslationPartIndex);
         status.textContent = `${label.title}: ${label.meta}.`;
+    }
+
+    async function rerunTranslationPart(prefix) {
+        const isFinnish = prefix === 'finnish-translation';
+        const item = isFinnish ? selectedFinnishTranslation : selectedTranslation;
+        const index = isFinnish ? selectedFinnishTranslationPartIndex : selectedTranslationPartIndex;
+        const promptEl = document.getElementById(`${prefix}-part-prompt`);
+        const modelEl = document.getElementById(`${prefix}-part-rerun-model`);
+        const statusEl = document.getElementById(`${prefix}-part-rerun-status`);
+        const button = document.getElementById(`${prefix}-part-rerun-btn`);
+        if (!item) {
+            alert(isFinnish ? 'Valitse ensin suomennos.' : 'Valitse ensin käännös.');
+            return;
+        }
+        const chunks = translationChunkDetails(item);
+        if (!chunks.length || !chunks[index]) {
+            alert('Valitse ensin käännöspala.');
+            return;
+        }
+        const prompt = promptEl?.value?.trim() || '';
+        if (!prompt) {
+            alert('Kutsu ei voi olla tyhjä.');
+            return;
+        }
+        if (button) button.disabled = true;
+        if (statusEl) statusEl.textContent = 'Ajetaan valittu osa uudelleen...';
+        try {
+            const res = await apiFetch(`/api/translations/${item.id}/chunks/${index}/rerun`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    model: modelEl?.value || null,
+                    prompt
+                })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Käännöspalan uudelleenajo epäonnistui.');
+
+            if (isFinnish) {
+                selectedFinnishTranslation = data;
+                latestFinnishTranslationText = data.translated_text || '';
+                const itemIndex = currentFinnishTranslationHistory.findIndex(historyItem => String(historyItem.id) === String(data.id));
+                if (itemIndex >= 0) currentFinnishTranslationHistory[itemIndex] = data;
+                populateFinnishTranslationReviewSelect();
+                renderSelectedFinnishTranslationForReview();
+                renderFinnishTranslationParts();
+                await renderFinnishTranslationHistory();
+            } else {
+                selectedTranslation = data;
+                latestTranslationText = data.translated_text || '';
+                const itemIndex = currentTranslationHistory.findIndex(historyItem => String(historyItem.id) === String(data.id));
+                if (itemIndex >= 0) currentTranslationHistory[itemIndex] = data;
+                populateTranslationReviewSelect();
+                renderSelectedTranslationForReview();
+                renderTranslationParts();
+                await renderTranslationHistory();
+            }
+            if (statusEl) statusEl.textContent = 'Osa ajettu uudelleen ja käännös päivitetty.';
+        } catch (err) {
+            if (statusEl) statusEl.textContent = err.message;
+            alert('Uudelleenajo epäonnistui: ' + err.message);
+        } finally {
+            if (button) button.disabled = false;
+        }
     }
 
     function selectTranslationForReview(translationId) {
@@ -7708,6 +7816,7 @@ ${state.validation || 'Ei validointia.'}`;
     }
     if (translationReviewSaveBtn) translationReviewSaveBtn.addEventListener('click', saveReviewedTranslation);
     if (translationReviewDownloadBtn) translationReviewDownloadBtn.addEventListener('click', downloadTranslation);
+    document.getElementById('translation-part-rerun-btn')?.addEventListener('click', () => rerunTranslationPart('translation'));
     if (translationReviewText) {
         translationReviewText.addEventListener('input', () => {
             latestTranslationText = translationReviewText.value;
@@ -7737,6 +7846,7 @@ ${state.validation || 'Ei validointia.'}`;
     }
     if (finnishTranslationReviewSaveBtn) finnishTranslationReviewSaveBtn.addEventListener('click', saveReviewedFinnishTranslation);
     if (finnishTranslationReviewDownloadBtn) finnishTranslationReviewDownloadBtn.addEventListener('click', downloadFinnishTranslation);
+    document.getElementById('finnish-translation-part-rerun-btn')?.addEventListener('click', () => rerunTranslationPart('finnish-translation'));
     if (finnishTranslationReviewText) {
         finnishTranslationReviewText.addEventListener('input', () => {
             latestFinnishTranslationText = finnishTranslationReviewText.value;
