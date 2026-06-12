@@ -5891,7 +5891,7 @@ document.addEventListener('DOMContentLoaded', () => {
             context: sections.context || contextFallback,
             source: stripPromptSectionLabel(sections.source_text || chunk?.source_text || '', ['KÄÄNNETTÄVÄ TEKSTI']),
             prompt: chunk?.prompt || '',
-            response: chunk?.response || chunk?.translation || ''
+            response: chunk?.translation || chunk?.response || ''
         };
     }
 
@@ -5903,6 +5903,95 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             element.textContent = value || 'Ei tietoa.';
         }
+    }
+
+    function translationReviewElements(prefix) {
+        const isFinnish = prefix === 'finnish-translation';
+        return {
+            original: document.getElementById(isFinnish ? 'finnish-translation-review-original' : 'translation-review-original'),
+            chunks: document.getElementById(isFinnish ? 'finnish-translation-review-chunks' : 'translation-review-chunks'),
+            hidden: document.getElementById(isFinnish ? 'finnish-translation-review-text' : 'translation-review-text'),
+        };
+    }
+
+    function translationReviewChunkValues(prefix) {
+        const { chunks } = translationReviewElements(prefix);
+        if (!chunks) return [];
+        return Array.from(chunks.querySelectorAll('[data-translation-review-chunk]')).map(input => input.value);
+    }
+
+    function syncTranslationReviewText(prefix) {
+        const { hidden } = translationReviewElements(prefix);
+        if (!hidden) return '';
+        const values = translationReviewChunkValues(prefix);
+        const text = values.length ? values.map(value => value.trim()).filter(Boolean).join('\n\n') : hidden.value;
+        hidden.value = text;
+        if (prefix === 'finnish-translation') {
+            latestFinnishTranslationText = text;
+        } else {
+            latestTranslationText = text;
+        }
+        return text;
+    }
+
+    function translationReviewTextValue(prefix) {
+        const { hidden } = translationReviewElements(prefix);
+        return syncTranslationReviewText(prefix) || hidden?.value || '';
+    }
+
+    function translationReviewBlockLabel(chunk, fallbackIndex) {
+        const label = translationPartLabel(chunk || {}, fallbackIndex);
+        return `${label.title}${label.meta ? ` · ${label.meta}` : ''}`;
+    }
+
+    function renderAlignedTranslationReview(prefix, project, item, emptyMessage) {
+        const { original, chunks, hidden } = translationReviewElements(prefix);
+        if (!original || !chunks || !hidden) return;
+        const sourceText = project ? projectTextForTranslation(project) : '';
+        const translatedText = item?.translated_text || '';
+        hidden.value = translatedText;
+
+        if (!project || !item) {
+            original.textContent = emptyMessage;
+            chunks.textContent = emptyMessage;
+            return;
+        }
+
+        const details = translationChunkDetails(item);
+        if (!details.length) {
+            original.innerHTML = `
+                <section class="translation-review-chunk">
+                    <h5>Alkuperäinen teksti</h5>
+                    <div class="translation-review-chunk-body">${escapeHtml(sourceText || 'Alkuperäistä tekstiä ei ole.')}</div>
+                </section>
+            `;
+            chunks.innerHTML = `
+                <section class="translation-review-chunk">
+                    <h5>Käännös</h5>
+                    <textarea class="translation-review-chunk-text" data-translation-review-chunk="0">${escapeHtml(translatedText)}</textarea>
+                </section>
+            `;
+            chunks.querySelector('[data-translation-review-chunk]')?.addEventListener('input', () => syncTranslationReviewText(prefix));
+            syncTranslationReviewText(prefix);
+            return;
+        }
+
+        original.innerHTML = details.map((chunk, index) => `
+            <section class="translation-review-chunk">
+                <h5>${escapeHtml(translationReviewBlockLabel(chunk, index))}</h5>
+                <div class="translation-review-chunk-body">${escapeHtml(chunk?.source_text || '')}</div>
+            </section>
+        `).join('');
+        chunks.innerHTML = details.map((chunk, index) => `
+            <section class="translation-review-chunk">
+                <h5>${escapeHtml(translationReviewBlockLabel(chunk, index))}</h5>
+                <textarea class="translation-review-chunk-text" data-translation-review-chunk="${index}">${escapeHtml(chunk?.translation || '')}</textarea>
+            </section>
+        `).join('');
+        chunks.querySelectorAll('[data-translation-review-chunk]').forEach(input => {
+            input.addEventListener('input', () => syncTranslationReviewText(prefix));
+        });
+        syncTranslationReviewText(prefix);
     }
 
     function renderTranslationPartDetail(prefix, chunk, emptyMessage) {
@@ -6076,6 +6165,62 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    async function saveTranslationPartCorrection(prefix) {
+        const isFinnish = prefix === 'finnish-translation';
+        const item = isFinnish ? selectedFinnishTranslation : selectedTranslation;
+        const index = isFinnish ? selectedFinnishTranslationPartIndex : selectedTranslationPartIndex;
+        const responseEl = document.getElementById(`${prefix}-part-response`);
+        const statusEl = document.getElementById(`${prefix}-part-rerun-status`);
+        const button = document.getElementById(`${prefix}-part-save-btn`);
+        if (!item) {
+            alert(isFinnish ? 'Valitse ensin suomennos.' : 'Valitse ensin käännös.');
+            return;
+        }
+        const chunks = translationChunkDetails(item);
+        if (!chunks.length || !chunks[index]) {
+            alert('Valitse ensin käännöspala.');
+            return;
+        }
+        if (!responseEl) return;
+        if (button) button.disabled = true;
+        if (statusEl) statusEl.textContent = 'Tallennetaan palan korjausta...';
+        try {
+            const res = await apiFetch(`/api/translations/${item.id}/chunks/${index}`, {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ translation: responseEl.value })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Käännöspalan tallennus epäonnistui.');
+
+            if (isFinnish) {
+                selectedFinnishTranslation = data;
+                latestFinnishTranslationText = data.translated_text || '';
+                const itemIndex = currentFinnishTranslationHistory.findIndex(historyItem => String(historyItem.id) === String(data.id));
+                if (itemIndex >= 0) currentFinnishTranslationHistory[itemIndex] = data;
+                populateFinnishTranslationReviewSelect();
+                renderSelectedFinnishTranslationForReview();
+                renderFinnishTranslationParts();
+                await renderFinnishTranslationHistory();
+            } else {
+                selectedTranslation = data;
+                latestTranslationText = data.translated_text || '';
+                const itemIndex = currentTranslationHistory.findIndex(historyItem => String(historyItem.id) === String(data.id));
+                if (itemIndex >= 0) currentTranslationHistory[itemIndex] = data;
+                populateTranslationReviewSelect();
+                renderSelectedTranslationForReview();
+                renderTranslationParts();
+                await renderTranslationHistory();
+            }
+            if (statusEl) statusEl.textContent = 'Palan korjaus tallennettu.';
+        } catch (err) {
+            if (statusEl) statusEl.textContent = err.message;
+            alert('Tallennus epäonnistui: ' + err.message);
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
     function selectTranslationForReview(translationId) {
         const selected = currentTranslationHistory.find(item => String(item.id) === String(translationId));
         if (!selected) return;
@@ -6108,15 +6253,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!original || !textarea || !status) return;
 
         if (!project || !selectedTranslation) {
-            original.textContent = project ? 'Valitse käännös.' : 'Valitse käsikirjoitus.';
-            textarea.value = '';
+            renderAlignedTranslationReview('translation', project, null, project ? 'Valitse käännös.' : 'Valitse käsikirjoitus.');
             status.textContent = 'Valitse käännös tarkastettavaksi.';
             return;
         }
 
         latestTranslationText = selectedTranslation.translated_text || '';
-        original.textContent = projectTextForTranslation(project);
-        textarea.value = latestTranslationText;
+        renderAlignedTranslationReview('translation', project, selectedTranslation, 'Valitse käännös.');
         status.textContent = `${selectedTranslation.target_language_label}, ${selectedTranslation.style_label}: ${translationStatusLabel(selectedTranslation.status)}.`;
         if (selectedTranslation.warnings) {
             status.textContent += ` Huomautukset: ${formatTranslationWarnings(selectedTranslation.warnings)}`;
@@ -6138,15 +6281,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!original || !textarea || !status) return;
 
         if (!project || !selectedFinnishTranslation) {
-            original.textContent = project ? 'Valitse suomennos.' : 'Valitse käsikirjoitus.';
-            textarea.value = '';
+            renderAlignedTranslationReview('finnish-translation', project, null, project ? 'Valitse suomennos.' : 'Valitse käsikirjoitus.');
             status.textContent = 'Valitse suomennos tarkastettavaksi.';
             return;
         }
 
         latestFinnishTranslationText = selectedFinnishTranslation.translated_text || '';
-        original.textContent = projectTextForTranslation(project);
-        textarea.value = latestFinnishTranslationText;
+        renderAlignedTranslationReview('finnish-translation', project, selectedFinnishTranslation, 'Valitse suomennos.');
         status.textContent = `Suomi, ${selectedFinnishTranslation.style_label}: ${translationStatusLabel(selectedFinnishTranslation.status)}.`;
         if (selectedFinnishTranslation.warnings) {
             status.textContent += ` Huomautukset: ${formatTranslationWarnings(selectedFinnishTranslation.warnings)}`;
@@ -7627,10 +7768,15 @@ ${state.validation || 'Ei validointia.'}`;
         if (button) button.disabled = true;
         if (status) status.textContent = 'Tallennetaan käännöksen muutoksia...';
         try {
+            const chunkTranslations = translationReviewChunkValues('translation');
+            const translatedText = translationReviewTextValue('translation');
             const res = await apiFetch(`/api/translations/${selectedTranslation.id}`, {
                 method: 'PATCH',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ translated_text: textarea.value })
+                body: JSON.stringify({
+                    translated_text: translatedText,
+                    chunk_translations: chunkTranslations.length ? chunkTranslations : null
+                })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || 'Käännöksen tallennus epäonnistui.');
@@ -7661,10 +7807,15 @@ ${state.validation || 'Ei validointia.'}`;
         if (button) button.disabled = true;
         if (status) status.textContent = 'Tallennetaan suomennoksen muutoksia...';
         try {
+            const chunkTranslations = translationReviewChunkValues('finnish-translation');
+            const translatedText = translationReviewTextValue('finnish-translation');
             const res = await apiFetch(`/api/translations/${selectedFinnishTranslation.id}`, {
                 method: 'PATCH',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ translated_text: textarea.value })
+                body: JSON.stringify({
+                    translated_text: translatedText,
+                    chunk_translations: chunkTranslations.length ? chunkTranslations : null
+                })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || 'Suomennoksen tallennus epäonnistui.');
@@ -7817,6 +7968,7 @@ ${state.validation || 'Ei validointia.'}`;
     if (translationReviewSaveBtn) translationReviewSaveBtn.addEventListener('click', saveReviewedTranslation);
     if (translationReviewDownloadBtn) translationReviewDownloadBtn.addEventListener('click', downloadTranslation);
     document.getElementById('translation-part-rerun-btn')?.addEventListener('click', () => rerunTranslationPart('translation'));
+    document.getElementById('translation-part-save-btn')?.addEventListener('click', () => saveTranslationPartCorrection('translation'));
     if (translationReviewText) {
         translationReviewText.addEventListener('input', () => {
             latestTranslationText = translationReviewText.value;
@@ -7847,6 +7999,7 @@ ${state.validation || 'Ei validointia.'}`;
     if (finnishTranslationReviewSaveBtn) finnishTranslationReviewSaveBtn.addEventListener('click', saveReviewedFinnishTranslation);
     if (finnishTranslationReviewDownloadBtn) finnishTranslationReviewDownloadBtn.addEventListener('click', downloadFinnishTranslation);
     document.getElementById('finnish-translation-part-rerun-btn')?.addEventListener('click', () => rerunTranslationPart('finnish-translation'));
+    document.getElementById('finnish-translation-part-save-btn')?.addEventListener('click', () => saveTranslationPartCorrection('finnish-translation'));
     if (finnishTranslationReviewText) {
         finnishTranslationReviewText.addEventListener('input', () => {
             latestFinnishTranslationText = finnishTranslationReviewText.value;

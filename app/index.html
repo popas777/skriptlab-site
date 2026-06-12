@@ -1706,11 +1706,12 @@
                         <div class="translation-review-grid">
                             <div class="translation-review-column">
                                 <h4>Originaali</h4>
-                                <pre id="translation-review-original" class="translation-review-text">Valitse käännös.</pre>
+                                <div id="translation-review-original" class="translation-review-text translation-aligned-review">Valitse käännös.</div>
                             </div>
                             <div class="translation-review-column">
                                 <h4>Käännös</h4>
-                                <textarea id="translation-review-text" class="translation-review-textarea" placeholder="Valitse käännös tarkastettavaksi."></textarea>
+                                <div id="translation-review-chunks" class="translation-review-textarea translation-aligned-review">Valitse käännös tarkastettavaksi.</div>
+                                <textarea id="translation-review-text" class="hidden" aria-hidden="true"></textarea>
                             </div>
                         </div>
                     </div>
@@ -1729,6 +1730,8 @@
                                 <div id="translation-part-list" class="translation-part-list"></div>
                             </div>
                             <div class="translation-review-column translation-prompt-sections">
+                                <h4>Käännettävä teksti</h4>
+                                <pre id="translation-part-source" class="translation-review-text translation-source-text">Valitse käännösosa.</pre>
                                 <div class="translation-part-rerun-box">
                                     <div>
                                         <h4>Käytetty malli</h4>
@@ -1739,8 +1742,6 @@
                                     <button id="translation-part-rerun-btn" class="btn btn-secondary" type="button">Aja osa uudelleen</button>
                                     <p id="translation-part-rerun-status" class="card-meta">Voit muokata koko lähetettyä kutsua ennen uudelleenajoa.</p>
                                 </div>
-                                <h4>Käännettävä teksti</h4>
-                                <pre id="translation-part-source" class="translation-review-text translation-source-text">Valitse käännösosa.</pre>
                                 <h4>Ohjeet</h4>
                                 <pre id="translation-part-instructions" class="translation-review-text translation-compact-text">Valitse käännösosa.</pre>
                                 <h4>Analyysin esitiedot</h4>
@@ -1751,8 +1752,9 @@
                                 <textarea id="translation-part-prompt" class="translation-review-text translation-compact-text translation-prompt-editor">Valitse käännösosa.</textarea>
                             </div>
                             <div class="translation-review-column">
-                                <h4>Mallin vastaus</h4>
-                                <pre id="translation-part-response" class="translation-review-text">Valitse käännösosa.</pre>
+                                <h4>Käännös / mallin vastaus</h4>
+                                <textarea id="translation-part-response" class="translation-review-text translation-response-editor">Valitse käännösosa.</textarea>
+                                <button id="translation-part-save-btn" class="btn btn-secondary" type="button">Tallenna palan korjaus</button>
                             </div>
                         </div>
                     </div>
@@ -1854,11 +1856,12 @@
                         <div class="translation-review-grid">
                             <div class="translation-review-column">
                                 <h4>Alkuperäinen</h4>
-                                <pre id="finnish-translation-review-original" class="translation-review-text">Valitse suomennos.</pre>
+                                <div id="finnish-translation-review-original" class="translation-review-text translation-aligned-review">Valitse suomennos.</div>
                             </div>
                             <div class="translation-review-column">
                                 <h4>Suomennos</h4>
-                                <textarea id="finnish-translation-review-text" class="translation-review-textarea" placeholder="Valitse suomennos tarkastettavaksi."></textarea>
+                                <div id="finnish-translation-review-chunks" class="translation-review-textarea translation-aligned-review">Valitse suomennos tarkastettavaksi.</div>
+                                <textarea id="finnish-translation-review-text" class="hidden" aria-hidden="true"></textarea>
                             </div>
                         </div>
                     </div>
@@ -1877,6 +1880,8 @@
                                 <div id="finnish-translation-part-list" class="translation-part-list"></div>
                             </div>
                             <div class="translation-review-column translation-prompt-sections">
+                                <h4>Käännettävä teksti</h4>
+                                <pre id="finnish-translation-part-source" class="translation-review-text translation-source-text">Valitse suomennososa.</pre>
                                 <div class="translation-part-rerun-box">
                                     <div>
                                         <h4>Käytetty malli</h4>
@@ -1887,8 +1892,6 @@
                                     <button id="finnish-translation-part-rerun-btn" class="btn btn-secondary" type="button">Aja osa uudelleen</button>
                                     <p id="finnish-translation-part-rerun-status" class="card-meta">Voit muokata koko lähetettyä kutsua ennen uudelleenajoa.</p>
                                 </div>
-                                <h4>Käännettävä teksti</h4>
-                                <pre id="finnish-translation-part-source" class="translation-review-text translation-source-text">Valitse suomennososa.</pre>
                                 <h4>Ohjeet</h4>
                                 <pre id="finnish-translation-part-instructions" class="translation-review-text translation-compact-text">Valitse suomennososa.</pre>
                                 <h4>Analyysin esitiedot</h4>
@@ -1899,8 +1902,9 @@
                                 <textarea id="finnish-translation-part-prompt" class="translation-review-text translation-compact-text translation-prompt-editor">Valitse suomennososa.</textarea>
                             </div>
                             <div class="translation-review-column">
-                                <h4>Mallin vastaus</h4>
-                                <pre id="finnish-translation-part-response" class="translation-review-text">Valitse suomennososa.</pre>
+                                <h4>Suomennos / mallin vastaus</h4>
+                                <textarea id="finnish-translation-part-response" class="translation-review-text translation-response-editor">Valitse suomennososa.</textarea>
+                                <button id="finnish-translation-part-save-btn" class="btn btn-secondary" type="button">Tallenna palan korjaus</button>
                             </div>
                         </div>
                     </div>
