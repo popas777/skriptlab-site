@@ -185,7 +185,9 @@ const pageTranslations = {
     { selector: ".preview-action:nth-child(3) strong", fi: "Viimeistely", en: "Final review" },
     { selector: ".preview-action:nth-child(3) span", fi: "Oikoluku, virhelistaus, korjausehdotukset ja tarkistuslista.", en: "Proofreading support, error list, correction suggestions and checklist." },
     { selector: ".preview-action:nth-child(4) strong", fi: "Taitto", en: "Layout" },
-    { selector: ".preview-action:nth-child(4) span", fi: "Sivunäkymä, kuvituksen suunta ja tuotantoon valmistelu.", en: "Page view, visual direction and preparation for production." }
+    { selector: ".preview-action:nth-child(4) span", fi: "Sivunäkymä, kuvituksen suunta ja tuotantoon valmistelu.", en: "Page view, visual direction and preparation for production." },
+    { selector: ".preview-action:nth-child(5) strong", fi: "Käännökset ja selkokieliset versiot", en: "Translations and plain-language versions" },
+    { selector: ".preview-action:nth-child(5) span", fi: "Käännösluonnokset, suomennokset ja selkeämmäksi mukautetut tekstiversiot.", en: "Translation drafts, Finnish versions and clearer adapted text versions." }
   ],
   audience: [
     { selector: ".section-label", fi: "Kenelle?", en: "For whom?" },
