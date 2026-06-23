@@ -194,11 +194,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let finnishTranslationTimerInterval = null;
     let latestTranslationEstimate = null;
     let latestFinnishTranslationEstimate = null;
-    let miscModels = [];
-    let miscTimerInterval = null;
-    let latestMiscText = '';
-    let currentMiscAssets = [];
-    let imageModels = [];
+	    let miscModels = [];
+	    let miscTimerInterval = null;
+	    let latestMiscText = '';
+	    let currentMiscAssets = [];
+	    let currentLayoutAssets = [];
+	    let imageModels = [];
     let proofreadSuggestions = [];
     let proofreadSelection = { cIndex: null };
     let proofreadExtraFindings = [];
@@ -274,21 +275,24 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         oppimateriaali: 'Oppimateriaali'
     };
     const writerStageConfig = {
-        draft: {
-            label: 'Luonnos',
-            role: 'Kirjailija',
-            description: 'Vapaa kirjoittaminen, ideointi ja jäsentely. Tekstin ei tarvitse olla valmis tai tasainen.',
-            assistantHint: 'Keskity ideoihin, kohtauksiin, henkilöihin, ääneen ja siihen, mitä seuraavaksi kannattaa kirjoittaa.'
-        },
-        manuscript: {
-            label: 'Käsikirjoitus',
-            role: 'Editori / kustannustoimittaja',
-            description: 'Rakenne vakautuu: ositus, luvut, kappalejako, yhtenäistäminen ja editointi tehdään hallitusti.',
-            assistantHint: 'Keskity rakenteeseen, jatkuvuuteen, rytmiin, toistoon, kappalejakoon ja tekstin yhtenäistämiseen.'
-        },
-        production: {
-            label: 'Tuotantovalmiiksi viimeistely',
-            role: 'Graafikko / taittaja',
+	        draft: {
+	            label: 'Luonnos',
+	            progressLabel: 'Käsikirjoittaminen',
+	            role: 'Kirjailija',
+	            description: 'Vapaa kirjoittaminen, ideointi ja jäsentely. Tekstin ei tarvitse olla valmis tai tasainen.',
+	            assistantHint: 'Keskity ideoihin, kohtauksiin, henkilöihin, ääneen ja siihen, mitä seuraavaksi kannattaa kirjoittaa.'
+	        },
+	        manuscript: {
+	            label: 'Käsikirjoitus',
+	            progressLabel: 'Viimeistely',
+	            role: 'Editori / kustannustoimittaja',
+	            description: 'Rakenne vakautuu: ositus, luvut, kappalejako, yhtenäistäminen ja editointi tehdään hallitusti.',
+	            assistantHint: 'Keskity rakenteeseen, jatkuvuuteen, rytmiin, toistoon, kappalejakoon ja tekstin yhtenäistämiseen.'
+	        },
+	        production: {
+	            label: 'Tuotantovalmiiksi viimeistely',
+	            progressLabel: 'Taitto',
+	            role: 'Graafikko / taittaja',
             description: 'Sisältö on lukittu tai lähes lukittu. Muutokset pidetään pieninä ja teksti valmistellaan taittoa varten.',
             assistantHint: 'Keskity viimeisiin korjauksiin, taittomerkintöihin, otsikoihin, oheisaineistoihin, sisällysluetteloon ja taittoon.'
         }
@@ -1767,13 +1771,61 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
     }
 
-    function currentWriterStage() {
-        const stage = window.manuscriptData?.analysis?.writer_stage || 'draft';
-        return writerStageConfig[stage] ? stage : 'draft';
-    }
+	    function currentWriterStage() {
+	        const stage = window.manuscriptData?.analysis?.writer_stage || 'draft';
+	        return writerStageConfig[stage] ? stage : 'draft';
+	    }
 
-    async function setWriterStage(stage) {
-        if (!writerStageConfig[stage]) return;
+	    function isWriterDeskFrontMatterChapter(chapter) {
+	        const label = `${chapter?.id || ''} ${chapter?.title || ''}`.toLowerCase();
+	        return /nimi[oö]lehti|copyright|copysivu|sis[aä]llysluettelo|table of contents|\btoc\b/.test(label);
+	    }
+
+	    function writerDeskManuscriptStats(data = window.manuscriptData) {
+	        const chapters = Array.isArray(data?.chapters) ? data.chapters : [];
+	        const bodyChapters = chapters.filter(chapter => !isWriterDeskFrontMatterChapter(chapter));
+	        const text = getFullManuscriptText(data);
+	        const paragraphCount = chapters.reduce((sum, chapter) => {
+	            return sum + (Array.isArray(chapter.paragraphs) ? chapter.paragraphs.filter(paragraph => String(paragraph || '').trim()).length : 0);
+	        }, 0);
+	        return {
+	            chars: text.length,
+	            chapters: bodyChapters.length || chapters.length,
+	            paragraphs: paragraphCount
+	        };
+	    }
+
+	    function writerDeskProgressPercent(stage = currentWriterStage()) {
+	        if (!window.manuscriptData) return 0;
+	        const stats = writerDeskManuscriptStats();
+	        const analysisReady = hasSavedAnalysis(window.manuscriptData.analysis);
+	        const includedMiscCount = currentMiscAssets.filter(asset => asset.asset_type === 'book_misc_material' && asset.include_in_book).length;
+	        const hasLayoutPdf = currentLayoutAssets.some(asset => asset.asset_type === 'layout_pdf');
+	        const hasLayoutEpub = currentLayoutAssets.some(asset => asset.asset_type === 'layout_epub');
+	        if (stage === 'draft') {
+	            const percent = 4
+	                + Math.min(15, Math.round((stats.chars / 160000) * 15))
+	                + Math.min(8, Math.round((stats.chapters / 12) * 8))
+	                + Math.min(8, Math.round((stats.paragraphs / 120) * 8));
+	            return Math.min(35, Math.max(stats.chars ? 8 : 0, percent));
+	        }
+	        if (stage === 'manuscript') {
+	            const percent = 36
+	                + (analysisReady ? 16 : 0)
+	                + Math.min(8, Math.round((stats.chapters / 16) * 8))
+	                + Math.min(10, Math.round((stats.paragraphs / 180) * 10));
+	            return Math.min(72, percent);
+	        }
+	        const percent = 74
+	            + (analysisReady ? 4 : 0)
+	            + Math.min(8, includedMiscCount * 2)
+	            + (hasLayoutPdf ? 8 : 0)
+	            + (hasLayoutEpub ? 6 : 0);
+	        return Math.min(100, percent);
+	    }
+
+	    async function setWriterStage(stage) {
+	        if (!writerStageConfig[stage]) return;
         if (!window.manuscriptData) {
             setWriterDeskToolStatus('Valitse käsikirjoitus ennen työvaiheen vaihtoa.');
             return;
@@ -1788,17 +1840,24 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         renderWriterAssistantActions();
     }
 
-    function renderWriterStage() {
-        const stage = currentWriterStage();
-        const config = writerStageConfig[stage] || writerStageConfig.draft;
-        const currentEl = document.getElementById('writer-stage-current');
-        const descEl = document.getElementById('writer-stage-description');
-        const analysisEl = document.getElementById('writer-stage-analysis-status');
-        if (currentEl) currentEl.textContent = config.label;
-        if (descEl) descEl.textContent = config.description;
-        document.querySelectorAll('[data-writer-stage]').forEach(button => {
-            const active = button.dataset.writerStage === stage;
-            button.classList.toggle('active', active);
+	    function renderWriterStage() {
+	        const stage = currentWriterStage();
+	        const config = writerStageConfig[stage] || writerStageConfig.draft;
+	        const currentEl = document.getElementById('writer-stage-current');
+	        const descEl = document.getElementById('writer-stage-description');
+	        const analysisEl = document.getElementById('writer-stage-analysis-status');
+	        const progressLabelEl = document.getElementById('writer-stage-progress-label');
+	        const progressPercentEl = document.getElementById('writer-stage-progress-percent');
+	        const progressBarEl = document.getElementById('writer-stage-progress-bar');
+	        if (currentEl) currentEl.textContent = config.label;
+	        if (descEl) descEl.textContent = config.description;
+	        const percent = writerDeskProgressPercent(stage);
+	        if (progressLabelEl) progressLabelEl.textContent = config.progressLabel || config.label;
+	        if (progressPercentEl) progressPercentEl.textContent = `${percent}%`;
+	        if (progressBarEl) progressBarEl.style.width = `${percent}%`;
+	        document.querySelectorAll('[data-writer-stage]').forEach(button => {
+	            const active = button.dataset.writerStage === stage;
+	            button.classList.toggle('active', active);
             button.disabled = !window.manuscriptData;
         });
         if (analysisEl) {
@@ -1811,20 +1870,50 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             analysisEl.textContent = analysisReady
                 ? `Semanttinen analyysi: valmis. ${stageNote}`
                 : `Semanttinen analyysi: odottaa. ${stageNote}`;
-        }
-    }
+	        }
+	    }
 
-    function renderWriterAssistantActions() {
-        const select = document.getElementById('writer-assistant-action');
-        const promptEl = document.getElementById('writer-assistant-prompt');
-        const outputEl = document.getElementById('writer-assistant-output');
-        if (!select) return;
-        const previous = select.value;
-        const stage = currentWriterStage();
-        const actions = writerAssistantActionsByStage[stage] || writerAssistantActionsByStage.draft;
-        select.innerHTML = actions.map(action => `<option value="${escapeHtml(action.value)}">${escapeHtml(action.label)}</option>`).join('');
-        select.value = actions.some(action => action.value === previous) ? previous : actions[0].value;
-        const placeholderByStage = {
+	    function renderWriterAssistantActionChips(actions = []) {
+	        const container = document.getElementById('writer-assistant-quick-actions');
+	        const select = document.getElementById('writer-assistant-action');
+	        if (!container || !select) return;
+	        const selected = select.value;
+	        const visibleActions = actions.slice(0, Math.min(actions.length, 3));
+	        container.innerHTML = '';
+	        visibleActions.forEach(action => {
+	            const button = document.createElement('button');
+	            button.type = 'button';
+	            button.className = 'writer-action-chip';
+	            button.dataset.writerAssistantAction = action.value;
+	            button.textContent = action.label;
+	            button.classList.toggle('active', action.value === selected);
+	            button.addEventListener('click', () => {
+	                select.value = action.value;
+	                writerDeskAssistantDraftKind = '';
+	                document.querySelector('.writer-action-more')?.removeAttribute('open');
+	                document.getElementById('writer-assistant-apply-btn')?.setAttribute('disabled', 'disabled');
+	                setWriterAssistantStatus('');
+	                renderWriterAssistantActionChips(actions);
+	            });
+	            container.appendChild(button);
+	        });
+	    }
+
+	    function renderWriterAssistantActions() {
+	        const select = document.getElementById('writer-assistant-action');
+	        const promptEl = document.getElementById('writer-assistant-prompt');
+	        const outputEl = document.getElementById('writer-assistant-output');
+	        const commandLabelEl = document.getElementById('writer-command-stage-label');
+	        if (!select) return;
+	        const previous = select.value;
+	        const stage = currentWriterStage();
+	        const config = writerStageConfig[stage] || writerStageConfig.draft;
+	        const actions = writerAssistantActionsByStage[stage] || writerAssistantActionsByStage.draft;
+	        select.innerHTML = actions.map(action => `<option value="${escapeHtml(action.value)}">${escapeHtml(action.label)}</option>`).join('');
+	        select.value = actions.some(action => action.value === previous) ? previous : actions[0].value;
+	        if (commandLabelEl) commandLabelEl.textContent = `${config.progressLabel || config.label}:`;
+	        renderWriterAssistantActionChips(actions);
+	        const placeholderByStage = {
             draft: 'Esimerkiksi: haluan lisää jännitettä, kohtaus ei vielä kanna, hahmon tavoite on epäselvä.',
             manuscript: 'Esimerkiksi: yhtenäistä sävyä, tarkista kappalejako, vähennä toistoa mutta säilytä kirjailijan ääni.',
             production: 'Esimerkiksi: tee sisällysluettelosta lyhyt ja selkeä, huomioi A5-taitto, jätä epävarmat hakemistomerkinnät pois.'
@@ -1943,11 +2032,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         renderWriterDeskStructureOnly();
     }
 
-    function scheduleWriterDeskAutosave() {
-        if (!syncWriterDeskEditorToManuscript()) return;
-        window.clearTimeout(writerDeskAutosaveTimer);
-        writerDeskAutosaveTimer = window.setTimeout(() => {
-            if (syncWriterDeskEditorToManuscript()) {
+	    function scheduleWriterDeskAutosave() {
+	        if (!syncWriterDeskEditorToManuscript()) return;
+	        renderWriterStage();
+	        window.clearTimeout(writerDeskAutosaveTimer);
+	        writerDeskAutosaveTimer = window.setTimeout(() => {
+	            if (syncWriterDeskEditorToManuscript()) {
                 window.saveProjectChapterToDB(window.manuscriptData, writerDeskSelection.cIndex)
                     .then(() => updateSaveTimestamp('writer-desk-save-status', Boolean(window.manuscriptData?._db_sync_pending)));
                 renderBookOverview();
@@ -2038,12 +2128,13 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         renderWriterDeskAssistantContext();
     }
 
-    async function saveWriterDeskText(showStatus = true) {
-        window.clearTimeout(writerDeskAutosaveTimer);
-        if (!syncWriterDeskEditorToManuscript()) return;
-        await window.saveProjectChapterToDB(window.manuscriptData, writerDeskSelection.cIndex);
-        updateSaveTimestamp('writer-desk-save-status', Boolean(window.manuscriptData._db_sync_pending));
-        renderBookOverview();
+	    async function saveWriterDeskText(showStatus = true) {
+	        window.clearTimeout(writerDeskAutosaveTimer);
+	        if (!syncWriterDeskEditorToManuscript()) return;
+	        await window.saveProjectChapterToDB(window.manuscriptData, writerDeskSelection.cIndex);
+	        updateSaveTimestamp('writer-desk-save-status', Boolean(window.manuscriptData._db_sync_pending));
+	        renderWriterStage();
+	        renderBookOverview();
         renderWritingView();
         if (window.renderNavList) window.renderNavList();
         if (showStatus) {
@@ -4105,17 +4196,20 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         link.click();
     }
 
-    function renderLayoutAssets(items = []) {
-        const container = document.getElementById('layout-assets');
-        const status = document.getElementById('layout-status');
-        if (!container) return;
-        container.innerHTML = '';
-        if (!items.length) {
-            if (status) status.textContent = 'Ei ajettua taittoa vielä.';
-            return;
-        }
-        if (status) status.textContent = 'Taittotiedostot tallennettu käsikirjoitukselle.';
-        items.forEach(asset => {
+	    function renderLayoutAssets(items = []) {
+	        currentLayoutAssets = Array.isArray(items) ? items : [];
+	        const container = document.getElementById('layout-assets');
+	        const status = document.getElementById('layout-status');
+	        if (!container) return;
+	        container.innerHTML = '';
+	        if (!items.length) {
+	            if (status) status.textContent = 'Ei ajettua taittoa vielä.';
+	            renderWriterStage();
+	            return;
+	        }
+	        if (status) status.textContent = 'Taittotiedostot tallennettu käsikirjoitukselle.';
+	        renderWriterStage();
+	        items.forEach(asset => {
             const card = document.createElement('div');
             card.className = 'card glass-panel';
             card.innerHTML = `
@@ -5150,13 +5244,14 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     document.querySelectorAll('[data-writer-stage]').forEach(button => {
         button.addEventListener('click', () => setWriterStage(button.dataset.writerStage));
     });
-    if (writerAssistantActionSelect) {
-        writerAssistantActionSelect.addEventListener('change', () => {
-            writerDeskAssistantDraftKind = '';
-            if (writerAssistantApplyBtn) writerAssistantApplyBtn.disabled = true;
-            setWriterAssistantStatus('');
-        });
-    }
+	    if (writerAssistantActionSelect) {
+	        writerAssistantActionSelect.addEventListener('change', () => {
+	            writerDeskAssistantDraftKind = '';
+	            if (writerAssistantApplyBtn) writerAssistantApplyBtn.disabled = true;
+	            setWriterAssistantStatus('');
+	            renderWriterAssistantActionChips(writerAssistantActionsByStage[currentWriterStage()] || writerAssistantActionsByStage.draft);
+	        });
+	    }
     writerMobileJumpButtons.forEach(button => {
         button.addEventListener('click', () => {
             const target = document.getElementById(button.dataset.writerScroll);
@@ -6997,20 +7092,22 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     async function loadMiscAssetsForActiveProject(useActiveManuscript = false) {
         const project = useActiveManuscript ? window.manuscriptData : (currentMiscProject() || window.manuscriptData);
-        if (!project?.id) {
-            currentMiscAssets = [];
-            renderMiscAssets([]);
-            renderBookOverview();
-            return [];
-        }
+	        if (!project?.id) {
+	            currentMiscAssets = [];
+	            renderMiscAssets([]);
+	            renderBookOverview();
+	            renderWriterStage();
+	            return [];
+	        }
         try {
             const res = await apiFetch(`/api/projects/${project.id}/misc-assets`);
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || 'Oheisaineistojen lataus epäonnistui.');
-            if (window.manuscriptData?.id && String(project.id) === String(window.manuscriptData.id)) {
-                currentMiscAssets = data || [];
-                renderBookOverview();
-            }
+	            if (window.manuscriptData?.id && String(project.id) === String(window.manuscriptData.id)) {
+	                currentMiscAssets = data || [];
+	                renderBookOverview();
+	                renderWriterStage();
+	            }
             renderMiscAssets(data || []);
             return data || [];
         } catch (err) {

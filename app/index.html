@@ -13,7 +13,7 @@
         <div class="card glass-panel" style="width: 400px; text-align: center;">
             <h3 id="task-title" style="margin-bottom: 16px; color: var(--ai-gradient-start);">Tekoäly työskentelee...</h3>
             <p id="task-desc" style="color: var(--text-secondary); margin-bottom: 24px; font-size: 14px;">Analysoidaan dataa</p>
-            
+
             <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; margin-bottom: 16px;">
                 <div id="task-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--ai-gradient-start), var(--ai-gradient-end)); transition: width 1s linear;"></div>
             </div>
@@ -69,12 +69,11 @@
             <h1 class="logo">SkriptLab<span class="accent">.</span></h1>
             <nav class="sidebar-nav">
                 <ul id="nav-menu">
-                    <li class="active" data-view="view-kirjani">Käsikirjoitukseni</li>
-                    <li data-view="view-tyopoyta">Työpöytä</li>
-                    <li data-view="view-kirjoita">Kirjoita</li>
-                    <li data-view="view-ai-tyonkulku">AI-työnkulku</li>
-                    <li data-view="view-elamakerta">Elämäkerta</li>
-                    <li data-view="view-analyysi">Analyysi</li>
+	                    <li class="active" data-view="view-kirjani">Käsikirjoitukseni</li>
+	                    <li data-view="view-tyopoyta">Työpöytä</li>
+	                    <li data-view="view-kirjoita">Kirjoita</li>
+	                    <li data-view="view-elamakerta">Elämäkerta</li>
+	                    <li data-view="view-analyysi">Analyysi</li>
                     <li data-view="view-toimitus">Editointi</li>
                     <li data-view="view-oikoluku">Oikoluku</li>
                     <li data-view="view-kuvitus">Kuvitus</li>
@@ -84,10 +83,11 @@
                     <li data-view="view-audio">Audio</li>
                     <li data-view="view-kaannokset">Käännökset</li>
                     <li data-view="view-suomentaja">Suomentaja</li>
-                    <li data-view="view-muut-toiminnot">Oheisaineistot</li>
-                    <li data-view="view-kirja">Valmis kirja</li>
-                    <li data-view="view-julkaise">Julkaise</li>
-                    <li data-view="view-sopimukset">Sopimukset</li>
+	                    <li data-view="view-muut-toiminnot">Oheisaineistot</li>
+	                    <li data-view="view-kirja">Valmis kirja</li>
+	                    <li data-view="view-julkaise">Julkaise</li>
+	                    <li data-view="view-ai-tyonkulku">AI-työnkulku</li>
+	                    <li data-view="view-sopimukset">Sopimukset</li>
                     <li data-view="view-aikajana">Aikajana</li>
                     <li data-view="view-viimeistely">Versiot</li>
                     <li data-view="view-om-projekti">OM - Projektin luonti</li>
@@ -217,12 +217,19 @@
                     </div>
                 </div>
 
-                <section class="writer-stage-panel glass-panel">
-                    <div class="writer-stage-summary">
-                        <span class="writer-stage-eyebrow">Työvaihe</span>
-                        <strong id="writer-stage-current">Luonnos</strong>
-                        <p id="writer-stage-description">Vapaa kirjoittaminen, ideointi ja jäsentely.</p>
-                    </div>
+	                <section class="writer-stage-panel glass-panel">
+	                    <div class="writer-stage-summary">
+	                        <span class="writer-stage-eyebrow">Työvaihe</span>
+	                        <strong id="writer-stage-current">Luonnos</strong>
+	                        <p id="writer-stage-description">Vapaa kirjoittaminen, ideointi ja jäsentely.</p>
+	                        <div class="writer-stage-progress" aria-label="Kokonaisuuden eteneminen">
+	                            <div class="writer-stage-progress-row">
+	                                <span id="writer-stage-progress-label">Käsikirjoittaminen</span>
+	                                <strong id="writer-stage-progress-percent">0%</strong>
+	                            </div>
+	                            <div class="writer-stage-progress-track"><span id="writer-stage-progress-bar"></span></div>
+	                        </div>
+	                    </div>
                     <div class="writer-stage-rail" id="writer-stage-rail">
                         <button class="writer-stage-step" type="button" data-writer-stage="draft">
                             <span>1</span>
@@ -263,34 +270,46 @@
                         <div id="writer-desk-chapter-list" class="chapter-list"></div>
                     </aside>
 
-                    <section class="writer-desk-editor glass-panel" id="writer-desk-editor-panel">
-                        <div class="panel-header">
-                            <h3 id="writer-desk-selection-title">Valitse luku</h3>
+	                    <section class="writer-desk-editor glass-panel" id="writer-desk-editor-panel">
+	                        <div class="panel-header">
+	                            <h3 id="writer-desk-selection-title">Valitse luku</h3>
                             <div class="panel-status-stack">
                                 <span id="writer-desk-tool-status" class="writing-tool-status"></span>
                                 <span id="writer-desk-save-status" class="save-timestamp">Tallennus: -</span>
-                            </div>
-                        </div>
-                        <textarea id="writer-desk-text" class="writer-desk-text" placeholder="Valitse tai lataa käsikirjoitus ensin. Työpöytä näyttää valitun luvun, rakenteen ja avustajan samassa näkymässä."></textarea>
-                    </section>
+	                            </div>
+	                        </div>
+	                        <textarea id="writer-desk-text" class="writer-desk-text" placeholder="Valitse tai lataa käsikirjoitus ensin. Työpöytä näyttää valitun luvun, rakenteen ja avustajan samassa näkymässä."></textarea>
+	                        <div class="writer-command-box" id="writer-command-box">
+	                            <div class="writer-command-topline">
+	                                <span id="writer-command-stage-label">Avustaja</span>
+	                                <div class="writer-action-chips" id="writer-assistant-quick-actions"></div>
+	                                <details class="writer-action-more">
+	                                    <summary title="Lisää toimintoja" aria-label="Lisää toimintoja">+</summary>
+	                                    <div class="writer-action-more-panel">
+	                                        <label for="writer-assistant-action">Toiminto</label>
+	                                        <select id="writer-assistant-action">
+	                                            <option value="brainstorm">Ideoi ja auta jatkamaan</option>
+	                                            <option value="structure">Jäsentele lukua</option>
+	                                            <option value="edit">Ehdota editointia</option>
+	                                            <option value="next">Ehdota seuraava askel</option>
+	                                        </select>
+	                                    </div>
+	                                </details>
+	                            </div>
+	                            <div class="writer-command-input-row">
+	                                <textarea id="writer-assistant-prompt" placeholder="Mitä haluat tehdä tälle osiolle?"></textarea>
+	                                <button class="btn btn-primary" id="writer-assistant-run-btn" type="button">Tee</button>
+	                            </div>
+	                        </div>
+	                    </section>
 
-                    <aside class="writer-desk-assistant glass-panel" id="writer-desk-assistant-panel">
-                        <div>
-                            <h3>Avustaja</h3>
-                            <p id="writer-assistant-context">Avustaja käyttää valittua lukua ja käsikirjoituksen vaihetta.</p>
-                        </div>
-                        <label for="writer-assistant-action">Mitä tehdään?</label>
-                        <select id="writer-assistant-action">
-                            <option value="brainstorm">Ideoi ja auta jatkamaan</option>
-                            <option value="structure">Jäsentele lukua</option>
-                            <option value="edit">Ehdota editointia</option>
-                            <option value="next">Ehdota seuraava askel</option>
-                        </select>
-                        <label for="writer-assistant-prompt">Tarkennus</label>
-                        <textarea id="writer-assistant-prompt" placeholder="Esimerkiksi: haluan lisää jännitettä, dialogi tuntuu pitkältä, hahmon motiivi kaipaa selkeytystä."></textarea>
-                        <button class="btn btn-primary" id="writer-assistant-run-btn" type="button">Kysy avustajalta</button>
-                        <textarea id="writer-assistant-output" placeholder="Vastaus näkyy tässä."></textarea>
-                        <button class="btn btn-secondary" id="writer-assistant-apply-btn" type="button" disabled>Korvaa luku vastauksella</button>
+	                    <aside class="writer-desk-assistant glass-panel" id="writer-desk-assistant-panel">
+	                        <div>
+	                            <h3>Avustajan tulos</h3>
+	                            <p id="writer-assistant-context">Avustaja käyttää valittua lukua ja käsikirjoituksen vaihetta.</p>
+	                        </div>
+	                        <textarea id="writer-assistant-output" placeholder="Vastaus näkyy tässä."></textarea>
+	                        <button class="btn btn-secondary" id="writer-assistant-apply-btn" type="button" disabled>Korvaa luku vastauksella</button>
                         <p id="writer-assistant-status"></p>
                     </aside>
                 </div>
