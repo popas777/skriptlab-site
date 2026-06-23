@@ -154,6 +154,8 @@ a {
 .language-switch-item {
   display: flex;
   align-items: center;
+  margin-left: 0.25rem;
+  margin-right: 0.75rem;
 }
 
 .lang-switch {
@@ -1165,6 +1167,7 @@ a {
   .language-switch-item {
     order: -1;
     width: 100%;
+    margin: 0;
   }
 
   .nav-links .lang-switch {

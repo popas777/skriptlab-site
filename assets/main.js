@@ -339,6 +339,41 @@ const pageTranslations = {
   ]
 };
 
+const navigationLabels = {
+  home: { fi: "Tuote", en: "Product" },
+  audience: { fi: "Kenelle", en: "Who it's for" },
+  features: { fi: "Ominaisuudet", en: "Features" },
+  process: { fi: "Työnkulku", en: "Workflow" },
+  trust: { fi: "Tietosuoja", en: "Privacy" },
+  pricing: { fi: "Hinnoittelu", en: "Pricing" },
+  contact: { fi: "Ota yhteyttä", en: "Contact" }
+};
+
+function getNavigationKey(link) {
+  const href = link.getAttribute("href") || "";
+
+  if (href.includes("kenelle")) return "audience";
+  if (href.includes("ominaisuudet")) return "features";
+  if (href.includes("prosessi")) return "process";
+  if (href.includes("luottamus")) return "trust";
+  if (href.includes("hinnat")) return "pricing";
+  if (href.includes("yhteys")) return "contact";
+  if (href === "/" || href.includes("index") || href === "") return "home";
+
+  return null;
+}
+
+function applyNavigationLabels(lang) {
+  document.querySelectorAll(".nav-links a:not(.btn-login), .hero-links a").forEach((link) => {
+    const key = getNavigationKey(link);
+    const label = key ? navigationLabels[key]?.[lang] : null;
+
+    if (label) {
+      link.textContent = label;
+    }
+  });
+}
+
 function getSavedLanguage() {
   const params = new URLSearchParams(window.location.search);
   const requested = params.get("lang");
@@ -471,6 +506,7 @@ function setLanguage(lang) {
 
   applyMeta(lang);
   [...commonTranslations, ...(pageTranslations[pageKey] || [])].forEach((entry) => applyEntry(entry, lang));
+  applyNavigationLabels(lang);
   updateLanguageButtons(lang);
 }
 
