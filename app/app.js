@@ -3503,22 +3503,117 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     const productFieldMap = {
+        contact_person: 'product-contact-person',
+        company: 'product-company',
+        address: 'product-address',
+        postal_code: 'product-postal-code',
+        city: 'product-city',
+        phone: 'product-phone',
+        email: 'product-email',
+        business_id: 'product-business-id',
+        product_identifier: 'product-identifier',
+        publisher: 'product-publisher',
+        publisher_product_id: 'product-publisher-product-id',
         title: 'product-title',
-        author: 'product-author',
         subtitle: 'product-subtitle',
+        author: 'product-author',
+        author_role: 'product-author-role',
+        author_isni: 'product-author-isni',
+        author_bio: 'product-author-bio',
+        master_brand: 'product-master-brand',
+        availability: 'product-availability',
+        publication_date: 'product-publication-date',
+        new_edition_date: 'product-new-edition-date',
+        public_date: 'product-public-date',
+        publication_year: 'product-publication-year',
+        edition_number: 'product-edition-number',
         product_format: 'product-format',
-        audience: 'product-audience',
-        age_recommendation: 'product-age',
+        product_composition: 'product-composition',
+        file_format: 'product-file-format',
+        epub_version: 'product-epub-version',
+        ebook_embargo: 'product-ebook-embargo',
+        reading_service_embargo: 'product-reading-service-embargo',
+        language: 'product-language',
+        page_count: 'product-page-count',
+        illustrations: 'product-illustrations',
+        main_content: 'product-main-content',
+        other_content: 'product-other-content',
+        accessibility: 'product-accessibility',
+        accessibility_description: 'product-accessibility-description',
+        library_class_letter: 'product-library-class-letter',
+        library_class: 'product-library-class',
+        product_group: 'product-product-group',
         genre: 'product-genre',
         thema_classes: 'product-thema',
-        library_class: 'product-library-class',
         keywords: 'product-keywords',
+        audience: 'product-audience',
+        age_recommendation: 'product-age',
+        protection_method: 'product-protection-method',
+        protection_type: 'product-protection-type',
         short_description: 'product-short',
         long_description: 'product-long',
         backcover: 'product-backcover',
         sales_points: 'product-sales-points',
-        onix_summary: 'product-onix'
+        cover_image_note: 'product-cover-image-note',
+        onix_summary: 'product-onix',
+        vat_status: 'product-vat-status',
+        price_type: 'product-price-type',
+        price: 'product-price',
+        discount: 'product-discount',
+        price_group: 'product-price-group',
+        vat_rate: 'product-vat-rate',
+        self_publish_price: 'product-self-publish-price',
+        customs_code: 'product-customs-code',
+        manufacturing_country: 'product-manufacturing-country',
+        free_message: 'product-free-message'
     };
+
+    const productRequiredFieldKeys = new Set([
+        'contact_person',
+        'company',
+        'address',
+        'postal_code',
+        'city',
+        'phone',
+        'email',
+        'product_identifier',
+        'publisher',
+        'title',
+        'author',
+        'availability',
+        'publication_year',
+        'product_format',
+        'language',
+        'short_description'
+    ]);
+
+    const productManualFieldKeys = new Set([
+        'contact_person',
+        'company',
+        'address',
+        'postal_code',
+        'city',
+        'phone',
+        'email',
+        'business_id',
+        'product_identifier',
+        'publisher',
+        'publisher_product_id',
+        'availability',
+        'publication_date',
+        'new_edition_date',
+        'public_date',
+        'publication_year',
+        'edition_number',
+        'price',
+        'discount',
+        'price_group',
+        'vat_status',
+        'vat_rate',
+        'self_publish_price',
+        'customs_code',
+        'manufacturing_country'
+    ]);
 
     function setProductStatus(message, isError = false) {
         const status = document.getElementById('product-status');
@@ -3527,32 +3622,124 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         status.style.color = isError ? '#ffb4b4' : 'var(--text-secondary)';
     }
 
+    function collectProductFields() {
+        const info = {};
+        Object.entries(productFieldMap).forEach(([key, id]) => {
+            const element = document.getElementById(id);
+            info[key] = String(element?.value || '').trim();
+        });
+        info.missing_fields = productMissingFieldKeys(info);
+        return info;
+    }
+
+    function productMissingFieldKeys(info = collectProductFields()) {
+        const existing = new Set(Array.isArray(info?.missing_fields) ? info.missing_fields : []);
+        Object.keys(productFieldMap).forEach(key => {
+            if (String(info?.[key] || '').trim()) existing.delete(key);
+        });
+        productRequiredFieldKeys.forEach(key => {
+            if (!String(info?.[key] || '').trim()) existing.add(key);
+            else existing.delete(key);
+        });
+        return Array.from(existing).sort();
+    }
+
+    function markProductMissingFields(info = collectProductFields()) {
+        const missing = new Set(productMissingFieldKeys(info));
+        document.querySelectorAll('.product-field-row').forEach(row => {
+            const key = row.dataset.productKey;
+            row.classList.toggle('product-missing', Boolean(key && missing.has(key)));
+        });
+        return missing.size;
+    }
+
     function productInfoFromAnalysis() {
         const analysis = window.manuscriptData?.analysis || {};
         const saved = analysis.product_info && typeof analysis.product_info === 'object' ? analysis.product_info : {};
-        return {
-            title: saved.title || window.manuscriptData?.title || '',
-            author: saved.author || window.manuscriptData?.author || '',
-            subtitle: saved.subtitle || '',
-            product_format: saved.product_format || 'Painettu kirja / e-kirja',
-            audience: saved.audience || analysis.audience || '',
-            age_recommendation: saved.age_recommendation || '',
-            genre: saved.genre || analysis.genre || '',
-            thema_classes: saved.thema_classes || analysis.thema_classes || '',
-            library_class: saved.library_class || analysis.library_class || '',
-            keywords: saved.keywords || analysis.keywords || '',
-            short_description: saved.short_description || analysis.marketing_short || '',
-            long_description: saved.long_description || analysis.marketing_long || '',
-            backcover: saved.backcover || analysis.backcover || analysis.backcover_text || '',
-            sales_points: saved.sales_points || '',
-            onix_summary: saved.onix_summary || analysis.onix || ''
-        };
+        const info = {};
+        Object.keys(productFieldMap).forEach(key => {
+            info[key] = String(saved[key] || '').trim();
+        });
+        info.title = info.title || window.manuscriptData?.title || '';
+        info.author = info.author || window.manuscriptData?.author || '';
+        info.author_role = info.author_role || (info.author ? 'Tekijä, kirjoittaja' : '');
+        info.product_format = info.product_format || 'Painettu kirja / e-kirja';
+        info.language = info.language || 'suomi';
+        info.main_content = info.main_content || 'Tekstiä';
+        info.audience = info.audience || analysis.audience || '';
+        info.genre = info.genre || analysis.genre || '';
+        info.product_group = info.product_group || info.genre || '';
+        info.thema_classes = info.thema_classes || analysis.thema_classes || '';
+        info.library_class = info.library_class || analysis.library_class || '';
+        info.keywords = info.keywords || analysis.keywords || '';
+        info.short_description = info.short_description || analysis.marketing_short || '';
+        info.long_description = info.long_description || analysis.marketing_long || '';
+        info.backcover = info.backcover || analysis.backcover || analysis.backcover_text || '';
+        info.onix_summary = info.onix_summary || analysis.onix || '';
+        info.missing_fields = Array.isArray(saved.missing_fields) ? saved.missing_fields : [];
+        info.missing_fields = productMissingFieldKeys(info);
+        return info;
     }
 
     function setProductFields(info, force = false) {
         Object.entries(productFieldMap).forEach(([key, id]) => {
             setMarketingFieldValue(id, info?.[key] || '', force);
         });
+        markProductMissingFields();
+    }
+
+    function mergeProductInfo(existing, generated) {
+        const merged = {};
+        Object.keys(productFieldMap).forEach(key => {
+            const currentValue = String(existing?.[key] || '').trim();
+            const generatedValue = String(generated?.[key] || '').trim();
+            if (currentValue && productManualFieldKeys.has(key)) {
+                merged[key] = currentValue;
+            } else if (generatedValue) {
+                merged[key] = generatedValue;
+            } else {
+                merged[key] = currentValue;
+            }
+        });
+        merged.missing_fields = productMissingFieldKeys({
+            ...merged,
+            missing_fields: Array.isArray(generated?.missing_fields) ? generated.missing_fields : []
+        });
+        return merged;
+    }
+
+    function applyProductInfoToAnalysis(info) {
+        if (!window.manuscriptData) return;
+        if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
+        window.manuscriptData.analysis.product_info = info;
+        window.manuscriptData.analysis.onix = info.onix_summary || '';
+        if (info.audience) window.manuscriptData.analysis.audience = info.audience;
+        if (info.genre) window.manuscriptData.analysis.genre = info.genre;
+        if (info.thema_classes) window.manuscriptData.analysis.thema_classes = info.thema_classes;
+        if (info.library_class) window.manuscriptData.analysis.library_class = info.library_class;
+        if (info.keywords) window.manuscriptData.analysis.keywords = info.keywords;
+        if (info.short_description) window.manuscriptData.analysis.marketing_short = info.short_description;
+        if (info.long_description) window.manuscriptData.analysis.marketing_long = info.long_description;
+        if (info.backcover) window.manuscriptData.analysis.backcover = info.backcover;
+    }
+
+    async function saveProductInfo() {
+        if (!window.manuscriptData) {
+            setProductStatus('Valitse käsikirjoitus ensin.', true);
+            return null;
+        }
+        const info = collectProductFields();
+        applyProductInfoToAnalysis(info);
+        const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
+        if (savedProject?.id) window.manuscriptData = savedProject;
+        setProductFields(info, true);
+        renderAnalysisSummary(window.manuscriptData.analysis);
+        renderMarketingMaterialsFromAnalysis(false);
+        const missingCount = markProductMissingFields(info);
+        const syncPending = Boolean(window.manuscriptData?._db_sync_pending);
+        const suffix = missingCount ? `${missingCount} tärkeää kenttää odottaa täydennystä.` : 'Tärkeät kentät ovat täytettynä.';
+        setProductStatus(syncPending ? `Tuotetiedot tallennettu paikallisesti, tietokantasynkronointi odottaa. ${suffix}` : `Tuotetiedot tallennettu. ${suffix}`, syncPending);
+        return info;
     }
 
     function renderProductInfo(force = false) {
@@ -3569,10 +3756,11 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         const info = productInfoFromAnalysis();
         setProductFields(info, force);
+        const missingCount = markProductMissingFields();
         if (!hasSavedAnalysis(window.manuscriptData.analysis)) {
             setProductStatus('Tee ensin analyysi, jotta tuotetiedot voidaan muodostaa teoksen metatiedoista.', true);
         } else if (window.manuscriptData.analysis?.product_info) {
-            setProductStatus('Tallennetut tuotetiedot ladattu. Voit generoida uuden luonnoksen AI:lla.');
+            setProductStatus(missingCount ? `Tallennetut tuotetiedot ladattu. ${missingCount} tärkeää kenttää odottaa täydennystä.` : 'Tallennetut tuotetiedot ladattu.');
         } else {
             setProductStatus('Analyysi löytyi. Voit generoida tuotetietoluonnoksen AI:lla.');
         }
@@ -3607,22 +3795,18 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             });
             const data = await res.json().catch(() => null);
             if (!res.ok) throw new Error(data?.detail || 'Tuotetietojen generointi epäonnistui.');
-            if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
-            window.manuscriptData.analysis.product_info = data;
-            window.manuscriptData.analysis.onix = data.onix_summary || '';
-            window.manuscriptData.analysis.audience = data.audience || window.manuscriptData.analysis.audience;
-            window.manuscriptData.analysis.genre = data.genre || window.manuscriptData.analysis.genre;
-            window.manuscriptData.analysis.thema_classes = data.thema_classes || window.manuscriptData.analysis.thema_classes;
-            window.manuscriptData.analysis.library_class = data.library_class || window.manuscriptData.analysis.library_class;
-            window.manuscriptData.analysis.marketing_short = data.short_description || window.manuscriptData.analysis.marketing_short;
-            window.manuscriptData.analysis.marketing_long = data.long_description || window.manuscriptData.analysis.marketing_long;
-            window.manuscriptData.analysis.backcover = data.backcover || window.manuscriptData.analysis.backcover;
-            setProductFields(data, true);
+            const merged = mergeProductInfo(collectProductFields(), data);
+            applyProductInfoToAnalysis(merged);
+            const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
+            if (savedProject?.id) window.manuscriptData = savedProject;
+            setProductFields(merged, true);
             renderAnalysisSummary(window.manuscriptData.analysis);
             renderMarketingMaterialsFromAnalysis(false);
-            setProductStatus(data.warnings ? `${data.warnings} Lähde: ${data.generated_by}.` : `Tuotetiedot generoitu ja tallennettu. Lähde: ${data.generated_by}.`);
+            const missingCount = markProductMissingFields(merged);
+            const missingText = missingCount ? ` ${missingCount} tärkeää kenttää jäi käsin täydennettäväksi.` : '';
+            setProductStatus(data.warnings ? `${data.warnings}${missingText} Lähde: ${data.generated_by}.` : `Tuotetiedot generoitu ja tallennettu.${missingText} Lähde: ${data.generated_by}.`);
             loadUsage();
-            return data;
+            return merged;
         } catch (err) {
             setProductStatus(err.message, true);
             alert('Tuotetietojen generointi epäonnistui: ' + networkFailureMessage(err));
@@ -8115,10 +8299,11 @@ ${state.validation || 'Ei validointia.'}`;
     const proofreadExtraResetRulesBtn = document.getElementById('proofread-extra-reset-rules-btn');
     const workflowModeSelect = document.getElementById('workflow-mode');
     const workflowStartBtn = document.getElementById('workflow-start-btn');
-    const workflowRefreshBtn = document.getElementById('workflow-refresh-btn');
-    const productGenerateBtn = document.getElementById('product-generate-btn');
-    const productRefreshBtn = document.getElementById('product-refresh-btn');
-    const audioGuideBtn = document.getElementById('audio-guide-btn');
+	    const workflowRefreshBtn = document.getElementById('workflow-refresh-btn');
+	    const productGenerateBtn = document.getElementById('product-generate-btn');
+	    const productRefreshBtn = document.getElementById('product-refresh-btn');
+	    const productSaveBtn = document.getElementById('product-save-btn');
+	    const audioGuideBtn = document.getElementById('audio-guide-btn');
     const audioSaveGuideBtn = document.getElementById('audio-save-guide-btn');
     const audioTestVoiceBtn = document.getElementById('audio-test-voice-btn');
     const audioStopVoiceBtn = document.getElementById('audio-stop-voice-btn');
@@ -8244,10 +8429,14 @@ ${state.validation || 'Ei validointia.'}`;
         });
     }
     if (workflowStartBtn) workflowStartBtn.addEventListener('click', runAiWorkflow);
-    if (workflowRefreshBtn) workflowRefreshBtn.addEventListener('click', renderWorkflowView);
-    if (productGenerateBtn) productGenerateBtn.addEventListener('click', generateProductInfo);
-    if (productRefreshBtn) productRefreshBtn.addEventListener('click', () => renderProductInfo(true));
-    if (audioGuideBtn) audioGuideBtn.addEventListener('click', generateAudioGuide);
+	    if (workflowRefreshBtn) workflowRefreshBtn.addEventListener('click', renderWorkflowView);
+	    if (productGenerateBtn) productGenerateBtn.addEventListener('click', generateProductInfo);
+	    if (productRefreshBtn) productRefreshBtn.addEventListener('click', () => renderProductInfo(true));
+	    if (productSaveBtn) productSaveBtn.addEventListener('click', saveProductInfo);
+	    document.querySelectorAll('.product-field-row input, .product-field-row textarea').forEach(field => {
+	        field.addEventListener('input', () => markProductMissingFields());
+	    });
+	    if (audioGuideBtn) audioGuideBtn.addEventListener('click', generateAudioGuide);
     if (audioSaveGuideBtn) audioSaveGuideBtn.addEventListener('click', saveAudioGuideEdits);
     if (audioTestVoiceBtn) audioTestVoiceBtn.addEventListener('click', testAudioVoice);
     if (audioStopVoiceBtn) audioStopVoiceBtn.addEventListener('click', stopAudioVoice);

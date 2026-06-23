@@ -1424,39 +1424,107 @@
                         <h2>Tuotetiedot</h2>
                         <p id="product-current-project">Käsikirjoitus: [Ei aktiivista teosta]</p>
                     </div>
-                    <div class="header-actions">
-                        <button class="btn btn-secondary" id="product-refresh-btn" type="button">Lataa tallennetut</button>
-                        <button class="btn btn-primary" id="product-generate-btn" type="button">Generoi AI:lla</button>
-                    </div>
-                </div>
-                <p id="product-status" style="color:var(--text-secondary); margin:-8px 0 22px; font-size:13px;">Tee ensin analyysi, jotta tuotetiedot voidaan muodostaa teoksen metatiedoista.</p>
+	                    <div class="header-actions">
+	                        <button class="btn btn-secondary" id="product-refresh-btn" type="button">Lataa tallennetut</button>
+	                        <button class="btn btn-secondary" id="product-save-btn" type="button">Tallenna</button>
+	                        <button class="btn btn-primary" id="product-generate-btn" type="button">Generoi AI:lla</button>
+	                    </div>
+	                </div>
+	                <p id="product-status" class="product-status-text">Tee ensin analyysi, jotta tuotetiedot voidaan muodostaa teoksen metatiedoista. Puuttuvat käsin täydennettävät kentät merkitään keltaisella.</p>
 
-                <div class="grid-cards" style="grid-template-columns: 1fr 1fr; align-items:start;">
-                    <div class="card glass-panel">
-                        <h3 style="margin-bottom: 20px; color: var(--text-primary);">Perustiedot</h3>
-                        
-                        <div class="settings-row"><label>Nimeke</label><input id="product-title" type="text" placeholder="Kirjan nimi"></div>
-                        <div class="settings-row"><label>Tekijä</label><input id="product-author" type="text" placeholder="Tekijän nimi"></div>
-                        <div class="settings-row"><label>Alaotsikko</label><input id="product-subtitle" type="text" placeholder="Valinnainen alaotsikko"></div>
-                        <div class="settings-row"><label>Tuotemuoto</label><input id="product-format" type="text" placeholder="Painettu kirja / e-kirja / äänikirja"></div>
-                        <div class="settings-row"><label>Kohderyhmä</label><input id="product-audience" type="text" placeholder="Kenelle kirja on suunnattu"></div>
-                        <div class="settings-row"><label>Ikäsuositus</label><input id="product-age" type="text" placeholder="Esim. aikuiset, 12+, ei määritelty"></div>
-                        <div class="settings-row"><label>Genre</label><input id="product-genre" type="text" placeholder="Genre"></div>
-                        <div class="settings-row"><label>Thema-luokat</label><input id="product-thema" type="text" placeholder="Ehdotukset, tarkistettava ennen virallista käyttöä"></div>
-                        <div class="settings-row"><label>Kirjastoluokka</label><input id="product-library-class" type="text" placeholder="Luokkaehdotus"></div>
-                        <div class="settings-row"><label>Avainsanat</label><input id="product-keywords" type="text" placeholder="Avainsanat pilkulla erotettuina"></div>
-                    </div>
+	                <div class="product-grid">
+	                    <section class="product-section-card">
+	                        <h3>Yhteystiedot</h3>
+	                        <div class="settings-row product-field-row" data-product-key="contact_person"><label>Yhteyshenkilö</label><input id="product-contact-person" type="text" autocomplete="name"></div>
+	                        <div class="settings-row product-field-row" data-product-key="company"><label>Kustantaja/yritys</label><input id="product-company" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="address"><label>Lähiosoite</label><input id="product-address" type="text" autocomplete="street-address"></div>
+	                        <div class="settings-row product-field-row" data-product-key="postal_code"><label>Postinumero</label><input id="product-postal-code" type="text" autocomplete="postal-code"></div>
+	                        <div class="settings-row product-field-row" data-product-key="city"><label>Postitoimipaikka</label><input id="product-city" type="text" autocomplete="address-level2"></div>
+	                        <div class="settings-row product-field-row" data-product-key="phone"><label>Puhelinnumero</label><input id="product-phone" type="text" autocomplete="tel"></div>
+	                        <div class="settings-row product-field-row" data-product-key="email"><label>Sähköpostiosoite</label><input id="product-email" type="email" autocomplete="email"></div>
+	                        <div class="settings-row product-field-row" data-product-key="business_id"><label>Y-tunnus</label><input id="product-business-id" type="text"></div>
+	                    </section>
 
-                    <div class="card glass-panel" style="display: flex; flex-direction: column;">
-                        <h3 style="margin-bottom: 20px; color: var(--text-primary);">Kuvaukset ja vientikooste</h3>
-                        <div class="settings-row"><label>Lyhyt tuotekuvaus</label><textarea id="product-short" style="width:100%; min-height:90px; resize:vertical;"></textarea></div>
-                        <div class="settings-row"><label>Pitkä tuotekuvaus</label><textarea id="product-long" style="width:100%; min-height:150px; resize:vertical;"></textarea></div>
-                        <div class="settings-row"><label>Takakansiteksti</label><textarea id="product-backcover" style="width:100%; min-height:150px; resize:vertical;"></textarea></div>
-                        <div class="settings-row"><label>Myyntikärjet</label><textarea id="product-sales-points" style="width:100%; min-height:110px; resize:vertical;"></textarea></div>
-                        <div class="settings-row"><label>ONIX-kooste</label><textarea id="product-onix" style="width:100%; min-height:130px; resize:vertical;"></textarea></div>
-                    </div>
-                </div>
-            </div>
+	                    <section class="product-section-card">
+	                        <h3>Tuotteen tunniste ja nimikkeet</h3>
+	                        <div class="settings-row product-field-row" data-product-key="product_identifier"><label>Tuotenumero</label><input id="product-identifier" type="text" placeholder="ISBN / ISMN / GTIN ilman väliviivoja"></div>
+	                        <div class="settings-row product-field-row" data-product-key="publisher"><label>Kustantaja</label><input id="product-publisher" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="publisher_product_id"><label>Kustantajan teostunniste</label><input id="product-publisher-product-id" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="title"><label>Nimeke</label><input id="product-title" type="text" placeholder="Kirjan nimi"></div>
+	                        <div class="settings-row product-field-row" data-product-key="subtitle"><label>Alanimeke</label><input id="product-subtitle" type="text" placeholder="Valinnainen alaotsikko"></div>
+	                        <div class="settings-row product-field-row" data-product-key="author"><label>Tekijä</label><input id="product-author" type="text" placeholder="Sukunimi, Etunimi"></div>
+	                        <div class="settings-row product-field-row" data-product-key="author_role"><label>Tekijän rooli</label><input id="product-author-role" type="text" placeholder="Tekijä, kirjoittaja"></div>
+	                        <div class="settings-row product-field-row" data-product-key="author_isni"><label>Tekijän ISNI</label><input id="product-author-isni" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="master_brand"><label>Master brand</label><input id="product-master-brand" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="author_bio"><label>Tekijän esittelyteksti</label><textarea id="product-author-bio" class="product-textarea product-textarea-small"></textarea></div>
+	                    </section>
+
+	                    <section class="product-section-card">
+	                        <h3>Saatavuus ja julkaisu</h3>
+	                        <div class="settings-row product-field-row" data-product-key="availability"><label>Saatavuus</label><input id="product-availability" type="text" placeholder="Saatavana / uutuus / saatavuus ei tiedossa"></div>
+	                        <div class="settings-row product-field-row" data-product-key="publication_date"><label>Ilmestymisaika</label><input id="product-publication-date" type="text" placeholder="pp.kk.vvvv"></div>
+	                        <div class="settings-row product-field-row" data-product-key="new_edition_date"><label>Uuden painoksen ilmestymisaika</label><input id="product-new-edition-date" type="text" placeholder="pp.kk.vvvv"></div>
+	                        <div class="settings-row product-field-row" data-product-key="public_date"><label>Tuotetieto julkinen</label><input id="product-public-date" type="text" placeholder="pp.kk.vvvv"></div>
+	                        <div class="settings-row product-field-row" data-product-key="publication_year"><label>Painosvuosi</label><input id="product-publication-year" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="edition_number"><label>Painoksen numero</label><input id="product-edition-number" type="text"></div>
+	                    </section>
+
+	                    <section class="product-section-card">
+	                        <h3>Muoto ja kieli</h3>
+	                        <div class="settings-row product-field-row" data-product-key="product_format"><label>Tuotemuoto</label><input id="product-format" type="text" placeholder="Painettu kirja / e-kirja / äänikirja"></div>
+	                        <div class="settings-row product-field-row" data-product-key="product_composition"><label>Tuotteen kokoonpano</label><input id="product-composition" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="file_format"><label>Tiedostoformaatti</label><input id="product-file-format" type="text" placeholder="EPUB / PDF / MP3"></div>
+	                        <div class="settings-row product-field-row" data-product-key="epub_version"><label>E-kirjan formaatin versio</label><input id="product-epub-version" type="text" placeholder="EPUB 3.3"></div>
+	                        <div class="settings-row product-field-row" data-product-key="ebook_embargo"><label>E-kirjan embargoaika</label><input id="product-ebook-embargo" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="reading_service_embargo"><label>Lukuaikaembargo</label><input id="product-reading-service-embargo" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="language"><label>Kieli</label><input id="product-language" type="text" placeholder="suomi"></div>
+	                        <div class="settings-row product-field-row" data-product-key="page_count"><label>Sivumäärä</label><input id="product-page-count" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="illustrations"><label>Kuvitus</label><input id="product-illustrations" type="text"></div>
+	                    </section>
+
+	                    <section class="product-section-card">
+	                        <h3>Sisältö ja kuvailutiedot</h3>
+	                        <div class="settings-row product-field-row" data-product-key="main_content"><label>Pääsisältö</label><input id="product-main-content" type="text" placeholder="Tekstiä"></div>
+	                        <div class="settings-row product-field-row" data-product-key="other_content"><label>Muu sisältö</label><input id="product-other-content" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="accessibility"><label>Saavutettavuustiedot</label><input id="product-accessibility" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="accessibility_description"><label>Saavutettavuuskuvaus</label><textarea id="product-accessibility-description" class="product-textarea product-textarea-small"></textarea></div>
+	                        <div class="settings-row product-field-row" data-product-key="library_class_letter"><label>Kirjastoluokan kirjain</label><input id="product-library-class-letter" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="library_class"><label>Kirjastoluokka</label><input id="product-library-class" type="text" placeholder="YKL-ehdotus"></div>
+	                        <div class="settings-row product-field-row" data-product-key="product_group"><label>Tuoteryhmä</label><input id="product-product-group" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="genre"><label>Genre</label><input id="product-genre" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="thema_classes"><label>Thema-luokat</label><input id="product-thema" type="text" placeholder="Ehdotukset, tarkistettava ennen virallista käyttöä"></div>
+	                        <div class="settings-row product-field-row" data-product-key="keywords"><label>Kustantajan avainsanat</label><input id="product-keywords" type="text" placeholder="Avainsanat pilkulla erotettuina"></div>
+	                        <div class="settings-row product-field-row" data-product-key="audience"><label>Kohderyhmä</label><input id="product-audience" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="age_recommendation"><label>Ikäsuositus</label><input id="product-age" type="text"></div>
+	                    </section>
+
+	                    <section class="product-section-card product-section-wide">
+	                        <h3>Esittelytekstit ja vientikooste</h3>
+	                        <div class="settings-row product-field-row" data-product-key="short_description"><label>Lyhyt esittelyteksti</label><textarea id="product-short" class="product-textarea"></textarea></div>
+	                        <div class="settings-row product-field-row" data-product-key="long_description"><label>Pitkä esittelyteksti</label><textarea id="product-long" class="product-textarea product-textarea-large"></textarea></div>
+	                        <div class="settings-row product-field-row" data-product-key="backcover"><label>Takakansiteksti</label><textarea id="product-backcover" class="product-textarea product-textarea-large"></textarea></div>
+	                        <div class="settings-row product-field-row" data-product-key="sales_points"><label>Myyntikärjet</label><textarea id="product-sales-points" class="product-textarea"></textarea></div>
+	                        <div class="settings-row product-field-row" data-product-key="cover_image_note"><label>Kansikuvan huomio</label><input id="product-cover-image-note" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="onix_summary"><label>ONIX-kooste</label><textarea id="product-onix" class="product-textarea product-textarea-large"></textarea></div>
+	                    </section>
+
+	                    <section class="product-section-card product-section-wide">
+	                        <h3>Hinta, jakelu ja muut tarkistettavat tiedot</h3>
+	                        <div class="settings-row product-field-row" data-product-key="protection_method"><label>Suojaustapa</label><input id="product-protection-method" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="protection_type"><label>Suojaustyyppi</label><input id="product-protection-type" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="vat_status"><label>Verollisuus</label><input id="product-vat-status" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="price_type"><label>Hinnan tyyppi</label><input id="product-price-type" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="price"><label>Hinta</label><input id="product-price" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="discount"><label>Alennus</label><input id="product-discount" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="price_group"><label>Hintaryhmä</label><input id="product-price-group" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="vat_rate"><label>Arvonlisävero</label><input id="product-vat-rate" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="self_publish_price"><label>Omakustannushinta</label><input id="product-self-publish-price" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="customs_code"><label>Tullikoodi CN</label><input id="product-customs-code" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="manufacturing_country"><label>Valmistusmaa</label><input id="product-manufacturing-country" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="free_message"><label>Vapaateksti</label><textarea id="product-free-message" class="product-textarea product-textarea-small"></textarea></div>
+	                    </section>
+	                </div>
+	            </div>
 
             <!-- 8. VIEW: MARKKINOINTI -->
             <div id="view-markkinointi" class="view-section hidden">
