@@ -1,21 +1,20 @@
 const LANGUAGE_KEY = "skriptlab_site_language";
 const SUPPORTED_LANGUAGES = ["fi", "en"];
 
-const pageFile = window.location.pathname.endsWith("/")
-  ? "index.html"
-  : window.location.pathname.split("/").pop();
+const pathParts = window.location.pathname.split("/").filter(Boolean);
+const pageSlug = (pathParts[pathParts.length - 1] || "index").replace(/\.html$/, "");
 
 const pageKey = window.location.pathname.includes("/legal/")
-  ? `legal-${pageFile.replace(".html", "")}`
+  ? `legal-${pageSlug}`
   : {
-      "index.html": "home",
-      "kenelle.html": "audience",
-      "ominaisuudet.html": "features",
-      "prosessi.html": "process",
-      "hinnat.html": "pricing",
-      "luottamus.html": "trust",
-      "yhteys.html": "contact"
-    }[pageFile] || "home";
+      index: "home",
+      kenelle: "audience",
+      ominaisuudet: "features",
+      prosessi: "process",
+      hinnat: "pricing",
+      luottamus: "trust",
+      yhteys: "contact"
+    }[pageSlug] || "home";
 
 const metaTranslations = {
   home: {
