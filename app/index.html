@@ -1293,6 +1293,43 @@
                         </div>
                     </section>
                 </div>
+                <div class="proofread-extra glass-panel">
+                    <div class="panel-header">
+                        <div>
+                            <h3>Ylimääräinen tarkistin</h3>
+                            <p class="card-meta">AI tarkistaa erikseen suomen kielen, typografian ja taittoriskien sääntöjä. Python-tarkistusta ei ajeta.</p>
+                        </div>
+                        <button class="btn btn-primary" id="proofread-extra-run-btn" type="button">Aja ylimääräinen tarkistus</button>
+                    </div>
+                    <div class="proofread-extra-grid">
+                        <section class="proofread-extra-rules">
+                            <div class="settings-row">
+                                <label for="proofread-extra-scope">Tarkistuksen kohde</label>
+                                <select id="proofread-extra-scope">
+                                    <option value="chapter">Valittu luku</option>
+                                    <option value="book">Koko käsikirjoitus</option>
+                                </select>
+                            </div>
+                            <label for="proofread-extra-rules">Suomen kielen sääntöprompti</label>
+                            <textarea id="proofread-extra-rules" placeholder="Kirjoita tähän ylimääräisen tarkistuksen säännöt."></textarea>
+                            <div class="proofread-extra-actions">
+                                <button class="btn btn-secondary" id="proofread-extra-save-rules-btn" type="button">Tallenna sääntöprompti</button>
+                                <button class="btn btn-secondary" id="proofread-extra-reset-rules-btn" type="button">Palauta oletus</button>
+                            </div>
+                            <p id="proofread-extra-rules-status" class="card-meta">Säännöt tallennetaan tämän selaimen asetuksiin.</p>
+                        </section>
+                        <section class="proofread-extra-results">
+                            <div class="panel-header">
+                                <h3>Lisätarkistuksen raportti</h3>
+                                <span id="proofread-extra-count" class="save-timestamp">0 löydöstä</span>
+                            </div>
+                            <p id="proofread-extra-status">Aja ylimääräinen tarkistus, kun tavallinen oikoluku on tehty.</p>
+                            <div id="proofread-extra-list" class="proofread-suggestions-list">
+                                <p style="color:var(--text-secondary);">Ei löydöksiä vielä.</p>
+                            </div>
+                        </section>
+                    </div>
+                </div>
             </div>
 
             <!-- 6. VIEW: KUVITUS -->

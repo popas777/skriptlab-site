@@ -201,6 +201,27 @@ document.addEventListener('DOMContentLoaded', () => {
     let imageModels = [];
     let proofreadSuggestions = [];
     let proofreadSelection = { cIndex: null };
+    let proofreadExtraFindings = [];
+    const EXTRA_PROOFREAD_RULES_KEY = 'skriptlab_extra_proofread_rules';
+    const DEFAULT_EXTRA_PROOFREAD_RULES = `Tarkista teksti kustannustoimituksen ja taittovedoksen viimeistelyn näkökulmasta. Älä käytä Python-heuristiikkaa, vaan arvioi kohdat kielellisesti ja kontekstin perusteella.
+
+Tarkistettavia asioita:
+- tuplavälilyönnit ja ylimääräiset välit
+- välilyönti ennen välimerkkiä ja puuttuva välilyönti välimerkin jälkeen
+- peräkkäin toistuvat sanat, mutta vältä vääriä hälytyksiä tarkoituksellisista tehokeinoista
+- tavuviivan tai rivinvaihdon jäänteet keskellä virkettä
+- suorat ja typografiset lainausmerkit sekaisin
+- neljä tai useampi peräkkäinen piste
+- pieni kirjain virkkeen alussa, kun edellä ei ole lyhennettä
+- merkistöhäiriöt, korvausmerkit ja hajonneet skandit
+- desimaalierotin: suomessa käytetään pilkkua, ei pistettä, kun kyse on desimaalista
+- kellonaika: suomen yleiskielessä käytä muotoa klo 14.30, ei klo 14:30
+- mittayksiköt ja prosentit: välilyönti numeron ja yksikön/merkin väliin, esimerkiksi 5 kg ja 15 %
+- pilkulliset tuhaterottimet: suomen tekstissä käytä välilyöntiä, esimerkiksi 1 000
+- huono tavutus tai tavutuksen jäljet, jos kohta näyttää tekstissä rikkoutuneelta
+- mahdolliset leski- ja orporivien kaltaiset taittoriskit, jos teksti näyttää katkeavan oudosti
+
+Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. Älä korjaa tyyliä, henkilöääntä tai kirjailijan tarkoituksellista rytmiä ilman selvää virhettä.`;
     let biographyState = {};
     let biographyTimerInterval = null;
     let biographyDictationRecognition = null;
@@ -3983,6 +4004,57 @@ document.addEventListener('DOMContentLoaded', () => {
             : 'Käsikirjoitus: [Ei aktiivista teosta]';
     }
 
+    function proofreadExtraRulesValue() {
+        return localStorage.getItem(EXTRA_PROOFREAD_RULES_KEY) || DEFAULT_EXTRA_PROOFREAD_RULES;
+    }
+
+    function renderProofreadExtraRules(force = false) {
+        const textarea = document.getElementById('proofread-extra-rules');
+        if (!textarea) return;
+        if (force || !textarea.value.trim()) {
+            textarea.value = proofreadExtraRulesValue();
+        }
+    }
+
+    function saveProofreadExtraRules() {
+        const textarea = document.getElementById('proofread-extra-rules');
+        const status = document.getElementById('proofread-extra-rules-status');
+        if (!textarea) return;
+        localStorage.setItem(EXTRA_PROOFREAD_RULES_KEY, textarea.value.trim() || DEFAULT_EXTRA_PROOFREAD_RULES);
+        if (status) status.textContent = `Sääntöprompti tallennettu ${formatSaveTimestamp()}.`;
+    }
+
+    function resetProofreadExtraRules() {
+        const textarea = document.getElementById('proofread-extra-rules');
+        const status = document.getElementById('proofread-extra-rules-status');
+        localStorage.removeItem(EXTRA_PROOFREAD_RULES_KEY);
+        if (textarea) textarea.value = DEFAULT_EXTRA_PROOFREAD_RULES;
+        if (status) status.textContent = 'Oletussäännöt palautettu.';
+    }
+
+    function renderProofreadExtraFindings(summary = '') {
+        const list = document.getElementById('proofread-extra-list');
+        const count = document.getElementById('proofread-extra-count');
+        const status = document.getElementById('proofread-extra-status');
+        if (!list) return;
+        if (count) count.textContent = `${proofreadExtraFindings.length} löydöstä`;
+        if (status && summary) status.textContent = summary;
+        if (!proofreadExtraFindings.length) {
+            list.innerHTML = '<p style="color:var(--text-secondary);">Ei löydöksiä vielä.</p>';
+            return;
+        }
+        list.innerHTML = proofreadExtraFindings.map(item => `
+            <div class="proofread-suggestion">
+                <span class="badge">${escapeHtml(item.category || 'Tarkistus')}</span>
+                <p><strong>Sijainti:</strong> ${escapeHtml(item.location || 'Ei tarkkaa sijaintia')}</p>
+                <p><strong>Kohta:</strong><br>${escapeHtml(item.excerpt || '')}</p>
+                <p><strong>Havainto:</strong> ${escapeHtml(item.issue || '')}</p>
+                <p><strong>Ehdotus:</strong> ${escapeHtml(item.suggestion || 'Tarkista kohta käsin.')}</p>
+                <p class="card-meta">Vakavuus: ${escapeHtml(item.severity || 'tarkista')}</p>
+            </div>
+        `).join('');
+    }
+
     function renderProofreadSuggestions() {
         const list = document.getElementById('proofread-suggestions-list');
         const count = document.getElementById('proofread-count');
@@ -4024,6 +4096,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderProofreadView() {
         updateProofreadProjectText();
+        renderProofreadExtraRules();
         const select = document.getElementById('proofread-chapter-select');
         const source = document.getElementById('proofread-source-text');
         const title = document.getElementById('proofread-chapter-title');
@@ -4099,6 +4172,58 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             if (status) status.textContent = err.message;
             alert('Oikoluku epäonnistui: ' + err.message);
+            loadUsage();
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
+    async function runProofreadExtraCheck() {
+        if (!window.manuscriptData?.id) {
+            alert('Valitse tai tallenna käsikirjoitus ensin.');
+            return;
+        }
+        const button = document.getElementById('proofread-extra-run-btn');
+        const status = document.getElementById('proofread-extra-status');
+        const scope = document.getElementById('proofread-extra-scope')?.value || 'chapter';
+        const rules = document.getElementById('proofread-extra-rules')?.value?.trim() || DEFAULT_EXTRA_PROOFREAD_RULES;
+        const chapterIndex = Number(document.getElementById('proofread-chapter-select')?.value ?? proofreadSelection.cIndex ?? 0);
+        if (scope === 'chapter' && !window.manuscriptData.chapters?.[chapterIndex]) {
+            alert('Valitse luku ensin.');
+            return;
+        }
+        if (button) button.disabled = true;
+        if (status) status.textContent = scope === 'book'
+            ? 'Tallennetaan nykyinen versio ja tarkistetaan käsikirjoitusta...'
+            : 'Tallennetaan nykyinen versio ja tarkistetaan valittua lukua...';
+        proofreadExtraFindings = [];
+        renderProofreadExtraFindings();
+        try {
+            saveProofreadExtraRules();
+            const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
+            if (savedProject?.id) window.manuscriptData = savedProject;
+            const res = await apiFetch('/api/proofread/extra-check', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    project_id: window.manuscriptData.id,
+                    scope,
+                    chapter_index: chapterIndex,
+                    rules_prompt: rules
+                })
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.detail || 'Ylimääräinen tarkistus epäonnistui.');
+            proofreadExtraFindings = Array.isArray(data.findings) ? data.findings : [];
+            const summary = [
+                data.summary || `${proofreadExtraFindings.length} löydöstä.`,
+                data.warnings || ''
+            ].filter(Boolean).join(' ');
+            renderProofreadExtraFindings(summary);
+            loadUsage();
+        } catch (err) {
+            if (status) status.textContent = err.message;
+            alert('Ylimääräinen tarkistus epäonnistui: ' + err.message);
             loadUsage();
         } finally {
             if (button) button.disabled = false;
@@ -7914,6 +8039,9 @@ ${state.validation || 'Ei validointia.'}`;
     const layoutRunBtn = document.getElementById('layout-run-btn');
     const proofreadRunBtn = document.getElementById('proofread-run-btn');
     const proofreadChapterSelect = document.getElementById('proofread-chapter-select');
+    const proofreadExtraRunBtn = document.getElementById('proofread-extra-run-btn');
+    const proofreadExtraSaveRulesBtn = document.getElementById('proofread-extra-save-rules-btn');
+    const proofreadExtraResetRulesBtn = document.getElementById('proofread-extra-reset-rules-btn');
     const workflowModeSelect = document.getElementById('workflow-mode');
     const workflowStartBtn = document.getElementById('workflow-start-btn');
     const workflowRefreshBtn = document.getElementById('workflow-refresh-btn');
@@ -8030,6 +8158,9 @@ ${state.validation || 'Ei validointia.'}`;
     if (miscSaveBookBtn) miscSaveBookBtn.addEventListener('click', () => saveMiscOutput(true));
     if (layoutRunBtn) layoutRunBtn.addEventListener('click', runLayout);
     if (proofreadRunBtn) proofreadRunBtn.addEventListener('click', runProofreadChapter);
+    if (proofreadExtraRunBtn) proofreadExtraRunBtn.addEventListener('click', runProofreadExtraCheck);
+    if (proofreadExtraSaveRulesBtn) proofreadExtraSaveRulesBtn.addEventListener('click', saveProofreadExtraRules);
+    if (proofreadExtraResetRulesBtn) proofreadExtraResetRulesBtn.addEventListener('click', resetProofreadExtraRules);
     if (workflowModeSelect) {
         workflowModeSelect.addEventListener('change', () => {
             if (!workflowRunning) workflowSteps = defaultWorkflowSteps(workflowModeSelect.value || 'light');
@@ -8053,7 +8184,9 @@ ${state.validation || 'Ei validointia.'}`;
         proofreadChapterSelect.addEventListener('change', () => {
             proofreadSelection.cIndex = Number(proofreadChapterSelect.value || 0);
             proofreadSuggestions = [];
+            proofreadExtraFindings = [];
             renderProofreadView();
+            renderProofreadExtraFindings('Aja ylimääräinen tarkistus valitulle luvulle.');
         });
     }
     if (bioLoadBtn) bioLoadBtn.addEventListener('click', () => loadBiographyState(true));
