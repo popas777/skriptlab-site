@@ -163,16 +163,15 @@ a {
   align-items: center;
   justify-content: center;
   min-height: 34px;
-  padding: 0.16rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: rgba(250, 247, 242, 0.72);
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--muted);
   font: inherit;
   font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
-  transition: border-color 0.2s, background 0.2s, color 0.2s;
+  transition: color 0.2s;
   white-space: nowrap;
 }
 
@@ -180,9 +179,8 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 28px;
-  min-height: 26px;
-  border-radius: 999px;
+  min-width: auto;
+  min-height: auto;
 }
 
 .lang-switch .lang-separator {
@@ -192,14 +190,13 @@ a {
 }
 
 .lang-switch [data-lang-code].is-active {
-  background: var(--ink);
-  color: var(--parchment);
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
 }
 
 .lang-switch:hover,
 .lang-switch:focus-visible {
-  border-color: var(--amber);
-  background: var(--parchment);
   color: var(--ink);
   outline: none;
 }
@@ -1173,7 +1170,7 @@ a {
   .nav-links .lang-switch {
     width: 100%;
     min-height: 48px;
-    background: var(--parchment);
+    justify-content: flex-start;
   }
 
   .nav-links .lang-switch span {
