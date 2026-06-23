@@ -176,7 +176,7 @@ const pageTranslations = {
     { selector: ".hero-visual", attr: "aria-label", fi: "SkriptLab-sovelluksen esikatselu", en: "Preview of the SkriptLab application" },
     { selector: ".manuscript-preview small", fi: "Käsikirjoitus työn alla", en: "Manuscript in progress" },
     { selector: ".manuscript-preview h2", fi: "Käsikirjoitus · versio 1.3", en: "Manuscript · version 1.3" },
-    { selector: ".manuscript-preview p", fi: "Katkelma tekstistä, josta SkriptLab tuottaa valitut aineistot jatkotyötä varten.", en: "A text excerpt that SkriptLab turns into selected materials for further work." },
+    { selector: ".manuscript-preview p", fi: "Koko käsikirjoitus tai osa siitä, josta SkriptLab tuottaa valitut aineistot jatkotyötä varten.", en: "The full manuscript or part of it that SkriptLab turns into selected materials for further work." },
     { selector: ".preview-actions", attr: "aria-label", fi: "Käsikirjoituksesta tuotettavat aineistot", en: "Materials produced from the manuscript" },
     { selector: ".preview-action:nth-child(1) strong", fi: "Analyysi", en: "Analysis" },
     { selector: ".preview-action:nth-child(1) span", fi: "Rakenne, rytmi, henkilöt, kieli ja kehityskohdat.", en: "Structure, rhythm, characters, language and development needs." },
@@ -484,7 +484,7 @@ function applyMeta(lang) {
 function updateLanguageButtons(lang) {
   document.querySelectorAll("[data-language-toggle]").forEach((button) => {
     button.setAttribute("aria-label", lang === "fi" ? "Switch to English" : "Vaihda suomeksi");
-    button.setAttribute("title", lang === "fi" ? "Switch to English" : "Vaihda suomeksi");
+    button.setAttribute("title", "FI / EN");
     button.setAttribute("aria-pressed", lang === "en" ? "true" : "false");
 
     button.querySelectorAll("[data-lang-code]").forEach((label) => {
