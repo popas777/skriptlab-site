@@ -1727,6 +1727,12 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     height: calc(100vh - 160px);
     min-height: 560px;
 }
+.proofread-tabs {
+    margin: 0 0 16px;
+}
+.proofread-panel {
+    min-width: 0;
+}
 .proofread-nav,
 .proofread-text,
 .proofread-suggestions {
@@ -1813,6 +1819,14 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     color: var(--text-primary);
     font-size: 13px;
     font-weight: 600;
+}
+.proofread-extra-rules input[type="file"] {
+    width: 100%;
+    border: 1px dashed var(--border-color);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.12);
+    color: var(--text-secondary);
+    padding: 10px;
 }
 .proofread-extra-rules textarea {
     width: 100%;
