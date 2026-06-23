@@ -376,6 +376,46 @@ function applyNavigationLabels(lang) {
   });
 }
 
+function syncLanguageLinks(lang) {
+  document.querySelectorAll("a[href]").forEach((link) => {
+    const rawHref = link.getAttribute("href") || "";
+
+    if (
+      !rawHref ||
+      rawHref.startsWith("#") ||
+      rawHref.startsWith("mailto:") ||
+      rawHref.startsWith("tel:") ||
+      rawHref.startsWith("javascript:")
+    ) {
+      return;
+    }
+
+    let url;
+    try {
+      url = new URL(rawHref, window.location.href);
+    } catch (error) {
+      return;
+    }
+
+    if (url.origin !== window.location.origin || url.pathname.startsWith("/app/")) {
+      return;
+    }
+
+    const isSitePage = url.pathname === "/" || url.pathname.endsWith("/") || url.pathname.endsWith(".html");
+    if (!isSitePage) {
+      return;
+    }
+
+    if (lang === "en") {
+      url.searchParams.set("lang", "en");
+    } else {
+      url.searchParams.delete("lang");
+    }
+
+    link.setAttribute("href", `${url.pathname}${url.search}${url.hash}`);
+  });
+}
+
 function getSavedLanguage() {
   const params = new URLSearchParams(window.location.search);
   const requested = params.get("lang");
@@ -509,6 +549,7 @@ function setLanguage(lang) {
   applyMeta(lang);
   [...commonTranslations, ...(pageTranslations[pageKey] || [])].forEach((entry) => applyEntry(entry, lang));
   applyNavigationLabels(lang);
+  syncLanguageLinks(lang);
   updateLanguageButtons(lang);
 }
 
