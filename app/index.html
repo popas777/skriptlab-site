@@ -71,6 +71,7 @@
                 <ul id="nav-menu">
 	                    <li class="active" data-view="view-kirjani">Käsikirjoitukseni</li>
 	                    <li data-view="view-tyopoyta">Työpöytä</li>
+	                    <li data-view="view-rakenne">Rakenne</li>
 	                    <li data-view="view-kirjoita">Kirjoita</li>
 	                    <li data-view="view-elamakerta">Elämäkerta</li>
 	                    <li data-view="view-analyysi">Analyysi</li>
@@ -307,6 +308,52 @@
 	                        </div>
 	                        <p id="writer-assistant-status"></p>
                     </aside>
+                </div>
+            </div>
+
+            <!-- 1.15 VIEW: RAKENNE -->
+            <div id="view-rakenne" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>Rakenne</h2>
+                        <p id="structure-current-project">Valitse käsikirjoitus ja tarkastele sisällysluetteloa.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" id="structure-refresh-btn" type="button">Päivitä</button>
+                        <button class="btn btn-secondary" id="structure-reparse-btn" type="button">Jaottele uusiksi</button>
+                        <button class="btn btn-primary" id="structure-ai-btn" type="button">Ehdota rakennetta AI:lla</button>
+                    </div>
+                </div>
+                <div class="grid-cards" style="grid-template-columns:minmax(280px, 420px) minmax(0, 1fr); align-items:start;">
+                    <section class="card glass-panel">
+                        <h3>Sisällysluettelo</h3>
+                        <p id="structure-summary" class="card-meta">Ei valittua käsikirjoitusta.</p>
+                        <div id="structure-toc" class="chapter-list"></div>
+                    </section>
+                    <section class="card glass-panel">
+                        <div class="panel-header">
+                            <h3>Rakenne-ehdotus</h3>
+                            <span id="structure-status" class="save-timestamp"></span>
+                        </div>
+                        <div class="settings-row">
+                            <label>Tekoälyn huomioimat tasot</label>
+                            <div style="display:grid; gap:8px;">
+                                <label><input type="checkbox" class="structure-option" id="structure-only-chapters" value="only_chapters" checked> Sisältää vain lukuja</label>
+                                <label><input type="checkbox" class="structure-option" id="structure-include-parts" value="parts"> Sisältää osia ja lukuja</label>
+                                <label><input type="checkbox" class="structure-option" id="structure-include-intertitles" value="intertitles"> Sisältää väliotsikoita</label>
+                                <label><input type="checkbox" class="structure-option" id="structure-include-subchapters" value="subchapters"> Sisältää alilukuja</label>
+                            </div>
+                        </div>
+                        <div class="settings-row">
+                            <label>Lisäohje rakenteelle</label>
+                            <textarea id="structure-extra-instructions" style="width:100%; min-height:90px; resize:vertical;" placeholder="Esim. tee kolmiosainen rakenne, pidä luvut lyhyinä, säilytä nykyiset osien nimet."></textarea>
+                        </div>
+                        <textarea id="structure-proposal" readonly style="width:100%; min-height:420px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:14px; font-family:inherit; line-height:1.55;" placeholder="Rakenne-ehdotus näkyy tässä ennen hyväksyntää."></textarea>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+                            <button class="btn btn-primary" id="structure-accept-btn" type="button" disabled>Hyväksy ehdotus</button>
+                            <button class="btn btn-secondary" id="structure-reject-btn" type="button" disabled>Hylkää ehdotus</button>
+                        </div>
+                    </section>
                 </div>
             </div>
 
@@ -1948,7 +1995,11 @@
                             </div>
                             <div class="settings-row">
                                 <label>Hienosäätö</label>
-                                <textarea id="finnish-translation-instructions" style="width:100%; min-height:110px; resize:vertical;" placeholder="Esim. säilytä dialogin karheus, vältä liian yleiskielistä sävyä, pidä kappalejako täsmälleen samana."></textarea>
+                                <textarea id="finnish-translation-instructions" style="width:100%; min-height:220px; resize:vertical;" placeholder="Esim. säilytä dialogin karheus, vältä liian yleiskielistä sävyä, pidä kappalejako täsmälleen samana."></textarea>
+                                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:10px;">
+                                    <button class="btn btn-secondary" id="finnish-translation-guidelines-btn" type="button">Luo käännösohjeet</button>
+                                    <span id="finnish-translation-guidelines-status" class="card-meta"></span>
+                                </div>
                             </div>
                             <div class="card-meta" style="line-height:1.55; margin:12px 0;">
                                 Suomentaja käyttää analyysin tyyliä, sanastoa, synopsista ja lukutason havaintoja. Suomennoksessa painotetaan luontevaa nykysuomea, yhdyssanoja, pilkutusta, suomen sanajärjestystä ja käännöslainojen välttämistä.
@@ -2224,6 +2275,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=52"></script>
+    <script src="app.js?v=53"></script>
 </body>
 </html>

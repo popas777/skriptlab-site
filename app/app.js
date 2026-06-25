@@ -260,10 +260,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         'view-om-kokonaisuus',
         'view-om-vienti'
     ]);
-    const writerViews = new Set(['view-kirjani', 'view-tyopoyta', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus']);
-    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
+    const writerViews = new Set(['view-kirjani', 'view-tyopoyta', 'view-rakenne', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus']);
+    const betaCoreViews = new Set(['view-kirjani', 'view-rakenne', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset', 'view-suomentaja']);
-    const biographyViews = new Set(['view-kirjani', 'view-kirjoita', 'view-ai-tyonkulku', 'view-elamakerta', 'view-toimitus', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-audio', 'view-kirja', 'view-julkaise']);
+    const biographyViews = new Set(['view-kirjani', 'view-rakenne', 'view-kirjoita', 'view-ai-tyonkulku', 'view-elamakerta', 'view-toimitus', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-audio', 'view-kirja', 'view-julkaise']);
     const roleLabels = {
         admin: 'Admin',
         test_user: 'Test user',
@@ -503,6 +503,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function formatNumber(value) {
         return Number(value || 0).toLocaleString('fi-FI');
+    }
+
+    function countWords(value) {
+        return String(value || '').trim().split(/\s+/).filter(Boolean).length;
     }
 
     function usagePercent(used, limit) {
@@ -2822,6 +2826,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             if (nextViewId === 'view-kirjoita') {
                 renderWritingView();
             }
+            if (nextViewId === 'view-rakenne') {
+                renderStructureModule();
+            }
             if (nextViewId === 'view-tyopoyta') {
                 renderWriterDeskView();
             }
@@ -3372,6 +3379,296 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             title: fallbackTitle || 'Uusi luku',
             paragraphs: blocks
         }];
+    }
+
+    let structureProposalChapters = null;
+
+    function structureChapterKind(chapter) {
+        const id = String(chapter?.id || '');
+        const title = String(chapter?.title || '');
+        if (id.startsWith('osa_') || isPartHeadingTitle(title)) return 'part';
+        if (id.startsWith('aliluku_') || isSubchapterHeadingTitle(title)) return 'subchapter';
+        return 'chapter';
+    }
+
+    function structureSelectedOptions() {
+        const onlyChapters = Boolean(document.getElementById('structure-only-chapters')?.checked);
+        return {
+            onlyChapters,
+            parts: !onlyChapters && Boolean(document.getElementById('structure-include-parts')?.checked),
+            intertitles: !onlyChapters && Boolean(document.getElementById('structure-include-intertitles')?.checked),
+            subchapters: !onlyChapters && Boolean(document.getElementById('structure-include-subchapters')?.checked),
+        };
+    }
+
+    function syncStructureOptionState(changedInput = null) {
+        const only = document.getElementById('structure-only-chapters');
+        const extras = [
+            document.getElementById('structure-include-parts'),
+            document.getElementById('structure-include-intertitles'),
+            document.getElementById('structure-include-subchapters')
+        ].filter(Boolean);
+        if (!only) return;
+        if (changedInput === only && only.checked) {
+            extras.forEach(input => { input.checked = false; });
+            return;
+        }
+        if (extras.some(input => input.checked)) {
+            only.checked = false;
+        } else {
+            only.checked = true;
+        }
+    }
+
+    function normalizeStructureProposalChapters(chapters, options = structureSelectedOptions()) {
+        let partCount = 0;
+        let chapterCount = 0;
+        let subchapterCount = 0;
+        return (chapters || []).map(chapter => {
+            const kind = structureChapterKind(chapter);
+            const paragraphs = Array.isArray(chapter?.paragraphs) ? chapter.paragraphs : [];
+            if (kind === 'part' && !options.parts && !paragraphs.some(paragraph => String(paragraph || '').trim())) {
+                return null;
+            }
+            const next = {
+                id: chapter?.id || '',
+                title: chapter?.title || '',
+                paragraphs
+            };
+            if (kind === 'part' && options.parts) {
+                partCount++;
+                next.id = `osa_${partCount}`;
+            } else if (kind === 'subchapter' && (options.subchapters || options.intertitles)) {
+                subchapterCount++;
+                next.id = `aliluku_${subchapterCount}`;
+            } else {
+                chapterCount++;
+                next.id = `luku_${chapterCount}`;
+            }
+            next.title = String(next.title || `Luku ${chapterCount || partCount || subchapterCount || 1}`).trim();
+            return next;
+        }).filter(Boolean);
+    }
+
+    function structureTocLines(chapters) {
+        let partCount = 0;
+        let chapterCount = 0;
+        let subchapterCount = 0;
+        return (chapters || []).map(chapter => {
+            const kind = structureChapterKind(chapter);
+            const title = String(chapter?.title || '').trim() || 'Nimetön';
+            if (kind === 'part') {
+                partCount++;
+                subchapterCount = 0;
+                return { kind, title, label: `Osa ${partCount}`, text: `Osa ${partCount}: ${title}` };
+            }
+            if (kind === 'subchapter') {
+                subchapterCount++;
+                const number = chapterCount ? `${chapterCount}.${subchapterCount}` : String(subchapterCount);
+                return { kind, title, label: `Aliluku ${number}`, text: `  ${number} ${title}` };
+            }
+            chapterCount++;
+            subchapterCount = 0;
+            return { kind, title, label: `Luku ${chapterCount}`, text: `${chapterCount}. ${title}` };
+        });
+    }
+
+    function structureProposalText(chapters) {
+        const lines = structureTocLines(chapters);
+        const paragraphCount = (chapters || []).reduce((sum, chapter) => sum + (chapter.paragraphs || []).length, 0);
+        return [
+            `Ehdotettu rakenne: ${chapters.length} otsikkotasoa, ${paragraphCount} kappaletta`,
+            '',
+            ...lines.map(line => line.text)
+        ].join('\n');
+    }
+
+    function renderStructureModule() {
+        const currentEl = document.getElementById('structure-current-project');
+        const summaryEl = document.getElementById('structure-summary');
+        const tocEl = document.getElementById('structure-toc');
+        const proposalEl = document.getElementById('structure-proposal');
+        const acceptBtn = document.getElementById('structure-accept-btn');
+        const rejectBtn = document.getElementById('structure-reject-btn');
+        if (!tocEl || !summaryEl) return;
+
+        const project = window.manuscriptData;
+        if (currentEl) {
+            currentEl.textContent = project
+                ? `Käsikirjoitus: ${project.title || 'Nimetön'}`
+                : 'Valitse käsikirjoitus ja tarkastele sisällysluetteloa.';
+        }
+        tocEl.innerHTML = '';
+        if (!project?.chapters?.length) {
+            summaryEl.textContent = 'Ei valittua käsikirjoitusta.';
+            tocEl.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Valitse käsikirjoitus Käsikirjoitukseni-näkymässä.</div>';
+            if (acceptBtn) acceptBtn.disabled = true;
+            if (rejectBtn) rejectBtn.disabled = true;
+            return;
+        }
+
+        const chapters = project.chapters || [];
+        const paragraphCount = chapters.reduce((sum, chapter) => sum + (chapter.paragraphs || []).length, 0);
+        const wordCountValue = countWords(getFullManuscriptText(project));
+        summaryEl.textContent = `${chapters.length} otsikkotasoa, ${paragraphCount} kappaletta, noin ${formatNumber(wordCountValue)} sanaa.`;
+        const lines = structureTocLines(chapters);
+        tocEl.innerHTML = lines.map((line, index) => {
+            const chapter = chapters[index] || {};
+            const paragraphMeta = (chapter.paragraphs || []).length;
+            const className = line.kind === 'subchapter' ? 'chapter-nav-btn subchapter' : 'chapter-nav-btn';
+            const prefix = line.kind === 'part' ? 'Osa' : line.kind === 'subchapter' ? 'Aliluku' : 'Luku';
+            return `
+                <button class="${className}" data-structure-chapter-index="${index}" type="button">
+                    <span class="chapter-nav-title">${escapeHtml(line.text)}</span>
+                    <small>${escapeHtml(prefix)} · ${paragraphMeta} kappaletta</small>
+                </button>
+            `;
+        }).join('');
+        tocEl.querySelectorAll('[data-structure-chapter-index]').forEach(button => {
+            button.addEventListener('click', () => {
+                const index = Number(button.dataset.structureChapterIndex || 0);
+                writingSelection = { cIndex: index, pIndex: 0 };
+                window.currentEditSelection = { cIndex: index, pIndex: 0 };
+                window.openModule('view-kirjoita');
+                renderWritingView();
+            });
+        });
+        if (proposalEl && structureProposalChapters) {
+            proposalEl.value = structureProposalText(structureProposalChapters);
+        }
+        if (acceptBtn) acceptBtn.disabled = !structureProposalChapters;
+        if (rejectBtn) rejectBtn.disabled = !structureProposalChapters;
+    }
+
+    function setStructureStatus(message, isError = false) {
+        const status = document.getElementById('structure-status');
+        if (!status) return;
+        status.textContent = message || '';
+        status.style.color = isError ? '#ffb4b4' : '';
+    }
+
+    function setStructureProposal(chapters, message) {
+        structureProposalChapters = normalizeStructureProposalChapters(chapters);
+        const proposalEl = document.getElementById('structure-proposal');
+        if (proposalEl) proposalEl.value = structureProposalText(structureProposalChapters);
+        const acceptBtn = document.getElementById('structure-accept-btn');
+        const rejectBtn = document.getElementById('structure-reject-btn');
+        if (acceptBtn) acceptBtn.disabled = !structureProposalChapters?.length;
+        if (rejectBtn) rejectBtn.disabled = !structureProposalChapters?.length;
+        setStructureStatus(message || 'Ehdotus valmis tarkistettavaksi.');
+    }
+
+    function rejectStructureProposal() {
+        structureProposalChapters = null;
+        const proposalEl = document.getElementById('structure-proposal');
+        if (proposalEl) proposalEl.value = '';
+        const acceptBtn = document.getElementById('structure-accept-btn');
+        const rejectBtn = document.getElementById('structure-reject-btn');
+        if (acceptBtn) acceptBtn.disabled = true;
+        if (rejectBtn) rejectBtn.disabled = true;
+        setStructureStatus('Ehdotus hylätty.');
+    }
+
+    async function createRuleBasedStructureProposal() {
+        if (!window.manuscriptData?.chapters?.length) {
+            alert('Lataa tai valitse käsikirjoitus ensin.');
+            return;
+        }
+        await flushPendingManuscriptEdits();
+        const sourceText = cleanManuscriptText(getFullManuscriptText(window.manuscriptData), { preserveStructure: true });
+        if (!sourceText.trim()) {
+            alert('Käsikirjoituksesta ei löytynyt jaoteltavaa tekstiä.');
+            return;
+        }
+        const chapters = parseRestructuredChapters(sourceText, window.manuscriptData.title || 'Käsikirjoitus');
+        setStructureProposal(chapters, 'Sääntöpohjainen jako valmis tarkistettavaksi.');
+    }
+
+    function buildStructureAiPrompt() {
+        const options = structureSelectedOptions();
+        const extra = document.getElementById('structure-extra-instructions')?.value?.trim() || '';
+        const constraints = [];
+        if (options.onlyChapters) {
+            constraints.push('Käytä vain lukuja. Älä käytä osia, alilukuja tai väliotsikoita.');
+        } else {
+            constraints.push(options.parts ? 'Voit käyttää osia muodossa "Osa 1: Nimi".' : 'Älä käytä osia.');
+            constraints.push(options.subchapters ? 'Voit käyttää alilukuja muodossa "## Aliluvun nimi".' : 'Älä käytä alilukuja.');
+            constraints.push(options.intertitles ? 'Voit käyttää harkittuja väliotsikoita muodossa "### Väliotsikon nimi".' : 'Älä lisää väliotsikoita.');
+        }
+        if (extra) constraints.push(`Käyttäjän lisäohje: ${extra}`);
+        return `STRUCTURE_MODULE:proposal
+
+Jaa käsikirjoitus uudelleen kirjallisesti toimivaksi rakenteeksi.
+
+Periaatteet:
+- Säilytä käsikirjoituksen varsinainen teksti mahdollisimman tarkasti. Älä kirjoita kohtauksia uusiksi.
+- Saat siirtää otsikkorajoja, lukuja ja kappalejakoa, jos rakenne paranee.
+- Palauta vain valmis käsikirjoitusteksti otsikkoriveineen ja kappaleineen.
+- Älä lisää sisällysluetteloa, nimiölehteä, copysivua, sivunumeroita, kommentteja tai perusteluja.
+- Erota otsikot ja kappaleet tyhjällä rivillä.
+- Lukuotsikot ovat omalla rivillään. Markdown-otsikoita saa käyttää alilukuihin/väliotsikoihin vain, jos ne on sallittu.
+
+Rakennevalinnat:
+${constraints.map(item => `- ${item}`).join('\n')}`;
+    }
+
+    async function createAiStructureProposal() {
+        if (!window.manuscriptData?.chapters?.length) {
+            alert('Lataa tai valitse käsikirjoitus ensin.');
+            return;
+        }
+        await flushPendingManuscriptEdits();
+        const sourceText = getFullManuscriptText(window.manuscriptData);
+        if (!sourceText.trim()) {
+            alert('Käsikirjoituksesta ei löytynyt käsiteltävää tekstiä.');
+            return;
+        }
+        const button = document.getElementById('structure-ai-btn');
+        if (button) button.disabled = true;
+        setStructureStatus('Haetaan rakenne-ehdotusta...');
+        try {
+            const res = await apiFetch('/api/edit', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    text: sourceText,
+                    temperature: 0.2,
+                    prompt: buildStructureAiPrompt()
+                })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Rakenne-ehdotuksen luonti epäonnistui.');
+            const chapters = parseRestructuredChapters(data.edited_text || '', window.manuscriptData.title || 'Käsikirjoitus');
+            if (!chapters.length) throw new Error('AI ei palauttanut tunnistettavaa rakennetta.');
+            setStructureProposal(chapters, 'AI-ehdotus valmis tarkistettavaksi.');
+            loadUsage();
+        } catch (err) {
+            setStructureStatus(err.message, true);
+            alert('Rakenne-ehdotuksen luonti epäonnistui: ' + networkFailureMessage(err));
+            loadUsage();
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
+    async function acceptStructureProposal() {
+        if (!structureProposalChapters?.length || !window.manuscriptData) return;
+        const paragraphCount = structureProposalChapters.reduce((sum, chapter) => sum + (chapter.paragraphs || []).length, 0);
+        if (!confirm(`Hyväksytäänkö ehdotettu rakenne?\n\n${structureProposalChapters.length} otsikkotasoa, ${paragraphCount} kappaletta.`)) {
+            return;
+        }
+        window.manuscriptData.chapters = structureProposalChapters;
+        writingSelection = { cIndex: firstBodyChapterIndex(structureProposalChapters), pIndex: 0 };
+        window.currentEditSelection = { cIndex: writingSelection.cIndex, pIndex: 0 };
+        await window.replaceProjectChaptersInDB(window.manuscriptData);
+        structureProposalChapters = null;
+        const proposalEl = document.getElementById('structure-proposal');
+        if (proposalEl) proposalEl.value = '';
+        renderBookOverview();
+        if (window.renderNavList) window.renderNavList();
+        renderWritingView();
+        renderStructureModule();
+        setStructureStatus('Rakenne hyväksytty ja tallennettu.');
     }
 
     const geminiMagicText = `Musta pimeys kietoi ikiaikaisen varjometsän syliinsä, ja puut piirtyivät taivasta vasten kuin sysimustat kynnet. Jokin liikkui äänettömästi aluskasvillisuuden seassa – askeleet olivat huomaamattomat, mutta ilmassa lepäsi odottava jännite. Hahmo oli epäilemättä taikaolennon kaltainen; ehkäpä matkalainen etsimässä loistavaa kiveä.
@@ -5303,10 +5600,15 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 	    const writerDeskTextArea = document.getElementById('writer-desk-text');
 	    const writerAssistantActionSelect = document.getElementById('writer-assistant-action');
 	    const writerAssistantRunBtn = document.getElementById('writer-assistant-run-btn');
-	    const writerAssistantApplyBtn = document.getElementById('writer-assistant-apply-btn');
-	    const writerAssistantRejectBtn = document.getElementById('writer-assistant-reject-btn');
-	    const writerAssistantNextBtn = document.getElementById('writer-assistant-next-btn');
+    const writerAssistantApplyBtn = document.getElementById('writer-assistant-apply-btn');
+    const writerAssistantRejectBtn = document.getElementById('writer-assistant-reject-btn');
+    const writerAssistantNextBtn = document.getElementById('writer-assistant-next-btn');
     const writerMobileJumpButtons = document.querySelectorAll('[data-writer-scroll]');
+    const structureRefreshBtn = document.getElementById('structure-refresh-btn');
+    const structureReparseBtn = document.getElementById('structure-reparse-btn');
+    const structureAiBtn = document.getElementById('structure-ai-btn');
+    const structureAcceptBtn = document.getElementById('structure-accept-btn');
+    const structureRejectBtn = document.getElementById('structure-reject-btn');
     const cleanWritingTextBtn = document.getElementById('clean-writing-text-btn');
     const restructureWritingBtn = document.getElementById('restructure-writing-btn');
     const toggleWritingMarkupBtn = document.getElementById('toggle-writing-markup-btn');
@@ -5388,6 +5690,15 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 	    if (writerAssistantApplyBtn) writerAssistantApplyBtn.addEventListener('click', applyWriterAssistantDraft);
 	    if (writerAssistantRejectBtn) writerAssistantRejectBtn.addEventListener('click', rejectWriterAssistantDraft);
 	    if (writerAssistantNextBtn) writerAssistantNextBtn.addEventListener('click', () => moveWriterDeskSection(1));
+    if (structureRefreshBtn) structureRefreshBtn.addEventListener('click', renderStructureModule);
+    if (structureReparseBtn) structureReparseBtn.addEventListener('click', createRuleBasedStructureProposal);
+    if (structureAiBtn) structureAiBtn.addEventListener('click', createAiStructureProposal);
+    if (structureAcceptBtn) structureAcceptBtn.addEventListener('click', acceptStructureProposal);
+    if (structureRejectBtn) structureRejectBtn.addEventListener('click', rejectStructureProposal);
+    document.querySelectorAll('.structure-option').forEach(input => {
+        input.addEventListener('change', () => syncStructureOptionState(input));
+    });
+    syncStructureOptionState();
     if (cleanWritingTextBtn) cleanWritingTextBtn.addEventListener('click', cleanCurrentWritingChapter);
     if (restructureWritingBtn) restructureWritingBtn.addEventListener('click', restructureWritingManuscript);
     if (toggleWritingMarkupBtn) toggleWritingMarkupBtn.addEventListener('click', toggleManuscriptMarkup);
@@ -5548,6 +5859,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         renderBiography();
         renderBookOverview();
         renderWriterDeskView();
+        renderStructureModule();
         renderWritingView();
         renderProofreadView();
         renderProductInfo(true);
@@ -5600,6 +5912,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         renderAudioView(true);
         renderBookOverview();
         renderWriterDeskView();
+        renderStructureModule();
         renderWritingView();
         if (window.renderNavList) window.renderNavList();
         updateTranslationProjectSelect();
@@ -6238,6 +6551,55 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (!res.ok) throw new Error(data.detail || 'Suomennosarvion muodostus epäonnistui.');
         latestFinnishTranslationEstimate = Object.assign({ payload_key: translationEstimateKey(payload) }, data);
         return latestFinnishTranslationEstimate;
+    }
+
+    async function createFinnishTranslationGuidelines() {
+        const payload = finnishTranslationRequestPayload();
+        const project = currentFinnishTranslationProject();
+        const textarea = document.getElementById('finnish-translation-instructions');
+        const button = document.getElementById('finnish-translation-guidelines-btn');
+        const status = document.getElementById('finnish-translation-guidelines-status');
+        if (!payload.project_id || !project) {
+            alert('Valitse ensin vieraskielinen käsikirjoitus.');
+            return;
+        }
+        if (textarea?.value?.trim() && !confirm('Korvataanko nykyinen hienosäätö luoduilla käännösohjeilla?')) {
+            return;
+        }
+        if (button) button.disabled = true;
+        if (status) {
+            status.textContent = hasTranslationAnalysis(project)
+                ? 'Luodaan käännösohjeita...'
+                : 'Luodaan käännösohjeita alkutekstin pohjalta...';
+        }
+        try {
+            const res = await apiFetch('/api/translations/guidelines', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Käännösohjeiden luonti epäonnistui.');
+            if (!data.guidelines) throw new Error('Käännösohjeet jäivät tyhjiksi.');
+            if (textarea) {
+                textarea.value = data.guidelines;
+            }
+            latestFinnishTranslationEstimate = null;
+            if (status) {
+                status.textContent = data.warnings
+                    ? `Käännösohjeet luotu. ${data.warnings}`
+                    : 'Käännösohjeet luotu.';
+            }
+            if (hasTranslationAnalysis(project)) {
+                await updateFinnishTranslationEstimate();
+            }
+            loadUsage();
+        } catch (err) {
+            if (status) status.textContent = err.message;
+            alert('Käännösohjeiden luonti epäonnistui: ' + networkFailureMessage(err));
+        } finally {
+            if (button) button.disabled = false;
+        }
     }
 
     async function updateTranslationEstimate() {
@@ -8496,6 +8858,7 @@ ${state.validation || 'Ei validointia.'}`;
     const translationReviewText = document.getElementById('translation-review-text');
     const finnishTranslationProjectSelect = document.getElementById('finnish-translation-project-select');
     const finnishTranslationEstimateBtn = document.getElementById('finnish-translation-estimate-btn');
+    const finnishTranslationGuidelinesBtn = document.getElementById('finnish-translation-guidelines-btn');
     const finnishTranslationStartBtn = document.getElementById('finnish-translation-start-btn');
     const finnishTranslationDownloadBtn = document.getElementById('finnish-translation-download-btn');
     const finnishTranslationReviewSelect = document.getElementById('finnish-translation-review-select');
@@ -8599,6 +8962,7 @@ ${state.validation || 'Ei validointia.'}`;
         });
     }
     if (finnishTranslationEstimateBtn) finnishTranslationEstimateBtn.addEventListener('click', updateFinnishTranslationEstimate);
+    if (finnishTranslationGuidelinesBtn) finnishTranslationGuidelinesBtn.addEventListener('click', createFinnishTranslationGuidelines);
     if (finnishTranslationStartBtn) finnishTranslationStartBtn.addEventListener('click', startFinnishTranslation);
     if (finnishTranslationDownloadBtn) finnishTranslationDownloadBtn.addEventListener('click', downloadFinnishTranslation);
     if (finnishTranslationReviewSelect) {
