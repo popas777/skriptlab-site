@@ -3483,6 +3483,47 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         ].join('\n');
     }
 
+    function compactStructureExcerpt(value, maxChars) {
+        const text = String(value || '').replace(/\s+/g, ' ').trim();
+        if (text.length <= maxChars) return text;
+        return `${text.slice(0, Math.max(0, maxChars - 1)).trim()}…`;
+    }
+
+    function structureBriefForAi(project) {
+        const chapters = project?.chapters || [];
+        const analysis = project?.analysis || {};
+        const perChapterChars = Math.max(170, Math.min(720, Math.floor(17000 / Math.max(1, chapters.length))));
+        const synopsis = compactStructureExcerpt(analysis.synopsis || analysis.backcover || '', 1200);
+        const style = compactStructureExcerpt(analysis.style || '', 900);
+        const lines = [
+            `Teos: ${project?.title || 'Nimetön'}`,
+            project?.author ? `Tekijä: ${project.author}` : '',
+            `Nykyisiä otsikkotasoja: ${chapters.length}`,
+            `Koko tekstin sanamäärä: noin ${formatNumber(countWords(getFullManuscriptText(project)))}`,
+            synopsis ? `Synopsis: ${synopsis}` : '',
+            style ? `Tyylianalyysin tiivistelmä: ${style}` : '',
+            '',
+            'Nykyinen rakenne ja lyhyet näytteet:',
+        ].filter(Boolean);
+
+        chapters.forEach((chapter, index) => {
+            const paragraphs = chapter.paragraphs || [];
+            const full = paragraphs.join('\n\n');
+            const first = compactStructureExcerpt(paragraphs[0] || '', Math.floor(perChapterChars * 0.62));
+            const last = compactStructureExcerpt(paragraphs.length > 1 ? paragraphs[paragraphs.length - 1] : '', Math.floor(perChapterChars * 0.38));
+            lines.push([
+                `LUKU ${index + 1}`,
+                `Otsikko: ${chapter.title || `Luku ${index + 1}`}`,
+                `Tyyppi: ${structureChapterKind(chapter)}`,
+                `Kappaleita: ${paragraphs.length}`,
+                `Sanoja: noin ${formatNumber(countWords(full))}`,
+                first ? `Alku: ${first}` : '',
+                last ? `Loppu: ${last}` : '',
+            ].filter(Boolean).join('\n'));
+        });
+        return lines.join('\n\n');
+    }
+
     function renderStructureModule() {
         const currentEl = document.getElementById('structure-current-project');
         const summaryEl = document.getElementById('structure-summary');
@@ -3598,18 +3639,95 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (extra) constraints.push(`Käyttäjän lisäohje: ${extra}`);
         return `STRUCTURE_MODULE:proposal
 
-Jaa käsikirjoitus uudelleen kirjallisesti toimivaksi rakenteeksi.
+Ehdota käsikirjoitukselle kirjallisesti toimivampaa otsikko- ja osarakennetta.
 
 Periaatteet:
-- Säilytä käsikirjoituksen varsinainen teksti mahdollisimman tarkasti. Älä kirjoita kohtauksia uusiksi.
-- Saat siirtää otsikkorajoja, lukuja ja kappalejakoa, jos rakenne paranee.
-- Palauta vain valmis käsikirjoitusteksti otsikkoriveineen ja kappaleineen.
-- Älä lisää sisällysluetteloa, nimiölehteä, copysivua, sivunumeroita, kommentteja tai perusteluja.
-- Erota otsikot ja kappaleet tyhjällä rivillä.
-- Lukuotsikot ovat omalla rivillään. Markdown-otsikoita saa käyttää alilukuihin/väliotsikoihin vain, jos ne on sallittu.
+- Saat vain nimetä nykyiset luvut uudelleen ja ehdottaa niiden väliin osia, alilukuja tai väliotsikoita, jos ne on sallittu.
+- Jokainen nykyinen luku pitää säilyttää täsmälleen kerran. Älä jätä yhtään lukua pois.
+- Älä kirjoita varsinaista leipätekstiä, älä tiivistelmiä, älä perusteluja.
+- Palauta vain outline-rivejä.
+- Käytä nykyisistä luvuista muotoa: LUKU 1: Uusi otsikko
+- Jos osat ovat sallittuja, käytä osariveissä muotoa: OSA: Osan nimi
+- Jos aliluvut tai väliotsikot ovat sallittuja, käytä muotoa: ALILUKU: Otsikko tai VÄLIOTSIKKO: Otsikko
+- Pidä nykyisten lukujen järjestys ennallaan, ellei käyttäjän lisäohje nimenomaan pyydä muuta.
 
 Rakennevalinnat:
 ${constraints.map(item => `- ${item}`).join('\n')}`;
+    }
+
+    function parseAiStructureOutline(rawText) {
+        const entries = [];
+        String(rawText || '').split(/\n+/).forEach(line => {
+            let text = line.trim();
+            if (!text) return;
+            text = text.replace(/^[-*•]\s*/, '').replace(/^\d+\.\s*/, '').trim();
+            text = text.replace(/^#{1,6}\s*/, '').trim();
+            const part = text.match(/^osa\s*:?\s*(.+)$/i);
+            if (part) {
+                entries.push({ kind: 'part', title: normalizedHeadingLine(part[1]) || part[1].trim() });
+                return;
+            }
+            const subchapter = text.match(/^(aliluku|väliotsikko|valiotsikko)\s*:?\s*(.+)$/i);
+            if (subchapter) {
+                entries.push({ kind: 'subchapter', title: normalizedHeadingLine(subchapter[2]) || subchapter[2].trim() });
+                return;
+            }
+            const chapter = text.match(/^luku\s+(\d+)\s*[:.\-)]\s*(.+)$/i) || text.match(/^(\d+)\s*[:.\-)]\s*(.+)$/);
+            if (chapter) {
+                entries.push({
+                    kind: 'chapter',
+                    sourceIndex: Math.max(0, Number(chapter[1]) - 1),
+                    title: normalizedHeadingLine(chapter[2]) || chapter[2].trim(),
+                });
+            }
+        });
+        return entries;
+    }
+
+    function cloneChapterWithTitle(chapter, title, fallbackIndex) {
+        return {
+            id: chapter?.id || `luku_${fallbackIndex + 1}`,
+            title: String(title || chapter?.title || `Luku ${fallbackIndex + 1}`).trim(),
+            paragraphs: Array.isArray(chapter?.paragraphs) ? [...chapter.paragraphs] : [],
+        };
+    }
+
+    function chaptersFromAiStructureOutline(rawText) {
+        const sourceChapters = (window.manuscriptData?.chapters || []).map((chapter, index) => cloneChapterWithTitle(chapter, chapter.title, index));
+        const options = structureSelectedOptions();
+        const entries = parseAiStructureOutline(rawText);
+        const result = [];
+        const used = new Set();
+        let sequentialIndex = 0;
+
+        entries.forEach(entry => {
+            if (entry.kind === 'part' && options.parts) {
+                result.push({ id: `osa_${result.length + 1}`, title: entry.title, paragraphs: [] });
+                return;
+            }
+            if (entry.kind === 'subchapter' && (options.subchapters || options.intertitles)) {
+                result.push({ id: `aliluku_${result.length + 1}`, title: entry.title, paragraphs: [] });
+                return;
+            }
+            if (entry.kind !== 'chapter') return;
+
+            let sourceIndex = Number.isInteger(entry.sourceIndex) ? entry.sourceIndex : sequentialIndex;
+            if (!sourceChapters[sourceIndex] || used.has(sourceIndex)) {
+                while (sourceChapters[sequentialIndex] && used.has(sequentialIndex)) sequentialIndex++;
+                sourceIndex = sequentialIndex;
+            }
+            const source = sourceChapters[sourceIndex];
+            if (!source) return;
+            result.push(cloneChapterWithTitle(source, entry.title, sourceIndex));
+            used.add(sourceIndex);
+            sequentialIndex = Math.max(sequentialIndex, sourceIndex + 1);
+        });
+
+        sourceChapters.forEach((chapter, index) => {
+            if (!used.has(index)) result.push(cloneChapterWithTitle(chapter, chapter.title, index));
+        });
+
+        return result.length ? result : sourceChapters;
     }
 
     async function createAiStructureProposal() {
@@ -3618,8 +3736,8 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
             return;
         }
         await flushPendingManuscriptEdits();
-        const sourceText = getFullManuscriptText(window.manuscriptData);
-        if (!sourceText.trim()) {
+        const structureBrief = structureBriefForAi(window.manuscriptData);
+        if (!structureBrief.trim()) {
             alert('Käsikirjoituksesta ei löytynyt käsiteltävää tekstiä.');
             return;
         }
@@ -3631,16 +3749,16 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
-                    text: sourceText,
+                    text: structureBrief,
                     temperature: 0.2,
                     prompt: buildStructureAiPrompt()
                 })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || 'Rakenne-ehdotuksen luonti epäonnistui.');
-            const chapters = parseRestructuredChapters(data.edited_text || '', window.manuscriptData.title || 'Käsikirjoitus');
+            const chapters = chaptersFromAiStructureOutline(data.edited_text || '');
             if (!chapters.length) throw new Error('AI ei palauttanut tunnistettavaa rakennetta.');
-            setStructureProposal(chapters, 'AI-ehdotus valmis tarkistettavaksi.');
+            setStructureProposal(chapters, 'AI-ehdotus valmis tarkistettavaksi. Tekstikappaleet on säilytetty nykyisistä luvuista.');
             loadUsage();
         } catch (err) {
             setStructureStatus(err.message, true);
