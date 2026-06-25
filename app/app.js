@@ -6511,6 +6511,7 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
     function updateFinnishTranslationProjectSelect() {
         const select = document.getElementById('finnish-translation-project-select');
         const currentText = document.getElementById('finnish-translation-current-project');
+        const promptProjectText = document.getElementById('finnish-translation-prompt-project');
         if (!select) return;
         const previousValue = select.value || window.manuscriptData?.id || '';
         select.innerHTML = '';
@@ -6534,6 +6535,11 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
             currentText.textContent = project
                 ? `Suomennettava teos: ${project.title || 'Nimetön'}`
                 : 'Valitse vieraskielinen käsikirjoitus ja suomennosasetukset.';
+        }
+        if (promptProjectText) {
+            promptProjectText.textContent = project
+                ? `Prompti kohdistuu teokseen: ${project.title || 'Nimetön'}`
+                : 'Valitse vieraskielinen käsikirjoitus.';
         }
         updateFinnishTranslationAnalysisNotice(project);
         renderSelectedFinnishTranslationForReview();
@@ -6717,6 +6723,22 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
             alert('Käännösohjeiden luonti epäonnistui: ' + networkFailureMessage(err));
         } finally {
             if (button) button.disabled = false;
+        }
+    }
+
+    async function clearFinnishTranslationInstructions() {
+        const textarea = document.getElementById('finnish-translation-instructions');
+        const status = document.getElementById('finnish-translation-guidelines-status');
+        if (!textarea) return;
+        if (textarea.value.trim() && !confirm('Tyhjennetäänkö räätälöity käännösprompti?')) {
+            return;
+        }
+        textarea.value = '';
+        latestFinnishTranslationEstimate = null;
+        if (status) status.textContent = 'Käännösprompti tyhjennetty.';
+        const project = currentFinnishTranslationProject();
+        if (project && hasTranslationAnalysis(project)) {
+            await updateFinnishTranslationEstimate();
         }
     }
 
@@ -8977,6 +8999,7 @@ ${state.validation || 'Ei validointia.'}`;
     const finnishTranslationProjectSelect = document.getElementById('finnish-translation-project-select');
     const finnishTranslationEstimateBtn = document.getElementById('finnish-translation-estimate-btn');
     const finnishTranslationGuidelinesBtn = document.getElementById('finnish-translation-guidelines-btn');
+    const finnishTranslationClearInstructionsBtn = document.getElementById('finnish-translation-clear-instructions-btn');
     const finnishTranslationStartBtn = document.getElementById('finnish-translation-start-btn');
     const finnishTranslationDownloadBtn = document.getElementById('finnish-translation-download-btn');
     const finnishTranslationReviewSelect = document.getElementById('finnish-translation-review-select');
@@ -9081,6 +9104,7 @@ ${state.validation || 'Ei validointia.'}`;
     }
     if (finnishTranslationEstimateBtn) finnishTranslationEstimateBtn.addEventListener('click', updateFinnishTranslationEstimate);
     if (finnishTranslationGuidelinesBtn) finnishTranslationGuidelinesBtn.addEventListener('click', createFinnishTranslationGuidelines);
+    if (finnishTranslationClearInstructionsBtn) finnishTranslationClearInstructionsBtn.addEventListener('click', clearFinnishTranslationInstructions);
     if (finnishTranslationStartBtn) finnishTranslationStartBtn.addEventListener('click', startFinnishTranslation);
     if (finnishTranslationDownloadBtn) finnishTranslationDownloadBtn.addEventListener('click', downloadFinnishTranslation);
     if (finnishTranslationReviewSelect) {

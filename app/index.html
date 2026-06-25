@@ -1951,6 +1951,7 @@
                 </div>
                 <div class="translation-tabs">
                     <button class="translation-tab suomentaja-tab active" data-suomentaja-panel="suomentaja-create-panel">Luo suomennos</button>
+                    <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-prompt-panel">Käännösprompti</button>
                     <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-review-panel">Suomennoksen tarkastus</button>
                     <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-parts-panel">Tarkasta käännöspaloittain</button>
                 </div>
@@ -1993,14 +1994,6 @@
                                     <option value="10000">10 000 sanaa</option>
                                 </select>
                             </div>
-                            <div class="settings-row">
-                                <label>Hienosäätö</label>
-                                <textarea id="finnish-translation-instructions" style="width:100%; min-height:220px; resize:vertical;" placeholder="Esim. säilytä dialogin karheus, vältä liian yleiskielistä sävyä, pidä kappalejako täsmälleen samana."></textarea>
-                                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:10px;">
-                                    <button class="btn btn-secondary" id="finnish-translation-guidelines-btn" type="button">Luo käännösohjeet</button>
-                                    <span id="finnish-translation-guidelines-status" class="card-meta"></span>
-                                </div>
-                            </div>
                             <div class="card-meta" style="line-height:1.55; margin:12px 0;">
                                 Suomentaja käyttää analyysin tyyliä, sanastoa, synopsista ja lukutason havaintoja. Suomennoksessa painotetaan luontevaa nykysuomea, yhdyssanoja, pilkutusta, suomen sanajärjestystä ja käännöslainojen välttämistä.
                             </div>
@@ -2021,6 +2014,23 @@
                             </div>
                             <h3 style="margin-top:22px;">Tallennetut suomennokset</h3>
                             <div id="finnish-translation-history" style="display:grid; gap:10px; margin-top:12px;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="suomentaja-prompt-panel" class="suomentaja-panel hidden">
+                    <div class="grid-cards" style="grid-template-columns:minmax(260px, 360px) minmax(0, 1fr); align-items:start;">
+                        <div class="card glass-panel">
+                            <h3>Käännösprompti</h3>
+                            <p id="finnish-translation-prompt-project" class="card-meta">Valitse vieraskielinen käsikirjoitus.</p>
+                            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                                <button class="btn btn-primary" id="finnish-translation-guidelines-btn" type="button">Luo käännösohjeet</button>
+                                <button class="btn btn-secondary" id="finnish-translation-clear-instructions-btn" type="button">Tyhjennä</button>
+                            </div>
+                            <p id="finnish-translation-guidelines-status" class="card-meta" style="margin-top:12px;"></p>
+                        </div>
+                        <div class="card glass-panel">
+                            <h3>Räätälöity ohjeistus</h3>
+                            <textarea id="finnish-translation-instructions" style="width:100%; min-height:620px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:14px; font-family:inherit; line-height:1.55;" placeholder="Esim. säilytä dialogin karheus, vältä liian yleiskielistä sävyä, pidä kappalejako täsmälleen samana."></textarea>
                         </div>
                     </div>
                 </div>
@@ -2275,6 +2285,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=54"></script>
+    <script src="app.js?v=55"></script>
 </body>
 </html>
