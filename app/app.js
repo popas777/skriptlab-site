@@ -6640,17 +6640,21 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         };
     }
 
-    function finnishTranslationRequestPayload() {
+    function finnishTranslationRequestPayload(options = {}) {
+        const includeInstructions = options.includeInstructions === true;
         const project = currentFinnishTranslationProject();
-        return {
+        const payload = {
             project_id: project ? project.id : null,
             source_kind: document.getElementById('finnish-translation-source-select')?.value || 'manuscript',
             target_language: 'fi',
             style: document.getElementById('finnish-translation-style-select')?.value || 'fi_author_modern',
             model: document.getElementById('finnish-translation-model-select')?.value || null,
-            chunk_words: parseInt(document.getElementById('finnish-translation-chunk-select')?.value || '2000', 10),
-            instructions: document.getElementById('finnish-translation-instructions')?.value || ''
+            chunk_words: parseInt(document.getElementById('finnish-translation-chunk-select')?.value || '2000', 10)
         };
+        if (includeInstructions) {
+            payload.instructions = document.getElementById('finnish-translation-instructions')?.value || '';
+        }
+        return payload;
     }
 
     async function fetchTranslationEstimate(payload) {
@@ -6678,7 +6682,7 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
     }
 
     async function createFinnishTranslationGuidelines() {
-        const payload = finnishTranslationRequestPayload();
+        const payload = finnishTranslationRequestPayload({ includeInstructions: true });
         const project = currentFinnishTranslationProject();
         const textarea = document.getElementById('finnish-translation-instructions');
         const button = document.getElementById('finnish-translation-guidelines-btn');
@@ -7447,13 +7451,19 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         }
     }
 
-    async function startFinnishTranslation() {
-        const payload = finnishTranslationRequestPayload();
+    async function startFinnishTranslation(options = {}) {
+        const useCustomInstructions = options.useCustomInstructions === true;
+        const payload = finnishTranslationRequestPayload({ includeInstructions: useCustomInstructions });
         const status = document.getElementById('finnish-translation-status');
         const output = document.getElementById('finnish-translation-output');
-        const button = document.getElementById('finnish-translation-start-btn');
+        const button = document.getElementById(useCustomInstructions ? 'finnish-translation-custom-start-btn' : 'finnish-translation-start-btn');
+        const alternateButton = document.getElementById(useCustomInstructions ? 'finnish-translation-start-btn' : 'finnish-translation-custom-start-btn');
         if (!payload.project_id) {
             alert('Valitse ensin vieraskielinen käsikirjoitus.');
+            return;
+        }
+        if (useCustomInstructions && !String(payload.instructions || '').trim()) {
+            alert('Luo tai kirjoita ensin räätälöity käännösprompti.');
             return;
         }
         const project = currentFinnishTranslationProject();
@@ -7462,14 +7472,20 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
             return;
         }
         if (button) button.disabled = true;
+        if (alternateButton) alternateButton.disabled = true;
         try {
-            if (status) status.textContent = 'Valmistellaan suomennosta ja lasketaan osat...';
+            if (status) status.textContent = useCustomInstructions
+                ? 'Valmistellaan räätälöityä suomennosta ja lasketaan osat...'
+                : 'Valmistellaan suomennosta ja lasketaan osat...';
             const estimateKey = translationEstimateKey(payload);
             const estimate = latestFinnishTranslationEstimate?.payload_key === estimateKey
                 ? latestFinnishTranslationEstimate
                 : await fetchFinnishTranslationEstimate(payload);
             startFinnishTranslationTimer(estimate);
-            if (status) status.textContent = `Suomennos käynnissä. ${estimate.chunks_count} osaa, arvioitu kesto noin ${formatDuration(estimate.estimated_seconds)}.`;
+            if (status) {
+                const runLabel = useCustomInstructions ? 'Räätälöity suomennos' : 'Suomennos';
+                status.textContent = `${runLabel} käynnissä. ${estimate.chunks_count} osaa, arvioitu kesto noin ${formatDuration(estimate.estimated_seconds)}.`;
+            }
             const res = await apiFetch('/api/translations', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -7494,6 +7510,7 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         } finally {
             stopFinnishTranslationTimer();
             if (button) button.disabled = false;
+            if (alternateButton) alternateButton.disabled = false;
             updateFinnishTranslationAnalysisNotice();
         }
     }
@@ -9001,6 +9018,7 @@ ${state.validation || 'Ei validointia.'}`;
     const finnishTranslationGuidelinesBtn = document.getElementById('finnish-translation-guidelines-btn');
     const finnishTranslationClearInstructionsBtn = document.getElementById('finnish-translation-clear-instructions-btn');
     const finnishTranslationStartBtn = document.getElementById('finnish-translation-start-btn');
+    const finnishTranslationCustomStartBtn = document.getElementById('finnish-translation-custom-start-btn');
     const finnishTranslationDownloadBtn = document.getElementById('finnish-translation-download-btn');
     const finnishTranslationReviewSelect = document.getElementById('finnish-translation-review-select');
     const finnishTranslationReviewSaveBtn = document.getElementById('finnish-translation-review-save-btn');
@@ -9105,7 +9123,10 @@ ${state.validation || 'Ei validointia.'}`;
     if (finnishTranslationEstimateBtn) finnishTranslationEstimateBtn.addEventListener('click', updateFinnishTranslationEstimate);
     if (finnishTranslationGuidelinesBtn) finnishTranslationGuidelinesBtn.addEventListener('click', createFinnishTranslationGuidelines);
     if (finnishTranslationClearInstructionsBtn) finnishTranslationClearInstructionsBtn.addEventListener('click', clearFinnishTranslationInstructions);
-    if (finnishTranslationStartBtn) finnishTranslationStartBtn.addEventListener('click', startFinnishTranslation);
+    if (finnishTranslationStartBtn) finnishTranslationStartBtn.addEventListener('click', () => startFinnishTranslation());
+    if (finnishTranslationCustomStartBtn) {
+        finnishTranslationCustomStartBtn.addEventListener('click', () => startFinnishTranslation({ useCustomInstructions: true }));
+    }
     if (finnishTranslationDownloadBtn) finnishTranslationDownloadBtn.addEventListener('click', downloadFinnishTranslation);
     if (finnishTranslationReviewSelect) {
         finnishTranslationReviewSelect.addEventListener('change', () => selectFinnishTranslationForReview(finnishTranslationReviewSelect.value));
