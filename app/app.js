@@ -33,7 +33,8 @@ function structurePayloadForSave(data) {
     return {
         chapters: (data?.chapters || []).map((chapter, index) => ({
             id: chapter.id || `luku_${index + 1}`,
-            title: chapter.title || `Luku ${index + 1}`
+            title: chapter.title || '',
+            toc_title: chapter.toc_title || chapter.tocTitle || chapter.structure_title || chapter.title || `Luku ${index + 1}`
         }))
     };
 }
@@ -592,7 +593,13 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     function miscAssetBookSection(asset) {
-        const content = assetTextContent(asset).trim();
+        const kind = miscAssetKind(asset);
+        let content = assetTextContent(asset).trim();
+        if (kind === 'title_page') {
+            content = content.replace(/^\s*Nimiölehti\s*\n+/i, '').trim();
+        } else if (kind === 'copyright_page') {
+            content = content.replace(/^\s*Copysivu\s*\/\s*oikeussivu\s*\n+/i, '').trim();
+        }
         if (!content) return '';
         return content;
     }
@@ -3383,9 +3390,19 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     let structureProposalChapters = null;
 
+    function structureDisplayTitle(chapter, index = 0) {
+        return String(
+            chapter?.toc_title
+            || chapter?.tocTitle
+            || chapter?.structure_title
+            || chapter?.title
+            || `Luku ${index + 1}`
+        ).trim();
+    }
+
     function structureChapterKind(chapter) {
         const id = String(chapter?.id || '');
-        const title = String(chapter?.title || '');
+        const title = structureDisplayTitle(chapter);
         if (id.startsWith('osa_') || isPartHeadingTitle(title)) return 'part';
         if (id.startsWith('aliluku_') || isSubchapterHeadingTitle(title)) return 'subchapter';
         return 'chapter';
@@ -3433,6 +3450,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             const next = {
                 id: chapter?.id || '',
                 title: chapter?.title || '',
+                toc_title: structureDisplayTitle(chapter),
                 paragraphs
             };
             if (kind === 'part' && options.parts) {
@@ -3445,7 +3463,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 chapterCount++;
                 next.id = `luku_${chapterCount}`;
             }
-            next.title = String(next.title || `Luku ${chapterCount || partCount || subchapterCount || 1}`).trim();
+            next.toc_title = String(next.toc_title || next.title || `Luku ${chapterCount || partCount || subchapterCount || 1}`).trim();
             return next;
         }).filter(Boolean);
     }
@@ -3456,7 +3474,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         let subchapterCount = 0;
         return (chapters || []).map(chapter => {
             const kind = structureChapterKind(chapter);
-            const title = String(chapter?.title || '').trim() || 'Nimetön';
+            const title = structureDisplayTitle(chapter) || 'Nimetön';
             if (kind === 'part') {
                 partCount++;
                 subchapterCount = 0;
@@ -3514,6 +3532,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             lines.push([
                 `LUKU ${index + 1}`,
                 `Otsikko: ${chapter.title || `Luku ${index + 1}`}`,
+                chapter.toc_title ? `Sisällysluettelo-otsikko: ${chapter.toc_title}` : '',
                 `Tyyppi: ${structureChapterKind(chapter)}`,
                 `Kappaleita: ${paragraphs.length}`,
                 `Sanoja: noin ${formatNumber(countWords(full))}`,
@@ -3643,6 +3662,7 @@ Ehdota käsikirjoitukselle kirjallisesti toimivampaa otsikko- ja osarakennetta.
 
 Periaatteet:
 - Saat vain nimetä nykyiset luvut uudelleen ja ehdottaa niiden väliin osia, alilukuja tai väliotsikoita, jos ne on sallittu.
+- Ehdottamasi otsikot ovat vain sisällysluettelon metatietoa. Niitä ei lisätä leipätekstiin.
 - Jokainen nykyinen luku pitää säilyttää täsmälleen kerran. Älä jätä yhtään lukua pois.
 - Älä kirjoita varsinaista leipätekstiä, älä tiivistelmiä, älä perusteluja.
 - Palauta vain outline-rivejä.
@@ -3684,16 +3704,19 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         return entries;
     }
 
-    function cloneChapterWithTitle(chapter, title, fallbackIndex) {
+    function cloneChapterWithStructureTitle(chapter, tocTitle, fallbackIndex) {
         return {
             id: chapter?.id || `luku_${fallbackIndex + 1}`,
-            title: String(title || chapter?.title || `Luku ${fallbackIndex + 1}`).trim(),
+            title: String(chapter?.title || '').trim(),
+            toc_title: String(tocTitle || chapter?.toc_title || chapter?.title || `Luku ${fallbackIndex + 1}`).trim(),
             paragraphs: Array.isArray(chapter?.paragraphs) ? [...chapter.paragraphs] : [],
         };
     }
 
     function chaptersFromAiStructureOutline(rawText) {
-        const sourceChapters = (window.manuscriptData?.chapters || []).map((chapter, index) => cloneChapterWithTitle(chapter, chapter.title, index));
+        const sourceChapters = (window.manuscriptData?.chapters || []).map((chapter, index) => (
+            cloneChapterWithStructureTitle(chapter, structureDisplayTitle(chapter, index), index)
+        ));
         const options = structureSelectedOptions();
         const entries = parseAiStructureOutline(rawText);
         const result = [];
@@ -3702,11 +3725,11 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
 
         entries.forEach(entry => {
             if (entry.kind === 'part' && options.parts) {
-                result.push({ id: `osa_${result.length + 1}`, title: entry.title, paragraphs: [] });
+                result.push({ id: `osa_${result.length + 1}`, title: '', toc_title: entry.title, paragraphs: [] });
                 return;
             }
             if (entry.kind === 'subchapter' && (options.subchapters || options.intertitles)) {
-                result.push({ id: `aliluku_${result.length + 1}`, title: entry.title, paragraphs: [] });
+                result.push({ id: `aliluku_${result.length + 1}`, title: '', toc_title: entry.title, paragraphs: [] });
                 return;
             }
             if (entry.kind !== 'chapter') return;
@@ -3718,13 +3741,13 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
             }
             const source = sourceChapters[sourceIndex];
             if (!source) return;
-            result.push(cloneChapterWithTitle(source, entry.title, sourceIndex));
+            result.push(cloneChapterWithStructureTitle(source, entry.title, sourceIndex));
             used.add(sourceIndex);
             sequentialIndex = Math.max(sequentialIndex, sourceIndex + 1);
         });
 
         sourceChapters.forEach((chapter, index) => {
-            if (!used.has(index)) result.push(cloneChapterWithTitle(chapter, chapter.title, index));
+            if (!used.has(index)) result.push(cloneChapterWithStructureTitle(chapter, structureDisplayTitle(chapter, index), index));
         });
 
         return result.length ? result : sourceChapters;
@@ -3778,7 +3801,7 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         window.manuscriptData.chapters = structureProposalChapters;
         writingSelection = { cIndex: firstBodyChapterIndex(structureProposalChapters), pIndex: 0 };
         window.currentEditSelection = { cIndex: writingSelection.cIndex, pIndex: 0 };
-        await window.replaceProjectChaptersInDB(window.manuscriptData);
+        await window.saveProjectStructureToDB(window.manuscriptData);
         structureProposalChapters = null;
         const proposalEl = document.getElementById('structure-proposal');
         if (proposalEl) proposalEl.value = '';
