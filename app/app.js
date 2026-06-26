@@ -7212,6 +7212,17 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
     function translationReviewChunkValues(prefix) {
         const { chunks } = translationReviewElements(prefix);
         if (!chunks) return [];
+        const sections = Array.from(chunks.querySelectorAll('[data-translation-review-chunk-section]'));
+        if (sections.length) {
+            return sections.map(section => {
+                const paragraphs = Array.from(section.querySelectorAll('[data-translation-review-paragraph]'));
+                if (paragraphs.length) {
+                    return paragraphs.map(input => input.value.trim()).join('\n\n').trim();
+                }
+                const chunkInput = section.querySelector('[data-translation-review-chunk]');
+                return chunkInput ? chunkInput.value : '';
+            });
+        }
         return Array.from(chunks.querySelectorAll('[data-translation-review-chunk]')).map(input => input.value);
     }
 
@@ -7237,6 +7248,52 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
     function translationReviewBlockLabel(chunk, fallbackIndex) {
         const label = translationPartLabel(chunk || {}, fallbackIndex);
         return `${label.title}${label.meta ? ` · ${label.meta}` : ''}`;
+    }
+
+    function splitTranslationReviewParagraphs(value) {
+        return String(value || '').split(/\n\s*\n/).map(part => part.trim()).filter(Boolean);
+    }
+
+    function sourceParagraphsForReview(chunk) {
+        if (Array.isArray(chunk?.source_paragraphs) && chunk.source_paragraphs.length) {
+            return chunk.source_paragraphs
+                .map(item => String(item?.text || '').trim())
+                .filter(Boolean);
+        }
+        return splitTranslationReviewParagraphs(chunk?.source_text || '');
+    }
+
+    function renderReviewSourceBody(chunk) {
+        const paragraphs = sourceParagraphsForReview(chunk);
+        if (paragraphs.length <= 1) {
+            return `<div class="translation-review-chunk-body">${escapeHtml(paragraphs[0] || chunk?.source_text || '')}</div>`;
+        }
+        return `
+            <div class="translation-review-paragraph-list">
+                ${paragraphs.map((paragraph, index) => `
+                    <div class="translation-review-chunk-body" style="margin-bottom:10px;">
+                        <strong>Kappale ${index + 1}</strong><br>
+                        ${escapeHtml(paragraph)}
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    function renderReviewTranslationBody(chunk, index) {
+        const sourceParagraphs = sourceParagraphsForReview(chunk);
+        const translatedParagraphs = splitTranslationReviewParagraphs(chunk?.translation || '');
+        if (sourceParagraphs.length > 1 && sourceParagraphs.length === translatedParagraphs.length) {
+            return `
+                <div class="translation-review-paragraph-list">
+                    ${translatedParagraphs.map((paragraph, paragraphIndex) => `
+                        <label class="card-meta" style="display:block; margin-bottom:4px;">Kappale ${paragraphIndex + 1}</label>
+                        <textarea class="translation-review-chunk-text" data-translation-review-paragraph="${paragraphIndex}" style="margin-bottom:10px;">${escapeHtml(paragraph)}</textarea>
+                    `).join('')}
+                </div>
+            `;
+        }
+        return `<textarea class="translation-review-chunk-text" data-translation-review-chunk="${index}">${escapeHtml(chunk?.translation || '')}</textarea>`;
     }
 
     function renderAlignedTranslationReview(prefix, project, item, emptyMessage) {
@@ -7274,16 +7331,16 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         original.innerHTML = details.map((chunk, index) => `
             <section class="translation-review-chunk">
                 <h5>${escapeHtml(translationReviewBlockLabel(chunk, index))}</h5>
-                <div class="translation-review-chunk-body">${escapeHtml(chunk?.source_text || '')}</div>
+                ${renderReviewSourceBody(chunk)}
             </section>
         `).join('');
         chunks.innerHTML = details.map((chunk, index) => `
-            <section class="translation-review-chunk">
+            <section class="translation-review-chunk" data-translation-review-chunk-section="${index}">
                 <h5>${escapeHtml(translationReviewBlockLabel(chunk, index))}</h5>
-                <textarea class="translation-review-chunk-text" data-translation-review-chunk="${index}">${escapeHtml(chunk?.translation || '')}</textarea>
+                ${renderReviewTranslationBody(chunk, index)}
             </section>
         `).join('');
-        chunks.querySelectorAll('[data-translation-review-chunk]').forEach(input => {
+        chunks.querySelectorAll('[data-translation-review-chunk], [data-translation-review-paragraph]').forEach(input => {
             input.addEventListener('input', () => syncTranslationReviewText(prefix));
         });
         syncTranslationReviewText(prefix);
