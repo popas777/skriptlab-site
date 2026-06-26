@@ -735,7 +735,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     function chapterPlacement(chapter, index) {
-        const label = `${chapter?.id || ''} ${chapter?.title || ''}`.toLocaleLowerCase('fi-FI');
+        const label = `${chapter?.id || ''} ${chapter?.title || ''} ${chapter?.toc_title || ''} ${chapter?.tocTitle || ''}`.toLocaleLowerCase('fi-FI');
         if (/(epilogi|j[aä]lkisanat|hakemisto|kiitokset|l[aä]hteet|liite|liitteet|sanasto|bibliografia)/i.test(label)) {
             return 'back';
         }
@@ -757,7 +757,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     function isSubchapterTitle(chapter) {
-        const title = `${chapter?.id || ''} ${chapter?.title || ''}`.trim();
+        const title = `${chapter?.id || ''} ${chapter?.title || ''} ${chapter?.toc_title || ''} ${chapter?.tocTitle || ''}`.trim();
         return /^(\d+\.\d+|[IVXLC]+\.\d+)\b/i.test(title) || /\baliluku\b/i.test(title);
     }
 
@@ -3403,9 +3403,24 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function structureChapterKind(chapter) {
         const id = String(chapter?.id || '');
         const title = structureDisplayTitle(chapter);
+        if (id.startsWith('alku_') || /^(alku|prologi|esipuhe|alkusanat)\b/i.test(title)) return 'front';
         if (id.startsWith('osa_') || isPartHeadingTitle(title)) return 'part';
         if (id.startsWith('aliluku_') || isSubchapterHeadingTitle(title)) return 'subchapter';
         return 'chapter';
+    }
+
+    function structureChapterHasText(chapter) {
+        return (chapter?.paragraphs || []).some(paragraph => String(paragraph || '').trim());
+    }
+
+    function makeStructureMetaRow(kind, title, index) {
+        const prefix = kind === 'front' ? 'alku' : kind === 'part' ? 'osa' : kind === 'subchapter' ? 'aliluku' : 'luku';
+        return {
+            id: `${prefix}_${index}`,
+            title: '',
+            toc_title: String(title || (kind === 'front' ? 'Alku' : `Luku ${index}`)).trim(),
+            paragraphs: [],
+        };
     }
 
     function structureSelectedOptions() {
@@ -3415,6 +3430,77 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             parts: !onlyChapters && Boolean(document.getElementById('structure-include-parts')?.checked),
             intertitles: !onlyChapters && Boolean(document.getElementById('structure-include-intertitles')?.checked),
             subchapters: !onlyChapters && Boolean(document.getElementById('structure-include-subchapters')?.checked),
+        };
+    }
+
+    function structureExtraInstructions() {
+        return document.getElementById('structure-extra-instructions')?.value?.trim() || '';
+    }
+
+    function structureFinnishNumber(value) {
+        const normalized = String(value || '').toLocaleLowerCase('fi-FI').trim();
+        const words = {
+            yksi: 1,
+            yhden: 1,
+            kaksi: 2,
+            kahden: 2,
+            kolme: 3,
+            kolmen: 3,
+            neljä: 4,
+            neljan: 4,
+            neljän: 4,
+            viisi: 5,
+            viiden: 5,
+            kuusi: 6,
+            kuuden: 6,
+            seitsemän: 7,
+            seitseman: 7,
+            kahdeksan: 8,
+            yhdeksän: 9,
+            yhdeksan: 9,
+            kymmenen: 10,
+            yksitoista: 11,
+            yhdentoista: 11,
+            kaksitoista: 12,
+            kahdentoista: 12,
+            kolmetoista: 13,
+            kolmentoista: 13,
+            neljätoista: 14,
+            neljatoista: 14,
+            neljäntoista: 14,
+            neljantoista: 14,
+            viisitoista: 15,
+            viidentoista: 15,
+            kuusitoista: 16,
+            kuudentoista: 16,
+            seitsemäntoista: 17,
+            seitsemantoista: 17,
+            kahdeksantoista: 18,
+            yhdeksäntoista: 19,
+            yhdeksantoista: 19,
+            kaksikymmentä: 20,
+            kaksikymmenta: 20,
+        };
+        return words[normalized] || null;
+    }
+
+    function structureInstructionTargets(extra = structureExtraInstructions()) {
+        const text = String(extra || '').toLocaleLowerCase('fi-FI');
+        const digitMatch = text.match(/\b(\d{1,2})\s*(?:luku|lukua|lukuja|chapter(?:s)?)\b/i);
+        const wordMatch = text.match(/\b([a-zåäö]+)\s+(?:luku|lukua|lukuja)\b/i);
+        const targetChapters = digitMatch
+            ? Number(digitMatch[1])
+            : structureFinnishNumber(wordMatch?.[1]);
+        const wantsOpening = (
+            /\b(sisältää|sisaltaa|mukana|mukaan|rakenne)\b.{0,50}\b(alku|alun|alkuosa|alkuosat|alkuosia|prologi|prologin|esipuhe|esipuheen|alkusanat)\b/i.test(text)
+            || /\b(alku|alun|prologi|prologin|esipuhe|esipuheen|alkusanat)\b\s*(?:\+|ja|sekä|seka)\b/i.test(text)
+            || /\b(alkuosa|alkuosat|alkuosia|prologi|prologin|esipuhe|esipuheen)\b/i.test(text)
+        );
+        return {
+            raw: extra,
+            targetChapters: Number.isFinite(targetChapters) && targetChapters > 0 ? Math.min(targetChapters, 30) : null,
+            wantsOpening,
+            hasExplicitTarget: Boolean((Number.isFinite(targetChapters) && targetChapters > 0) || wantsOpening),
         };
     }
 
@@ -3439,6 +3525,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function normalizeStructureProposalChapters(chapters, options = structureSelectedOptions()) {
         let partCount = 0;
+        let frontCount = 0;
         let chapterCount = 0;
         let subchapterCount = 0;
         return (chapters || []).map(chapter => {
@@ -3453,7 +3540,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 toc_title: structureDisplayTitle(chapter),
                 paragraphs
             };
-            if (kind === 'part' && options.parts) {
+            if (kind === 'front') {
+                frontCount++;
+                next.id = `alku_${frontCount}`;
+            } else if (kind === 'part' && options.parts) {
                 partCount++;
                 next.id = `osa_${partCount}`;
             } else if (kind === 'subchapter' && (options.subchapters || options.intertitles)) {
@@ -3470,11 +3560,16 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function structureTocLines(chapters) {
         let partCount = 0;
+        let frontCount = 0;
         let chapterCount = 0;
         let subchapterCount = 0;
         return (chapters || []).map(chapter => {
             const kind = structureChapterKind(chapter);
             const title = structureDisplayTitle(chapter) || 'Nimetön';
+            if (kind === 'front') {
+                frontCount++;
+                return { kind, title, label: `Alku ${frontCount}`, text: frontCount > 1 ? `Alku ${frontCount}: ${title}` : title };
+            }
             if (kind === 'part') {
                 partCount++;
                 subchapterCount = 0;
@@ -3499,6 +3594,54 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             '',
             ...lines.map(line => line.text)
         ].join('\n');
+    }
+
+    function structureBodyChapterCount(chapters) {
+        return (chapters || []).filter(chapter => structureChapterKind(chapter) === 'chapter').length;
+    }
+
+    function applyStructureInstructionTargets(chapters, targets = structureInstructionTargets()) {
+        let rows = [...(chapters || [])];
+        if (targets.wantsOpening && !rows.some(chapter => structureChapterKind(chapter) === 'front')) {
+            rows.unshift(makeStructureMetaRow('front', 'Alku', 1));
+        }
+        if (targets.targetChapters) {
+            let chapterIndexes = rows
+                .map((chapter, index) => ({ chapter, index }))
+                .filter(item => structureChapterKind(item.chapter) === 'chapter');
+            let chapterCount = chapterIndexes.length;
+            for (let i = chapterIndexes.length - 1; i >= 0 && chapterCount > targets.targetChapters; i--) {
+                const item = chapterIndexes[i];
+                if (structureChapterHasText(item.chapter)) continue;
+                rows.splice(item.index, 1);
+                chapterCount--;
+                chapterIndexes = rows
+                    .map((chapter, index) => ({ chapter, index }))
+                    .filter(nextItem => structureChapterKind(nextItem.chapter) === 'chapter');
+            }
+            while (chapterCount < targets.targetChapters) {
+                chapterCount++;
+                rows.push(makeStructureMetaRow('chapter', `Luku ${chapterCount}`, chapterCount));
+            }
+        }
+        return normalizeStructureProposalChapters(rows);
+    }
+
+    function structureInstructionStatusNote(chapters, targets = structureInstructionTargets()) {
+        if (!targets.hasExplicitTarget) return '';
+        const parts = [];
+        if (targets.wantsOpening) {
+            parts.push('lisäohjeen alkuosa huomioitu metatason rivinä');
+        }
+        if (targets.targetChapters) {
+            const actual = structureBodyChapterCount(chapters);
+            if (actual === targets.targetChapters) {
+                parts.push(`${actual} lukua`);
+            } else {
+                parts.push(`${actual}/${targets.targetChapters} lukua; sisältöä sisältäviä lukuja ei poistettu automaattisesti`);
+            }
+        }
+        return parts.length ? ` Lisäohje huomioitu: ${parts.join(', ')}.` : '';
     }
 
     function compactStructureExcerpt(value, maxChars) {
@@ -3576,7 +3719,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             const chapter = chapters[index] || {};
             const paragraphMeta = (chapter.paragraphs || []).length;
             const className = line.kind === 'subchapter' ? 'chapter-nav-btn subchapter' : 'chapter-nav-btn';
-            const prefix = line.kind === 'part' ? 'Osa' : line.kind === 'subchapter' ? 'Aliluku' : 'Luku';
+            const prefix = line.kind === 'front' ? 'Alkuosa' : line.kind === 'part' ? 'Osa' : line.kind === 'subchapter' ? 'Aliluku' : 'Luku';
             return `
                 <button class="${className}" data-structure-chapter-index="${index}" type="button">
                     <span class="chapter-nav-title">${escapeHtml(line.text)}</span>
@@ -3608,14 +3751,15 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     function setStructureProposal(chapters, message) {
-        structureProposalChapters = normalizeStructureProposalChapters(chapters);
+        const targets = structureInstructionTargets();
+        structureProposalChapters = applyStructureInstructionTargets(normalizeStructureProposalChapters(chapters), targets);
         const proposalEl = document.getElementById('structure-proposal');
         if (proposalEl) proposalEl.value = structureProposalText(structureProposalChapters);
         const acceptBtn = document.getElementById('structure-accept-btn');
         const rejectBtn = document.getElementById('structure-reject-btn');
         if (acceptBtn) acceptBtn.disabled = !structureProposalChapters?.length;
         if (rejectBtn) rejectBtn.disabled = !structureProposalChapters?.length;
-        setStructureStatus(message || 'Ehdotus valmis tarkistettavaksi.');
+        setStructureStatus(`${message || 'Ehdotus valmis tarkistettavaksi.'}${structureInstructionStatusNote(structureProposalChapters, targets)}`);
     }
 
     function rejectStructureProposal() {
@@ -3646,16 +3790,31 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function buildStructureAiPrompt() {
         const options = structureSelectedOptions();
-        const extra = document.getElementById('structure-extra-instructions')?.value?.trim() || '';
+        const extra = structureExtraInstructions();
+        const targets = structureInstructionTargets(extra);
         const constraints = [];
+        if (targets.hasExplicitTarget) {
+            constraints.push('Käyttäjän lisäohje on sitova, jos se määrittää rakenteen määrän tai alkuosan.');
+        }
+        if (targets.wantsOpening) {
+            constraints.push('Palauta alku/prologi omana metatason rivinään muodossa: ALKU: Alku. Se ei ole luku eikä sitä lisätä leipätekstiin.');
+        }
+        if (targets.targetChapters) {
+            constraints.push(`Palauta täsmälleen ${targets.targetChapters} varsinaista LUKU-riviä. Alku/prologi ei kuulu tähän lukumäärään.`);
+        }
         if (options.onlyChapters) {
-            constraints.push('Käytä vain lukuja. Älä käytä osia, alilukuja tai väliotsikoita.');
+            constraints.push(targets.wantsOpening
+                ? 'Käytä alkuosan jälkeen vain lukuja. Älä käytä osia, alilukuja tai väliotsikoita.'
+                : 'Käytä vain lukuja. Älä käytä osia, alilukuja tai väliotsikoita.');
         } else {
             constraints.push(options.parts ? 'Voit käyttää osia muodossa "Osa 1: Nimi".' : 'Älä käytä osia.');
             constraints.push(options.subchapters ? 'Voit käyttää alilukuja muodossa "## Aliluvun nimi".' : 'Älä käytä alilukuja.');
             constraints.push(options.intertitles ? 'Voit käyttää harkittuja väliotsikoita muodossa "### Väliotsikon nimi".' : 'Älä lisää väliotsikoita.');
         }
         if (extra) constraints.push(`Käyttäjän lisäohje: ${extra}`);
+        const preservationRule = targets.targetChapters
+            ? `- Säilytä kaikki nykyinen sisältö metatasolla, mutta noudata käyttäjän pyytämää ${targets.targetChapters} varsinaisen luvun rakennetta. Voit jakaa tai koota nykyisiä lukujaksoja vain outline-tasolla; älä kirjoita leipätekstiä.`
+            : '- Jokainen nykyinen luku pitää säilyttää täsmälleen kerran. Älä jätä yhtään lukua pois.';
         return `STRUCTURE_MODULE:proposal
 
 Ehdota käsikirjoitukselle kirjallisesti toimivampaa otsikko- ja osarakennetta.
@@ -3663,9 +3822,10 @@ Ehdota käsikirjoitukselle kirjallisesti toimivampaa otsikko- ja osarakennetta.
 Periaatteet:
 - Saat vain nimetä nykyiset luvut uudelleen ja ehdottaa niiden väliin osia, alilukuja tai väliotsikoita, jos ne on sallittu.
 - Ehdottamasi otsikot ovat vain sisällysluettelon metatietoa. Niitä ei lisätä leipätekstiin.
-- Jokainen nykyinen luku pitää säilyttää täsmälleen kerran. Älä jätä yhtään lukua pois.
+${preservationRule}
 - Älä kirjoita varsinaista leipätekstiä, älä tiivistelmiä, älä perusteluja.
 - Palauta vain outline-rivejä.
+- Jos lisäohje pyytää alun/prologin, käytä muotoa: ALKU: Alku
 - Käytä nykyisistä luvuista muotoa: LUKU 1: Uusi otsikko
 - Jos osat ovat sallittuja, käytä osariveissä muotoa: OSA: Osan nimi
 - Jos aliluvut tai väliotsikot ovat sallittuja, käytä muotoa: ALILUKU: Otsikko tai VÄLIOTSIKKO: Otsikko
@@ -3682,6 +3842,11 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
             if (!text) return;
             text = text.replace(/^[-*•]\s*/, '').replace(/^\d+\.\s*/, '').trim();
             text = text.replace(/^#{1,6}\s*/, '').trim();
+            const front = text.match(/^(alku|prologi|esipuhe|alkusanat)\s*:?\s*(.*)$/i);
+            if (front) {
+                entries.push({ kind: 'front', title: normalizedHeadingLine(front[2]) || front[1].trim() });
+                return;
+            }
             const part = text.match(/^osa\s*:?\s*(.+)$/i);
             if (part) {
                 entries.push({ kind: 'part', title: normalizedHeadingLine(part[1]) || part[1].trim() });
@@ -3724,6 +3889,10 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         let sequentialIndex = 0;
 
         entries.forEach(entry => {
+            if (entry.kind === 'front') {
+                result.push({ id: `alku_${result.length + 1}`, title: '', toc_title: entry.title || 'Alku', paragraphs: [] });
+                return;
+            }
             if (entry.kind === 'part' && options.parts) {
                 result.push({ id: `osa_${result.length + 1}`, title: '', toc_title: entry.title, paragraphs: [] });
                 return;
