@@ -3758,18 +3758,29 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         return parts.length ? ` Lisäohje huomioitu: ${parts.join(', ')}.` : '';
     }
 
+    const STRUCTURE_AI_BRIEF_MAX_CHARS = 24000;
+    const STRUCTURE_AI_EXTRA_MAX_CHARS = 2400;
+
+    function compactStructureMiddle(value, maxChars) {
+        const text = String(value || '').replace(/\s+/g, ' ').trim();
+        if (text.length <= maxChars) return text;
+        if (maxChars <= 12) return text.slice(0, maxChars).trim();
+        const headLength = Math.max(1, Math.floor(maxChars * 0.58));
+        const tailLength = Math.max(1, maxChars - headLength - 14);
+        return `${text.slice(0, headLength).trim()} ... ${text.slice(-tailLength).trim()}`;
+    }
+
     function compactStructureExcerpt(value, maxChars) {
         const text = String(value || '').replace(/\s+/g, ' ').trim();
         if (text.length <= maxChars) return text;
         return `${text.slice(0, Math.max(0, maxChars - 1)).trim()}…`;
     }
 
-    function structureBriefForAi(project) {
+    function structureBriefForAi(project, maxChars = STRUCTURE_AI_BRIEF_MAX_CHARS) {
         const chapters = project?.chapters || [];
         const analysis = project?.analysis || {};
-        const perChapterChars = Math.max(170, Math.min(720, Math.floor(17000 / Math.max(1, chapters.length))));
-        const synopsis = compactStructureExcerpt(analysis.synopsis || analysis.backcover || '', 1200);
-        const style = compactStructureExcerpt(analysis.style || '', 900);
+        const synopsis = compactStructureMiddle(analysis.synopsis || analysis.backcover || '', 900);
+        const style = compactStructureMiddle(analysis.style || '', 600);
         const lines = [
             `Teos: ${project?.title || 'Nimetön'}`,
             project?.author ? `Tekijä: ${project.author}` : '',
@@ -3780,12 +3791,20 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             '',
             'Nykyinen rakenne ja lyhyet näytteet:',
         ].filter(Boolean);
+        const headerLines = [...lines];
 
+        const headerLength = lines.join('\n').length + 200;
+        const chapterBudget = Math.max(0, maxChars - headerLength);
+        const perChapterChars = Math.max(0, Math.min(420, Math.floor(chapterBudget / Math.max(1, chapters.length)) - 170));
         chapters.forEach((chapter, index) => {
             const paragraphs = chapter.paragraphs || [];
             const full = paragraphs.join('\n\n');
-            const first = compactStructureExcerpt(paragraphs[0] || '', Math.floor(perChapterChars * 0.62));
-            const last = compactStructureExcerpt(paragraphs.length > 1 ? paragraphs[paragraphs.length - 1] : '', Math.floor(perChapterChars * 0.38));
+            const first = perChapterChars >= 80
+                ? compactStructureExcerpt(paragraphs[0] || '', Math.floor(perChapterChars * 0.62))
+                : '';
+            const last = perChapterChars >= 120
+                ? compactStructureExcerpt(paragraphs.length > 1 ? paragraphs[paragraphs.length - 1] : '', Math.floor(perChapterChars * 0.38))
+                : '';
             lines.push([
                 `LUKU ${index + 1}`,
                 `Otsikko: ${chapter.title || `Luku ${index + 1}`}`,
@@ -3797,7 +3816,23 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 last ? `Loppu: ${last}` : '',
             ].filter(Boolean).join('\n'));
         });
-        return lines.join('\n\n');
+        let brief = lines.join('\n\n');
+        if (brief.length <= maxChars) return brief;
+        const minimalLines = [...headerLines];
+        chapters.forEach((chapter, index) => {
+            const paragraphs = chapter.paragraphs || [];
+            const full = paragraphs.join('\n\n');
+            minimalLines.push([
+                `LUKU ${index + 1}`,
+                `Otsikko: ${chapter.title || `Luku ${index + 1}`}`,
+                chapter.toc_title ? `Sisällysluettelo-otsikko: ${chapter.toc_title}` : '',
+                `Tyyppi: ${structureChapterKind(chapter)}`,
+                `Kappaleita: ${paragraphs.length}`,
+                `Sanoja: noin ${formatNumber(countWords(full))}`,
+            ].filter(Boolean).join('\n'));
+        });
+        brief = minimalLines.join('\n\n');
+        return brief.length <= maxChars ? brief : compactStructureMiddle(brief, maxChars);
     }
 
     function renderStructureModule() {
@@ -3933,7 +3968,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             constraints.push(options.subchapters ? 'Voit käyttää alilukuja muodossa "## Aliluvun nimi".' : 'Älä käytä alilukuja.');
             constraints.push(options.intertitles ? 'Voit käyttää harkittuja väliotsikoita muodossa "### Väliotsikon nimi".' : 'Älä lisää väliotsikoita.');
         }
-        if (extra) constraints.push(`Käyttäjän lisäohje: ${extra}`);
+        if (extra) constraints.push(`Käyttäjän lisäohje: ${compactStructureMiddle(extra, STRUCTURE_AI_EXTRA_MAX_CHARS)}`);
         const preservationRule = targets.targetChapters
             ? `- Säilytä kaikki nykyinen sisältö metatasolla, mutta noudata käyttäjän pyytämää ${targets.targetChapters} varsinaisen luvun rakennetta. Voit jakaa tai koota nykyisiä lukujaksoja vain outline-tasolla; älä kirjoita leipätekstiä.`
             : '- Jokainen nykyinen luku pitää säilyttää täsmälleen kerran. Älä jätä yhtään lukua pois.';
@@ -4111,6 +4146,12 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         return result.length ? result : sourceChapters;
     }
 
+    function currentStructureAsProposal() {
+        return (window.manuscriptData?.chapters || []).map((chapter, index) => (
+            cloneChapterWithStructureTitle(chapter, structureDisplayTitle(chapter, index), index)
+        ));
+    }
+
     async function createAiStructureProposal() {
         if (!window.manuscriptData?.chapters?.length) {
             alert('Lataa tai valitse käsikirjoitus ensin.');
@@ -4142,8 +4183,16 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
             setStructureProposal(chapters, 'AI-ehdotus valmis tarkistettavaksi. Tekstikappaleet on säilytetty nykyisistä luvuista.');
             loadUsage();
         } catch (err) {
-            setStructureStatus(err.message, true);
-            alert('Rakenne-ehdotuksen luonti epäonnistui: ' + networkFailureMessage(err));
+            const fallbackChapters = currentStructureAsProposal();
+            if (fallbackChapters.length) {
+                setStructureProposal(
+                    fallbackChapters,
+                    `AI-ehdotus ei onnistunut (${networkFailureMessage(err)}). Tein sääntöpohjaisen ehdotuksen nykyisestä rakenteesta.`
+                );
+            } else {
+                setStructureStatus(err.message, true);
+                alert('Rakenne-ehdotuksen luonti epäonnistui: ' + networkFailureMessage(err));
+            }
             loadUsage();
         } finally {
             if (button) button.disabled = false;
