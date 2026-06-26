@@ -1639,17 +1639,25 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
         const blocks = [];
         let current = [];
+        const pushCurrent = () => {
+            if (current.length) {
+                blocks.push(current);
+                current = [];
+            }
+        };
         lines.forEach(line => {
             if (!line) {
-                if (current.length) {
-                    blocks.push(current);
-                    current = [];
-                }
+                pushCurrent();
+                return;
+            }
+            if (preserveStructure && isExplicitStructureHeadingLine(line)) {
+                pushCurrent();
+                blocks.push([line]);
                 return;
             }
             current.push(line);
         });
-        if (current.length) blocks.push(current);
+        pushCurrent();
 
         return blocks
             .map(block => block.join(' ').replace(/\s+([,.!?;:])/g, '$1').trim())
@@ -3147,6 +3155,36 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             .filter(Boolean);
     }
 
+    function splitIntoStructureBlocks(text) {
+        const blocks = [];
+        let current = [];
+        const pushCurrent = () => {
+            if (!current.length) return;
+            const block = current.join(' ').replace(/\s+([,.!?;:])/g, '$1').trim();
+            if (block) blocks.push(block);
+            current = [];
+        };
+        String(text || '')
+            .replace(/\r\n?/g, '\n')
+            .replace(/\u00a0/g, ' ')
+            .split('\n')
+            .forEach(rawLine => {
+                const line = rawLine.replace(/[ \t]+/g, ' ').trim();
+                if (!line) {
+                    pushCurrent();
+                    return;
+                }
+                if (isExplicitStructureHeadingLine(line)) {
+                    pushCurrent();
+                    blocks.push(line);
+                    return;
+                }
+                current.push(line);
+            });
+        pushCurrent();
+        return blocks;
+    }
+
     function massEditSelectionScope() {
         return massEditScope?.value === 'book' ? 'book' : 'chapter';
     }
@@ -3206,6 +3244,22 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function isGenericNumberedHeading(value) {
         return /^(luku|chapter|osa|part)\s+([\divxlcdm]+|[a-zåäö]+)\.?$/i.test(normalizedHeadingLine(value));
+    }
+
+    function isExplicitStructureHeadingLine(value) {
+        const raw = String(value || '').trim();
+        const title = normalizedHeadingLine(raw);
+        if (!title) return false;
+        if (/^#{1,6}\s+\S/.test(raw)) return true;
+        if (isTableOfContentsHeading(title) || isSubchapterHeadingTitle(title)) return true;
+        const numberWords = 'yksi|yhden|kaksi|kahden|kolme|kolmen|neljä|neljan|neljän|viisi|viiden|kuusi|kuuden|seitsemän|seitseman|kahdeksan|yhdeksän|yhdeksan|kymmenen|yksitoista|kaksitoista';
+        const ordinalWords = 'ensimmäinen|toinen|kolmas|neljäs|viides|kuudes|seitsemäs|kahdeksas|yhdeksäs|kymmenes';
+        const numberToken = `(?:\\d+|[ivxlcdm]+|${numberWords}|${ordinalWords})`;
+        if (new RegExp(`^(?:luku|chapter)\\s+${numberToken}\\b`, 'i').test(title)) return true;
+        if (new RegExp(`^(?:osa|part)\\s+${numberToken}\\b`, 'i').test(title)) return true;
+        if (new RegExp(`^(?:${ordinalWords})\\s+osa\\b`, 'i').test(title)) return true;
+        if (/^[ivxlcdm]+\.?\s+osa\b/i.test(title)) return true;
+        return /^(\d+|[ivxlcdm]+)\.\s+\S.{0,90}$/i.test(title);
     }
 
     function isLikelyImplicitHeading(value, index, blocks, currentChapter, options = {}) {
@@ -3311,7 +3365,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function parseRestructuredChapters(text, fallbackTitle, options = {}) {
         const skipTableOfContents = options.skipTableOfContents !== false;
-        const blocks = splitIntoParagraphs(text);
+        const blocks = splitIntoStructureBlocks(text);
         const chapters = [];
         let currentChapter = {
             id: 'luku_1',
@@ -4438,7 +4492,7 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
                     body: JSON.stringify({
                         text: sourceText,
                         temperature: 0.2,
-                        prompt: 'Jaa teksti uudelleen selkeiksi osiksi, luvuiksi ja kappaleiksi. Tunnista kirjan osat muodossa Osa 1 / Osa I ja jätä ne omiksi otsikoikseen. Palauta vain valmis käsikirjoitusteksti: osan otsikko omalle rivilleen, luvun otsikko omalle rivilleen, kappaleet tyhjällä rivillä erotettuina. Älä lisää sisällysluetteloa, nimiölehteä, copysivua, sivunumeroita tai selityksiä.'
+                        prompt: 'Jaa teksti uudelleen selkeiksi osiksi, luvuiksi ja kappaleiksi. Tunnista kirjan osat muodossa Osa 1 / Osa I ja jätä ne omiksi otsikoikseen. Palauta vain valmis käsikirjoitusteksti: osan otsikko omalle rivilleen, luvun otsikko omalle rivilleen, ja jätä tyhjä rivi sekä ennen että jälkeen jokaisen osa- tai lukuotsikon. Älä koskaan sijoita osa- tai lukuotsikkoa edellisen luvun viimeisen kappaleen loppuun. Kappaleet erotetaan tyhjällä rivillä. Älä lisää sisällysluetteloa, nimiölehteä, copysivua, sivunumeroita tai selityksiä.'
                     })
                 });
                 const data = await res.json();
