@@ -1691,7 +1691,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             return;
         }
         await saveWritingText(false);
-        const sourceText = cleanManuscriptText(getFullManuscriptText(window.manuscriptData), { preserveStructure: true });
+        const repairedChapters = repairMisplacedStructureHeadings(window.manuscriptData.chapters);
+        const sourceText = cleanManuscriptText(getFullManuscriptText({ ...window.manuscriptData, chapters: repairedChapters }), { preserveStructure: true });
         if (!sourceText) {
             alert('Käsikirjoituksesta ei löytynyt jaoteltavaa tekstiä.');
             return;
@@ -2872,7 +2873,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 loadMiscAssetsForActiveProject();
             }
             if (nextViewId === 'view-elamakerta') {
-                loadBiographyState(false);
+                refreshElamakertaFrame();
             }
             if (nextViewId === 'view-kuvitus') {
                 loadImageModels();
@@ -3442,6 +3443,81 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }];
     }
 
+    function extractedStandaloneStructureHeading(value) {
+        const text = String(value || '').replace(/\s+/g, ' ').trim();
+        if (!text || text.length > 160) return '';
+        return isExplicitStructureHeadingLine(text) ? normalizedHeadingLine(text) : '';
+    }
+
+    function extractTrailingStructureHeading(value) {
+        const text = String(value || '').replace(/\s+/g, ' ').trim();
+        if (!text || text.length < 8) return null;
+        const headingPattern = /\b(?:LUKU|Luku|CHAPTER|Chapter|OSA|Osa|PART|Part)\s+(?:(?:\d+|[IVXLC]+)\.?\s*|[A-ZÅÄÖ][\p{L}\p{N}'’_-]*\s*)[^\n!?]{0,120}$/u;
+        const match = text.match(headingPattern);
+        if (!match || match.index === undefined || match.index <= 0) return null;
+        const before = text.slice(0, match.index).trim();
+        const heading = normalizedHeadingLine(match[0]);
+        if (!before || !heading || !isExplicitStructureHeadingLine(heading)) return null;
+        const beforeLooksComplete = /[.!?…:;)"”’]$/.test(before) || match[0] === match[0].toLocaleUpperCase('fi-FI');
+        if (!beforeLooksComplete) return null;
+        return { before, heading };
+    }
+
+    function chapterKindFromHeadingTitle(title) {
+        if (isPartHeadingTitle(title)) return 'part';
+        if (isSubchapterHeadingTitle(title)) return 'subchapter';
+        return 'chapter';
+    }
+
+    function applyDetectedHeadingToChapter(chapter, heading) {
+        if (!chapter || !heading) return;
+        const kind = chapterKindFromHeadingTitle(heading);
+        chapter.title = heading;
+        chapter.toc_title = heading;
+        if (kind === 'part') {
+            chapter.id = String(chapter.id || '').startsWith('osa_') ? chapter.id : `osa_${Date.now()}`;
+        } else if (kind === 'subchapter') {
+            chapter.id = String(chapter.id || '').startsWith('aliluku_') ? chapter.id : `aliluku_${Date.now()}`;
+        } else {
+            chapter.id = String(chapter.id || '').startsWith('luku_') ? chapter.id : `luku_${Date.now()}`;
+        }
+    }
+
+    function repairMisplacedStructureHeadings(chapters) {
+        const rows = (chapters || []).map((chapter, index) => cloneChapterWithStructureTitle(chapter, structureDisplayTitle(chapter, index), index));
+        rows.forEach(chapter => {
+            while (chapter.paragraphs?.length) {
+                const heading = extractedStandaloneStructureHeading(chapter.paragraphs[0]);
+                if (!heading) break;
+                applyDetectedHeadingToChapter(chapter, heading);
+                chapter.paragraphs.shift();
+            }
+        });
+        for (let index = 0; index < rows.length; index++) {
+            const chapter = rows[index];
+            if (!chapter?.paragraphs?.length) continue;
+            const lastIndex = chapter.paragraphs.length - 1;
+            const lastParagraph = chapter.paragraphs[lastIndex];
+            const standaloneHeading = extractedStandaloneStructureHeading(lastParagraph);
+            const trailingHeading = standaloneHeading
+                ? { before: '', heading: standaloneHeading }
+                : extractTrailingStructureHeading(lastParagraph);
+            if (!trailingHeading?.heading) continue;
+            if (trailingHeading.before) {
+                chapter.paragraphs[lastIndex] = trailingHeading.before;
+            } else {
+                chapter.paragraphs.splice(lastIndex, 1);
+            }
+            let nextChapter = rows[index + 1];
+            if (!nextChapter) {
+                nextChapter = { id: `luku_${rows.length + 1}`, title: '', toc_title: '', paragraphs: [] };
+                rows.splice(index + 1, 0, nextChapter);
+            }
+            applyDetectedHeadingToChapter(nextChapter, trailingHeading.heading);
+        }
+        return normalizeStructureProposalChapters(rows);
+    }
+
     let structureProposalChapters = null;
 
     function structureDisplayTitle(chapter, index = 0) {
@@ -3982,7 +4058,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             return;
         }
         await flushPendingManuscriptEdits();
-        const sourceText = cleanManuscriptText(getFullManuscriptText(window.manuscriptData), { preserveStructure: true });
+        const repairedChapters = repairMisplacedStructureHeadings(window.manuscriptData.chapters);
+        const sourceText = cleanManuscriptText(getFullManuscriptText({ ...window.manuscriptData, chapters: repairedChapters }), { preserveStructure: true });
         if (!sourceText.trim()) {
             alert('Käsikirjoituksesta ei löytynyt jaoteltavaa tekstiä.');
             return;
@@ -4114,9 +4191,7 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
     }
 
     function chaptersFromAiStructureOutline(rawText) {
-        const sourceChapters = (window.manuscriptData?.chapters || []).map((chapter, index) => (
-            cloneChapterWithStructureTitle(chapter, structureDisplayTitle(chapter, index), index)
-        ));
+        const sourceChapters = repairMisplacedStructureHeadings(window.manuscriptData?.chapters || []);
         const options = structureSelectedOptions();
         const targets = structureInstructionTargets(structureExtraInstructions(), options);
         const entries = parseAiStructureOutline(rawText);
@@ -4201,9 +4276,7 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
     }
 
     function currentStructureAsProposal() {
-        return (window.manuscriptData?.chapters || []).map((chapter, index) => (
-            cloneChapterWithStructureTitle(chapter, structureDisplayTitle(chapter, index), index)
-        ));
+        return repairMisplacedStructureHeadings(window.manuscriptData?.chapters || []);
     }
 
     async function createAiStructureProposal() {
@@ -4212,7 +4285,8 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
             return;
         }
         await flushPendingManuscriptEdits();
-        const structureBrief = structureBriefForAi(window.manuscriptData);
+        const repairedChapters = repairMisplacedStructureHeadings(window.manuscriptData.chapters);
+        const structureBrief = structureBriefForAi({ ...window.manuscriptData, chapters: repairedChapters });
         if (!structureBrief.trim()) {
             alert('Käsikirjoituksesta ei löytynyt käsiteltävää tekstiä.');
             return;
@@ -4476,7 +4550,7 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
             const sel = window.currentEditSelection || {};
             const chapter = window.manuscriptData.chapters[sel.cIndex];
             const sourceText = scope === 'book'
-                ? getFullManuscriptText(window.manuscriptData)
+                ? getFullManuscriptText({ ...window.manuscriptData, chapters: repairMisplacedStructureHeadings(window.manuscriptData.chapters) })
                 : (chapter?.paragraphs || []).join('\n\n');
             if (!sourceText.trim()) {
                 if (massEditStatus) massEditStatus.textContent = 'Käsiteltävää tekstiä ei löytynyt.';
@@ -6538,6 +6612,7 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         window.updateDynamicTexts();
         biographyState = normalizeBiographyState(window.manuscriptData.analysis?.biography || {});
         renderBiography();
+        if (currentViewId === 'view-elamakerta') refreshElamakertaFrame();
         renderAnalysisSummary(window.manuscriptData.analysis);
         renderProductInfo(true);
         renderAudioView(true);
@@ -8449,6 +8524,24 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
 
     function activeBiographyProjectId() {
         return window.manuscriptData?.id || null;
+    }
+
+    function refreshElamakertaFrame() {
+        const frame = document.getElementById('elamakerta-frame');
+        if (!frame) {
+            loadBiographyState(false);
+            return;
+        }
+        try {
+            if (frame.contentWindow?.ElamakertaModule) {
+                frame.contentWindow.ElamakertaModule.loadState();
+                return;
+            }
+        } catch (err) {
+            // If the iframe is still loading, refresh the src below.
+        }
+        const projectId = activeBiographyProjectId() || '';
+        frame.src = `elamakerta.html?project=${encodeURIComponent(projectId)}&t=${Date.now()}`;
     }
 
     function setBiographyStatus(message, isError = false) {
