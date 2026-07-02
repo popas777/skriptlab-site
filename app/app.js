@@ -3799,7 +3799,11 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function structureChapterGroupRanges(total, target) {
         if (!Number.isFinite(total) || !Number.isFinite(target) || total <= 0 || target <= 0) return [];
         if (target >= total) {
-            return Array.from({ length: total }, (_, index) => ({ start: index, end: index + 1 }));
+            return Array.from({ length: target }, (_, index) => (
+                index < total
+                    ? { start: index, end: index + 1 }
+                    : { start: total, end: total }
+            ));
         }
         return Array.from({ length: target }, (_, index) => {
             const start = Math.floor(index * total / target);
@@ -3821,10 +3825,69 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         return merged;
     }
 
+    function structureParagraphUnits(chapters) {
+        const units = [];
+        (chapters || []).forEach((chapter, chapterIndex) => {
+            const paragraphs = Array.isArray(chapter?.paragraphs) ? chapter.paragraphs : [];
+            paragraphs.forEach((paragraph, paragraphIndex) => {
+                const text = String(paragraph || '');
+                if (!text.trim()) return;
+                units.push({ paragraph: text, chapter, chapterIndex, paragraphIndex });
+            });
+        });
+        return units;
+    }
+
+    function structureParagraphGroups(chapters, targetChapters) {
+        const units = structureParagraphUnits(chapters);
+        if (!targetChapters || !units.length) return [];
+        return structureChapterGroupRanges(units.length, targetChapters)
+            .map(range => units.slice(range.start, range.end));
+    }
+
+    function mergeStructureParagraphGroup(group, tocTitle, fallbackIndex) {
+        const units = (group || []).filter(Boolean);
+        const first = units[0]?.chapter || {};
+        return {
+            id: `luku_${fallbackIndex + 1}`,
+            title: String(first.title || '').trim(),
+            toc_title: String(tocTitle || first.toc_title || first.tocTitle || first.structure_title || first.title || `Luku ${fallbackIndex + 1}`).trim(),
+            paragraphs: units.map(unit => unit.paragraph),
+        };
+    }
+
+    function expandedStructureBodyChapters(rows, targetChapters, preferredTitles = []) {
+        const sourceRows = [...(rows || [])];
+        const bodyRows = sourceRows.filter(chapter => structureChapterKind(chapter) === 'chapter');
+        if (!targetChapters || bodyRows.length >= targetChapters) return sourceRows;
+        const paragraphGroups = structureParagraphGroups(bodyRows, targetChapters);
+        if (!paragraphGroups.length || paragraphGroups.every(group => !group.length)) return sourceRows;
+        const expanded = paragraphGroups.map((group, index) => mergeStructureParagraphGroup(group, preferredTitles[index], index));
+        const firstBodyIndex = sourceRows.findIndex(chapter => structureChapterKind(chapter) === 'chapter');
+        if (firstBodyIndex < 0) return sourceRows;
+        const result = [];
+        let inserted = false;
+        sourceRows.forEach((row, index) => {
+            if (structureChapterKind(row) !== 'chapter') {
+                if (!inserted || index < firstBodyIndex) result.push(row);
+                return;
+            }
+            if (!inserted) {
+                result.push(...expanded);
+                inserted = true;
+            }
+        });
+        return result;
+    }
+
     function rebalanceStructureBodyChapters(rows, targetChapters, preferredTitles = []) {
         const sourceRows = [...(rows || [])];
         const bodyRows = sourceRows.filter(chapter => structureChapterKind(chapter) === 'chapter');
-        if (!targetChapters || bodyRows.length <= targetChapters) return sourceRows;
+        if (!targetChapters) return sourceRows;
+        if (bodyRows.length < targetChapters) {
+            return expandedStructureBodyChapters(sourceRows, targetChapters, preferredTitles);
+        }
+        if (bodyRows.length <= targetChapters) return sourceRows;
         const ranges = structureChapterGroupRanges(bodyRows.length, targetChapters);
         const bodyIndexToGroup = new Map();
         ranges.forEach((range, groupIndex) => {
@@ -3866,7 +3929,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             rows = [...leadingRows, ...rows];
         }
         if (targets.targetChapters) {
-            rows = rebalanceStructureBodyChapters(rows, targets.targetChapters);
+            const preferredTitles = rows
+                .filter(chapter => structureChapterKind(chapter) === 'chapter')
+                .map((chapter, index) => structureDisplayTitle(chapter) || `Luku ${index + 1}`);
+            rows = rebalanceStructureBodyChapters(rows, targets.targetChapters, preferredTitles);
             let chapterIndexes = rows
                 .map((chapter, index) => ({ chapter, index }))
                 .filter(item => structureChapterKind(item.chapter) === 'chapter');
@@ -3934,6 +4000,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const analysis = project?.analysis || {};
         const synopsis = compactStructureMiddle(analysis.synopsis || analysis.backcover || '', 900);
         const style = compactStructureMiddle(analysis.style || '', 600);
+        const chapterAnalysis = compactStructureMiddle(analysis.chapter_analysis || analysis.structure || analysis.rakenne || '', 1600);
         const lines = [
             `Teos: ${project?.title || 'Nimetön'}`,
             project?.author ? `Tekijä: ${project.author}` : '',
@@ -3941,6 +4008,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             `Koko tekstin sanamäärä: noin ${formatNumber(countWords(getFullManuscriptText(project)))}`,
             synopsis ? `Synopsis: ${synopsis}` : '',
             style ? `Tyylianalyysin tiivistelmä: ${style}` : '',
+            chapterAnalysis ? `Tallennettu luku-/rakenneanalyysi: ${chapterAnalysis}` : '',
             '',
             'Nykyinen rakenne ja lyhyet näytteet:',
         ].filter(Boolean);
@@ -4097,6 +4165,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const targets = structureInstructionTargets(extra, options);
         const constraints = [];
         const hasFrontMatterTarget = Boolean(targets.wantsTitlePage || targets.wantsTableOfContents || targets.wantsOpening);
+        const currentBodyChapterCount = structureBodyChapterCount(window.manuscriptData?.chapters || []);
         if (targets.hasExplicitTarget) {
             constraints.push('Käyttäjän lisäohje on sitova, jos se määrittää rakenteen määrän, nimiön, sisällyksen tai alkuosan.');
         }
@@ -4112,6 +4181,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (targets.targetChapters) {
             constraints.push(`Palauta täsmälleen ${targets.targetChapters} varsinaista LUKU-riviä. Alku/prologi ei kuulu tähän lukumäärään.`);
             constraints.push('Jos nykyisessä automaattijaossa on tätä enemmän tekstiosia, yhdistä peräkkäisiä nykyisiä osia samaan LUKU-riviin. Älä palauta ylimääräisiä lukuja vain siksi, että nykyisiä rivejä on enemmän.');
+            if (currentBodyChapterCount && currentBodyChapterCount < targets.targetChapters) {
+                constraints.push('Jos nykyisessä automaattijaossa on tätä vähemmän tekstiosia, jaa pitkät nykyiset osat useammaksi peräkkäiseksi LUKU-riviksi metatasolla. Älä jätä loppupään lukuja tyhjiksi.');
+            }
         }
         if (options.onlyChapters) {
             constraints.push(hasFrontMatterTarget
@@ -4221,8 +4293,11 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         const chapterEntries = entries.filter(entry => entry.kind === 'chapter');
         const sourceBodyChapters = sourceChapters.filter(chapter => structureChapterKind(chapter) === 'chapter');
         if (targets.targetChapters && chapterEntries.length === targets.targetChapters && sourceBodyChapters.length) {
-            const ranges = structureChapterGroupRanges(sourceBodyChapters.length, targets.targetChapters);
-            const groups = ranges.map(range => sourceBodyChapters.slice(range.start, range.end));
+            const splitByParagraphs = sourceBodyChapters.length < targets.targetChapters;
+            const groups = splitByParagraphs
+                ? structureParagraphGroups(sourceBodyChapters, targets.targetChapters)
+                : structureChapterGroupRanges(sourceBodyChapters.length, targets.targetChapters)
+                    .map(range => sourceBodyChapters.slice(range.start, range.end));
             const result = [];
             let chapterEntryIndex = 0;
             entries.forEach(entry => {
@@ -4247,7 +4322,9 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
                     return;
                 }
                 if (entry.kind !== 'chapter') return;
-                result.push(mergeStructureChapterGroup(groups[chapterEntryIndex] || [], entry.title, chapterEntryIndex));
+                result.push(splitByParagraphs
+                    ? mergeStructureParagraphGroup(groups[chapterEntryIndex] || [], entry.title, chapterEntryIndex)
+                    : mergeStructureChapterGroup(groups[chapterEntryIndex] || [], entry.title, chapterEntryIndex));
                 chapterEntryIndex++;
             });
             return result.length ? prependMissingSourceMetaRows(result, sourceChapters) : sourceChapters;
