@@ -6156,7 +6156,7 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
     function runWorkflowAudioPlaceholder() {
         setWorkflowStep('audio', 'running', 'Audio (Äänikirja) merkitään viimeiseksi tuotantovaiheeksi.');
         renderAudioView();
-        setWorkflowStep('audio', 'done', 'Audio (Äänikirja) edellyttää äänen valintaa. Sanasto ja ääntämisohjeet voi luoda Audio-osiossa.');
+        setWorkflowStep('audio', 'done', 'Audio (Äänikirja) edellyttää äänen valintaa. Sanaston, ääntämisohjeet sekä alku- ja loppusanat voi valmistella Audio-osiossa.');
     }
 
     function setAudioStatus(message, isError = false) {
@@ -6166,9 +6166,41 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         status.style.color = isError ? '#ffb4b4' : 'var(--text-secondary)';
     }
 
-    function audioGuideFromAnalysis() {
+    function audioDataFromAnalysis() {
         const audio = window.manuscriptData?.analysis?.audio;
-        return audio && typeof audio === 'object' ? String(audio.pronunciation_guide || '') : '';
+        return audio && typeof audio === 'object' ? audio : {};
+    }
+
+    function audioGuideFromAnalysis() {
+        return String(audioDataFromAnalysis().pronunciation_guide || '');
+    }
+
+    function audioOpeningFromAnalysis() {
+        return String(audioDataFromAnalysis().opening_words || '');
+    }
+
+    function audioClosingFromAnalysis() {
+        return String(audioDataFromAnalysis().closing_words || '');
+    }
+
+    function defaultAudioOpeningWords() {
+        const title = String(window.manuscriptData?.title || '').trim() || 'Teoksen nimi';
+        const author = String(window.manuscriptData?.author || '').trim();
+        const lines = [title];
+        if (author && author.toLowerCase() !== 'tuntematon') lines.push(`Kirjoittanut ${author}.`);
+        return lines.join('\n');
+    }
+
+    function defaultAudioClosingWords() {
+        const title = String(window.manuscriptData?.title || '').trim() || 'Teos';
+        return `${title} päättyy tähän.`;
+    }
+
+    function fillDefaultAudioScript(force = false) {
+        const opening = document.getElementById('audio-opening-words');
+        const closing = document.getElementById('audio-closing-words');
+        if (opening && (force || !opening.value.trim())) opening.value = defaultAudioOpeningWords();
+        if (closing && (force || !closing.value.trim())) closing.value = defaultAudioClosingWords();
     }
 
     function populateAudioVoices() {
@@ -6190,6 +6222,8 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
     function renderAudioView(force = false) {
         const current = document.getElementById('audio-current-project');
         const guide = document.getElementById('audio-pronunciation-guide');
+        const opening = document.getElementById('audio-opening-words');
+        const closing = document.getElementById('audio-closing-words');
         if (current) {
             current.textContent = window.manuscriptData
                 ? `Käsikirjoitus: ${window.manuscriptData.title || 'Nimetön'}`
@@ -6198,11 +6232,17 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         populateAudioVoices();
         if (!window.manuscriptData) {
             if (guide) guide.value = '';
+            if (opening) opening.value = '';
+            if (closing) closing.value = '';
             setAudioStatus('Valitse käsikirjoitus ensin.', true);
             return;
         }
         const savedGuide = audioGuideFromAnalysis();
         if (guide && (force || !guide.value.trim())) guide.value = savedGuide;
+        const savedOpening = audioOpeningFromAnalysis();
+        const savedClosing = audioClosingFromAnalysis();
+        if (opening && (force || !opening.value.trim())) opening.value = savedOpening || defaultAudioOpeningWords();
+        if (closing && (force || !closing.value.trim())) closing.value = savedClosing || defaultAudioClosingWords();
         setAudioStatus(savedGuide
             ? 'Tallennetut ääntämisohjeet ladattu. Voit muokata ja tallentaa ne.'
             : 'Voit luoda sanaston ja ääntämisohjeet koko kirjasta.');
@@ -6266,6 +6306,24 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         };
         await window.saveManuscriptToDB(window.manuscriptData);
         setAudioStatus('Ääntämisohjeiden muokkaukset tallennettu.');
+    }
+
+    async function saveAudioScriptEdits() {
+        if (!window.manuscriptData) {
+            setAudioStatus('Valitse käsikirjoitus ensin.', true);
+            return;
+        }
+        const opening = document.getElementById('audio-opening-words')?.value || '';
+        const closing = document.getElementById('audio-closing-words')?.value || '';
+        if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
+        window.manuscriptData.analysis.audio = {
+            ...(window.manuscriptData.analysis.audio || {}),
+            opening_words: opening,
+            closing_words: closing,
+            updated_at: new Date().toISOString()
+        };
+        await window.saveManuscriptToDB(window.manuscriptData);
+        setAudioStatus('Äänikirjan alku- ja loppusanat tallennettu.');
     }
 
     function firstAudioSampleText() {
@@ -9844,6 +9902,8 @@ ${state.validation || 'Ei validointia.'}`;
 	    const productSaveBtn = document.getElementById('product-save-btn');
 	    const audioGuideBtn = document.getElementById('audio-guide-btn');
     const audioSaveGuideBtn = document.getElementById('audio-save-guide-btn');
+    const audioSaveScriptBtn = document.getElementById('audio-save-script-btn');
+    const audioScriptDefaultsBtn = document.getElementById('audio-script-defaults-btn');
     const audioTestVoiceBtn = document.getElementById('audio-test-voice-btn');
     const audioStopVoiceBtn = document.getElementById('audio-stop-voice-btn');
     const marketingGenerateBtn = document.getElementById('marketing-generate-btn');
@@ -9982,6 +10042,11 @@ ${state.validation || 'Ei validointia.'}`;
 	    });
 	    if (audioGuideBtn) audioGuideBtn.addEventListener('click', generateAudioGuide);
     if (audioSaveGuideBtn) audioSaveGuideBtn.addEventListener('click', saveAudioGuideEdits);
+    if (audioSaveScriptBtn) audioSaveScriptBtn.addEventListener('click', saveAudioScriptEdits);
+    if (audioScriptDefaultsBtn) audioScriptDefaultsBtn.addEventListener('click', () => {
+        fillDefaultAudioScript(true);
+        setAudioStatus('Alku- ja loppusanojen ehdotus täytetty. Tarkista teksti ja tallenna.');
+    });
     if (audioTestVoiceBtn) audioTestVoiceBtn.addEventListener('click', testAudioVoice);
     if (audioStopVoiceBtn) audioStopVoiceBtn.addEventListener('click', stopAudioVoice);
     if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = populateAudioVoices;
