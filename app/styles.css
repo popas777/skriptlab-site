@@ -1393,6 +1393,12 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     flex: 1;
     min-height: 0;
 }
+.writing-workspace-simple {
+    grid-template-columns: minmax(0, 1fr);
+}
+.writing-workspace-simple .writing-editor {
+    min-height: min(780px, calc(100vh - 220px));
+}
 
 .writer-stage-panel {
     display: grid;

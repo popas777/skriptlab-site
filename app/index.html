@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=40">
+    <link rel="stylesheet" href="styles.css?v=41">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -70,12 +70,12 @@
             <nav class="sidebar-nav">
                 <ul id="nav-menu">
 	                    <li class="active" data-view="view-kirjani">Käsikirjoitukseni</li>
-	                    <li data-view="view-tyopoyta">Työpöytä</li>
-	                    <li data-view="view-rakenne">Rakenne</li>
 	                    <li data-view="view-kirjoita">Kirjoita</li>
-	                    <li data-view="view-elamakerta">Elämäkerta</li>
 	                    <li data-view="view-analyysi">Analyysi</li>
+	                    <li data-view="view-rakenne">Rakenne</li>
                     <li data-view="view-toimitus">Editointi</li>
+	                    <li data-view="view-tyopoyta">Mobiili-työpöytä</li>
+	                    <li data-view="view-elamakerta">Elämäkerta</li>
                     <li data-view="view-oikoluku">Oikoluku</li>
                     <li data-view="view-kuvitus">Kuvitus</li>
                     <li data-view="view-tuotetiedot">Tuotetiedot</li>
@@ -200,8 +200,8 @@
             <div id="view-tyopoyta" class="view-section hidden">
                 <div class="header writer-desk-header">
                     <div class="header-info">
-                        <h2>Työpöytä</h2>
-                        <p id="writer-desk-current-project">Valitse käsikirjoitus ja jatka tekstin työstämistä yhdessä näkymässä.</p>
+                        <h2>Mobiili-työpöytä</h2>
+                        <p id="writer-desk-current-project">Valitse käsikirjoitus ja jatka tekstiä tiiviissä mobiilinäkymässä.</p>
                     </div>
                     <div class="header-actions">
                         <button class="btn btn-secondary" id="writer-desk-toggle-structure-btn" type="button">Näytä luvut</button>
@@ -236,7 +236,7 @@
 	                    </div>
 	                </section>
 
-                <nav class="writer-mobile-jumpbar glass-panel" aria-label="Työpöydän pikavalinnat">
+                <nav class="writer-mobile-jumpbar glass-panel" aria-label="Mobiili-työpöydän pikavalinnat">
                     <button type="button" data-writer-scroll="writer-desk-editor-panel">Teksti</button>
                     <button type="button" data-writer-scroll="writer-desk-assistant-panel">Avustaja</button>
                     <button type="button" data-writer-scroll="writer-desk-structure-panel">Luvut</button>
@@ -270,7 +270,7 @@
 	                            <button class="btn btn-secondary" id="writer-desk-next-section-btn" type="button">Seuraava</button>
 	                            <button class="btn btn-secondary" id="writer-desk-add-section-btn" type="button">Lisää uusi</button>
 	                        </div>
-	                        <textarea id="writer-desk-text" class="writer-desk-text" placeholder="Valitse tai lataa käsikirjoitus ensin. Työpöytä näyttää valitun luvun, rakenteen ja avustajan samassa näkymässä."></textarea>
+	                        <textarea id="writer-desk-text" class="writer-desk-text" placeholder="Valitse tai lataa käsikirjoitus ensin. Mobiili-työpöytä näyttää valitun tekstikohdan, rakenteen ja avustajan samassa tiiviissä näkymässä."></textarea>
 	                        <div class="writer-command-box" id="writer-command-box">
 	                            <div class="writer-command-topline">
 	                                <span id="writer-command-stage-label">Avustaja</span>
@@ -370,43 +370,22 @@
                         <details class="tool-menu">
                             <summary class="btn btn-secondary">Työkalut</summary>
                             <div class="tool-menu-panel">
-                                <button class="btn btn-secondary" id="toggle-writing-markup-btn">Näytä merkinnät</button>
                                 <button class="btn btn-secondary" id="clean-writing-text-btn">Putsaa teksti</button>
-                                <button class="btn btn-secondary" id="restructure-writing-btn">Jaottele uusiksi</button>
-                                <button class="btn btn-secondary" id="markdown-help-btn">Merkintäohje</button>
                             </div>
                         </details>
                         <button class="btn btn-primary" id="save-writing-btn">Tallenna teksti</button>
                     </div>
                 </div>
-                <div class="writing-workspace">
-                    <aside class="writing-nav glass-panel">
-                        <h3>Luvut ja kappaleet</h3>
-                        <div class="writing-jump-panel">
-                            <label for="writing-paragraph-jump">Siirry kappaleeseen</label>
-                            <div class="writing-jump-row">
-                                <input id="writing-paragraph-jump" type="number" min="1" value="1">
-                                <button class="btn btn-secondary" id="writing-paragraph-jump-btn">Siirry</button>
-                            </div>
-                            <p id="writing-position-status">Valitse luku.</p>
-                        </div>
-                        <div class="writing-structure-actions">
-                            <button class="btn btn-secondary" id="add-writing-chapter-btn">Uusi luku</button>
-                            <button class="btn btn-secondary" id="add-writing-paragraph-btn">Uusi kappale</button>
-                            <button class="btn btn-secondary btn-danger-soft" id="delete-writing-chapter-btn">Poista luku</button>
-                            <button class="btn btn-secondary btn-danger-soft" id="delete-writing-paragraph-btn">Poista kappale</button>
-                        </div>
-                        <div id="writing-chapter-list" class="chapter-list"></div>
-                    </aside>
+                <div class="writing-workspace writing-workspace-simple">
                     <section class="writing-editor glass-panel">
                         <div class="panel-header">
-                            <h3 id="writing-selection-title">Valitse luku</h3>
+                            <h3 id="writing-selection-title">Käsikirjoitusteksti</h3>
                             <div class="panel-status-stack">
                                 <span id="writing-tool-status" class="writing-tool-status"></span>
                                 <span id="writing-save-status" class="save-timestamp">Tallennus: -</span>
                             </div>
                         </div>
-                        <textarea id="writing-text" class="writing-text" placeholder="Valitse luku tai aloita uusi käsikirjoitus lataamalla teksti Käsikirjoitukseni-näkymässä. Erottele kappaleet tyhjällä rivillä."></textarea>
+                        <textarea id="writing-text" class="writing-text" placeholder="Kirjoita tai jatka käsikirjoitusta tähän. Tässä vaiheessa tekstiä ei jaeta lukuihin; rakenne tehdään myöhemmin Rakenne-moduulissa. Erottele kappaleet tyhjällä rivillä."></textarea>
                     </section>
                 </div>
             </div>
@@ -2320,6 +2299,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=66"></script>
+    <script src="app.js?v=67"></script>
 </body>
 </html>

@@ -240,12 +240,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function defaultViewForUser() {
         if (currentUser?.role === 'oppimateriaali') return 'view-om-projekti';
         if (currentUser?.role === 'kirjailija') {
-            return localStorage.getItem('skriptlab_manuscript') ? 'view-tyopoyta' : 'view-kirjani';
+            return localStorage.getItem('skriptlab_manuscript') ? 'view-kirjoita' : 'view-kirjani';
         }
         return 'view-kirjani';
     }
     function primaryWritingView() {
-        return currentUser?.role === 'kirjailija' ? 'view-tyopoyta' : 'view-kirjoita';
+        return 'view-kirjoita';
     }
     let currentViewId = defaultViewForUser();
     let workflowRunning = false;
@@ -261,8 +261,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         'view-om-kokonaisuus',
         'view-om-vienti'
     ]);
-    const writerViews = new Set(['view-kirjani', 'view-tyopoyta', 'view-rakenne', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus']);
-    const betaCoreViews = new Set(['view-kirjani', 'view-rakenne', 'view-kirjoita', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-analyysi', 'view-toimitus', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
+    const writerViews = new Set(['view-kirjani', 'view-kirjoita', 'view-analyysi', 'view-rakenne', 'view-toimitus', 'view-tyopoyta', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus']);
+    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-analyysi', 'view-rakenne', 'view-toimitus', 'view-tyopoyta', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset', 'view-suomentaja']);
     const biographyViews = new Set(['view-kirjani', 'view-rakenne', 'view-kirjoita', 'view-ai-tyonkulku', 'view-elamakerta', 'view-toimitus', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-audio', 'view-kirja', 'view-julkaise']);
     const roleLabels = {
@@ -909,7 +909,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function getFullManuscriptText(data = window.manuscriptData) {
         if (!data || !Array.isArray(data.chapters)) return '';
         return data.chapters.map((chapter, index) => {
-            const title = structureDisplayTitle(chapter, index);
+            const title = isRawWritingDraftChapter(chapter) ? explicitChapterTitle(chapter) : structureDisplayTitle(chapter, index);
             const paragraphs = Array.isArray(chapter.paragraphs)
                 ? chapter.paragraphs.map(p => String(p || '').trim()).filter(Boolean).join('\n\n')
                 : '';
@@ -950,6 +950,59 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         return showManuscriptMarkup
             ? [chapterMarkdownHeading(chapter, index), paragraphs].filter(Boolean).join('\n\n')
             : paragraphs;
+    }
+
+    function explicitChapterTitle(chapter) {
+        return String(
+            chapter?.toc_title
+            || chapter?.tocTitle
+            || chapter?.structure_title
+            || chapter?.title
+            || ''
+        ).trim();
+    }
+
+    function isRawWritingDraftChapter(chapter) {
+        const id = String(chapter?.id || '');
+        return id.startsWith('raakateksti_') || id.startsWith('raw_draft_');
+    }
+
+    function isProjectStructureCompleted(data = window.manuscriptData) {
+        const analysis = data?.analysis || {};
+        return Boolean(
+            analysis.structure_completed_at
+            || analysis.structure_completed === true
+            || analysis.structure_status === 'accepted'
+        );
+    }
+
+    function writingTextForProject(data = window.manuscriptData) {
+        if (!data || !Array.isArray(data.chapters)) return '';
+        return data.chapters.map((chapter, index) => {
+            const title = explicitChapterTitle(chapter);
+            const includeTitle = title && !isRawWritingDraftChapter(chapter);
+            const paragraphs = Array.isArray(chapter.paragraphs)
+                ? chapter.paragraphs.map(paragraph => String(paragraph || '').trim()).filter(Boolean)
+                : [];
+            return [
+                includeTitle ? title : '',
+                ...paragraphs
+            ].filter(Boolean).join('\n\n');
+        }).filter(Boolean).join('\n\n\n');
+    }
+
+    function replaceProjectWithRawWritingText(text) {
+        if (!window.manuscriptData) return false;
+        const paragraphs = splitIntoParagraphs(text);
+        window.manuscriptData.chapters = [{
+            id: 'raakateksti_1',
+            title: '',
+            toc_title: '',
+            paragraphs: paragraphs.length ? paragraphs : ['']
+        }];
+        writingSelection = { cIndex: 0, pIndex: 0 };
+        markLocalManuscriptDraft(window.manuscriptData);
+        return true;
     }
 
     function parseChapterEditorText(chapter, text) {
@@ -1023,7 +1076,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             '*kursiivi* merkitsee kursivoitavaa tekstiä.',
             '**lihavointi** kannattaa yleensä poistaa kaunokirjan leipätekstistä ennen taittoa.',
             '',
-            'Kirjoita- ja Editointi-osioissa Näytä merkinnät näyttää nämä otsikkomerkit. Piilota merkinnät näyttää tekstin lukumuodossa.'
+            'Rakenne ja otsikkotasot viimeistellään Rakenne- ja Editointi-osioissa. Kirjoita-osio on raakatekstin kirjoittamista varten.'
         ].join('\n'));
     }
 
@@ -1445,10 +1498,17 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function syncWritingEditorToManuscript() {
         const textEl = document.getElementById('writing-text');
         if (!textEl || !window.manuscriptData) return false;
-        const chapter = window.manuscriptData.chapters?.[writingSelection.cIndex];
-        if (!chapter) return false;
-        applyParsedChapterText(chapter, textEl.value);
-        writingSelection.pIndex = Math.min(writingSelection.pIndex || 0, chapter.paragraphs.length - 1);
+        if (isProjectStructureCompleted(window.manuscriptData)) {
+            const parsedChapters = parseRestructuredChapters(textEl.value, window.manuscriptData.title || 'Käsikirjoitus');
+            if (parsedChapters.length) {
+                window.manuscriptData.chapters = normalizeStructureProposalChapters(parsedChapters);
+                writingSelection = { cIndex: firstBodyChapterIndex(window.manuscriptData.chapters), pIndex: 0 };
+            } else {
+                replaceProjectWithRawWritingText(textEl.value);
+            }
+        } else {
+            replaceProjectWithRawWritingText(textEl.value);
+        }
         markLocalManuscriptDraft(window.manuscriptData);
         return true;
     }
@@ -1460,7 +1520,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         window.clearTimeout(writingAutosaveTimer);
         writingAutosaveTimer = window.setTimeout(() => {
             if (syncWritingEditorToManuscript()) {
-                window.saveProjectChapterToDB(window.manuscriptData, writingSelection.cIndex)
+                window.replaceProjectChaptersInDB(window.manuscriptData)
                     .then(() => updateSaveTimestamp('writing-save-status', Boolean(window.manuscriptData?._db_sync_pending)));
                 renderBookOverview();
             }
@@ -1478,7 +1538,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         if (currentViewId === 'view-kirjoita') {
             if (syncWritingEditorToManuscript()) {
-                savePromise = window.saveProjectChapterToDB(window.manuscriptData, writingSelection.cIndex);
+                savePromise = window.replaceProjectChaptersInDB(window.manuscriptData);
             }
         }
         if (currentViewId === 'view-toimitus') {
@@ -1495,9 +1555,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function currentWritingParagraphs() {
         const textEl = document.getElementById('writing-text');
         const text = textEl ? textEl.value : '';
-        const chapter = window.manuscriptData?.chapters?.[writingSelection.cIndex] || {};
-        const parsed = parseChapterEditorText(chapter, text);
-        return parsed.paragraphs.length ? parsed.paragraphs : [''];
+        const parts = splitIntoParagraphs(text);
+        return parts.length ? parts : [''];
     }
 
     function paragraphIndexAtOffset(text, offset) {
@@ -1533,8 +1592,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function updateWritingPositionStatus() {
         const jumpInput = document.getElementById('writing-paragraph-jump');
         const statusEl = document.getElementById('writing-position-status');
-        const chapter = window.manuscriptData?.chapters?.[writingSelection.cIndex];
-        const chapters = window.manuscriptData?.chapters || [];
         const paragraphs = currentWritingParagraphs();
         const pIndex = Math.min(Math.max(writingSelection.pIndex || 0, 0), Math.max(0, paragraphs.length - 1));
         if (jumpInput) {
@@ -1542,9 +1599,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             jumpInput.value = String(pIndex + 1);
         }
         if (statusEl) {
-            statusEl.textContent = chapter
-                ? `Luku ${writingSelection.cIndex + 1}/${chapters.length}: ${structureDisplayTitle(chapter, writingSelection.cIndex) || 'Nimetön luku'} · kappale ${pIndex + 1}/${Math.max(1, paragraphs.length)}`
-                : 'Valitse luku.';
+            statusEl.textContent = `Raakateksti · kappale ${pIndex + 1}/${Math.max(1, paragraphs.length)}`;
         }
     }
 
@@ -1670,20 +1725,16 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     async function cleanCurrentWritingChapter() {
         const textEl = document.getElementById('writing-text');
-        if (!textEl || !window.manuscriptData?.chapters?.[writingSelection.cIndex]) {
-            alert('Valitse puhdistettava luku ensin.');
+        if (!textEl || !window.manuscriptData) {
+            alert('Valitse tai lataa käsikirjoitus ensin.');
             return;
         }
-        const chapter = window.manuscriptData.chapters[writingSelection.cIndex];
-        const parsed = parseChapterEditorText(chapter, textEl.value);
-        const cleaned = cleanManuscriptText(parsed.paragraphs.join('\n\n'));
-        textEl.value = showManuscriptMarkup
-            ? [`${parsed.idPrefix === 'aliluku' ? '##' : '#'} ${parsed.title}`, cleaned].filter(Boolean).join('\n\n')
-            : cleaned;
+        const cleaned = cleanManuscriptText(textEl.value, { preserveStructure: isProjectStructureCompleted(window.manuscriptData) });
+        textEl.value = cleaned;
         writingSelection.pIndex = 0;
         await saveWritingText(false);
         renderWritingView();
-        setWritingToolStatus('Teksti puhdistettu valitusta luvusta.');
+        setWritingToolStatus('Raakateksti puhdistettu.');
     }
 
     async function restructureWritingManuscript() {
@@ -1717,65 +1768,26 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     function renderWritingView() {
-        const chapterList = document.getElementById('writing-chapter-list');
         const titleEl = document.getElementById('writing-selection-title');
         const textEl = document.getElementById('writing-text');
-        if (!chapterList || !titleEl || !textEl) return;
+        if (!titleEl || !textEl) return;
 
-        chapterList.innerHTML = '';
         if (!window.manuscriptData || !Array.isArray(window.manuscriptData.chapters) || window.manuscriptData.chapters.length === 0) {
             titleEl.textContent = 'Ei käsikirjoitusta';
             textEl.value = '';
-            renderChapterParagraphNav(chapterList, null, null);
             updateWritingPositionStatus();
             return;
         }
 
-        if (writingSelection.cIndex === null || !window.manuscriptData.chapters[writingSelection.cIndex]) {
-            const firstChapterIndex = firstBodyChapterIndex(window.manuscriptData.chapters);
-            writingSelection = { cIndex: firstChapterIndex, pIndex: 0 };
+        titleEl.textContent = isProjectStructureCompleted(window.manuscriptData)
+            ? 'Käsikirjoitusteksti'
+            : 'Raakateksti ennen rakennetta';
+        const nextText = writingTextForProject(window.manuscriptData);
+        const renderKey = `${window.manuscriptData.id || window.manuscriptData.title || 'local'}:${window.manuscriptData.chapters.length}:${isProjectStructureCompleted(window.manuscriptData) ? 'structured' : 'draft'}`;
+        if (textEl.dataset.writingRenderKey !== renderKey || document.activeElement !== textEl) {
+            textEl.value = nextText;
+            textEl.dataset.writingRenderKey = renderKey;
         }
-        const activeChapter = window.manuscriptData.chapters[writingSelection.cIndex];
-        if (!Array.isArray(activeChapter.paragraphs)) activeChapter.paragraphs = [];
-        if (activeChapter.paragraphs.length === 0) activeChapter.paragraphs.push('');
-        if (
-            writingSelection.pIndex === null ||
-            writingSelection.pIndex === undefined ||
-            writingSelection.pIndex < 0 ||
-            writingSelection.pIndex >= activeChapter.paragraphs.length
-        ) {
-            writingSelection.pIndex = 0;
-        }
-
-        renderChapterParagraphNav(chapterList, writingSelection.cIndex, writingSelection.pIndex, {
-            onChapterSelect: cIndex => {
-                saveWritingText(false);
-                const nextPIndex = cIndex === writingSelection.cIndex ? writingSelection.pIndex : 0;
-                writingSelection = { cIndex, pIndex: nextPIndex };
-                renderWritingView();
-            },
-            onParagraphSelect: (cIndex, pIndex) => {
-                saveWritingText(false);
-                writingSelection = { cIndex, pIndex };
-                renderWritingView();
-            },
-            onChapterRename: (cIndex, title) => {
-                saveWritingText(false);
-                const chapter = window.manuscriptData.chapters[cIndex];
-                if (!chapter) return;
-                chapter.title = title || `Luku ${cIndex + 1}`;
-                chapter.toc_title = chapter.title;
-                window.saveProjectStructureToDB(window.manuscriptData);
-                renderWritingView();
-            },
-            showParagraphs: false
-        });
-
-        const selectedChapter = window.manuscriptData.chapters[writingSelection.cIndex];
-        titleEl.textContent = selectedChapter
-            ? `${structureDisplayTitle(selectedChapter, writingSelection.cIndex)}, koko luku`
-            : 'Valitse luku';
-        textEl.value = chapterTextForEditor(selectedChapter, writingSelection.cIndex);
         updateWritingPositionStatus();
         updateMarkupButtons();
     }
@@ -1783,15 +1795,15 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     async function saveWritingText(showAlert = true) {
         window.clearTimeout(writingAutosaveTimer);
         if (!syncWritingEditorToManuscript()) return;
-        await window.saveProjectChapterToDB(window.manuscriptData, writingSelection.cIndex);
+        await window.replaceProjectChaptersInDB(window.manuscriptData);
         updateSaveTimestamp('writing-save-status', Boolean(window.manuscriptData._db_sync_pending));
         renderBookOverview();
         if (window.renderNavList) window.renderNavList();
         if (showAlert) {
             if (window.manuscriptData._db_sync_pending) {
-                alert('Lukua ei saatu tallennettua tietokantaan. Paikallinen luonnos on tallessa, mutta kokeile tallennusta uudelleen.');
+                alert('Tekstiä ei saatu tallennettua tietokantaan. Paikallinen luonnos on tallessa, mutta kokeile tallennusta uudelleen.');
             } else {
-                alert('Luku tallennettu tietokantaan ja kappalerakenne päivitetty.');
+                alert('Teksti tallennettu.');
             }
         }
     }
@@ -4478,6 +4490,10 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         const currentChapters = window.manuscriptData.chapters || [];
         const replaceChapterLayout = structureProposalRequiresChapterReplacement(structureProposalChapters, currentChapters);
         window.manuscriptData.chapters = structureProposalChapters;
+        window.manuscriptData.analysis = window.manuscriptData.analysis || {};
+        window.manuscriptData.analysis.structure_completed = true;
+        window.manuscriptData.analysis.structure_status = 'accepted';
+        window.manuscriptData.analysis.structure_completed_at = new Date().toISOString();
         writingSelection = { cIndex: firstBodyChapterIndex(structureProposalChapters), pIndex: 0 };
         window.currentEditSelection = { cIndex: writingSelection.cIndex, pIndex: 0 };
         if (replaceChapterLayout) {
