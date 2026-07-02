@@ -803,8 +803,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 chapterButton.classList.toggle('active', index === activeCIndex);
                 chapterButton.classList.toggle('subchapter', isSubchapterTitle(chapter));
                 const paragraphCount = Array.isArray(chapter.paragraphs) ? chapter.paragraphs.length : 0;
+                const displayTitle = structureDisplayTitle(chapter, index) || `Luku ${index + 1}`;
                 chapterButton.innerHTML = `
-                    <span class="chapter-nav-title">${escapeHtml(chapter.title || `Luku ${index + 1}`)}</span>
+                    <span class="chapter-nav-title">${escapeHtml(displayTitle)}</span>
                     <span class="chapter-nav-meta">${paragraphCount} kappaletta</span>
                 `;
                 chapterButton.addEventListener('click', () => {
@@ -816,7 +817,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                     const titleInput = document.createElement('input');
                     titleInput.type = 'text';
                     titleInput.className = 'chapter-title-input';
-                    titleInput.value = chapter.title || `Luku ${index + 1}`;
+                    titleInput.value = displayTitle;
                     titleInput.setAttribute('aria-label', 'Luvun nimi');
                     titleInput.addEventListener('click', event => event.stopPropagation());
                     titleInput.addEventListener('change', () => {
@@ -907,8 +908,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function getFullManuscriptText(data = window.manuscriptData) {
         if (!data || !Array.isArray(data.chapters)) return '';
-        return data.chapters.map(chapter => {
-            const title = chapter.title ? String(chapter.title).trim() : '';
+        return data.chapters.map((chapter, index) => {
+            const title = structureDisplayTitle(chapter, index);
             const paragraphs = Array.isArray(chapter.paragraphs)
                 ? chapter.paragraphs.map(p => String(p || '').trim()).filter(Boolean).join('\n\n')
                 : '';
@@ -930,7 +931,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function chapterMarkdownHeading(chapter, index = 0) {
         const level = markdownLevelForChapter(chapter, index);
-        return `${'#'.repeat(level)} ${stripMarkdownHeading(chapter?.title || `Luku ${index + 1}`)}`;
+        return `${'#'.repeat(level)} ${stripMarkdownHeading(structureDisplayTitle(chapter, index) || `Luku ${index + 1}`)}`;
     }
 
     function manuscriptToMarkdown(data = window.manuscriptData) {
@@ -1542,7 +1543,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         if (statusEl) {
             statusEl.textContent = chapter
-                ? `Luku ${writingSelection.cIndex + 1}/${chapters.length}: ${chapter.title || 'Nimetön luku'} · kappale ${pIndex + 1}/${Math.max(1, paragraphs.length)}`
+                ? `Luku ${writingSelection.cIndex + 1}/${chapters.length}: ${structureDisplayTitle(chapter, writingSelection.cIndex) || 'Nimetön luku'} · kappale ${pIndex + 1}/${Math.max(1, paragraphs.length)}`
                 : 'Valitse luku.';
         }
     }
@@ -1763,6 +1764,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 const chapter = window.manuscriptData.chapters[cIndex];
                 if (!chapter) return;
                 chapter.title = title || `Luku ${cIndex + 1}`;
+                chapter.toc_title = chapter.title;
                 window.saveProjectStructureToDB(window.manuscriptData);
                 renderWritingView();
             },
@@ -1771,7 +1773,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
         const selectedChapter = window.manuscriptData.chapters[writingSelection.cIndex];
         titleEl.textContent = selectedChapter
-            ? `${selectedChapter.title}, koko luku`
+            ? `${structureDisplayTitle(selectedChapter, writingSelection.cIndex)}, koko luku`
             : 'Valitse luku';
         textEl.value = chapterTextForEditor(selectedChapter, writingSelection.cIndex);
         updateWritingPositionStatus();
@@ -2798,7 +2800,25 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
     });
 
+    function setBookTab(panelId = 'book-preview-tab') {
+        document.querySelectorAll('.book-tab').forEach(button => {
+            button.classList.toggle('active', button.dataset.bookPanel === panelId);
+        });
+        document.querySelectorAll('.book-tab-panel').forEach(panel => {
+            panel.classList.toggle('hidden', panel.id !== panelId);
+        });
+        if (panelId === 'book-layout-tab') {
+            loadLayoutAssets();
+        } else {
+            renderBookOverview();
+        }
+    }
+
     function openModule(viewId) {
+        const requestedViewId = viewId;
+        if (viewId === 'view-taitto') {
+            viewId = 'view-kirja';
+        }
         if (!isViewAllowed(viewId)) {
             viewId = defaultViewForUser();
         }
@@ -2809,12 +2829,15 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if(targetView) targetView.classList.remove('hidden');
 
         navItems.forEach(item => {
-            if(item.getAttribute('data-view') === viewId) {
+            if(item.getAttribute('data-view') === viewId || (requestedViewId === 'view-taitto' && item.getAttribute('data-view') === 'view-kirja')) {
                 item.classList.add('active');
             } else {
                 item.classList.remove('active');
             }
         });
+        if (viewId === 'view-kirja') {
+            setBookTab(requestedViewId === 'view-taitto' ? 'book-layout-tab' : 'book-preview-tab');
+        }
     }
 
     function persistPendingModuleEdits(nextViewId) {
@@ -4350,6 +4373,25 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         return false;
     }
 
+    function refreshViewsAfterStructureChange() {
+        renderBookOverview();
+        renderWriterDeskView();
+        renderWritingView();
+        renderStructureModule();
+        if (window.renderNavList) window.renderNavList();
+        const sel = window.currentEditSelection || {};
+        if (
+            window.loadParagraph &&
+            sel.cIndex !== null &&
+            sel.cIndex !== undefined &&
+            window.manuscriptData?.chapters?.[sel.cIndex]
+        ) {
+            const chapter = window.manuscriptData.chapters[sel.cIndex];
+            const nextPIndex = Math.min(Math.max(sel.pIndex || 0, 0), Math.max(0, (chapter.paragraphs || []).length - 1));
+            window.loadParagraph(sel.cIndex, nextPIndex, null);
+        }
+    }
+
     async function acceptStructureProposal() {
         if (!structureProposalChapters?.length || !window.manuscriptData) return;
         const paragraphCount = structureProposalChapters.reduce((sum, chapter) => sum + (chapter.paragraphs || []).length, 0);
@@ -4369,10 +4411,7 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         structureProposalChapters = null;
         const proposalEl = document.getElementById('structure-proposal');
         if (proposalEl) proposalEl.value = '';
-        renderBookOverview();
-        if (window.renderNavList) window.renderNavList();
-        renderWritingView();
-        renderStructureModule();
+        refreshViewsAfterStructureChange();
         setStructureStatus('Rakenne hyväksytty ja tallennettu.');
     }
 
@@ -6283,6 +6322,9 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
 
     const refreshBookPreviewBtn = document.getElementById('refresh-book-preview-btn');
     const downloadBookTextBtn = document.getElementById('download-book-text-btn');
+    const bookTabButtons = document.querySelectorAll('.book-tab');
+    const layoutOpenCoverBtn = document.getElementById('layout-open-cover-btn');
+    const layoutOpenMaterialsBtn = document.getElementById('layout-open-materials-btn');
     const layoutOfferEbookBtn = document.getElementById('layout-offer-ebook-btn');
     const layoutOfferPrintBtn = document.getElementById('layout-offer-print-btn');
     const publishBuildApplicationBtn = document.getElementById('publish-build-application-btn');
@@ -6329,6 +6371,20 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
 
     if (refreshBookPreviewBtn) refreshBookPreviewBtn.addEventListener('click', renderBookOverview);
     if (downloadBookTextBtn) downloadBookTextBtn.addEventListener('click', downloadCurrentBookText);
+    bookTabButtons.forEach(button => {
+        button.addEventListener('click', () => setBookTab(button.dataset.bookPanel || 'book-preview-tab'));
+    });
+    if (layoutOpenCoverBtn) layoutOpenCoverBtn.addEventListener('click', () => {
+        window.openModule('view-kuvitus');
+        loadImageModels();
+        loadCoverImages();
+    });
+    if (layoutOpenMaterialsBtn) layoutOpenMaterialsBtn.addEventListener('click', () => {
+        window.openModule('view-muut-toiminnot');
+        loadMiscModels();
+        updateMiscProjectSelect();
+        loadMiscAssetsForActiveProject();
+    });
     if (layoutOfferEbookBtn) layoutOfferEbookBtn.addEventListener('click', () => requestLayoutOffer('E-kirja'));
     if (layoutOfferPrintBtn) layoutOfferPrintBtn.addEventListener('click', () => requestLayoutOffer('Painovalmis PDF'));
     if (publishBuildApplicationBtn) publishBuildApplicationBtn.addEventListener('click', buildPublishApplication);
@@ -9964,6 +10020,7 @@ ${state.validation || 'Ei validointia.'}`;
                 const chapter = window.manuscriptData.chapters[nextCIndex];
                 if (!chapter) return;
                 chapter.title = title || `Luku ${nextCIndex + 1}`;
+                chapter.toc_title = chapter.title;
                 window.saveProjectStructureToDB(window.manuscriptData);
                 renderWritingView();
                 window.loadParagraph(nextCIndex, Math.min(pIndex || 0, chapter.paragraphs.length - 1), null);
@@ -9981,9 +10038,10 @@ ${state.validation || 'Ei validointia.'}`;
         renderEditorParagraphPicker(cIndex, pIndex);
 
         const chapterLabel = document.getElementById('original-chapter-label');
-        if (chapterLabel) chapterLabel.textContent = `- ${chapter.title}`;
+        const displayTitle = structureDisplayTitle(chapter, cIndex) || `Luku ${cIndex + 1}`;
+        if (chapterLabel) chapterLabel.textContent = `- ${displayTitle}`;
         const statusP = document.querySelector('#view-toimitus .header-info p');
-        if (statusP) statusP.textContent = `${chapter.title}, Kappale ${pIndex + 1} (Editointi/Käännöstila)`;
+        if (statusP) statusP.textContent = `${displayTitle}, Kappale ${pIndex + 1} (Editointi/Käännöstila)`;
 
         if (editScopeSelect?.value === 'paragraph' && normalizeText(getEditableText()) === normalizeText(previousText)) {
             setEditableText(chapter.paragraphs[pIndex] || '');
@@ -10045,7 +10103,8 @@ ${state.validation || 'Ei validointia.'}`;
         const editedText = document.getElementById('edited-text');
         const chapterLabel = document.getElementById('original-chapter-label');
         
-        if (chapterLabel) chapterLabel.textContent = `- ${chapter.title}`;
+        const displayTitle = structureDisplayTitle(chapter, cIndex) || `Luku ${cIndex + 1}`;
+        if (chapterLabel) chapterLabel.textContent = `- ${displayTitle}`;
         
         if (originalText) {
             let html = '';
@@ -10088,7 +10147,7 @@ ${state.validation || 'Ei validointia.'}`;
         
         const statusP = document.querySelector('#view-toimitus .header-info p');
         if (statusP) {
-            statusP.textContent = `${chapter.title}, Kappale ${pIndex + 1} (Editointi/Käännöstila)`;
+            statusP.textContent = `${displayTitle}, Kappale ${pIndex + 1} (Editointi/Käännöstila)`;
         }
     };
 
