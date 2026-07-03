@@ -7210,6 +7210,11 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         return `${elapsed} · arvioitu etenemä: osa ${currentPart}/${chunks}`;
     }
 
+    function translationParallelLabel(estimate) {
+        const workers = Number(estimate?.parallel_workers || 0);
+        return workers > 1 ? `, ${workers} rinnakkaista kutsua` : '';
+    }
+
     function startTranslationTimer(estimate = null) {
         const timer = document.getElementById('translation-timer');
         window.clearInterval(translationTimerInterval);
@@ -7558,7 +7563,7 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         estimateEl.textContent = 'Lasketaan arviota...';
         try {
             const data = await fetchTranslationEstimate(payload);
-            estimateEl.textContent = `${formatNumber(data.word_count)} sanaa, ${data.chunks_count} osaa, arvioitu kesto noin ${formatDuration(data.estimated_seconds)}.`;
+            estimateEl.textContent = `${formatNumber(data.word_count)} sanaa, ${data.chunks_count} osaa${translationParallelLabel(data)}, arvioitu kesto noin ${formatDuration(data.estimated_seconds)}.`;
         } catch (err) {
             latestTranslationEstimate = null;
             estimateEl.textContent = err.message;
@@ -7582,7 +7587,7 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         estimateEl.textContent = 'Lasketaan suomennoksen osia...';
         try {
             const data = await fetchFinnishTranslationEstimate(payload);
-            estimateEl.textContent = `${formatNumber(data.word_count)} sanaa, ${data.chunks_count} osaa, arvioitu kesto noin ${formatDuration(data.estimated_seconds)}.`;
+            estimateEl.textContent = `${formatNumber(data.word_count)} sanaa, ${data.chunks_count} osaa${translationParallelLabel(data)}, arvioitu kesto noin ${formatDuration(data.estimated_seconds)}.`;
         } catch (err) {
             latestFinnishTranslationEstimate = null;
             estimateEl.textContent = err.message;
@@ -8276,7 +8281,7 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
                 ? latestTranslationEstimate
                 : await fetchTranslationEstimate(payload);
             startTranslationTimer(estimate);
-            if (status) status.textContent = `Käännös käynnissä. ${estimate.chunks_count} osaa, arvioitu kesto noin ${formatDuration(estimate.estimated_seconds)}.`;
+            if (status) status.textContent = `Käännös käynnissä. ${estimate.chunks_count} osaa${translationParallelLabel(estimate)}, arvioitu kesto noin ${formatDuration(estimate.estimated_seconds)}.`;
             const res = await apiFetch('/api/translations', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -8336,7 +8341,7 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
             startFinnishTranslationTimer(estimate);
             if (status) {
                 const runLabel = useCustomInstructions ? 'Räätälöity suomennos' : 'Suomennos';
-                status.textContent = `${runLabel} käynnissä. ${estimate.chunks_count} osaa, arvioitu kesto noin ${formatDuration(estimate.estimated_seconds)}.`;
+                status.textContent = `${runLabel} käynnissä. ${estimate.chunks_count} osaa${translationParallelLabel(estimate)}, arvioitu kesto noin ${formatDuration(estimate.estimated_seconds)}.`;
             }
             const res = await apiFetch('/api/translations', {
                 method: 'POST',
