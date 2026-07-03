@@ -68,29 +68,28 @@
         <aside class="sidebar glass-panel" id="sidebar">
             <h1 class="logo">SkriptLab<span class="accent">.</span></h1>
             <nav class="sidebar-nav">
-                <ul id="nav-menu">
-	                    <li class="active" data-view="view-kirjani">Käsikirjoitukseni</li>
-	                    <li data-view="view-kirjoita">Kirjoita</li>
-	                    <li data-view="view-analyysi">Analyysi</li>
-	                    <li data-view="view-rakenne">Rakenne</li>
-                    <li data-view="view-toimitus">Editointi</li>
-	                    <li data-view="view-tyopoyta">Mobiili-työpöytä</li>
-                    <li data-view="view-oikoluku">Oikoluku</li>
-                    <li data-view="view-kuvitus">Kuvitus</li>
-                    <li data-view="view-tuotetiedot">Tuotetiedot</li>
-                    <li data-view="view-markkinointi">Markkinointi</li>
-                    <li data-view="view-audio">Audio</li>
-                    <li data-view="view-kaannokset">Käännökset</li>
-                    <li data-view="view-suomentaja">Suomentaja</li>
-	                    <li data-view="view-muut-toiminnot">Oheisaineistot</li>
-	                    <li data-view="view-kirja">Valmis kirja & taitto</li>
-	                    <li data-view="view-julkaise">Julkaise</li>
-	                    <li data-view="view-ai-tyonkulku">AI-työnkulku</li>
-	                    <li data-view="view-sopimukset">Sopimukset</li>
-                    <li data-view="view-aikajana">Aikajana</li>
-                    <li data-view="view-viimeistely">Versiot</li>
-	                    <li data-view="view-elamakerta">Elämäkerta</li>
-                    <li data-view="view-om-projekti">OM - Projektin luonti</li>
+	                <ul id="nav-menu">
+		                    <li class="active" data-view="view-kirjani">Käsikirjoitukseni</li>
+		                    <li data-view="view-tyopoyta">Mobiili-työpöytä</li>
+		                    <li data-view="view-kirjoita">Kirjoita</li>
+		                    <li data-view="view-analyysi">Rakenne ja analyysi</li>
+	                    <li data-view="view-toimitus">Editointi</li>
+	                    <li data-view="view-oikoluku">Oikoluku ja viimeistely</li>
+		                    <li data-view="view-muut-toiminnot">Oheisaineistot</li>
+	                    <li data-view="view-kuvitus">Kansi ja kuvitus</li>
+		                    <li data-view="view-kirja">Valmis kirja & taitto</li>
+		                    <li data-view="view-julkaise">Julkaise</li>
+		                    <li data-view="view-ai-tyonkulku">AI-työnkulku</li>
+	                    <li data-view="view-kaannokset">Käännökset</li>
+	                    <li data-view="view-suomentaja">Suomentaja</li>
+		                    <li data-view="view-elamakerta">Elämäkerta</li>
+	                    <li data-view="view-tuotetiedot">Tuotetiedot</li>
+	                    <li data-view="view-markkinointi">Markkinointi</li>
+	                    <li data-view="view-audio">Audio</li>
+		                    <li data-view="view-sopimukset">Sopimukset</li>
+	                    <li data-view="view-aikajana">Aikajana</li>
+	                    <li data-view="view-viimeistely">Versiot</li>
+	                    <li data-view="view-om-projekti">OM - Projektin luonti</li>
                     <li data-view="view-om-ops">OM - OPS</li>
                     <li data-view="view-om-brief">OM - Opetusbrief</li>
                     <li data-view="view-om-runko">OM - Emomateriaali</li>
@@ -312,16 +311,17 @@
 
             <!-- 1.15 VIEW: RAKENNE -->
             <div id="view-rakenne" class="view-section hidden">
-                <div class="header">
-                    <div class="header-info">
-                        <h2>Rakenne</h2>
-                        <p id="structure-current-project">Valitse käsikirjoitus ja tarkastele sisällysluetteloa.</p>
-                    </div>
-                    <div class="header-actions">
-                        <button class="btn btn-secondary" id="structure-refresh-btn" type="button">Päivitä</button>
-                        <button class="btn btn-secondary" id="structure-reparse-btn" type="button">Jaottele uusiksi</button>
-                        <button class="btn btn-primary" id="structure-ai-btn" type="button">Ehdota otsikoita AI:lla</button>
-                    </div>
+	                <div class="header">
+	                    <div class="header-info">
+	                        <h2>Rakenne</h2>
+	                        <p id="structure-current-project">Valitse käsikirjoitus ja tarkastele sisällysluetteloa.</p>
+	                    </div>
+	                    <div class="header-actions">
+	                        <button class="btn btn-secondary" id="structure-back-to-analysis-btn" type="button">Takaisin analyysiin</button>
+	                        <button class="btn btn-secondary" id="structure-refresh-btn" type="button">Päivitä</button>
+	                        <button class="btn btn-secondary" id="structure-reparse-btn" type="button">Jaottele uusiksi</button>
+	                        <button class="btn btn-primary" id="structure-ai-btn" type="button">Ehdota otsikoita AI:lla</button>
+	                    </div>
                 </div>
                 <div class="grid-cards" style="grid-template-columns:minmax(280px, 420px) minmax(0, 1fr); align-items:start;">
                     <section class="card glass-panel">
@@ -1202,7 +1202,7 @@
                     <div class="timeline-item">
                         <div class="timeline-marker"></div>
                         <div class="timeline-content">
-                            <h4>Kuvitus valmis</h4>
+                            <h4>Kansi ja kuvitus valmis</h4>
                             <p>Odottaa käsikirjoituksen viimeisteltyä versiota.</p>
                         </div>
                     </div>
@@ -1238,16 +1238,17 @@
             </div>
 
             <!-- 4. VIEW: ANALYYSI -->
-            <div id="view-analyysi" class="view-section hidden">
-                <div class="header">
-                    <div class="header-info">
-                        <h2>Käsikirjoituksen analyysi</h2>
-                        <p>Käsikirjoitus: [Ei aktiivista teosta] (rakenne, tyyli ja toimituksellinen arvio)</p>
-                    </div>
-                    <div class="header-actions">
-                        <button class="btn btn-secondary" id="load-saved-analysis-btn">Lataa tallennettu analyysi</button>
-                        <button class="btn btn-primary" id="run-analysis-btn" style="background:linear-gradient(135deg, var(--ai-gradient-start), var(--ai-gradient-end)); border:none;">Suorita kirja-analyysi</button>
-                    </div>
+	            <div id="view-analyysi" class="view-section hidden">
+	                <div class="header">
+	                    <div class="header-info">
+	                        <h2>Rakenne ja analyysi</h2>
+	                        <p>Käsikirjoitus: [Ei aktiivista teosta] (rakenne, tyyli ja toimituksellinen arvio)</p>
+	                    </div>
+	                    <div class="header-actions">
+	                        <button class="btn btn-secondary" id="open-structure-from-analysis-btn" type="button">Muokkaa rakennetta</button>
+	                        <button class="btn btn-secondary" id="load-saved-analysis-btn">Lataa tallennettu analyysi</button>
+	                        <button class="btn btn-primary" id="run-analysis-btn" style="background:linear-gradient(135deg, var(--ai-gradient-start), var(--ai-gradient-end)); border:none;">Suorita kirja-analyysi</button>
+	                    </div>
                 </div>
                 
                 <div id="analysis-loader" class="hidden" style="text-align:center; padding: 60px 40px;">
@@ -1389,7 +1390,7 @@
             <div id="view-oikoluku" class="view-section hidden">
                 <div class="header">
                     <div class="header-info">
-                        <h2>Oikoluku</h2>
+	                        <h2>Oikoluku ja viimeistely</h2>
                         <p id="proofread-current-project">Käsikirjoitus: [Ei aktiivista teosta]</p>
                     </div>
                     <div class="header-actions">
@@ -1476,7 +1477,7 @@
             <div id="view-kuvitus" class="view-section hidden">
                 <div class="header">
                     <div class="header-info">
-                        <h2>Kuvitus</h2>
+	                        <h2>Kansi ja kuvitus</h2>
                         <p id="illustration-current-project">Käsikirjoitus: [Ei aktiivista teosta]</p>
                     </div>
                 </div>

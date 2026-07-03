@@ -411,7 +411,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     function currentModuleTitle() {
-        const navItem = document.querySelector(`#nav-menu li[data-view="${currentViewId}"]`);
+        const navItem = document.querySelector(`#nav-menu li[data-view="${navViewFor(currentViewId)}"]`);
         if (navItem && !navItem.hidden) return navItem.textContent.trim();
         const view = document.getElementById(currentViewId);
         const heading = view ? view.querySelector('.header-info h2') : null;
@@ -2890,6 +2890,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const navItems = document.querySelectorAll('#nav-menu li[data-view]');
     const views = document.querySelectorAll('.view-section');
 
+    function navViewFor(viewId) {
+        if (viewId === 'view-rakenne') return 'view-analyysi';
+        if (viewId === 'view-taitto') return 'view-kirja';
+        return viewId;
+    }
+
     function isViewAllowed(viewId) {
         if (canSeeAllModules) return true;
         if (currentUser && currentUser.role === 'kirjailija') return writerViews.has(viewId);
@@ -2935,7 +2941,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if(targetView) targetView.classList.remove('hidden');
 
         navItems.forEach(item => {
-            if(item.getAttribute('data-view') === viewId || (requestedViewId === 'view-taitto' && item.getAttribute('data-view') === 'view-kirja')) {
+            if(item.getAttribute('data-view') === navViewFor(viewId)) {
                 item.classList.add('active');
             } else {
                 item.classList.remove('active');
@@ -3045,6 +3051,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     // --- 3. Analysis Simulation Logic ---
     const runAnalysisBtn = document.getElementById('run-analysis-btn');
+    const openStructureFromAnalysisBtn = document.getElementById('open-structure-from-analysis-btn');
     const analysisLoader = document.getElementById('analysis-loader');
     const analysisResults = document.getElementById('analysis-results');
     const loadSavedAnalysisBtn = document.getElementById('load-saved-analysis-btn');
@@ -3074,6 +3081,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     if (loadSavedAnalysisBtn) {
         loadSavedAnalysisBtn.addEventListener('click', () => {
             loadSavedAnalysisForActiveProject(true);
+        });
+    }
+    if (openStructureFromAnalysisBtn) {
+        openStructureFromAnalysisBtn.addEventListener('click', () => {
+            openModule('view-rakenne');
+            renderStructureModule();
         });
     }
 
@@ -5969,7 +5982,7 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
 
     function defaultWorkflowSteps(mode = 'light') {
         const steps = [
-            { id: 'analysis', title: 'Analyysi', detail: 'Muodostetaan kokonaiskuva, tyyli, synopsis ja metatiedot.', status: 'pending' },
+            { id: 'analysis', title: 'Rakenne ja analyysi', detail: 'Muodostetaan kokonaiskuva, tyyli, synopsis ja metatiedot.', status: 'pending' },
             { id: 'structure', title: 'Kirjanluvutus', detail: 'Tarkistetaan ja tallennetaan luku- ja kappalerakenne.', status: 'pending' },
             { id: 'misc', title: 'Oheisaineistot', detail: 'Luodaan nimiölehti, copysivu, sisällysluettelo ja tarvittavat hakemistot.', status: 'pending' },
             { id: 'layout', title: 'Taitto ja e-kirja', detail: 'Luodaan PDF-taittovedos, LaTeX-lähde ja EPUB-luonnos.', status: 'pending' }
@@ -5977,10 +5990,10 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         if (mode === 'heavy') {
             steps.splice(2, 0,
                 { id: 'edit', title: 'Editointi luvuittain', detail: 'Käydään luvut läpi ja sujuvoitetaan teksti varovaisesti.', status: 'pending' },
-                { id: 'proofread', title: 'Oikoluku luvuittain', detail: 'Haetaan selkeät virheet ja hyväksytään suorat korjaukset.', status: 'pending' },
+                { id: 'proofread', title: 'Oikoluku ja viimeistely luvuittain', detail: 'Haetaan selkeät virheet ja hyväksytään suorat korjaukset.', status: 'pending' },
                 { id: 'product', title: 'Tuotetiedot', detail: 'Päätellään kohderyhmä, luokitukset, kuvaukset ja ONIX-kooste.', status: 'pending' },
                 { id: 'marketing', title: 'Markkinointiaineistot', detail: 'Luodaan lyhyt ja pitkä kuvaus, some-tekstit, videokäsikirjoitus ja hashtagit.', status: 'pending' },
-                { id: 'covers', title: 'Kuvitus', detail: 'Luodaan etukannen ja takakannen luonnokset analyysin perusteella.', status: 'pending' }
+                { id: 'covers', title: 'Kansi ja kuvitus', detail: 'Luodaan etukannen ja takakannen luonnokset analyysin perusteella.', status: 'pending' }
             );
             steps.push({ id: 'audio', title: 'Audio (Äänikirja)', detail: 'Äänikirja on raskaan työnkulun viimeinen tuotantovaihe ja edellyttää äänen valintaa.', status: 'pending' });
         }
@@ -6601,6 +6614,7 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
     const writerAssistantNextBtn = document.getElementById('writer-assistant-next-btn');
     const writerMobileJumpButtons = document.querySelectorAll('[data-writer-scroll]');
     const structureRefreshBtn = document.getElementById('structure-refresh-btn');
+    const structureBackToAnalysisBtn = document.getElementById('structure-back-to-analysis-btn');
     const structureReparseBtn = document.getElementById('structure-reparse-btn');
     const structureAiBtn = document.getElementById('structure-ai-btn');
     const structureAcceptBtn = document.getElementById('structure-accept-btn');
@@ -6701,6 +6715,10 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
 	    if (writerAssistantRejectBtn) writerAssistantRejectBtn.addEventListener('click', rejectWriterAssistantDraft);
 	    if (writerAssistantNextBtn) writerAssistantNextBtn.addEventListener('click', () => moveWriterDeskSection(1));
     if (structureRefreshBtn) structureRefreshBtn.addEventListener('click', renderStructureModule);
+    if (structureBackToAnalysisBtn) structureBackToAnalysisBtn.addEventListener('click', () => {
+        openModule('view-analyysi');
+        loadSavedAnalysisForActiveProject(false);
+    });
     if (structureReparseBtn) structureReparseBtn.addEventListener('click', createRuleBasedStructureProposal);
     if (structureAiBtn) structureAiBtn.addEventListener('click', createAiStructureProposal);
     if (structureAcceptBtn) structureAcceptBtn.addEventListener('click', acceptStructureProposal);
