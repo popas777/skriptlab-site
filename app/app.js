@@ -815,7 +815,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         if (
             matchesNumberedBookHeading(title, ['luku', 'chapter'])
-            || /^(\d+|[ivxlcdm]+)\.\s+\S.{0,120}$/i.test(title)
+            || (/^(\d+|[ivxlcdm]+)\.\s+\S.{0,90}$/i.test(title) && !/[.!?]$/.test(title))
         ) {
             return { placement: 'body', kind: 'chapter', title };
         }
@@ -900,7 +900,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 const displayTitle = structureDisplayTitle(chapter, index) || `Luku ${index + 1}`;
                 chapterButton.innerHTML = `
                     <span class="chapter-nav-title">${escapeHtml(displayTitle)}</span>
-                    <span class="chapter-nav-meta">${paragraphCount} kappaletta</span>
+                    ${handlers.showParagraphMeta === false ? '' : `<span class="chapter-nav-meta">${paragraphCount} kappaletta</span>`}
                 `;
                 chapterButton.addEventListener('click', () => {
                     if (handlers.onChapterSelect) handlers.onChapterSelect(index);
@@ -1693,7 +1693,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             jumpInput.value = String(pIndex + 1);
         }
         if (statusEl) {
-            statusEl.textContent = `Raakateksti · kappale ${pIndex + 1}/${Math.max(1, paragraphs.length)}`;
+            statusEl.textContent = `Raakateksti · kohta ${pIndex + 1}/${Math.max(1, paragraphs.length)}`;
         }
     }
 
@@ -1704,7 +1704,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const paragraphs = currentWritingParagraphs();
         const requested = Number.parseInt(jumpInput.value, 10);
         if (!Number.isFinite(requested) || requested < 1 || requested > paragraphs.length) {
-            alert(`Anna kappalenumero väliltä 1-${paragraphs.length}.`);
+            alert(`Anna kohdan numero väliltä 1-${paragraphs.length}.`);
             return;
         }
         const nextIndex = requested - 1;
@@ -1845,7 +1845,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         const chapters = parseRestructuredChapters(sourceText, window.manuscriptData.title || 'Käsikirjoitus');
         const paragraphCount = chapters.reduce((sum, chapter) => sum + (chapter.paragraphs || []).length, 0);
-        const saveNew = confirm(`Uusi jako näyttää sisältävän ${chapters.length} lukua ja ${paragraphCount} kappaletta.\n\nTallennetaanko uusi luku- ja kappalejako?`);
+        const saveNew = confirm(`Uusi jako näyttää sisältävän ${chapters.length} lukua ja ${paragraphCount} tekstikohtaa.\n\nTallennetaanko uusi rakenne?`);
         if (!saveNew) {
             setWritingToolStatus('Uutta jakoa ei tallennettu.');
             return;
@@ -1858,7 +1858,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (window.renderNavList) window.renderNavList();
         renderWritingView();
         if (window.loadParagraph) window.loadParagraph(writingSelection.cIndex, 0, null);
-        setWritingToolStatus('Uusi luku- ja kappalejako tallennettu.');
+        setWritingToolStatus('Uusi rakenne tallennettu.');
     }
 
     function renderWritingView() {
@@ -3383,10 +3383,11 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (new RegExp(`^(?:osa|part)\\s+${numberToken}\\b`, 'i').test(title)) return true;
         if (new RegExp(`^(?:${ordinalWords})\\s+osa\\b`, 'i').test(title)) return true;
         if (/^[ivxlcdm]+\.?\s+osa\b/i.test(title)) return true;
-        return /^(\d+|[ivxlcdm]+)\.\s+\S.{0,90}$/i.test(title);
+        return /^(\d+|[ivxlcdm]+)\.\s+\S.{0,90}$/i.test(title) && !/[.!?]$/.test(title);
     }
 
     function isLikelyImplicitHeading(value, index, blocks, currentChapter, options = {}) {
+        if (!options.allowImplicitHeadings) return false;
         const title = normalizedHeadingLine(value);
         if (!title || title.length < 3 || title.length > 90) return false;
         if (/[.!?;:]$/.test(title) || /^["“”'’]/.test(title)) return false;
@@ -3421,7 +3422,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (isPartHeadingTitle(title)) return { kind: 'part', title };
         if (isSubchapterHeadingTitle(title)) return { kind: 'subchapter', title };
         if (isChapterHeadingTitle(title)) return { kind: 'chapter', title };
-        if (isLikelyImplicitHeading(title, index, blocks, currentChapter)) return { kind: 'chapter', title };
+        if (isLikelyImplicitHeading(title, index, blocks, currentChapter, { allowImplicitHeadings: false })) return { kind: 'chapter', title };
         return null;
     }
 
@@ -3554,16 +3555,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                     skippingToc = true;
                     return;
                 }
-                startSection('chapter', heading.title);
-                return;
-            }
-            if (
-                !heading &&
-                currentChapter.paragraphs.length === 0 &&
-                isGenericNumberedHeading(currentChapter.title) &&
-                isLikelyImplicitHeading(block, index, blocks, { paragraphs: ['otsikko'] }, { allowAfterOneParagraph: true })
-            ) {
-                currentChapter.title = `${currentChapter.title}: ${normalizedHeadingLine(block)}`;
+                startSection('front', heading.title);
                 return;
             }
             if (heading) {
@@ -3788,11 +3780,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function structureInstructionTargets(extra = structureExtraInstructions(), options = structureSelectedOptions()) {
         const text = String(extra || '').toLocaleLowerCase('fi-FI');
-        const digitMatch = text.match(/\b(\d{1,2})\s*(?:luku|lukua|lukuja|chapter(?:s)?)\b/i);
-        const wordMatch = text.match(/\b([a-zåäö]+)\s+(?:luku|lukua|lukuja)\b/i);
-        const targetChapters = digitMatch
-            ? Number(digitMatch[1])
-            : structureFinnishNumber(wordMatch?.[1]);
         const wantsTitlePage = Boolean(options.titlePage)
             || /\b(nimi[oö]lehti|nimi[oö]sivu|nimiolehti|nimiosivu|title page)\b/i.test(text);
         const wantsTableOfContents = Boolean(options.tableOfContents)
@@ -3804,11 +3791,11 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         );
         return {
             raw: extra,
-            targetChapters: Number.isFinite(targetChapters) && targetChapters > 0 ? Math.min(targetChapters, 30) : null,
+            targetChapters: null,
             wantsTitlePage,
             wantsTableOfContents,
             wantsOpening,
-            hasExplicitTarget: Boolean((Number.isFinite(targetChapters) && targetChapters > 0) || wantsTitlePage || wantsTableOfContents || wantsOpening),
+            hasExplicitTarget: Boolean(wantsTitlePage || wantsTableOfContents || wantsOpening),
         };
     }
 
@@ -3870,10 +3857,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             } else if (kind === 'back') {
                 backCount++;
                 next.id = `loppu_${backCount}`;
-            } else if (kind === 'part' && options.parts) {
+            } else if (kind === 'part') {
                 partCount++;
                 next.id = `osa_${partCount}`;
-            } else if (kind === 'subchapter' && (options.subchapters || options.intertitles)) {
+            } else if (kind === 'subchapter') {
                 subchapterCount++;
                 next.id = `aliluku_${subchapterCount}`;
             } else {
@@ -4310,57 +4297,40 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const extra = structureExtraInstructions();
         const targets = structureInstructionTargets(extra, options);
         const constraints = [];
-        const hasFrontMatterTarget = Boolean(targets.wantsTitlePage || targets.wantsTableOfContents || targets.wantsOpening);
-        const currentBodyChapterCount = structureBodyChapterCount(window.manuscriptData?.chapters || []);
         if (targets.hasExplicitTarget) {
-            constraints.push('Käyttäjän lisäohje on sitova, jos se määrittää rakenteen määrän, nimiön, sisällyksen tai alkuosan.');
+            constraints.push('Jos käyttäjä mainitsee nimiön, sisällyksen tai alkuosan, käsittele sitä vain jos se on jo nykyisessä rakenteessa. Älä lisää uutta tyhjää riviä.');
         }
         if (targets.wantsTitlePage) {
-            constraints.push('Palauta nimiölehti omana metatason rivinään muodossa: NIMIÖLEHTI: Nimiölehti. Se ei ole luku eikä sitä lisätä leipätekstiin.');
+            constraints.push('Älä lisää nimiölehteä, ellei se ole nykyisessä rakenteessa jo omana rivinään.');
         }
         if (targets.wantsTableOfContents) {
-            constraints.push('Palauta sisällysluettelo omana metatason rivinään muodossa: SISÄLLYSLUETTELO: Sisällysluettelo. Se ei ole luku eikä sitä lisätä leipätekstiin.');
+            constraints.push('Älä lisää sisällysluetteloa, ellei se ole nykyisessä rakenteessa jo omana rivinään.');
         }
         if (targets.wantsOpening) {
-            constraints.push('Palauta alku/prologi omana metatason rivinään muodossa: ALKU: Alku. Se ei ole luku eikä sitä lisätä leipätekstiin.');
-        }
-        if (targets.targetChapters) {
-            constraints.push(`Palauta täsmälleen ${targets.targetChapters} varsinaista LUKU-riviä. Alku/prologi ei kuulu tähän lukumäärään.`);
-            constraints.push('Jos nykyisessä automaattijaossa on tätä enemmän tekstiosia, yhdistä peräkkäisiä nykyisiä osia samaan LUKU-riviin. Älä palauta ylimääräisiä lukuja vain siksi, että nykyisiä rivejä on enemmän.');
-            if (currentBodyChapterCount && currentBodyChapterCount < targets.targetChapters) {
-                constraints.push('Jos nykyisessä automaattijaossa on tätä vähemmän tekstiosia, jaa pitkät nykyiset osat useammaksi peräkkäiseksi LUKU-riviksi metatasolla. Älä jätä loppupään lukuja tyhjiksi.');
-            }
+            constraints.push('Älä lisää alkua tai prologia, ellei se ole nykyisessä rakenteessa jo omana rivinään.');
         }
         if (options.onlyChapters) {
-            constraints.push(hasFrontMatterTarget
-                ? 'Käytä valittujen nimiö-, sisällys- tai alkuosan rivien jälkeen vain lukuja. Älä käytä osia, alilukuja tai väliotsikoita.'
-                : 'Käytä vain lukuja. Älä käytä osia, alilukuja tai väliotsikoita.');
+            constraints.push('Käytä nykyisiä otsikkorivejä sellaisenaan. Älä muuta rivien määrää tai paikkaa.');
         } else {
-            constraints.push(options.parts ? 'Voit käyttää osia muodossa "Osa 1: Nimi".' : 'Älä käytä osia.');
-            constraints.push(options.subchapters ? 'Voit käyttää alilukuja muodossa "## Aliluvun nimi".' : 'Älä käytä alilukuja.');
-            constraints.push(options.intertitles ? 'Voit käyttää harkittuja väliotsikoita muodossa "### Väliotsikon nimi".' : 'Älä lisää väliotsikoita.');
+            constraints.push('Voit säilyttää nykyisen osan, luvun tai aliluvun tyypin, mutta et saa lisätä uusia tyyppejä väliin.');
         }
         if (extra) constraints.push(`Käyttäjän lisäohje: ${compactStructureMiddle(extra, STRUCTURE_AI_EXTRA_MAX_CHARS)}`);
-        const preservationRule = targets.targetChapters
-            ? `- Säilytä kaikki nykyinen sisältö metatasolla, mutta noudata käyttäjän pyytämää ${targets.targetChapters} varsinaisen luvun rakennetta. Voit jakaa tai koota nykyisiä lukujaksoja vain outline-tasolla; älä kirjoita leipätekstiä.`
-            : '- Jokainen nykyinen luku pitää säilyttää täsmälleen kerran. Älä jätä yhtään lukua pois.';
         return `STRUCTURE_MODULE:proposal
 
-Ehdota käsikirjoitukselle kirjallisesti toimivampaa otsikko- ja osarakennetta.
+Ehdota käsikirjoitukselle nykyisen rakenteen otsikoiden siistimistä. Älä muuta tekstin jakokohtia.
 
 Periaatteet:
-- Saat vain nimetä nykyiset luvut uudelleen ja ehdottaa niiden väliin osia, alilukuja tai väliotsikoita, jos ne on sallittu.
+- Nykyisiä otsikkorivejä on täsmälleen ${window.manuscriptData?.chapters?.length || 0}. Palauta täsmälleen sama määrä rivejä.
+- Älä lisää yhtään uutta lukua, osaa, alilukua, väliotsikkoa, nimiölehteä, sisällysluetteloa, prologia tai loppuosaa.
+- Älä poista yhtään nykyistä otsikkoriviä.
+- Älä yhdistä rivejä.
+- Älä jaa yhtään lukua pienempiin osiin.
+- Älä vaihda rivien järjestystä.
+- Saat muuttaa vain otsikon tekstiä selkeämmäksi.
 - Ehdottamasi otsikot ovat vain sisällysluettelon metatietoa. Niitä ei lisätä leipätekstiin.
-${preservationRule}
 - Älä kirjoita varsinaista leipätekstiä, älä tiivistelmiä, älä perusteluja.
 - Palauta vain outline-rivejä.
-- Jos lisäohje tai täppä pyytää nimiölehden, käytä muotoa: NIMIÖLEHTI: Nimiölehti
-- Jos lisäohje tai täppä pyytää sisällysluettelon, käytä muotoa: SISÄLLYSLUETTELO: Sisällysluettelo
-- Jos lisäohje pyytää alun/prologin, käytä muotoa: ALKU: Alku
-- Käytä nykyisistä luvuista muotoa: LUKU 1: Uusi otsikko
-- Jos osat ovat sallittuja, käytä osariveissä muotoa: OSA: Osan nimi
-- Jos aliluvut tai väliotsikot ovat sallittuja, käytä muotoa: ALILUKU: Otsikko tai VÄLIOTSIKKO: Otsikko
-- Pidä nykyisten lukujen järjestys ennallaan, ellei käyttäjän lisäohje nimenomaan pyydä muuta.
+- Käytä nykyisistä riveistä muotoa: LUKU 1: Uusi otsikko
 
 Rakennevalinnat:
 ${constraints.map(item => `- ${item}`).join('\n')}`;
@@ -4467,100 +4437,17 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
 
     function chaptersFromAiStructureOutline(rawText) {
         const sourceChapters = repairMisplacedStructureHeadings(window.manuscriptData?.chapters || []);
-        const options = structureSelectedOptions();
-        const targets = structureInstructionTargets(structureExtraInstructions(), options);
         const entries = parseAiStructureOutline(rawText);
-        const chapterEntries = entries.filter(entry => entry.kind === 'chapter');
-        const sourceBodyChapters = sourceChapters.filter(chapter => structureChapterKind(chapter) === 'chapter');
-        if (targets.targetChapters && chapterEntries.length === targets.targetChapters && sourceBodyChapters.length) {
-            const splitByParagraphs = sourceBodyChapters.length < targets.targetChapters;
-            const groups = splitByParagraphs
-                ? structureParagraphGroups(sourceBodyChapters, targets.targetChapters)
-                : structureChapterGroupRanges(sourceBodyChapters.length, targets.targetChapters)
-                    .map(range => sourceBodyChapters.slice(range.start, range.end));
-            const result = [];
-            let chapterEntryIndex = 0;
-            entries.forEach(entry => {
-                if (entry.kind === 'title_page') {
-                    result.push({ id: `nimiolehti_${result.length + 1}`, title: '', toc_title: entry.title || 'Nimiölehti', paragraphs: [] });
-                    return;
-                }
-                if (entry.kind === 'table_of_contents') {
-                    result.push({ id: `sisallys_${result.length + 1}`, title: '', toc_title: entry.title || 'Sisällysluettelo', paragraphs: [] });
-                    return;
-                }
-                if (entry.kind === 'front') {
-                    result.push({ id: `alku_${result.length + 1}`, title: '', toc_title: entry.title || 'Alku', paragraphs: [] });
-                    return;
-                }
-                if (entry.kind === 'back') {
-                    result.push({ id: `loppu_${result.length + 1}`, title: '', toc_title: entry.title || 'Loppuosa', paragraphs: [] });
-                    return;
-                }
-                if (entry.kind === 'part' && options.parts) {
-                    result.push({ id: `osa_${result.length + 1}`, title: '', toc_title: entry.title, paragraphs: [] });
-                    return;
-                }
-                if (entry.kind === 'subchapter' && (options.subchapters || options.intertitles)) {
-                    result.push({ id: `aliluku_${result.length + 1}`, title: '', toc_title: entry.title, paragraphs: [] });
-                    return;
-                }
-                if (entry.kind !== 'chapter') return;
-                result.push(splitByParagraphs
-                    ? mergeStructureParagraphGroup(groups[chapterEntryIndex] || [], entry.title, chapterEntryIndex)
-                    : mergeStructureChapterGroup(groups[chapterEntryIndex] || [], entry.title, chapterEntryIndex));
-                chapterEntryIndex++;
-            });
-            return result.length ? prependMissingSourceMetaRows(result, sourceChapters) : sourceChapters;
-        }
-        const result = [];
-        const used = new Set();
-        let sequentialIndex = 0;
-
-        entries.forEach(entry => {
-            if (entry.kind === 'title_page') {
-                result.push({ id: `nimiolehti_${result.length + 1}`, title: '', toc_title: entry.title || 'Nimiölehti', paragraphs: [] });
-                return;
-            }
-            if (entry.kind === 'table_of_contents') {
-                result.push({ id: `sisallys_${result.length + 1}`, title: '', toc_title: entry.title || 'Sisällysluettelo', paragraphs: [] });
-                return;
-            }
-            if (entry.kind === 'front') {
-                result.push({ id: `alku_${result.length + 1}`, title: '', toc_title: entry.title || 'Alku', paragraphs: [] });
-                return;
-            }
-            if (entry.kind === 'back') {
-                result.push({ id: `loppu_${result.length + 1}`, title: '', toc_title: entry.title || 'Loppuosa', paragraphs: [] });
-                return;
-            }
-            if (entry.kind === 'part' && options.parts) {
-                result.push({ id: `osa_${result.length + 1}`, title: '', toc_title: entry.title, paragraphs: [] });
-                return;
-            }
-            if (entry.kind === 'subchapter' && (options.subchapters || options.intertitles)) {
-                result.push({ id: `aliluku_${result.length + 1}`, title: '', toc_title: entry.title, paragraphs: [] });
-                return;
-            }
-            if (entry.kind !== 'chapter') return;
-
-            let sourceIndex = Number.isInteger(entry.sourceIndex) ? entry.sourceIndex : sequentialIndex;
-            if (!sourceChapters[sourceIndex] || used.has(sourceIndex)) {
-                while (sourceChapters[sequentialIndex] && used.has(sequentialIndex)) sequentialIndex++;
-                sourceIndex = sequentialIndex;
-            }
-            const source = sourceChapters[sourceIndex];
-            if (!source) return;
-            result.push(cloneChapterWithStructureTitle(source, entry.title, sourceIndex));
-            used.add(sourceIndex);
-            sequentialIndex = Math.max(sequentialIndex, sourceIndex + 1);
+        const renameEntries = entries.filter(entry => entry.kind === 'chapter');
+        if (!sourceChapters.length) return [];
+        return sourceChapters.map((source, index) => {
+            const entry = renameEntries[index];
+            return cloneChapterWithStructureTitle(
+                source,
+                entry?.title || structureDisplayTitle(source, index),
+                index
+            );
         });
-
-        sourceChapters.forEach((chapter, index) => {
-            if (!used.has(index)) result.push(cloneChapterWithStructureTitle(chapter, structureDisplayTitle(chapter, index), index));
-        });
-
-        return result.length ? result : sourceChapters;
     }
 
     function currentStructureAsProposal() {
@@ -4596,7 +4483,7 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
             if (!res.ok) throw new Error(data.detail || 'Rakenne-ehdotuksen luonti epäonnistui.');
             const chapters = chaptersFromAiStructureOutline(data.edited_text || '');
             if (!chapters.length) throw new Error('AI ei palauttanut tunnistettavaa rakennetta.');
-            setStructureProposal(chapters, 'AI-ehdotus valmis tarkistettavaksi. Tekstikappaleet on säilytetty nykyisistä luvuista.');
+            setStructureProposal(chapters, 'AI-ehdotus valmis tarkistettavaksi. Nykyiset jakokohdat on säilytetty.');
             loadUsage();
         } catch (err) {
             const fallbackChapters = currentStructureAsProposal();
@@ -4692,7 +4579,7 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         aiBtn.addEventListener('click', () => {
             const sourceText = selectedEditText();
             if (!sourceText || sourceText.length < 5) {
-                alert('Valitse ensin luku tai kappale navigoinnista ennen muokkausta.');
+                alert('Valitse ensin luku rakenteesta ennen muokkausta.');
                 return;
             }
             
@@ -4864,7 +4751,7 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
                 if (massEditStatus) massEditStatus.textContent = 'Käsiteltävää tekstiä ei löytynyt.';
                 return;
             }
-            if (!confirm('Korvataanko nykyinen luku- ja kappalejako ehdotetulla rakenteella?')) return;
+            if (!confirm('Korvataanko nykyinen rakenne ehdotetulla rakenteella?')) return;
             aiRestructureBtn.disabled = true;
             if (massEditStatus) massEditStatus.textContent = 'Haetaan uutta jakoa...';
             try {
@@ -6859,64 +6746,26 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
     });
 
     function createManuscriptFromText(title, text) {
+        const chapters = parseRestructuredChapters(text, title || 'Käsikirjoitus', {
+            skipTableOfContents: false
+        });
         let bookData = {
             title: title,
             author: "Tuntematon",
             source_filename: "",
-            chapters: [],
+            chapters: chapters.length ? chapters : [{
+                id: 'luku_1',
+                title: title || 'Käsikirjoitus',
+                paragraphs: splitIntoParagraphs(text)
+            }],
             analysis: {}
         };
-
-        const rawLines = text.split(/\n\s*\n/).filter(p => p.trim().length > 0);
-        let currentChapter = { id: "alku", title: "Alku / Nimiölehti", paragraphs: [] };
-        let sisallysFound = false;
-        let lukuCount = 0;
-
-        for (let line of rawLines) {
-            let lowerLine = line.toLowerCase().trim();
-            if (!sisallysFound && lukuCount === 0 && (lowerLine === "sisällys" || lowerLine === "sisällysluettelo" || lowerLine === "table of contents" || lowerLine === "toc")) {
-                if (currentChapter.paragraphs.length > 0) bookData.chapters.push(currentChapter);
-                currentChapter = { id: "sisallys", title: "Sisällysluettelo", paragraphs: [] };
-                sisallysFound = true;
-                currentChapter.paragraphs.push(line);
-                continue;
-            }
-
-            let isChapter = /^luku\s*\d+/i.test(lowerLine)
-                         || /^#{1,6}\s+\S+/.test(line.trim())
-                         || /^chapter\s*\d+/i.test(lowerLine)
-                         || /^osa\s*\d+/i.test(lowerLine)
-                         || /^\d+\.\s*$/.test(lowerLine)
-                         || /^([IVXLC]+\.)\s*$/.test(lowerLine)
-                         || (lowerLine.length > 2 && lowerLine.length < 50 && !/[.!?:]/.test(lowerLine) && currentChapter.paragraphs.length > 2);
-
-            if (isChapter) {
-                if (currentChapter.paragraphs.length > 0 || currentChapter.id !== "alku") {
-                    bookData.chapters.push(currentChapter);
-                }
-                lukuCount++;
-                const headingMatch = line.trim().match(/^(#{1,6})\s+(.+)$/);
-                const headingLevel = headingMatch ? headingMatch[1].length : 1;
-                const headingTitle = headingMatch ? headingMatch[2].trim() : line.trim();
-                currentChapter = { id: `${headingLevel > 1 ? 'aliluku' : 'luku'}_${lukuCount}`, title: headingTitle.substring(0, 80), paragraphs: [] };
-            } else {
-                currentChapter.paragraphs.push(line);
-            }
-        }
-        if (currentChapter.paragraphs.length > 0 || currentChapter.title.toLowerCase().startsWith("luku")) {
-            bookData.chapters.push(currentChapter);
-        }
-
-        if (!sisallysFound && lukuCount === 0 && bookData.chapters.length === 1 && bookData.chapters[0].id === "alku") {
-            bookData.chapters[0].id = "luku_1";
-            bookData.chapters[0].title = title || "Käsikirjoitus";
-        }
         cleanupGeneratedPlaceholderChapters(bookData);
         if (!bookData.chapters.length) {
             bookData.chapters.push({
                 id: "luku_1",
                 title: title || "Käsikirjoitus",
-                paragraphs: rawLines
+                paragraphs: splitIntoParagraphs(text)
             });
         }
 
@@ -10398,7 +10247,9 @@ ${state.validation || 'Ei validointia.'}`;
                 window.saveProjectStructureToDB(window.manuscriptData);
                 renderWritingView();
                 window.loadParagraph(nextCIndex, Math.min(pIndex || 0, chapter.paragraphs.length - 1), null);
-            }
+            },
+            showParagraphs: false,
+            showParagraphMeta: false
         });
     }
 
@@ -10415,7 +10266,7 @@ ${state.validation || 'Ei validointia.'}`;
         const displayTitle = structureDisplayTitle(chapter, cIndex) || `Luku ${cIndex + 1}`;
         if (chapterLabel) chapterLabel.textContent = `- ${displayTitle}`;
         const statusP = document.querySelector('#view-toimitus .header-info p');
-        if (statusP) statusP.textContent = `${displayTitle}, Kappale ${pIndex + 1} (Editointi/Käännöstila)`;
+        if (statusP) statusP.textContent = `${displayTitle} · editointi`;
 
         if (editScopeSelect?.value === 'paragraph' && normalizeText(getEditableText()) === normalizeText(previousText)) {
             setEditableText(chapter.paragraphs[pIndex] || '');
@@ -10486,19 +10337,12 @@ ${state.validation || 'Ei validointia.'}`;
                 html += `<div style="padding:10px 12px; margin-bottom:8px; color:var(--text-primary); font-weight:700; border-left:3px solid var(--border-color);">${escapeHtml(chapterMarkdownHeading(chapter, cIndex))}</div>`;
             }
             chapter.paragraphs.forEach((p, idx) => {
-                const isSelected = idx === pIndex;
-                html += `<div data-pindex="${idx}" style="
-                    padding: 10px 12px;
-                    margin-bottom: 8px;
-                    border-radius: 8px;
-                    cursor: pointer;
+                html += `<p data-pindex="${idx}" style="
+                    margin: 0 0 1.05em;
+                    padding: 0 2px;
                     line-height: 1.7;
-                    transition: all 0.2s;
-                    ${isSelected 
-                        ? 'font-weight: 600; background: rgba(16, 185, 129, 0.12); border-left: 3px solid var(--ai-gradient-start); color: var(--text-primary);' 
-                        : 'font-weight: normal; opacity: 0.6; color: var(--text-secondary); border-left: 3px solid transparent;'
-                    }
-                " onclick="window.loadParagraph(${cIndex}, ${idx}, null)">${escapeHtml(p)}</div>`;
+                    color: var(--text-primary);
+                " onclick="window.loadParagraph(${cIndex}, ${idx}, null)">${escapeHtml(p)}</p>`;
             });
             originalText.innerHTML = html;
             attachOriginalScrollTracker(originalText, cIndex);
@@ -10521,7 +10365,7 @@ ${state.validation || 'Ei validointia.'}`;
         
         const statusP = document.querySelector('#view-toimitus .header-info p');
         if (statusP) {
-            statusP.textContent = `${displayTitle}, Kappale ${pIndex + 1} (Editointi/Käännöstila)`;
+            statusP.textContent = `${displayTitle} · editointi`;
         }
     };
 
@@ -10536,7 +10380,7 @@ ${state.validation || 'Ei validointia.'}`;
         const editedText = document.getElementById('edited-text');
         if (sel.cIndex === null || sel.pIndex === null || !editedText) {
             if (showAlerts) {
-                alert('Valitse ensin kappale ennen tallentamista!');
+                alert('Valitse ensin kohta ennen tallentamista.');
                 return false;
             }
             return true;
@@ -10544,7 +10388,7 @@ ${state.validation || 'Ei validointia.'}`;
         const chapter = window.manuscriptData?.chapters?.[sel.cIndex];
         if (!chapter) {
             if (showAlerts) {
-                alert('Valitse ensin kappale ennen tallentamista!');
+                alert('Valitse ensin kohta ennen tallentamista.');
                 return false;
             }
             return true;
@@ -10614,7 +10458,7 @@ ${state.validation || 'Ei validointia.'}`;
             const sel = window.currentEditSelection;
             const chapter = window.manuscriptData?.chapters?.[sel.cIndex];
             if (sel.cIndex === null || sel.pIndex === null || !chapter) {
-                alert('Valitse poistettava kappale ensin.');
+                alert('Valitse poistettava kohta ensin.');
                 return;
             }
             const chapterIndex = sel.cIndex;
@@ -10630,7 +10474,7 @@ ${state.validation || 'Ei validointia.'}`;
             if (window.renderNavList) window.renderNavList();
             window.loadParagraph(chapterIndex, nextIndex, null);
             renderWritingView();
-            showUndoToast(`Kappale ${paragraphIndex + 1} poistettu.`, async () => {
+            showUndoToast(`Kohta poistettu.`, async () => {
                 const targetChapter = window.manuscriptData?.chapters?.[chapterIndex];
                 if (!targetChapter) return;
                 if (targetChapter.paragraphs.length === 1 && !String(targetChapter.paragraphs[0] || '').trim()) {

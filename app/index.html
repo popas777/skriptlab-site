@@ -320,7 +320,7 @@
                     <div class="header-actions">
                         <button class="btn btn-secondary" id="structure-refresh-btn" type="button">Päivitä</button>
                         <button class="btn btn-secondary" id="structure-reparse-btn" type="button">Jaottele uusiksi</button>
-                        <button class="btn btn-primary" id="structure-ai-btn" type="button">Ehdota rakennetta AI:lla</button>
+                        <button class="btn btn-primary" id="structure-ai-btn" type="button">Ehdota otsikoita AI:lla</button>
                     </div>
                 </div>
                 <div class="grid-cards" style="grid-template-columns:minmax(280px, 420px) minmax(0, 1fr); align-items:start;">
@@ -335,7 +335,7 @@
                             <span id="structure-status" class="save-timestamp"></span>
                         </div>
                         <div class="settings-row">
-                            <label>Tekoälyn huomioimat tasot</label>
+                            <label>Rakennevalinnat</label>
                             <div style="display:grid; gap:8px;">
                                 <label><input type="checkbox" class="structure-option" id="structure-only-chapters" value="only_chapters" checked> Sisältää vain lukuja</label>
                                 <label><input type="checkbox" class="structure-option" id="structure-include-parts" value="parts"> Sisältää osia ja lukuja</label>
@@ -385,7 +385,7 @@
                                 <span id="writing-save-status" class="save-timestamp">Tallennus: -</span>
                             </div>
                         </div>
-                        <textarea id="writing-text" class="writing-text" placeholder="Kirjoita tai jatka käsikirjoitusta tähän. Tässä vaiheessa tekstiä ei jaeta lukuihin; rakenne tehdään myöhemmin Rakenne-moduulissa. Erottele kappaleet tyhjällä rivillä."></textarea>
+                        <textarea id="writing-text" class="writing-text" placeholder="Kirjoita tai jatka käsikirjoitusta tähän. Rakenne tehdään myöhemmin Rakenne-moduulissa."></textarea>
                     </section>
                 </div>
             </div>
@@ -2251,7 +2251,7 @@
                 <div class="header">
                     <div class="header-info">
                         <h2 id="toimitus-book-title">[Ei aktiivista teosta] <span class="badge">Luonnos</span></h2>
-                        <p>Luku 1, Kappale 4 (Editointi/Käännöstila) - Osat palasteltu tietokannasta</p>
+                        <p>Valitse luku ja käsittele tekstiä käsin tai avustettuna.</p>
                         <span id="editor-save-status" class="save-timestamp">Tallennus: -</span>
                     </div>
                     <div class="header-actions">
@@ -2267,37 +2267,37 @@
                 <div class="editor-workspace hide-editor-comments" id="editor-workspace" style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr) 220px; gap: 16px; overflow: hidden; height: calc(100vh - 160px);">
                     <!-- 1. Lukuvalikko -->
                     <div class="glass-panel" id="editor-nav-panel" style="padding: 16px; overflow-y: auto; display:flex; flex-direction:column;">
-                        <h4 style="color:var(--text-primary); margin-bottom:12px;">Luvut ja kappaleet</h4>
+                        <h4 style="color:var(--text-primary); margin-bottom:12px;">Rakenne</h4>
                         <div id="editor-chapter-list" class="chapter-list"></div>
                     </div>
 
                     <!-- 2. Original Panel -->
                     <div class="editor-panel original-panel" style="height: 100%; overflow-y:auto; display:flex; flex-direction:column;">
                         <div class="panel-header">
-                            <h3 style="font-size:14px;">Alkuperäinen <span id="original-chapter-label" style="font-size:12px; color:var(--text-secondary);">(Valitse kappale)</span></h3>
+                            <h3 style="font-size:14px;">Alkuperäinen <span id="original-chapter-label" style="font-size:12px; color:var(--text-secondary);">(Valitse luku)</span></h3>
                         </div>
                         <div class="editor-content" id="original-text" style="flex:1; overflow-y:auto; line-height:1.8;">
-                            <p style="color:var(--text-secondary); font-style:italic;">Valitse kappale vasemman reunan navigoinnista nähdäksesi luvun sisällön tässä.</p>
+                            <p style="color:var(--text-secondary); font-style:italic;">Valitse luku vasemman reunan rakenteesta nähdäksesi sisällön tässä.</p>
                         </div>
                     </div>
 
                     <!-- 3. Editable Panel -->
                     <div class="editor-panel editable-panel glass-panel" style="height: 100%; overflow-y:auto; display:flex; flex-direction:column;">
                         <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
-                            <h3 style="font-size:14px;">Kohdeversio <span class="badge glowing">Kappale</span></h3>
+                            <h3 style="font-size:14px;">Kohdeversio <span class="badge glowing">Teksti</span></h3>
                             <div style="display:flex; gap:8px; align-items:center;">
                                 <button id="italic-selection-btn" class="btn btn-secondary" style="font-size:11px; padding:4px 10px;">Kursivoi</button>
-                                <button id="delete-edit-paragraph-btn" class="btn btn-secondary btn-danger-soft" style="font-size:11px; padding:4px 10px;">Poista kappale</button>
+                                <button id="delete-edit-paragraph-btn" class="btn btn-secondary btn-danger-soft" style="font-size:11px; padding:4px 10px;">Poista kohta</button>
                                 <button id="save-edit-target-btn" class="btn btn-secondary" style="font-size:11px; padding:4px 10px;">Tallenna</button>
                                 <button id="replace-original-btn" class="btn btn-primary" style="font-size:11px; padding:4px 10px; background:linear-gradient(135deg, var(--ai-gradient-start), var(--ai-gradient-end)); border:none;">Korvaa alkuperäinen</button>
                             </div>
                         </div>
-                        <div class="editor-content editable rich-editor" id="edited-text" contenteditable="true" data-placeholder="Valitse kappale ja paina analysoi ja ehdota -nappia tai muokkaa käsin..."></div>
+                        <div class="editor-content editable rich-editor" id="edited-text" contenteditable="true" data-placeholder="Valitse luku ja paina analysoi ja ehdota -nappia tai muokkaa käsin..."></div>
                     </div>
 
                     <!-- 4. Action / AI Settings -->
                     <div class="action-column" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 16px; padding-top: 10px;">
-                        <button class="ai-action-btn" id="ai-improve-btn" style="width:100%; aspect-ratio:1;" title="Analysoi valittu kappale tai luku ja ehdota parannuksia">
+                        <button class="ai-action-btn" id="ai-improve-btn" style="width:100%; aspect-ratio:1;" title="Analysoi nykyinen kohta tai koko luku ja ehdota parannuksia">
                             <span class="sparkle">✨</span>
                             <br>Analysoi ja ehdota
                         </button>
@@ -2305,7 +2305,7 @@
                         <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; font-size: 11px;">
                             <label style="color:var(--text-secondary); display:block; margin-bottom:6px;">Käsittele:</label>
                             <select id="edit-scope" style="width:100%; margin-bottom:12px; padding:6px; border-radius:4px; background:rgba(255,255,255,0.05); color:var(--text-primary); border:1px solid #333;">
-                                <option value="paragraph">Valittu kappale</option>
+                                <option value="paragraph">Nykyinen kohta</option>
                                 <option value="chapter">Koko valittu luku</option>
                             </select>
 
