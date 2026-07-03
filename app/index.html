@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=41">
+    <link rel="stylesheet" href="styles.css?v=42">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -435,6 +435,14 @@
 
             <!-- 1.3 VIEW: ELÄMÄKERTA -->
             <div id="view-elamakerta" class="view-section hidden">
+                <iframe
+                    id="elamakerta-frame"
+                    class="elamakerta-frame"
+                    title="Elämäkerta"
+                    src="elamakerta.html?v=1"
+                    loading="lazy"
+                ></iframe>
+                <div id="legacy-elamakerta-view" hidden aria-hidden="true">
                 <div class="header">
                     <div class="header-info">
                         <h2>Elämäkerta</h2>
@@ -649,6 +657,7 @@
                             <textarea id="bio-approval-notes" style="width:100%; min-height:240px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:14px; font-family:inherit; line-height:1.6;"></textarea>
                         </div>
                     </div>
+                </div>
                 </div>
             </div>
 
@@ -1568,12 +1577,59 @@
 	                        <div class="settings-row product-field-row" data-product-key="publisher"><label>Kustantaja</label><input id="product-publisher" type="text"></div>
 	                        <div class="settings-row product-field-row" data-product-key="publisher_product_id"><label>Kustantajan teostunniste</label><input id="product-publisher-product-id" type="text"></div>
 	                        <div class="settings-row product-field-row" data-product-key="title"><label>Nimeke</label><input id="product-title" type="text" placeholder="Kirjan nimi"></div>
+	                        <div class="settings-row product-field-row" data-product-key="original_title"><label>Alkuperäinen nimeke</label><input id="product-original-title" type="text" placeholder="Jos kyseessä on käännös tai public domain -teos"></div>
 	                        <div class="settings-row product-field-row" data-product-key="subtitle"><label>Alanimeke</label><input id="product-subtitle" type="text" placeholder="Valinnainen alaotsikko"></div>
+	                        <div class="settings-row product-field-row" data-product-key="series_name"><label>Sarjan nimi</label><input id="product-series-name" type="text" placeholder="Valinnainen"></div>
+	                        <div class="settings-row product-field-row" data-product-key="series_number"><label>Sarjan osa</label><input id="product-series-number" type="text" placeholder="Esim. 1"></div>
 	                        <div class="settings-row product-field-row" data-product-key="author"><label>Tekijä</label><input id="product-author" type="text" placeholder="Sukunimi, Etunimi"></div>
 	                        <div class="settings-row product-field-row" data-product-key="author_role"><label>Tekijän rooli</label><input id="product-author-role" type="text" placeholder="Tekijä, kirjoittaja"></div>
 	                        <div class="settings-row product-field-row" data-product-key="author_isni"><label>Tekijän ISNI</label><input id="product-author-isni" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="original_author"><label>Alkuperäinen kirjoittaja</label><input id="product-original-author" type="text" placeholder="Erityisesti public domain- ja käännösteoksissa"></div>
 	                        <div class="settings-row product-field-row" data-product-key="master_brand"><label>Master brand</label><input id="product-master-brand" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="contributors"><label>Tekijät ja roolit</label><textarea id="product-contributors" class="product-textarea product-textarea-small" placeholder="Kirjailija: Etunimi Sukunimi&#10;Kääntäjä: Etunimi Sukunimi"></textarea></div>
 	                        <div class="settings-row product-field-row" data-product-key="author_bio"><label>Tekijän esittelyteksti</label><textarea id="product-author-bio" class="product-textarea product-textarea-small"></textarea></div>
+	                    </section>
+
+	                    <section class="product-section-card">
+	                        <h3>Oikeudet, ISBN ja tekoälytiedot</h3>
+	                        <div class="settings-row product-field-row" data-product-key="rights_status">
+	                            <label>Tekijänoikeusstatus</label>
+	                            <select id="product-rights-status">
+	                                <option value="">Valitse tai täydennä myöhemmin</option>
+	                                <option value="Omistan tekijänoikeudet ja minulla on tarvittavat julkaisuoikeudet.">Omistan tekijänoikeudet ja julkaisuoikeudet</option>
+	                                <option value="Tämä on public domain -teos ja minulla on tarvittavat julkaisuoikeudet.">Public domain ja tarvittavat julkaisuoikeudet</option>
+	                                <option value="Julkaisuoikeudet on tarkistettava ennen jakelua.">Julkaisuoikeudet tarkistettava</option>
+	                            </select>
+	                        </div>
+	                        <div class="settings-row product-field-row" data-product-key="rights_confirmation"><label>Oikeuksien lisähuomio</label><textarea id="product-rights-confirmation" class="product-textarea product-textarea-small" placeholder="Sopimus, lupa, public domain -peruste tai muu tarkistettava huomio"></textarea></div>
+	                        <div class="settings-row product-field-row" data-product-key="isbn_assignment_strategy">
+	                            <label>ISBN-määritystapa</label>
+	                            <select id="product-isbn-strategy">
+	                                <option value="">Valitse myöhemmin</option>
+	                                <option value="Palvelu/jakelija määrittää ISBN-tunnuksen julkaisun yhteydessä.">Palvelu/jakelija määrittää ISBN:n</option>
+	                                <option value="Julkaisija käyttää omia ISBN-tunnuksia.">Käytän omia ISBN-tunnuksia</option>
+	                                <option value="ISBN-tunnus ei ole vielä tiedossa.">ISBN ei ole vielä tiedossa</option>
+	                            </select>
+	                        </div>
+	                        <div class="settings-row product-field-row" data-product-key="own_isbns"><label>Omat ISBN-tunnukset</label><textarea id="product-own-isbns" class="product-textarea product-textarea-small" placeholder="Painettu kirja:&#10;E-kirja:&#10;Äänikirja:"></textarea></div>
+	                        <div class="settings-row product-field-row" data-product-key="publisher_logo_note"><label>Kustantamon logo</label><input id="product-publisher-logo-note" type="text" placeholder="Ei valittu / lisätään myöhemmin / käytetään omaa logoa"></div>
+	                        <div class="settings-row product-field-row" data-product-key="ai_written">
+	                            <label>Pääosin tekoälyllä kirjoitettu</label>
+	                            <select id="product-ai-written">
+	                                <option value="Ei">Ei</option>
+	                                <option value="Kyllä">Kyllä</option>
+	                                <option value="Ei tiedossa">Ei tiedossa</option>
+	                            </select>
+	                        </div>
+	                        <div class="settings-row product-field-row" data-product-key="ai_interior_images">
+	                            <label>Sisäkuvia luotu tekoälyllä</label>
+	                            <select id="product-ai-interior-images">
+	                                <option value="Ei">Ei</option>
+	                                <option value="Kyllä">Kyllä</option>
+	                                <option value="Ei tiedossa">Ei tiedossa</option>
+	                            </select>
+	                        </div>
+	                        <div class="settings-row product-field-row" data-product-key="ai_assistance_note"><label>Tekoälyn käytön huomio</label><textarea id="product-ai-assistance-note" class="product-textarea product-textarea-small" placeholder="Esim. analyysi, editointiapu, kuvitus, käännösluonnos"></textarea></div>
 	                    </section>
 
 	                    <section class="product-section-card">
@@ -1595,6 +1651,16 @@
 	                        <div class="settings-row product-field-row" data-product-key="ebook_embargo"><label>E-kirjan embargoaika</label><input id="product-ebook-embargo" type="text"></div>
 	                        <div class="settings-row product-field-row" data-product-key="reading_service_embargo"><label>Lukuaikaembargo</label><input id="product-reading-service-embargo" type="text"></div>
 	                        <div class="settings-row product-field-row" data-product-key="language"><label>Kieli</label><input id="product-language" type="text" placeholder="suomi"></div>
+	                        <div class="settings-row product-field-row" data-product-key="original_language"><label>Alkuperäiskieli</label><input id="product-original-language" type="text" placeholder="Jos käännös"></div>
+	                        <div class="settings-row product-field-row" data-product-key="is_translation">
+	                            <label>Käännösteos</label>
+	                            <select id="product-is-translation">
+	                                <option value="Ei">Ei</option>
+	                                <option value="Kyllä">Kyllä</option>
+	                                <option value="Ei tiedossa">Ei tiedossa</option>
+	                            </select>
+	                        </div>
+	                        <div class="settings-row product-field-row" data-product-key="translation_note"><label>Käännöshuomio</label><input id="product-translation-note" type="text" placeholder="Esim. käännetty alkuperäiskielestä"></div>
 	                        <div class="settings-row product-field-row" data-product-key="page_count"><label>Sivumäärä</label><input id="product-page-count" type="text"></div>
 	                        <div class="settings-row product-field-row" data-product-key="illustrations"><label>Kuvitus</label><input id="product-illustrations" type="text"></div>
 	                    </section>
@@ -1609,6 +1675,8 @@
 	                        <div class="settings-row product-field-row" data-product-key="library_class"><label>Kirjastoluokka</label><input id="product-library-class" type="text" placeholder="YKL-ehdotus"></div>
 	                        <div class="settings-row product-field-row" data-product-key="product_group"><label>Tuoteryhmä</label><input id="product-product-group" type="text"></div>
 	                        <div class="settings-row product-field-row" data-product-key="genre"><label>Genre</label><input id="product-genre" type="text"></div>
+	                        <div class="settings-row product-field-row" data-product-key="main_subject"><label>Pääluokka</label><input id="product-main-subject" type="text" placeholder="Esim. Klassikot / FBC"></div>
+	                        <div class="settings-row product-field-row" data-product-key="additional_subjects"><label>Muut aiheluokat</label><textarea id="product-additional-subjects" class="product-textarea product-textarea-small" placeholder="Enintään kolme lisäluokkaa riveittäin"></textarea></div>
 	                        <div class="settings-row product-field-row" data-product-key="thema_classes"><label>Thema-luokat</label><input id="product-thema" type="text" placeholder="Ehdotukset, tarkistettava ennen virallista käyttöä"></div>
 	                        <div class="settings-row product-field-row" data-product-key="keywords"><label>Kustantajan avainsanat</label><input id="product-keywords" type="text" placeholder="Avainsanat pilkulla erotettuina"></div>
 	                        <div class="settings-row product-field-row" data-product-key="audience"><label>Kohderyhmä</label><input id="product-audience" type="text"></div>

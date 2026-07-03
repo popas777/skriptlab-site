@@ -5030,12 +5030,25 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         publisher: 'product-publisher',
         publisher_product_id: 'product-publisher-product-id',
         title: 'product-title',
+        original_title: 'product-original-title',
         subtitle: 'product-subtitle',
+        series_name: 'product-series-name',
+        series_number: 'product-series-number',
         author: 'product-author',
         author_role: 'product-author-role',
         author_isni: 'product-author-isni',
+        original_author: 'product-original-author',
+        contributors: 'product-contributors',
         author_bio: 'product-author-bio',
         master_brand: 'product-master-brand',
+        rights_status: 'product-rights-status',
+        rights_confirmation: 'product-rights-confirmation',
+        isbn_assignment_strategy: 'product-isbn-strategy',
+        own_isbns: 'product-own-isbns',
+        publisher_logo_note: 'product-publisher-logo-note',
+        ai_written: 'product-ai-written',
+        ai_interior_images: 'product-ai-interior-images',
+        ai_assistance_note: 'product-ai-assistance-note',
         availability: 'product-availability',
         publication_date: 'product-publication-date',
         new_edition_date: 'product-new-edition-date',
@@ -5049,6 +5062,9 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         ebook_embargo: 'product-ebook-embargo',
         reading_service_embargo: 'product-reading-service-embargo',
         language: 'product-language',
+        original_language: 'product-original-language',
+        is_translation: 'product-is-translation',
+        translation_note: 'product-translation-note',
         page_count: 'product-page-count',
         illustrations: 'product-illustrations',
         main_content: 'product-main-content',
@@ -5059,6 +5075,8 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         library_class: 'product-library-class',
         product_group: 'product-product-group',
         genre: 'product-genre',
+        main_subject: 'product-main-subject',
+        additional_subjects: 'product-additional-subjects',
         thema_classes: 'product-thema',
         keywords: 'product-keywords',
         audience: 'product-audience',
@@ -5091,10 +5109,11 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         'city',
         'phone',
         'email',
-        'product_identifier',
+        'isbn_assignment_strategy',
         'publisher',
         'title',
         'author',
+        'rights_status',
         'availability',
         'publication_year',
         'product_format',
@@ -5114,6 +5133,14 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         'product_identifier',
         'publisher',
         'publisher_product_id',
+        'rights_status',
+        'rights_confirmation',
+        'isbn_assignment_strategy',
+        'own_isbns',
+        'publisher_logo_note',
+        'ai_written',
+        'ai_interior_images',
+        'ai_assistance_note',
         'availability',
         'publication_date',
         'new_edition_date',
@@ -5178,13 +5205,19 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         info.title = info.title || window.manuscriptData?.title || '';
         info.author = info.author || window.manuscriptData?.author || '';
         info.author_role = info.author_role || (info.author ? 'Tekijä, kirjoittaja' : '');
+        info.contributors = info.contributors || (info.author ? `Kirjailija: ${info.author}` : '');
         info.product_format = info.product_format || 'Painettu kirja / e-kirja';
         info.language = info.language || 'suomi';
+        info.is_translation = info.is_translation || 'Ei';
+        info.ai_written = info.ai_written || 'Ei';
+        info.ai_interior_images = info.ai_interior_images || 'Ei';
         info.main_content = info.main_content || 'Tekstiä';
         info.audience = info.audience || analysis.audience || '';
         info.genre = info.genre || analysis.genre || '';
         info.product_group = info.product_group || info.genre || '';
         info.thema_classes = info.thema_classes || analysis.thema_classes || '';
+        info.main_subject = info.main_subject || analysis.main_subject || info.thema_classes || info.genre || '';
+        info.additional_subjects = info.additional_subjects || analysis.additional_subjects || '';
         info.library_class = info.library_class || analysis.library_class || '';
         info.keywords = info.keywords || analysis.keywords || '';
         info.short_description = info.short_description || analysis.marketing_short || '';
@@ -5230,6 +5263,8 @@ ${constraints.map(item => `- ${item}`).join('\n')}`;
         window.manuscriptData.analysis.onix = info.onix_summary || '';
         if (info.audience) window.manuscriptData.analysis.audience = info.audience;
         if (info.genre) window.manuscriptData.analysis.genre = info.genre;
+        if (info.main_subject) window.manuscriptData.analysis.main_subject = info.main_subject;
+        if (info.additional_subjects) window.manuscriptData.analysis.additional_subjects = info.additional_subjects;
         if (info.thema_classes) window.manuscriptData.analysis.thema_classes = info.thema_classes;
         if (info.library_class) window.manuscriptData.analysis.library_class = info.library_class;
         if (info.keywords) window.manuscriptData.analysis.keywords = info.keywords;
