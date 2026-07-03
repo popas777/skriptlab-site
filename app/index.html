@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=42">
+    <link rel="stylesheet" href="styles.css?v=43">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -378,16 +378,28 @@
                 </div>
                 <div class="writing-workspace writing-workspace-simple">
                     <section class="writing-editor glass-panel">
-                        <div class="panel-header">
-                            <h3 id="writing-selection-title">Käsikirjoitusteksti</h3>
-                            <div class="panel-status-stack">
-                                <span id="writing-tool-status" class="writing-tool-status"></span>
-                                <span id="writing-save-status" class="save-timestamp">Tallennus: -</span>
-                            </div>
-                        </div>
-                        <textarea id="writing-text" class="writing-text" placeholder="Kirjoita tai jatka käsikirjoitusta tähän. Rakenne tehdään myöhemmin Rakenne-moduulissa."></textarea>
-                    </section>
-                </div>
+	                        <div class="panel-header">
+	                            <h3 id="writing-selection-title">Käsikirjoitusteksti</h3>
+	                            <div class="panel-status-stack">
+	                                <span id="writing-tool-status" class="writing-tool-status"></span>
+	                                <span id="writing-save-status" class="save-timestamp">Tallennus: -</span>
+	                            </div>
+	                        </div>
+	                        <div class="writing-format-toolbar" aria-label="Tekstin muotoilu">
+	                            <select id="writing-block-format" title="Tekstin tyyppi">
+	                                <option value="body">Leipäteksti</option>
+	                                <option value="1">Otsikko 1</option>
+	                                <option value="2">Otsikko 2</option>
+	                                <option value="3">Otsikko 3</option>
+	                                <option value="4">Otsikko 4</option>
+	                            </select>
+	                            <button class="btn btn-secondary writing-format-btn" id="writing-bold-btn" type="button" title="Lihavoi valinta"><strong>B</strong></button>
+	                            <button class="btn btn-secondary writing-format-btn" id="writing-italic-btn" type="button" title="Kursivoi valinta"><em>I</em></button>
+	                            <button class="btn btn-secondary writing-format-btn" id="writing-underline-btn" type="button" title="Alleviivaa valinta"><u>U</u></button>
+	                        </div>
+	                        <textarea id="writing-text" class="writing-text" placeholder="Kirjoita tai jatka käsikirjoitusta tähän. Rakenne tehdään myöhemmin Rakenne-moduulissa."></textarea>
+	                    </section>
+	                </div>
             </div>
 
             <!-- 1.25 VIEW: AI-TYÖNKULKU -->

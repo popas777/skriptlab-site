@@ -1079,9 +1079,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     let showManuscriptMarkup = localStorage.getItem('skriptlab_show_manuscript_markup') === 'true';
 
     function markdownLevelForChapter(chapter, index = 0) {
+        const kind = structureChapterKind(chapter);
+        if (kind === 'part' || structureKindPlacement(kind) === 'front' || structureKindPlacement(kind) === 'back') return 1;
+        if (kind === 'subchapter') return 3;
         const label = `${chapter?.id || ''} ${chapter?.title || ''}`.toLowerCase();
-        if (label.includes('aliluku') || /^(\d+\.\d+|[ivxlcdm]+\.\d+)\b/i.test(label.trim())) return 2;
-        return 1;
+        if (label.includes('aliluku') || /^(\d+\.\d+|[ivxlcdm]+\.\d+)\b/i.test(label.trim())) return 3;
+        return 2;
     }
 
     function stripMarkdownHeading(value) {
@@ -1144,7 +1147,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 ? chapter.paragraphs.map(paragraph => String(paragraph || '').trim()).filter(Boolean)
                 : [];
             return [
-                includeTitle ? title : '',
+                includeTitle ? chapterMarkdownHeading(chapter, index) : '',
                 ...paragraphs
             ].filter(Boolean).join('\n\n');
         }).filter(Boolean).join('\n\n\n');
@@ -1188,6 +1191,54 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             chapter.id = `${parsed.idPrefix}_${Date.now()}`;
         }
         chapter.paragraphs = parsed.paragraphs;
+    }
+
+    function writingTextHasStructureHeadings(text) {
+        return /^#{1,4}\s+\S/m.test(String(text || ''));
+    }
+
+    function setTextareaSelection(textEl, start, end) {
+        textEl.focus();
+        textEl.setSelectionRange(Math.max(0, start), Math.max(0, end));
+        updateWritingPositionFromCursor();
+        scheduleWritingAutosave();
+    }
+
+    function applyWritingBlockFormat(levelValue) {
+        const textEl = document.getElementById('writing-text');
+        if (!textEl) return;
+        const value = textEl.value || '';
+        const start = textEl.selectionStart ?? 0;
+        const end = textEl.selectionEnd ?? start;
+        const lineStart = value.lastIndexOf('\n', Math.max(0, start - 1)) + 1;
+        let lineEnd = value.indexOf('\n', end);
+        if (lineEnd < 0) lineEnd = value.length;
+        const selected = value.slice(lineStart, lineEnd);
+        const level = Number(levelValue);
+        const prefix = Number.isFinite(level) && level >= 1 && level <= 4 ? `${'#'.repeat(level)} ` : '';
+        const formatted = selected.split('\n').map(line => {
+            if (!line.trim()) return line;
+            const content = line.replace(/^\s*#{1,6}\s+/, '').trim();
+            return prefix ? `${prefix}${content}` : content;
+        }).join('\n');
+        textEl.value = value.slice(0, lineStart) + formatted + value.slice(lineEnd);
+        setTextareaSelection(textEl, lineStart, lineStart + formatted.length);
+        setWritingToolStatus(prefix ? `Otsikkotaso ${level} asetettu.` : 'Muutettu leipätekstiksi.');
+    }
+
+    function wrapWritingSelection(before, after = before, placeholder = 'teksti') {
+        const textEl = document.getElementById('writing-text');
+        if (!textEl) return;
+        const value = textEl.value || '';
+        const start = textEl.selectionStart ?? 0;
+        const end = textEl.selectionEnd ?? start;
+        const selected = value.slice(start, end) || placeholder;
+        const wrapped = `${before}${selected}${after}`;
+        textEl.value = value.slice(0, start) + wrapped + value.slice(end);
+        const selectionStart = start + before.length;
+        const selectionEnd = selectionStart + selected.length;
+        setTextareaSelection(textEl, selectionStart, selectionEnd);
+        setWritingToolStatus('Muotoilu lisätty.');
     }
 
     function updateMarkupButtons() {
@@ -1657,11 +1708,16 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function syncWritingEditorToManuscript() {
         const textEl = document.getElementById('writing-text');
         if (!textEl || !window.manuscriptData) return false;
-        if (isProjectStructureCompleted(window.manuscriptData)) {
+        const hasStructureHeadings = writingTextHasStructureHeadings(textEl.value);
+        if (isProjectStructureCompleted(window.manuscriptData) || hasStructureHeadings) {
             const parsedChapters = parseRestructuredChapters(textEl.value, window.manuscriptData.title || 'Käsikirjoitus');
             if (parsedChapters.length) {
                 window.manuscriptData.chapters = normalizeStructureProposalChapters(parsedChapters);
                 writingSelection = { cIndex: firstBodyChapterIndex(window.manuscriptData.chapters), pIndex: 0 };
+                window.manuscriptData.analysis = window.manuscriptData.analysis || {};
+                if (hasStructureHeadings && !window.manuscriptData.analysis.structure_completed) {
+                    window.manuscriptData.analysis.structure_status = 'draft_from_headings';
+                }
             } else {
                 replaceProjectWithRawWritingText(textEl.value);
             }
@@ -3519,7 +3575,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             if (markdownSection?.kind === 'part') return { kind: 'part', title: markdownTitle };
             if (markdownSection?.kind === 'subchapter') return { kind: 'subchapter', title: markdownTitle };
             if (['prologue', 'epilogue'].includes(markdownSection?.kind)) return { kind: markdownSection.kind, title: markdownTitle };
-            return { kind: level > 1 ? 'subchapter' : 'chapter', title: markdownTitle || title };
+            return { kind: level >= 3 ? 'subchapter' : 'chapter', title: markdownTitle || title };
         }
         if (isPartHeadingTitle(title)) return { kind: 'part', title };
         if (isSubchapterHeadingTitle(title)) return { kind: 'subchapter', title };
@@ -4303,8 +4359,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         return parts.length ? ` Lisäohje huomioitu: ${parts.join(', ')}.` : '';
     }
 
-    const STRUCTURE_AI_BRIEF_MAX_CHARS = 24000;
-    const STRUCTURE_AI_EXTRA_MAX_CHARS = 2400;
+    const STRUCTURE_AI_BRIEF_MAX_CHARS = 12000;
+    const STRUCTURE_AI_EXTRA_MAX_CHARS = 1800;
 
     function compactStructureMiddle(value, maxChars) {
         const text = String(value || '').replace(/\s+/g, ' ').trim();
@@ -4321,28 +4377,62 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         return `${text.slice(0, Math.max(0, maxChars - 1)).trim()}…`;
     }
 
+    function structureTextWindows(text, windowCount = 12, excerptChars = 360) {
+        const paragraphs = splitIntoParagraphs(text).filter(paragraph => paragraph.trim());
+        if (!paragraphs.length) return [];
+        const count = Math.min(windowCount, paragraphs.length);
+        const indexes = Array.from({ length: count }, (_, index) => {
+            if (count === 1) return 0;
+            return Math.round(index * (paragraphs.length - 1) / (count - 1));
+        });
+        return indexes.map((paragraphIndex, index) => {
+            const paragraph = paragraphs[paragraphIndex] || '';
+            return [
+                `NÄYTE ${index + 1}/${count}`,
+                `Sijainti: noin kappale ${paragraphIndex + 1}/${paragraphs.length}`,
+                `Teksti: ${compactStructureExcerpt(paragraph, excerptChars)}`
+            ].join('\n');
+        });
+    }
+
+    function estimatedStructureTargetFromLength(project = window.manuscriptData) {
+        const words = countWords(getFullManuscriptText(project));
+        if (words < 2500) return null;
+        return Math.max(3, Math.min(48, Math.round(words / 2200)));
+    }
+
     function structureBriefForAi(project, maxChars = STRUCTURE_AI_BRIEF_MAX_CHARS) {
         const chapters = project?.chapters || [];
         const analysis = project?.analysis || {};
-        const synopsis = compactStructureMiddle(analysis.synopsis || analysis.backcover || '', 900);
-        const style = compactStructureMiddle(analysis.style || '', 600);
-        const chapterAnalysis = compactStructureMiddle(analysis.chapter_analysis || analysis.structure || analysis.rakenne || '', 1600);
+        const synopsis = compactStructureMiddle(analysis.synopsis || analysis.backcover || '', 700);
+        const style = compactStructureMiddle(analysis.style || '', 350);
+        const chapterAnalysis = compactStructureMiddle(analysis.chapter_analysis || analysis.structure || analysis.rakenne || '', 900);
+        const fullText = getFullManuscriptText(project);
+        const sourceWordCount = countWords(fullText);
+        const longSingleSection = chapters.length <= 2 && sourceWordCount > 6000;
         const lines = [
             `Teos: ${project?.title || 'Nimetön'}`,
             project?.author ? `Tekijä: ${project.author}` : '',
             `Nykyisiä otsikkotasoja: ${chapters.length}`,
-            `Koko tekstin sanamäärä: noin ${formatNumber(countWords(getFullManuscriptText(project)))}`,
+            `Koko tekstin sanamäärä: noin ${formatNumber(sourceWordCount)}`,
+            longSingleSection ? `Arvioitu sopiva päätekstin osiomäärä: noin ${estimatedStructureTargetFromLength(project) || 'ei pääteltävissä'}` : '',
             synopsis ? `Synopsis: ${synopsis}` : '',
             style ? `Tyylianalyysin tiivistelmä: ${style}` : '',
             chapterAnalysis ? `Tallennettu luku-/rakenneanalyysi: ${chapterAnalysis}` : '',
             '',
-            'Nykyinen rakenne ja lyhyet näytteet:',
+            longSingleSection ? 'Pitkän yhtenäisen tekstin sijaintinäytteet:' : 'Nykyinen rakenne ja lyhyet näytteet:',
         ].filter(Boolean);
         const headerLines = [...lines];
 
+        if (longSingleSection) {
+            lines.push(...structureTextWindows(fullText, 14, 380));
+            const brief = lines.join('\n\n');
+            return brief.length <= maxChars ? brief : compactStructureMiddle(brief, maxChars);
+        }
+
         const headerLength = lines.join('\n').length + 200;
         const chapterBudget = Math.max(0, maxChars - headerLength);
-        const perChapterChars = Math.max(0, Math.min(420, Math.floor(chapterBudget / Math.max(1, chapters.length)) - 170));
+        const perChapterChars = Math.max(0, Math.min(280, Math.floor(chapterBudget / Math.max(1, chapters.length)) - 150));
         chapters.forEach((chapter, index) => {
             const paragraphs = chapter.paragraphs || [];
             const full = paragraphs.join('\n\n');
@@ -4459,8 +4549,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         status.style.color = isError ? '#ffb4b4' : '';
     }
 
-    function setStructureProposal(chapters, message) {
-        const targets = structureInstructionTargets();
+    function setStructureProposal(chapters, message, targets = structureInstructionTargets()) {
         structureProposalChapters = applyStructureInstructionTargets(normalizeStructureProposalChapters(chapters), targets);
         const proposalEl = document.getElementById('structure-proposal');
         if (proposalEl) proposalEl.value = structureProposalText(structureProposalChapters);
@@ -4469,6 +4558,20 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (acceptBtn) acceptBtn.disabled = !structureProposalChapters?.length;
         if (rejectBtn) rejectBtn.disabled = !structureProposalChapters?.length;
         setStructureStatus(`${message || 'Ehdotus valmis tarkistettavaksi.'}${structureInstructionStatusNote(structureProposalChapters, targets)}`);
+    }
+
+    function localStructureFallbackProposal() {
+        const repaired = currentStructureAsProposal();
+        const targets = structureInstructionTargets();
+        if (!targets.targetChapters) {
+            const estimated = estimatedStructureTargetFromLength({ ...window.manuscriptData, chapters: repaired });
+            if (estimated) {
+                targets.targetChapters = estimated;
+                targets.targetChaptersSource = 'pituusarvio';
+                targets.hasExplicitTarget = true;
+            }
+        }
+        return { chapters: repaired, targets };
     }
 
     function rejectStructureProposal() {
@@ -4795,11 +4898,13 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             setStructureProposal(chapters, 'AI-ehdotus valmis tarkistettavaksi. Nykyiset jakokohdat on säilytetty.');
             loadUsage();
         } catch (err) {
-            const fallbackChapters = currentStructureAsProposal();
+            const fallback = localStructureFallbackProposal();
+            const fallbackChapters = fallback.chapters;
             if (fallbackChapters.length) {
                 setStructureProposal(
                     fallbackChapters,
-                    `AI-ehdotus ei onnistunut (${networkFailureMessage(err)}). Tein sääntöpohjaisen ehdotuksen nykyisestä rakenteesta.`
+                    `AI-ehdotus ei onnistunut (${networkFailureMessage(err)}). Tein sääntöpohjaisen ehdotuksen nykyisestä rakenteesta.`,
+                    fallback.targets
                 );
             } else {
                 setStructureStatus(err.message, true);
@@ -6927,6 +7032,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const writingParagraphJumpBtn = document.getElementById('writing-paragraph-jump-btn');
     const writingParagraphJumpInput = document.getElementById('writing-paragraph-jump');
     const writingTextArea = document.getElementById('writing-text');
+    const writingBlockFormatSelect = document.getElementById('writing-block-format');
+    const writingBoldBtn = document.getElementById('writing-bold-btn');
+    const writingItalicBtn = document.getElementById('writing-italic-btn');
+    const writingUnderlineBtn = document.getElementById('writing-underline-btn');
 
     if (refreshBookPreviewBtn) refreshBookPreviewBtn.addEventListener('click', renderBookOverview);
     if (downloadBookTextBtn) downloadBookTextBtn.addEventListener('click', downloadCurrentBookText);
@@ -7028,6 +7137,13 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     if (toggleWritingMarkupBtn) toggleWritingMarkupBtn.addEventListener('click', toggleManuscriptMarkup);
     if (viewWritingMarkdownBtn) viewWritingMarkdownBtn.addEventListener('click', viewMarkdownFile);
     if (markdownHelpBtn) markdownHelpBtn.addEventListener('click', showMarkdownHelp);
+    if (writingBlockFormatSelect) writingBlockFormatSelect.addEventListener('change', () => {
+        applyWritingBlockFormat(writingBlockFormatSelect.value);
+        writingBlockFormatSelect.value = 'body';
+    });
+    if (writingBoldBtn) writingBoldBtn.addEventListener('click', () => wrapWritingSelection('**', '**', 'lihavoitu teksti'));
+    if (writingItalicBtn) writingItalicBtn.addEventListener('click', () => wrapWritingSelection('*', '*', 'kursivoitu teksti'));
+    if (writingUnderlineBtn) writingUnderlineBtn.addEventListener('click', () => wrapWritingSelection('<u>', '</u>', 'alleviivattu teksti'));
     if (addWritingChapterBtn) addWritingChapterBtn.addEventListener('click', () => addChapterNearSelection('writing'));
     if (deleteWritingChapterBtn) deleteWritingChapterBtn.addEventListener('click', () => deleteSelectedChapter('writing'));
     if (addWritingParagraphBtn) addWritingParagraphBtn.addEventListener('click', addWritingParagraph);
