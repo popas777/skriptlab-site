@@ -1710,7 +1710,11 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (!textEl || !window.manuscriptData) return false;
         const hasStructureHeadings = writingTextHasStructureHeadings(textEl.value);
         if (isProjectStructureCompleted(window.manuscriptData) || hasStructureHeadings) {
-            const parsedChapters = parseRestructuredChapters(textEl.value, window.manuscriptData.title || 'Käsikirjoitus');
+            const parsedChapters = sanitizeChaptersForTextStorage(parseRestructuredChapters(
+                textEl.value,
+                hasStructureHeadings ? window.manuscriptData.title || 'Käsikirjoitus' : '',
+                { useFallbackTitle: hasStructureHeadings }
+            ));
             if (parsedChapters.length) {
                 window.manuscriptData.chapters = normalizeStructureProposalChapters(parsedChapters);
                 writingSelection = { cIndex: firstBodyChapterIndex(window.manuscriptData.chapters), pIndex: 0 };
@@ -1964,7 +1968,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             alert('Käsikirjoituksesta ei löytynyt jaoteltavaa tekstiä.');
             return;
         }
-        const chapters = parseRestructuredChapters(sourceText, window.manuscriptData.title || 'Käsikirjoitus');
+        const chapters = sanitizeChaptersForTextStorage(parseRestructuredChapters(sourceText, '', { useFallbackTitle: false }));
         const paragraphCount = chapters.reduce((sum, chapter) => sum + (chapter.paragraphs || []).length, 0);
         const saveNew = confirm(`Uusi jako näyttää sisältävän ${chapters.length} lukua ja ${paragraphCount} tekstikohtaa.\n\nTallennetaanko uusi rakenne?`);
         if (!saveNew) {
@@ -3659,11 +3663,15 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function parseRestructuredChapters(text, fallbackTitle, options = {}) {
         const skipTableOfContents = options.skipTableOfContents !== false;
+        const useFallbackTitle = options.useFallbackTitle !== false;
+        const resolvedFallbackTitle = useFallbackTitle
+            ? (String(fallbackTitle || '').trim() || 'Käsikirjoitus')
+            : '';
         const blocks = splitIntoStructureBlocks(text);
         const chapters = [];
         let currentChapter = {
             id: 'luku_1',
-            title: fallbackTitle || 'Käsikirjoitus',
+            title: resolvedFallbackTitle,
             paragraphs: []
         };
         let chapterCount = 0;
@@ -3733,12 +3741,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
         pushCurrent();
         if (chapters.length) return cleanupGeneratedPlaceholderChapters({
-            title: fallbackTitle || 'Käsikirjoitus',
+            title: resolvedFallbackTitle || String(fallbackTitle || '').trim() || 'Käsikirjoitus',
             chapters
         }).chapters;
         return [{
             id: `luku_${Date.now()}`,
-            title: fallbackTitle || 'Uusi luku',
+            title: resolvedFallbackTitle || (useFallbackTitle ? 'Uusi luku' : ''),
             paragraphs: blocks
         }];
     }
@@ -3747,6 +3755,46 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const text = String(value || '').replace(/\s+/g, ' ').trim();
         if (!text || text.length > 160) return '';
         return isExplicitStructureHeadingLine(text) ? normalizedHeadingLine(text) : '';
+    }
+
+    function comparableStructureHeading(value) {
+        return normalizedHeadingLine(value)
+            .replace(/[.:;,\-–—]+$/g, '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toLocaleLowerCase('fi-FI');
+    }
+
+    function sanitizeChapterTextParagraphs(chapter, index = 0) {
+        const next = {
+            ...chapter,
+            paragraphs: Array.isArray(chapter?.paragraphs) ? [...chapter.paragraphs] : []
+        };
+        const titleCandidates = new Set([
+            chapter?.title,
+            chapter?.toc_title,
+            chapter?.tocTitle,
+            chapter?.structure_title,
+            structureDisplayTitle(chapter, index)
+        ].map(comparableStructureHeading).filter(Boolean));
+
+        while (next.paragraphs.length) {
+            const raw = String(next.paragraphs[0] || '').trim();
+            const markdown = raw.match(/^#{1,6}\s+(.+)$/);
+            const heading = extractedStandaloneStructureHeading(raw) || (markdown ? normalizedHeadingLine(markdown[1]) : '');
+            if (!heading) break;
+            const comparable = comparableStructureHeading(heading);
+            const isOwnHeading = titleCandidates.has(comparable);
+            const isBookStructureHeading = Boolean(classifyBookSectionTitle(heading));
+            if (!isOwnHeading && !isBookStructureHeading) break;
+            if (!explicitChapterTitle(next)) applyDetectedHeadingToChapter(next, heading);
+            next.paragraphs.shift();
+        }
+        return next;
+    }
+
+    function sanitizeChaptersForTextStorage(chapters) {
+        return (chapters || []).map((chapter, index) => sanitizeChapterTextParagraphs(chapter, index));
     }
 
     function extractTrailingStructureHeading(value) {
@@ -3826,7 +3874,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             }
             applyDetectedHeadingToChapter(nextChapter, trailingHeading.heading);
         }
-        return normalizeStructureProposalChapters(rows);
+        return normalizeStructureProposalChapters(sanitizeChaptersForTextStorage(rows));
     }
 
     let structureProposalChapters = null;
@@ -4550,7 +4598,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     function setStructureProposal(chapters, message, targets = structureInstructionTargets()) {
-        structureProposalChapters = applyStructureInstructionTargets(normalizeStructureProposalChapters(chapters), targets);
+        structureProposalChapters = sanitizeChaptersForTextStorage(applyStructureInstructionTargets(normalizeStructureProposalChapters(chapters), targets));
         const proposalEl = document.getElementById('structure-proposal');
         if (proposalEl) proposalEl.value = structureProposalText(structureProposalChapters);
         const acceptBtn = document.getElementById('structure-accept-btn');
@@ -4597,7 +4645,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             alert('Käsikirjoituksesta ei löytynyt jaoteltavaa tekstiä.');
             return;
         }
-        const chapters = parseRestructuredChapters(sourceText, window.manuscriptData.title || 'Käsikirjoitus');
+        const chapters = sanitizeChaptersForTextStorage(parseRestructuredChapters(sourceText, '', { useFallbackTitle: false }));
         setStructureProposal(chapters, 'Sääntöpohjainen jako valmis tarkistettavaksi.');
     }
 
@@ -4859,7 +4907,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 toc_title: String(entry.title || row.toc_title || row.title || `Luku ${bodyTextIndex}`).trim()
             };
         });
-        return prependMissingSourceMetaRows(rows, sourceChapters);
+        return sanitizeChaptersForTextStorage(prependMissingSourceMetaRows(rows, sourceChapters));
     }
 
     function currentStructureAsProposal() {
@@ -4960,13 +5008,14 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     async function acceptStructureProposal() {
         if (!structureProposalChapters?.length || !window.manuscriptData) return;
-        const paragraphCount = structureProposalChapters.reduce((sum, chapter) => sum + (chapter.paragraphs || []).length, 0);
-        if (!confirm(`Hyväksytäänkö ehdotettu rakenne?\n\n${structureProposalChapters.length} osiota, ${paragraphCount} tekstikappaletta.`)) {
+        const cleanProposalChapters = sanitizeChaptersForTextStorage(structureProposalChapters);
+        const paragraphCount = cleanProposalChapters.reduce((sum, chapter) => sum + (chapter.paragraphs || []).length, 0);
+        if (!confirm(`Hyväksytäänkö ehdotettu rakenne?\n\n${cleanProposalChapters.length} osiota, ${paragraphCount} tekstikappaletta.`)) {
             return;
         }
         const currentChapters = window.manuscriptData.chapters || [];
-        const replaceChapterLayout = structureProposalRequiresChapterReplacement(structureProposalChapters, currentChapters);
-        window.manuscriptData.chapters = structureProposalChapters;
+        const replaceChapterLayout = structureProposalRequiresChapterReplacement(cleanProposalChapters, currentChapters);
+        window.manuscriptData.chapters = cleanProposalChapters;
         window.manuscriptData.analysis = window.manuscriptData.analysis || {};
         window.manuscriptData.analysis.structure_completed = true;
         window.manuscriptData.analysis.structure_status = 'accepted';
@@ -5180,7 +5229,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.detail || 'Uuden jaon tekeminen epäonnistui.');
-                const chapters = parseRestructuredChapters(data.edited_text || '', chapter?.title || window.manuscriptData.title);
+                const chapters = sanitizeChaptersForTextStorage(parseRestructuredChapters(data.edited_text || '', '', { useFallbackTitle: false }));
                 if (scope === 'book') {
                     window.manuscriptData.chapters = chapters;
                     writingSelection = { cIndex: firstBodyChapterIndex(chapters), pIndex: 0 };
@@ -6499,7 +6548,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const text = cleanManuscriptText(getFullManuscriptText(window.manuscriptData), { preserveStructure: true });
         if (!text) throw new Error('Käsikirjoituksesta ei löytynyt tekstiä.');
         if (!window.manuscriptData.chapters?.length || window.manuscriptData.chapters.length <= 2) {
-            window.manuscriptData.chapters = parseRestructuredChapters(text, window.manuscriptData.title || 'Käsikirjoitus');
+            window.manuscriptData.chapters = sanitizeChaptersForTextStorage(parseRestructuredChapters(text, '', { useFallbackTitle: false }));
         }
         await window.replaceProjectChaptersInDB(window.manuscriptData);
         renderBookOverview();
@@ -7175,27 +7224,55 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
     });
 
-    function createManuscriptFromText(title, text) {
-        const chapters = parseRestructuredChapters(text, title || 'Käsikirjoitus', {
-            skipTableOfContents: false
-        });
+    function stripImportedFilenamePrefix(text, sourceFilename = '') {
+        const raw = String(text || '').replace(/^\uFEFF/, '');
+        const filename = String(sourceFilename || '').split(/[\\/]/).pop().trim();
+        if (!filename || !/\.[a-z0-9]{2,8}$/i.test(filename)) return raw;
+        const lines = raw.split(/\r?\n/);
+        const firstContentIndex = lines.findIndex(line => line.trim());
+        if (firstContentIndex < 0) return raw;
+        if (lines[firstContentIndex].trim().toLocaleLowerCase('fi-FI') !== filename.toLocaleLowerCase('fi-FI')) return raw;
+        lines.splice(firstContentIndex, 1);
+        while (lines[firstContentIndex] !== undefined && !lines[firstContentIndex].trim()) {
+            lines.splice(firstContentIndex, 1);
+        }
+        return lines.join('\n').replace(/^\s+/, '');
+    }
+
+    function createManuscriptFromText(title, text, sourceFilename = '') {
+        const cleanText = stripImportedFilenamePrefix(text, sourceFilename);
+        const parsedChapters = sanitizeChaptersForTextStorage(parseRestructuredChapters(cleanText, '', {
+            skipTableOfContents: false,
+            useFallbackTitle: false
+        }));
+        const hasDetectedStructure = parsedChapters.some(chapter => explicitChapterTitle(chapter));
+        const chapters = hasDetectedStructure
+            ? parsedChapters
+            : [{
+                id: 'raakateksti_1',
+                title: '',
+                toc_title: '',
+                paragraphs: splitIntoParagraphs(cleanText)
+            }];
         let bookData = {
             title: title,
             author: "Tuntematon",
             source_filename: "",
             chapters: chapters.length ? chapters : [{
-                id: 'luku_1',
-                title: title || 'Käsikirjoitus',
-                paragraphs: splitIntoParagraphs(text)
+                id: 'raakateksti_1',
+                title: '',
+                toc_title: '',
+                paragraphs: splitIntoParagraphs(cleanText)
             }],
             analysis: {}
         };
         cleanupGeneratedPlaceholderChapters(bookData);
         if (!bookData.chapters.length) {
             bookData.chapters.push({
-                id: "luku_1",
-                title: title || "Käsikirjoitus",
-                paragraphs: splitIntoParagraphs(text)
+                id: "raakateksti_1",
+                title: "",
+                toc_title: "",
+                paragraphs: splitIntoParagraphs(cleanText)
             });
         }
 
@@ -10638,7 +10715,7 @@ ${state.validation || 'Ei validointia.'}`;
             })
             .then(async data => {
                 const text = data.text;
-                let bookData = createManuscriptFromText(data.title, text);
+                let bookData = createManuscriptFromText(data.title, text, data.filename || file.name);
                 bookData.source_filename = data.filename;
                 bookData = await window.replaceProjectChaptersInDB(bookData);
                 setActiveManuscript(bookData);
