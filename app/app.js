@@ -7373,12 +7373,40 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         return data;
     }
 
+    function normalizeImportedFallbackChapter(data) {
+        if (!data || !Array.isArray(data.chapters)) return data;
+        const filename = String(data.source_filename || '').split(/[\\/]/).pop().trim();
+        if (filename) {
+            data.chapters.forEach(chapter => {
+                if (!Array.isArray(chapter.paragraphs) || !chapter.paragraphs.length) return;
+                const first = String(chapter.paragraphs[0] || '').trim();
+                if (first.toLocaleLowerCase('fi-FI') === filename.toLocaleLowerCase('fi-FI')) {
+                    chapter.paragraphs.shift();
+                }
+            });
+        }
+        if (isProjectStructureCompleted(data) || data.chapters.length !== 1) return data;
+        const chapter = data.chapters[0];
+        const title = explicitChapterTitle(chapter);
+        const sourceStem = filename ? filename.replace(/\.[^.]+$/, '') : '';
+        const fallbackTitles = [data.title, filename, sourceStem]
+            .map(value => String(value || '').trim().toLocaleLowerCase('fi-FI'))
+            .filter(Boolean);
+        if (title && fallbackTitles.includes(title.toLocaleLowerCase('fi-FI')) && structureChapterHasText(chapter)) {
+            chapter.id = 'raakateksti_1';
+            chapter.title = '';
+            chapter.toc_title = '';
+        }
+        return data;
+    }
+
     function setActiveManuscript(data) {
         if (!data) {
             clearActiveManuscript();
             return;
         }
         cleanupGeneratedPlaceholderChapters(data);
+        normalizeImportedFallbackChapter(data);
         window.manuscriptData = data;
         if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
         localStorage.setItem('skriptlab_manuscript', JSON.stringify(window.manuscriptData));
