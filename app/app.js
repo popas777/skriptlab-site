@@ -2023,6 +2023,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (!window.manuscriptData || !Array.isArray(window.manuscriptData.chapters) || window.manuscriptData.chapters.length === 0) {
             titleEl.textContent = 'Ei käsikirjoitusta';
             textEl.value = '';
+            ['writing-prev-chapter-btn', 'writing-next-chapter-btn', 'add-writing-chapter-btn', 'delete-writing-chapter-btn'].forEach(id => {
+                const button = document.getElementById(id);
+                if (button) button.disabled = true;
+            });
             updateWritingPositionStatus();
             return;
         }
@@ -2050,8 +2054,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (statusEl) statusEl.textContent = `Osio ${chapterIndex + 1}/${window.manuscriptData.chapters.length}`;
         const prevBtn = document.getElementById('writing-prev-chapter-btn');
         const nextBtn = document.getElementById('writing-next-chapter-btn');
+        const addChapterBtn = document.getElementById('add-writing-chapter-btn');
+        const deleteChapterBtn = document.getElementById('delete-writing-chapter-btn');
         if (prevBtn) prevBtn.disabled = nextWritingChapterIndex(-1) === chapterIndex;
         if (nextBtn) nextBtn.disabled = nextWritingChapterIndex(1) === chapterIndex;
+        if (addChapterBtn) addChapterBtn.disabled = false;
+        if (deleteChapterBtn) deleteChapterBtn.disabled = window.manuscriptData.chapters.length <= 1;
         updateWritingPositionStatus();
         updateMarkupButtons();
     }
@@ -2938,7 +2946,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             alert('Lataa tai valitse käsikirjoitus ensin.');
             return;
         }
-        if (source === 'writing') await saveWritingText(false);
         const chapters = window.manuscriptData.chapters;
         if (chapters.length <= 1) {
             alert('Viimeistä osiota ei voi poistaa.');
@@ -2951,6 +2958,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (!chapter) return;
         const removedChapter = JSON.parse(JSON.stringify(chapter));
         const removedTitle = structureDisplayTitle(chapter, currentIndex) || `Osio ${currentIndex + 1}`;
+        const confirmed = confirm(`Poistetaanko osio "${removedTitle}"?\n\nPoiston voi perua heti alareunan Kumoa-painikkeesta.`);
+        if (!confirmed) return;
+        if (source === 'writing') await saveWritingText(false);
         chapters.splice(currentIndex, 1);
         const nextIndex = Math.min(currentIndex, chapters.length - 1);
         writingSelection = { cIndex: nextIndex, pIndex: 0 };
