@@ -4038,6 +4038,18 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     function structureSelectedOptions() {
+        const hasOptionControls = Boolean(document.getElementById('structure-only-chapters'));
+        if (!hasOptionControls) {
+            return {
+                onlyChapters: false,
+                parts: true,
+                intertitles: true,
+                subchapters: true,
+                titlePage: false,
+                tableOfContents: false,
+                opening: false,
+            };
+        }
         const onlyChapters = Boolean(document.getElementById('structure-only-chapters')?.checked);
         return {
             onlyChapters,
@@ -4771,7 +4783,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 	  LOPPUTEKSTIT: Kiitokset
 	  LOPPUTEKSTIT: Tietoja kirjailijasta
 
-	Rakennevalinnat:
+	Käyttäjän ohje ja päätellyt reunaehdot:
 	${constraints.map(item => `- ${item}`).join('\n')}`;
     }
 
@@ -6692,7 +6704,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function defaultWorkflowSteps(mode = 'light') {
         const steps = [
-            { id: 'analysis', title: 'Rakenne ja analyysi', detail: 'Muodostetaan kokonaiskuva, tyyli, synopsis ja metatiedot.', status: 'pending' },
+            { id: 'analysis', title: 'Analyysi ja rakenne', detail: 'Muodostetaan kokonaiskuva, tyyli, synopsis ja metatiedot.', status: 'pending' },
             { id: 'structure', title: 'Kirjan osiot', detail: 'Tarkistetaan ja tallennetaan etusivut, päätekstin osiot ja lopputekstit.', status: 'pending' },
             { id: 'misc', title: 'Oheisaineistot', detail: 'Luodaan nimiölehti, copysivu, sisällysluettelo ja tarvittavat hakemistot.', status: 'pending' },
             { id: 'layout', title: 'Taitto ja e-kirja', detail: 'Luodaan PDF-taittovedos, LaTeX-lähde ja EPUB-luonnos.', status: 'pending' }

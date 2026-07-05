@@ -72,7 +72,7 @@
 		                    <li class="active" data-view="view-kirjani">Käsikirjoitukseni</li>
 		                    <li data-view="view-tyopoyta">Mobiili-työpöytä</li>
 		                    <li data-view="view-kirjoita">Kirjoita</li>
-		                    <li data-view="view-analyysi">Rakenne ja analyysi</li>
+		                    <li data-view="view-analyysi">Analyysi ja rakenne</li>
 	                    <li data-view="view-toimitus">Editointi</li>
 	                    <li data-view="view-oikoluku">Oikoluku ja viimeistely</li>
 		                    <li data-view="view-muut-toiminnot">Oheisaineistot</li>
@@ -335,20 +335,8 @@
                             <span id="structure-status" class="save-timestamp"></span>
                         </div>
                         <div class="settings-row">
-                            <label>Rakennevalinnat</label>
-                            <div style="display:grid; gap:8px;">
-	                                <label><input type="checkbox" class="structure-option" id="structure-only-chapters" value="only_chapters"> Tunnista vain päätekstin luvut</label>
-	                                <label><input type="checkbox" class="structure-option" id="structure-include-parts" value="parts" checked> Sisältää osia ja lukuja</label>
-	                                <label><input type="checkbox" class="structure-option" id="structure-include-intertitles" value="intertitles"> Sisältää väliotsikoita</label>
-	                                <label><input type="checkbox" class="structure-option" id="structure-include-subchapters" value="subchapters"> Sisältää alilukuja</label>
-	                                <label><input type="checkbox" class="structure-front-option" id="structure-include-title-page" value="title_page"> Sisältää nimiölehden</label>
-	                                <label><input type="checkbox" class="structure-front-option" id="structure-include-toc" value="table_of_contents"> Sisältää sisällysluettelon</label>
-                                <label><input type="checkbox" class="structure-front-option" id="structure-include-opening" value="opening"> Sisältää alun/prologin</label>
-                            </div>
-                        </div>
-                        <div class="settings-row">
-                            <label>Lisäohje rakenteelle</label>
-	                            <textarea id="structure-extra-instructions" style="width:100%; min-height:90px; resize:vertical;" placeholder="Esim. jaa pääteksti 12 lukuun, lisää etusivuihin nimiölehti ja sisällysluettelo, lopputeksteihin kiitokset."></textarea>
+                            <label>Vapaa ohje rakenteelle</label>
+	                            <textarea id="structure-extra-instructions" style="width:100%; min-height:110px; resize:vertical;" placeholder="Esim. jaa pääteksti 12 osioon, huomioi osat 1 ja 2, tunnista prologi ja epilogi, älä lisää sisällysluetteloa ellei sitä ole tekstissä."></textarea>
                         </div>
                         <textarea id="structure-proposal" readonly style="width:100%; min-height:420px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:14px; font-family:inherit; line-height:1.55;" placeholder="Rakenne-ehdotus näkyy tässä ennen hyväksyntää."></textarea>
                         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
@@ -1258,7 +1246,7 @@
 	            <div id="view-analyysi" class="view-section hidden">
 	                <div class="header">
 	                    <div class="header-info">
-	                        <h2>Rakenne ja analyysi</h2>
+	                        <h2>Analyysi ja rakenne</h2>
 	                        <p>Käsikirjoitus: [Ei aktiivista teosta] (rakenne, tyyli ja toimituksellinen arvio)</p>
 	                    </div>
 	                    <div class="header-actions">
