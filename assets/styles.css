@@ -1042,6 +1042,10 @@ a {
   font-weight: 500;
 }
 
+.cta-section .contact-page-form label {
+  color: rgba(245, 240, 232, 0.86);
+}
+
 .contact-form input,
 .contact-form select,
 .contact-form textarea {
