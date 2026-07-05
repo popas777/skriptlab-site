@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FBF9F4">
+<title>Elämäkerta – SkriptLab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="elamakerta.css?v=1">
+</head>
+<body>
+
+<!-- ======================= KOTI: Tarinan polku ======================= -->
+<main id="view-home" class="screen is-active" aria-label="Tarinan polku">
+  <header class="home-header">
+    <p class="eyebrow" id="home-project-name">Elämäkerta</p>
+    <h1 class="home-title">Tarinan polku</h1>
+    <p class="home-lead" id="home-lead">Etene vaihe kerrallaan. Kaikki tallentuu automaattisesti.</p>
+  </header>
+
+  <nav class="path" id="path-list" aria-label="Työvaiheet">
+    <!-- Vaiheet renderöidään JS:llä -->
+  </nav>
+
+  <p class="home-footnote" id="save-status" role="status" aria-live="polite"></p>
+</main>
+
+<!-- ======================= VAIHENÄKYMÄT ======================= -->
+
+<section id="view-tavoite" class="screen" data-step="tavoite" aria-label="Tavoite">
+  <header class="step-header">
+    <button class="back-btn" data-back aria-label="Takaisin polkuun">←</button>
+    <div>
+      <p class="eyebrow">Vaihe 1</p>
+      <h2>Tavoite</h2>
+    </div>
+  </header>
+  <div class="step-body">
+    <p class="step-intro">Kerro, millainen elämäkerta tehdään. Tämä ohjaa kaikkia seuraavia vaiheita.</p>
+
+    <label class="field">
+      <span class="field-label">Elämäkerran tarkoitus</span>
+      <textarea id="f-purpose" rows="3" placeholder="Esim. Isoäidin elämäntarina lastenlapsille"></textarea>
+    </label>
+
+    <label class="field">
+      <span class="field-label">Tyyli</span>
+      <div class="chip-row" id="chips-style" data-target="f-style">
+        <button type="button" class="chip" data-value="Lämmin ja kerronnallinen">Lämmin</button>
+        <button type="button" class="chip" data-value="Asiallinen ja dokumentoiva">Asiallinen</button>
+        <button type="button" class="chip" data-value="Humoristinen ja kepeä">Humoristinen</button>
+      </div>
+      <input type="text" id="f-style" placeholder="Tai kirjoita oma tyylikuvaus">
+    </label>
+
+    <label class="field">
+      <span class="field-label">Tavoitepituus</span>
+      <div class="chip-row" id="chips-length" data-target="f-target-length">
+        <button type="button" class="chip" data-value="Lyhyt, noin 30 sivua">Lyhyt</button>
+        <button type="button" class="chip" data-value="Keskipitkä, noin 100 sivua">Keskipitkä</button>
+        <button type="button" class="chip" data-value="Laaja, yli 200 sivua">Laaja</button>
+      </div>
+      <input type="text" id="f-target-length" placeholder="Tai oma arvio">
+    </label>
+
+    <label class="field">
+      <span class="field-label">Tulkintataso</span>
+      <div class="chip-row" id="chips-interpretation" data-target="f-interpretation">
+        <button type="button" class="chip" data-value="Vain aineiston faktat, ei tulkintaa">Vain faktat</button>
+        <button type="button" class="chip" data-value="Varovainen tulkinta, selvästi merkittynä">Varovainen tulkinta</button>
+      </div>
+      <input type="text" id="f-interpretation" placeholder="Tai oma ohje">
+    </label>
+
+    <label class="field">
+      <span class="field-label">Arkaluontoiset aiheet</span>
+      <div class="chip-row" id="chips-sensitive" data-target="f-sensitive">
+        <button type="button" class="chip" data-value="Kysy aina ennen käsittelyä">Kysy aina</button>
+        <button type="button" class="chip" data-value="Käsittele hienotunteisesti">Hienotunteisesti</button>
+        <button type="button" class="chip" data-value="Jätä kokonaan pois">Jätä pois</button>
+      </div>
+      <input type="text" id="f-sensitive" placeholder="Tai oma ohje">
+    </label>
+  </div>
+  <footer class="step-actions">
+    <button class="btn btn-primary" data-goto="aineisto">Jatka aineistoon</button>
+  </footer>
+</section>
+
+<section id="view-aineisto" class="screen" data-step="aineisto" aria-label="Aineisto">
+  <header class="step-header">
+    <button class="back-btn" data-back aria-label="Takaisin polkuun">←</button>
+    <div>
+      <p class="eyebrow">Vaihe 2</p>
+      <h2>Aineisto</h2>
+    </div>
+  </header>
+  <div class="step-body">
+    <p class="step-intro">Kerää muistot, haastatteluvastaukset ja muistiinpanot. Voit myös sanella.</p>
+
+    <div class="card">
+      <label class="field">
+        <span class="field-label">Otsikko</span>
+        <input type="text" id="m-title" placeholder="Esim. Lapsuudenkoti Kiuruvedellä">
+      </label>
+      <label class="field">
+        <span class="field-label">Tyyppi</span>
+        <select id="m-kind">
+          <option value="free_text">Vapaa teksti</option>
+          <option value="interview_answer">Haastatteluvastaus</option>
+          <option value="document_note">Dokumenttimuistiinpano</option>
+          <option value="photo_note">Valokuvamuistiinpano</option>
+          <option value="timeline_note">Aikajanamerkintä</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field-label">Sisältö</span>
+        <textarea id="m-text" rows="5" placeholder="Kirjoita tai paina mikrofonia ja kerro ääneen"></textarea>
+      </label>
+      <div class="row">
+        <button type="button" class="btn btn-ghost mic-btn" id="btn-dictate" aria-pressed="false">
+          <span class="mic-dot" aria-hidden="true"></span><span id="dictate-label">Sanele</span>
+        </button>
+        <button type="button" class="btn btn-primary" id="btn-add-material">Lisää aineistoon</button>
+      </div>
+      <p class="hint" id="dictate-hint" hidden>Sanelu käynnissä – puhe ilmestyy tekstikenttään.</p>
+    </div>
+
+    <h3 class="list-title">Kerätty aineisto <span class="count" id="material-count">0</span></h3>
+    <ul class="material-list" id="material-list"></ul>
+  </div>
+  <footer class="step-actions">
+    <button class="btn btn-primary" data-goto="analyysi">Jatka analyysiin</button>
+  </footer>
+</section>
+
+<section id="view-analyysi" class="screen" data-step="analyysi" aria-label="Analyysi">
+  <header class="step-header">
+    <button class="back-btn" data-back aria-label="Takaisin polkuun">←</button>
+    <div>
+      <p class="eyebrow">Vaihe 3</p>
+      <h2>Analyysi</h2>
+    </div>
+  </header>
+  <div class="step-body">
+    <p class="step-intro">Tekoäly jäsentää aineiston aikajanaksi, henkilökartaksi ja teemoiksi. Se ei keksi mitään – epävarmat kohdat merkitään.</p>
+    <div class="result-block" id="analysis-result" hidden>
+      <div class="result-item"><h4>Aikajana</h4><div id="r-timeline" class="result-text"></div></div>
+      <div class="result-item"><h4>Henkilökartta</h4><div id="r-people" class="result-text"></div></div>
+      <div class="result-item"><h4>Teemat</h4><div id="r-themes" class="result-text"></div></div>
+      <div class="result-item"><h4>Puuttuvat kohdat</h4><div id="r-gaps" class="result-text"></div></div>
+      <div class="result-item result-sensitive"><h4>Arkaluontoiset kohdat</h4><div id="r-sensitive" class="result-text"></div></div>
+      <div class="result-item"><h4>Laadun tila</h4><div id="r-quality" class="result-text"></div></div>
+    </div>
+    <div class="empty" id="analysis-empty">Analyysiä ei ole vielä ajettu.</div>
+  </div>
+  <footer class="step-actions">
+    <button class="btn btn-ai" data-run="analyze">✦ Aja analyysi</button>
+    <button class="btn btn-primary" data-goto="kysymykset">Jatka kysymyksiin</button>
+  </footer>
+</section>
+
+<section id="view-kysymykset" class="screen" data-step="kysymykset" aria-label="Kysymykset">
+  <header class="step-header">
+    <button class="back-btn" data-back aria-label="Takaisin polkuun">←</button>
+    <div>
+      <p class="eyebrow">Vaihe 4</p>
+      <h2>Kysymykset</h2>
+    </div>
+  </header>
+  <div class="step-body">
+    <p class="step-intro">Tekoäly laatii tarkentavat kysymykset aineiston aukkoihin. Vastaa alle – vastaukset voi siirtää aineistoksi.</p>
+    <div class="result-item" id="questions-block" hidden>
+      <h4>Kysymykset</h4>
+      <div id="r-questions" class="result-text"></div>
+    </div>
+    <div class="empty" id="questions-empty">Kysymyksiä ei ole vielä laadittu.</div>
+    <label class="field">
+      <span class="field-label">Vastauksesi</span>
+      <textarea id="f-answers" rows="7" placeholder="Vastaa kysymyksiin vapaasti, numeroituna tai ilman"></textarea>
+    </label>
+    <button type="button" class="btn btn-ghost" id="btn-answers-to-materials">Siirrä vastaukset aineistoksi</button>
+  </div>
+  <footer class="step-actions">
+    <button class="btn btn-ai" data-run="questions">✦ Laadi kysymykset</button>
+    <button class="btn btn-primary" data-goto="rakenne">Jatka rakenteeseen</button>
+  </footer>
+</section>
+
+<section id="view-rakenne" class="screen" data-step="rakenne" aria-label="Rakenne">
+  <header class="step-header">
+    <button class="back-btn" data-back aria-label="Takaisin polkuun">←</button>
+    <div>
+      <p class="eyebrow">Vaihe 5</p>
+      <h2>Rakenne</h2>
+    </div>
+  </header>
+  <div class="step-body">
+    <p class="step-intro">Tekoäly ehdottaa kaksi rakennevaihtoehtoa. Muokkaa lopullinen rakenne suoraan kenttään.</p>
+    <label class="field">
+      <span class="field-label">Rakennesuunnitelma</span>
+      <textarea id="f-outline" rows="12" placeholder="Rakenne ilmestyy tähän – voit muokata sitä vapaasti"></textarea>
+    </label>
+  </div>
+  <footer class="step-actions">
+    <button class="btn btn-ai" data-run="outline">✦ Ehdota rakenne</button>
+    <button class="btn btn-primary" data-goto="kirjoitus">Jatka kirjoittamiseen</button>
+  </footer>
+</section>
+
+<section id="view-kirjoitus" class="screen" data-step="kirjoitus" aria-label="Kirjoittaminen">
+  <header class="step-header">
+    <button class="back-btn" data-back aria-label="Takaisin polkuun">←</button>
+    <div>
+      <p class="eyebrow">Vaihe 6</p>
+      <h2>Kirjoittaminen</h2>
+    </div>
+  </header>
+  <div class="step-body">
+    <p class="step-intro">Etene luku kerrallaan: ensin suunnitelma, sitten luonnos. Aukot merkitään [TÄYDENNETTÄVÄ]-tunnisteella.</p>
+    <label class="field">
+      <span class="field-label">Luvun otsikko</span>
+      <input type="text" id="f-chapter-title" placeholder="Esim. Lapsuus Kiuruvedellä">
+    </label>
+    <label class="field">
+      <span class="field-label">Luvun painopiste</span>
+      <input type="text" id="f-chapter-focus" placeholder="Esim. Kodin arki ja sisarussuhteet">
+    </label>
+    <div class="result-item" id="plan-block" hidden>
+      <h4>Lukusuunnitelma</h4>
+      <div id="r-chapter-plan" class="result-text"></div>
+    </div>
+    <label class="field">
+      <span class="field-label">Lukuluonnos</span>
+      <textarea id="f-draft" rows="14" placeholder="Luonnos ilmestyy tähän – muokkaa vapaasti"></textarea>
+    </label>
+  </div>
+  <footer class="step-actions">
+    <button class="btn btn-ai" data-run="chapter_plan">✦ Suunnittele luku</button>
+    <button class="btn btn-ai" data-run="draft">✦ Kirjoita luonnos</button>
+  </footer>
+</section>
+
+<section id="view-hyvaksynnat" class="screen" data-step="hyvaksynnat" aria-label="Hyväksynnät">
+  <header class="step-header">
+    <button class="back-btn" data-back aria-label="Takaisin polkuun">←</button>
+    <div>
+      <p class="eyebrow">Vaihe 7</p>
+      <h2>Hyväksynnät</h2>
+    </div>
+  </header>
+  <div class="step-body">
+    <p class="step-intro">Kuittaa vaiheet, kun ne ovat mielestäsi valmiit. Tämä pitää työn hallinnassa.</p>
+    <ul class="approval-list">
+      <li><label class="approval"><input type="checkbox" id="a-goal"><span>Tavoite ja tyyli on hyväksytty</span></label></li>
+      <li><label class="approval"><input type="checkbox" id="a-timeline"><span>Aikajana pitää paikkansa</span></label></li>
+      <li><label class="approval"><input type="checkbox" id="a-people"><span>Henkilökartta on oikein</span></label></li>
+      <li><label class="approval"><input type="checkbox" id="a-outline"><span>Rakenne on hyväksytty</span></label></li>
+      <li><label class="approval"><input type="checkbox" id="a-sensitive"><span>Arkaluontoisten aiheiden käsittely on sovittu</span></label></li>
+      <li><label class="approval approval-final"><input type="checkbox" id="a-final"><span>Kokonaisuus on hyväksytty</span></label></li>
+    </ul>
+    <label class="field">
+      <span class="field-label">Muistiinpanot</span>
+      <textarea id="f-approval-notes" rows="4" placeholder="Esim. mitä pitää vielä tarkistaa"></textarea>
+    </label>
+  </div>
+  <footer class="step-actions">
+    <button class="btn btn-primary" data-back>Takaisin polkuun</button>
+  </footer>
+</section>
+
+<!-- ======================= TULOSARKKI (bottom sheet) ======================= -->
+<div class="sheet-backdrop" id="sheet-backdrop" hidden></div>
+<div class="sheet" id="result-sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" hidden>
+  <div class="sheet-handle" aria-hidden="true"></div>
+  <h3 id="sheet-title">Tulos</h3>
+  <p class="sheet-warning" id="sheet-warning" hidden></p>
+  <div class="sheet-content result-text" id="sheet-content"></div>
+  <button class="btn btn-primary sheet-close" id="sheet-close">Valmis</button>
+</div>
+
+<!-- ======================= AI-latausindikaattori ======================= -->
+<div class="working" id="working" hidden aria-live="polite">
+  <div class="working-thread" aria-hidden="true"></div>
+  <p id="working-label">Tekoäly työskentelee…</p>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="config.js"></script>
+<script>
+  const API_BASE_URL = (window.SKRIPTLAB_CONFIG && window.SKRIPTLAB_CONFIG.API_BASE_URL) || "http://127.0.0.1:8000";
+  function apiUrl(path) {
+    return `${API_BASE_URL}${path}`;
+  }
+</script>
+<script src="auth.js"></script>
+<script>
+  function activeBiographyProjectId() {
+    const raw = localStorage.getItem("skriptlab_manuscript");
+    if (raw) {
+      try {
+        const manuscript = JSON.parse(raw);
+        if (manuscript && manuscript.id) return manuscript.id;
+      } catch (error) {
+        // Fall back to the explicit active project key below.
+      }
+    }
+    return localStorage.getItem("skriptlab_active_project_id")
+      || new URLSearchParams(window.location.search).get("project")
+      || null;
+  }
+
+  window.SkriptLabAuth.requireLogin();
+  window.ELAMAKERTA_CONFIG = {
+    apiBase: "/api",
+    projectId: activeBiographyProjectId,
+    fetchImpl: (path, options) => window.SkriptLabAuth.fetch(path, options),
+    projectTitle: () => {
+      const raw = localStorage.getItem("skriptlab_manuscript");
+      if (!raw) return "Elämäkerta";
+      try {
+        const manuscript = JSON.parse(raw);
+        return manuscript.title || "Elämäkerta";
+      } catch (error) {
+        return "Elämäkerta";
+      }
+    }
+  };
+</script>
+<script src="elamakerta.js?v=1"></script>
+</body>
+</html>
