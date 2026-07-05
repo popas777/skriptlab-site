@@ -8481,6 +8481,37 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
     }
 
+    function syncTranslationPartScrollPosition(from, to) {
+        if (!from || !to || from.dataset.scrollSyncing === 'true' || to.dataset.scrollSyncing === 'true') return;
+        const fromMax = from.scrollHeight - from.clientHeight;
+        const toMax = to.scrollHeight - to.clientHeight;
+        if (fromMax <= 0 || toMax <= 0) return;
+        const ratio = from.scrollTop / fromMax;
+        from.dataset.scrollSyncing = 'true';
+        to.dataset.scrollSyncing = 'true';
+        to.scrollTop = ratio * toMax;
+        requestAnimationFrame(() => {
+            from.dataset.scrollSyncing = 'false';
+            to.dataset.scrollSyncing = 'false';
+        });
+    }
+
+    function bindTranslationPartScrollSync(prefix, reset = false) {
+        const source = document.getElementById(`${prefix}-part-source`);
+        const response = document.getElementById(`${prefix}-part-response`);
+        if (!source || !response) return;
+        if (reset) {
+            source.scrollTop = 0;
+            response.scrollTop = 0;
+        }
+        const syncKey = `${source.id}:${response.id}`;
+        if (source.dataset.translationScrollSync === syncKey && response.dataset.translationScrollSync === syncKey) return;
+        source.dataset.translationScrollSync = syncKey;
+        response.dataset.translationScrollSync = syncKey;
+        source.addEventListener('scroll', () => syncTranslationPartScrollPosition(source, response));
+        response.addEventListener('scroll', () => syncTranslationPartScrollPosition(response, source));
+    }
+
     function translationReviewElements(prefix) {
         const isFinnish = prefix === 'finnish-translation';
         return {
@@ -8634,6 +8665,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 setTranslationPartText(prefix, key, emptyMessage);
             });
             populateTranslationPartModelSelect(prefix, null, item);
+            bindTranslationPartScrollSync(prefix, true);
             return;
         }
         const sections = translationPartSections(chunk);
@@ -8644,6 +8676,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         setTranslationPartText(prefix, 'prompt', sections.prompt);
         setTranslationPartText(prefix, 'response', sections.response);
         populateTranslationPartModelSelect(prefix, chunk, item);
+        bindTranslationPartScrollSync(prefix, true);
     }
 
     function renderTranslationParts() {

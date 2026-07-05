@@ -1274,8 +1274,8 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     line-height: 1.55;
 }
 .translation-prompt-sections .translation-source-text {
-    height: 420px;
-    min-height: 420px;
+    height: 840px;
+    min-height: 840px;
     max-height: none;
     resize: vertical;
     font-family: Georgia, "Times New Roman", serif;
@@ -1298,8 +1298,8 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 }
 .translation-response-editor {
     resize: vertical;
-    height: 420px;
-    min-height: 420px;
+    height: 840px;
+    min-height: 840px;
 }
 #translation-part-save-btn,
 #finnish-translation-part-save-btn {
