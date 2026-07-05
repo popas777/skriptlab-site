@@ -1153,6 +1153,26 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }).filter(Boolean).join('\n\n\n');
     }
 
+    function currentWritingChapterIndex() {
+        const chapters = window.manuscriptData?.chapters || [];
+        if (!chapters.length) return 0;
+        const firstWritable = chapters.findIndex(chapter => structureChapterHasText(chapter) || isBodyTextStructureKind(structureChapterKind(chapter)));
+        let index = Number.isInteger(writingSelection.cIndex) ? writingSelection.cIndex : firstWritable;
+        if (!chapters[index] || (!structureChapterHasText(chapters[index]) && !isBodyTextStructureKind(structureChapterKind(chapters[index])))) {
+            index = firstWritable >= 0 ? firstWritable : firstBodyChapterIndex(chapters);
+        }
+        if (!chapters[index]) index = 0;
+        writingSelection.cIndex = index;
+        if (!Number.isInteger(writingSelection.pIndex)) writingSelection.pIndex = 0;
+        return index;
+    }
+
+    function writingTextForCurrentChapter() {
+        const index = currentWritingChapterIndex();
+        const chapter = window.manuscriptData?.chapters?.[index];
+        return chapter ? chapterTextForEditor(chapter, index) : '';
+    }
+
     function replaceProjectWithRawWritingText(text) {
         if (!window.manuscriptData) return false;
         const paragraphs = splitIntoParagraphs(text);
@@ -1708,26 +1728,27 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function syncWritingEditorToManuscript() {
         const textEl = document.getElementById('writing-text');
         if (!textEl || !window.manuscriptData) return false;
-        const hasStructureHeadings = writingTextHasStructureHeadings(textEl.value);
-        if (isProjectStructureCompleted(window.manuscriptData) || hasStructureHeadings) {
-            const parsedChapters = sanitizeChaptersForTextStorage(parseRestructuredChapters(
-                textEl.value,
-                hasStructureHeadings ? window.manuscriptData.title || 'Käsikirjoitus' : '',
-                { useFallbackTitle: hasStructureHeadings }
-            ));
-            if (parsedChapters.length) {
-                window.manuscriptData.chapters = normalizeStructureProposalChapters(parsedChapters);
-                writingSelection = { cIndex: firstBodyChapterIndex(window.manuscriptData.chapters), pIndex: 0 };
+        const chapterIndex = currentWritingChapterIndex();
+        const chapter = window.manuscriptData.chapters?.[chapterIndex];
+        if (!chapter) return false;
+        const text = textEl.value || '';
+        const hasStructureHeadings = writingTextHasStructureHeadings(text);
+        if (showManuscriptMarkup || hasStructureHeadings) {
+            applyParsedChapterText(chapter, text);
+            if (hasStructureHeadings && !window.manuscriptData.analysis?.structure_completed) {
                 window.manuscriptData.analysis = window.manuscriptData.analysis || {};
-                if (hasStructureHeadings && !window.manuscriptData.analysis.structure_completed) {
-                    window.manuscriptData.analysis.structure_status = 'draft_from_headings';
-                }
-            } else {
-                replaceProjectWithRawWritingText(textEl.value);
+                window.manuscriptData.analysis.structure_status = 'draft_from_headings';
             }
         } else {
-            replaceProjectWithRawWritingText(textEl.value);
+            const paragraphs = splitIntoParagraphs(text);
+            chapter.paragraphs = paragraphs.length ? paragraphs : [''];
         }
+        const paragraphs = Array.isArray(chapter.paragraphs) && chapter.paragraphs.length ? chapter.paragraphs : [''];
+        writingSelection = {
+            cIndex: chapterIndex,
+            pIndex: Math.min(Math.max(writingSelection.pIndex || 0, 0), Math.max(0, paragraphs.length - 1))
+        };
+        window.currentEditSelection = { cIndex: writingSelection.cIndex, pIndex: writingSelection.pIndex };
         markLocalManuscriptDraft(window.manuscriptData);
         return true;
     }
@@ -1739,7 +1760,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         window.clearTimeout(writingAutosaveTimer);
         writingAutosaveTimer = window.setTimeout(() => {
             if (syncWritingEditorToManuscript()) {
-                window.replaceProjectChaptersInDB(window.manuscriptData)
+                window.saveProjectChapterToDB(window.manuscriptData, writingSelection.cIndex)
                     .then(() => updateSaveTimestamp('writing-save-status', Boolean(window.manuscriptData?._db_sync_pending)));
                 renderBookOverview();
             }
@@ -1757,7 +1778,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         if (currentViewId === 'view-kirjoita') {
             if (syncWritingEditorToManuscript()) {
-                savePromise = window.replaceProjectChaptersInDB(window.manuscriptData);
+                savePromise = window.saveProjectChapterToDB(window.manuscriptData, writingSelection.cIndex);
             }
         }
         if (currentViewId === 'view-toimitus') {
@@ -1775,6 +1796,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const textEl = document.getElementById('writing-text');
         const text = textEl ? textEl.value : '';
         const parts = splitIntoParagraphs(text);
+        if (showManuscriptMarkup && parts.length && /^#{1,6}\s+/.test(parts[0])) {
+            return parts.slice(1).length ? parts.slice(1) : [''];
+        }
         return parts.length ? parts : [''];
     }
 
@@ -1818,7 +1842,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             jumpInput.value = String(pIndex + 1);
         }
         if (statusEl) {
-            statusEl.textContent = `Raakateksti · kohta ${pIndex + 1}/${Math.max(1, paragraphs.length)}`;
+            const chapterIndex = currentWritingChapterIndex();
+            const chapters = window.manuscriptData?.chapters || [];
+            const title = chapters[chapterIndex] ? structureDisplayTitle(chapters[chapterIndex], chapterIndex) : 'Osio';
+            statusEl.textContent = `${title} · kappale ${pIndex + 1}/${Math.max(1, paragraphs.length)}`;
         }
     }
 
@@ -1998,15 +2025,31 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             return;
         }
 
-        titleEl.textContent = isProjectStructureCompleted(window.manuscriptData)
-            ? 'Käsikirjoitusteksti'
-            : 'Raakateksti ennen rakennetta';
-        const nextText = writingTextForProject(window.manuscriptData);
-        const renderKey = `${window.manuscriptData.id || window.manuscriptData.title || 'local'}:${window.manuscriptData.chapters.length}:${isProjectStructureCompleted(window.manuscriptData) ? 'structured' : 'draft'}`;
+        const chapterIndex = currentWritingChapterIndex();
+        const chapter = window.manuscriptData.chapters[chapterIndex];
+        const chapterTitle = chapter ? structureDisplayTitle(chapter, chapterIndex) : 'Osio';
+        titleEl.textContent = chapterTitle;
+        const nextText = writingTextForCurrentChapter();
+        const renderKey = [
+            window.manuscriptData.id || window.manuscriptData.title || 'local',
+            chapterIndex,
+            window.manuscriptData.chapters.length,
+            showManuscriptMarkup ? 'markup' : 'plain',
+            chapter?.title || '',
+            chapter?.toc_title || '',
+            chapter?.paragraphs?.length || 0,
+            isProjectStructureCompleted(window.manuscriptData) ? 'structured' : 'draft'
+        ].join(':');
         if (textEl.dataset.writingRenderKey !== renderKey || document.activeElement !== textEl) {
             textEl.value = nextText;
             textEl.dataset.writingRenderKey = renderKey;
         }
+        const statusEl = document.getElementById('writing-chapter-status');
+        if (statusEl) statusEl.textContent = `Osio ${chapterIndex + 1}/${window.manuscriptData.chapters.length}`;
+        const prevBtn = document.getElementById('writing-prev-chapter-btn');
+        const nextBtn = document.getElementById('writing-next-chapter-btn');
+        if (prevBtn) prevBtn.disabled = nextWritingChapterIndex(-1) === chapterIndex;
+        if (nextBtn) nextBtn.disabled = nextWritingChapterIndex(1) === chapterIndex;
         updateWritingPositionStatus();
         updateMarkupButtons();
     }
@@ -2014,7 +2057,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     async function saveWritingText(showAlert = true) {
         window.clearTimeout(writingAutosaveTimer);
         if (!syncWritingEditorToManuscript()) return;
-        await window.replaceProjectChaptersInDB(window.manuscriptData);
+        await window.saveProjectChapterToDB(window.manuscriptData, writingSelection.cIndex);
         updateSaveTimestamp('writing-save-status', Boolean(window.manuscriptData._db_sync_pending));
         renderBookOverview();
         if (window.renderNavList) window.renderNavList();
@@ -2024,6 +2067,37 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             } else {
                 alert('Teksti tallennettu.');
             }
+        }
+    }
+
+    function nextWritingChapterIndex(direction) {
+        const chapters = window.manuscriptData?.chapters || [];
+        if (!chapters.length) return 0;
+        const current = currentWritingChapterIndex();
+        const step = direction < 0 ? -1 : 1;
+        let index = current + step;
+        while (index >= 0 && index < chapters.length) {
+            if (structureChapterHasText(chapters[index]) || isBodyTextStructureKind(structureChapterKind(chapters[index]))) {
+                return index;
+            }
+            index += step;
+        }
+        return current;
+    }
+
+    async function moveWritingChapter(direction) {
+        if (!window.manuscriptData?.chapters?.length) return;
+        await saveWritingText(false);
+        const nextIndex = nextWritingChapterIndex(direction);
+        if (nextIndex === writingSelection.cIndex) return;
+        writingSelection = { cIndex: nextIndex, pIndex: 0 };
+        window.currentEditSelection = { cIndex: nextIndex, pIndex: 0 };
+        const textEl = document.getElementById('writing-text');
+        if (textEl) delete textEl.dataset.writingRenderKey;
+        renderWritingView();
+        if (textEl) {
+            textEl.focus();
+            textEl.setSelectionRange(0, 0);
         }
     }
 
@@ -7082,6 +7156,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const writingParagraphJumpInput = document.getElementById('writing-paragraph-jump');
     const writingTextArea = document.getElementById('writing-text');
     const writingBlockFormatSelect = document.getElementById('writing-block-format');
+    const writingPrevChapterBtn = document.getElementById('writing-prev-chapter-btn');
+    const writingNextChapterBtn = document.getElementById('writing-next-chapter-btn');
     const writingBoldBtn = document.getElementById('writing-bold-btn');
     const writingItalicBtn = document.getElementById('writing-italic-btn');
     const writingUnderlineBtn = document.getElementById('writing-underline-btn');
@@ -7190,6 +7266,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         applyWritingBlockFormat(writingBlockFormatSelect.value);
         writingBlockFormatSelect.value = 'body';
     });
+    if (writingPrevChapterBtn) writingPrevChapterBtn.addEventListener('click', () => moveWritingChapter(-1));
+    if (writingNextChapterBtn) writingNextChapterBtn.addEventListener('click', () => moveWritingChapter(1));
     if (writingBoldBtn) writingBoldBtn.addEventListener('click', () => wrapWritingSelection('**', '**', 'lihavoitu teksti'));
     if (writingItalicBtn) writingItalicBtn.addEventListener('click', () => wrapWritingSelection('*', '*', 'kursivoitu teksti'));
     if (writingUnderlineBtn) writingUnderlineBtn.addEventListener('click', () => wrapWritingSelection('<u>', '</u>', 'alleviivattu teksti'));

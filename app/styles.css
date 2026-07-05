@@ -1420,6 +1420,16 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     min-width: 150px;
     max-width: 220px;
 }
+.writing-nav-btn {
+    min-height: 36px;
+    padding: 0 12px;
+}
+.writing-chapter-status {
+    color: var(--text-secondary);
+    font-size: 12px;
+    min-width: 74px;
+    text-align: center;
+}
 .writing-format-btn {
     width: 36px;
     height: 36px;
@@ -2528,6 +2538,15 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     .writing-format-toolbar select {
         flex: 1 1 150px;
         min-width: 0;
+    }
+    .writing-nav-btn {
+        flex: 1 1 96px;
+        padding: 0 10px;
+    }
+    .writing-chapter-status {
+        order: 3;
+        flex: 1 1 100%;
+        text-align: left;
     }
     .undo-toast {
         left: 16px;
