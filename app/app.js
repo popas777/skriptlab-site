@@ -1471,11 +1471,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
 
         try {
-            const res = await apiFetch('/api/projects');
+            const res = await apiFetch(`/api/projects/${window.manuscriptData.id}`);
             if (!res.ok) throw new Error(await apiErrorMessage(res, 'Tallennetun analyysin lataus epäonnistui.'));
-            const projects = await res.json();
-            availableProjects = projects || [];
-            const latest = availableProjects.find(project => String(project.id) === String(window.manuscriptData.id));
+            const latest = updateCachedProject(await res.json());
             if (!latest) throw new Error('Aktiivista käsikirjoitusta ei löytynyt tietokannasta.');
 
             const localAnalysis = window.manuscriptData.analysis || {};
@@ -1490,7 +1488,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             window.manuscriptData = Object.assign({}, window.manuscriptData, latest, { chapters: currentChapters });
             if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
             localStorage.setItem('skriptlab_manuscript', JSON.stringify(window.manuscriptData));
-            updateAvailableProject(window.manuscriptData);
+            updateCachedProject(window.manuscriptData);
             window.updateDynamicTexts();
             renderAnalysisSummary(window.manuscriptData.analysis);
             renderBookOverview();
@@ -7823,11 +7821,16 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const newCard = document.createElement('div');
         newCard.className = 'card glass-panel interactive';
         newCard.dataset.projectId = data.id || '';
-        newCard.addEventListener('click', () => {
-            setActiveManuscript(data);
-            openModule(primaryWritingView());
-            renderWriterDeskView();
-            renderWritingView();
+        newCard.addEventListener('click', async () => {
+            try {
+                const project = await activateProject(data);
+                if (!project) return;
+                openModule(primaryWritingView());
+                renderWriterDeskView();
+                renderWritingView();
+            } catch (err) {
+                alert(err.message || 'Käsikirjoituksen lataus epäonnistui.');
+            }
         });
         newCard.innerHTML = `
             <div style="font-size:30px; margin-bottom:4px;">📄</div>
@@ -7940,7 +7943,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
 
         projects.forEach(project => {
-            addManuscriptCard(project, `Tallennettu tietokantaan (${getFullManuscriptText(project).length} merkkiä)`, gridCards);
+            addManuscriptCard(project, `Tallennettu tietokantaan (${formatNumber(projectDisplayCharCount(project))} merkkiä)`, gridCards);
         });
 
         const activeId = localStorage.getItem(ACTIVE_PROJECT_ID_KEY);
@@ -7948,9 +7951,18 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             ? projects.find(project => String(project.id) === activeId)
             : (projects.length === 1 ? projects[0] : null);
         if (selected) {
-            setActiveManuscript(selected);
-            if (selected._needs_db_sync) {
-                recoverPendingManuscriptSave(window.manuscriptData);
+            if (isProjectSummary(selected)) {
+                loadProjectDetails(selected)
+                    .then(project => {
+                        setActiveManuscript(project);
+                        if (project._needs_db_sync) recoverPendingManuscriptSave(window.manuscriptData);
+                    })
+                    .catch(err => console.warn('Aktiivisen käsikirjoituksen lataus epäonnistui:', err));
+            } else {
+                setActiveManuscript(selected);
+                if (selected._needs_db_sync) {
+                    recoverPendingManuscriptSave(window.manuscriptData);
+                }
             }
         } else {
             clearActiveManuscript();
@@ -7985,16 +7997,64 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     async function loadProjects() {
-        const res = await apiFetch('/api/projects');
+        const res = await apiFetch('/api/projects?summary=true');
         if (!res.ok) throw new Error(await apiErrorMessage(res, 'Käsikirjoitusten lataus epäonnistui.'));
-        const projects = await res.json();
+        const payload = await res.json();
+        const projects = Array.isArray(payload)
+            ? payload.map(project => Object.assign(project, { _summary: true }))
+            : [];
         renderProjectCards(projects || []);
+    }
+
+    function isProjectSummary(project) {
+        return Boolean(project?._summary || (project?.id && Array.isArray(project.chapters) && project.chapters.length === 0 && project.char_count !== undefined));
+    }
+
+    function projectDisplayCharCount(project) {
+        if (Number.isFinite(Number(project?.char_count))) return Number(project.char_count);
+        return getFullManuscriptText(project).length;
+    }
+
+    function updateCachedProject(project) {
+        if (!project?.id) return project;
+        const index = availableProjects.findIndex(item => String(item.id) === String(project.id));
+        const cleanProject = Object.assign({}, project);
+        delete cleanProject._summary;
+        if (index >= 0) {
+            availableProjects[index] = cleanProject;
+        } else {
+            availableProjects.unshift(cleanProject);
+        }
+        return cleanProject;
+    }
+
+    async function loadProjectDetails(projectOrId) {
+        const id = typeof projectOrId === 'object' ? projectOrId?.id : projectOrId;
+        if (!id) throw new Error('Käsikirjoitusta ei ole valittu.');
+        if (typeof projectOrId === 'object' && !isProjectSummary(projectOrId) && Array.isArray(projectOrId.chapters)) {
+            return updateCachedProject(projectOrId);
+        }
+        if (window.manuscriptData?.id && String(window.manuscriptData.id) === String(id) && Array.isArray(window.manuscriptData.chapters) && window.manuscriptData.chapters.length) {
+            return updateCachedProject(window.manuscriptData);
+        }
+        const res = await apiFetch(`/api/projects/${id}`);
+        if (!res.ok) throw new Error(await apiErrorMessage(res, 'Käsikirjoituksen lataus epäonnistui.'));
+        return updateCachedProject(await res.json());
+    }
+
+    async function activateProject(projectOrId) {
+        const project = await loadProjectDetails(projectOrId);
+        setActiveManuscript(project);
+        return project;
     }
 
     function currentTranslationProject() {
         const select = document.getElementById('translation-project-select');
         const selectedId = select?.value || window.manuscriptData?.id;
         if (!selectedId) return null;
+        if (window.manuscriptData?.id && String(window.manuscriptData.id) === String(selectedId)) {
+            return window.manuscriptData;
+        }
         return availableProjects.find(project => String(project.id) === String(selectedId)) || null;
     }
 
@@ -8002,6 +8062,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const select = document.getElementById('finnish-translation-project-select');
         const selectedId = select?.value || window.manuscriptData?.id;
         if (!selectedId) return null;
+        if (window.manuscriptData?.id && String(window.manuscriptData.id) === String(selectedId)) {
+            return window.manuscriptData;
+        }
         return availableProjects.find(project => String(project.id) === String(selectedId)) || null;
     }
 
@@ -10959,9 +11022,16 @@ ${state.validation || 'Ei validointia.'}`;
         if (element) element.addEventListener('change', updateTranslationEstimate);
     });
     if (translationProjectSelect) {
-        translationProjectSelect.addEventListener('change', () => {
+        translationProjectSelect.addEventListener('change', async () => {
             const project = currentTranslationProject();
-            if (project) setActiveManuscript(project);
+            if (project) {
+                try {
+                    await activateProject(project);
+                } catch (err) {
+                    alert(err.message || 'Käsikirjoituksen lataus epäonnistui.');
+                    return;
+                }
+            }
             updateTranslationEstimate();
             renderTranslationHistory();
         });
@@ -10990,9 +11060,16 @@ ${state.validation || 'Ei validointia.'}`;
         if (element) element.addEventListener('change', updateFinnishTranslationEstimate);
     });
     if (finnishTranslationProjectSelect) {
-        finnishTranslationProjectSelect.addEventListener('change', () => {
+        finnishTranslationProjectSelect.addEventListener('change', async () => {
             const project = currentFinnishTranslationProject();
-            if (project) setActiveManuscript(project);
+            if (project) {
+                try {
+                    await activateProject(project);
+                } catch (err) {
+                    alert(err.message || 'Käsikirjoituksen lataus epäonnistui.');
+                    return;
+                }
+            }
             updateFinnishTranslationEstimate();
             renderFinnishTranslationHistory();
         });
@@ -11022,9 +11099,16 @@ ${state.validation || 'Ei validointia.'}`;
         finnishTranslationReviewText.addEventListener('scroll', () => syncTranslationScroll(finnishTranslationReviewText, finnishTranslationReviewOriginal));
     }
     if (miscProjectSelect) {
-        miscProjectSelect.addEventListener('change', () => {
+        miscProjectSelect.addEventListener('change', async () => {
             const project = currentMiscProject();
-            if (project) setActiveManuscript(project);
+            if (project) {
+                try {
+                    await activateProject(project);
+                } catch (err) {
+                    alert(err.message || 'Käsikirjoituksen lataus epäonnistui.');
+                    return;
+                }
+            }
             updateMiscProjectSelect();
             loadMiscAssetsForActiveProject();
         });
