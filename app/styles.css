@@ -1161,6 +1161,17 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     line-height: 1.35;
 }
 .translation-review-chunk-body {
+    box-sizing: border-box;
+    min-height: 180px;
+    overflow: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.18);
+    color: var(--text-primary);
+    padding: 12px;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 16px;
+    line-height: 1.75;
     white-space: pre-wrap;
 }
 .translation-review-chunk-text {
@@ -1263,8 +1274,13 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     line-height: 1.55;
 }
 .translation-prompt-sections .translation-source-text {
-    min-height: 240px;
-    max-height: 46vh;
+    height: 420px;
+    min-height: 420px;
+    max-height: none;
+    resize: vertical;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 16px;
+    line-height: 1.75;
 }
 .translation-prompt-sections .translation-compact-text {
     min-height: 72px;
@@ -1282,6 +1298,7 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 }
 .translation-response-editor {
     resize: vertical;
+    height: 420px;
     min-height: 420px;
 }
 #translation-part-save-btn,
