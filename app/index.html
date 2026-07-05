@@ -1510,17 +1510,37 @@
                             <select id="cover-side-select" style="width:100%; margin-bottom:16px;">
                                 <option value="front">Etukansi</option>
                                 <option value="back">Takakansi</option>
+                                <option value="full">Etukansi + selkä + takakansi</option>
                             </select>
 
-                            <label style="font-size:13px; color:var(--text-secondary); display:block; margin-bottom:8px;">Kuvasuhde</label>
-                            <select id="cover-aspect-select" style="width:100%; margin-bottom:16px;">
-                                <option value="3:4">Kirjan etukansi 3:4</option>
-                                <option value="9:16">Korkea kansiluonnos 9:16</option>
-                                <option value="1:1">Neliö 1:1</option>
-                            </select>
+                            <label style="font-size:13px; color:var(--text-secondary); display:block; margin-bottom:8px;">Kannen formaatti</label>
+                            <select id="cover-format-select" style="width:100%; margin-bottom:10px;"></select>
+                            <p id="cover-format-note" class="card-meta" style="margin:0 0 16px;">Valitse kansiformaatti.</p>
+
+                            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:16px;">
+                                <div>
+                                    <label style="font-size:13px; color:var(--text-secondary); display:block; margin-bottom:8px;">Kirjan nimi kannessa</label>
+                                    <input id="cover-title-input" type="text" style="width:100%;" placeholder="Kirjan nimi">
+                                </div>
+                                <div>
+                                    <label style="font-size:13px; color:var(--text-secondary); display:block; margin-bottom:8px;">Tekijän nimi kannessa</label>
+                                    <input id="cover-author-input" type="text" style="width:100%;" placeholder="Tekijän nimi">
+                                </div>
+                            </div>
+
+                            <div id="cover-spine-fields" style="display:none; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:16px;">
+                                <div>
+                                    <label style="font-size:13px; color:var(--text-secondary); display:block; margin-bottom:8px;">Selän leveys mm</label>
+                                    <input id="cover-spine-width-input" type="number" min="0" step="0.5" style="width:100%;" placeholder="Esim. 18">
+                                </div>
+                                <div>
+                                    <label style="font-size:13px; color:var(--text-secondary); display:block; margin-bottom:8px;">Sivumäärä</label>
+                                    <input id="cover-page-count-input" type="number" min="1" step="1" style="width:100%;" placeholder="Esim. 280">
+                                </div>
+                            </div>
 
                             <label style="font-size:13px; color:var(--text-secondary); display:block; margin-bottom:8px;">Kansiprompti tai takakansiteksti</label>
-                            <textarea id="cover-prompt" rows="9" style="width:100%; resize:vertical;" placeholder="Etukannessa kirjoita tunnelma, aihe, symboliikka ja värit. Takakannessa kirjoita takakansiteksti tai jätä kenttä tyhjäksi, jolloin käytetään analyysin tietoja."></textarea>
+                            <textarea id="cover-prompt" rows="9" style="width:100%; resize:vertical;" placeholder="Etukannessa kirjoita tunnelma, aihe, symboliikka ja värit. Takakannessa kirjoita takakansiteksti tai jätä kenttä tyhjäksi, jolloin käytetään analyysin tietoja. Täydessä kannessa voit kuvata etukannen, selän ja takakannen yhteisen ilmeen."></textarea>
 
                             <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:16px;">
                                 <button class="btn btn-secondary" id="cover-load-prompt-btn" type="button">Lataa analyysin prompti</button>

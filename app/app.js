@@ -372,7 +372,13 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const illustrationStatus = document.getElementById('illustration-status');
     const coverModelSelect = document.getElementById('cover-model-select');
     const coverSideSelect = document.getElementById('cover-side-select');
-    const coverAspectSelect = document.getElementById('cover-aspect-select');
+    const coverFormatSelect = document.getElementById('cover-format-select');
+    const coverFormatNote = document.getElementById('cover-format-note');
+    const coverTitleInput = document.getElementById('cover-title-input');
+    const coverAuthorInput = document.getElementById('cover-author-input');
+    const coverSpineFields = document.getElementById('cover-spine-fields');
+    const coverSpineWidthInput = document.getElementById('cover-spine-width-input');
+    const coverPageCountInput = document.getElementById('cover-page-count-input');
     const coverPrompt = document.getElementById('cover-prompt');
     const coverLoadPromptBtn = document.getElementById('cover-load-prompt-btn');
     const coverGenerateBtn = document.getElementById('cover-generate-btn');
@@ -5389,7 +5395,150 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         });
     };
 
-    // --- 5. Kuvitus Logic ---
+	    // --- 5. Kuvitus Logic ---
+    const coverFormatDefinitions = [
+        {
+            key: 'print_a5',
+            label: 'Painettu kirja A5, 148 x 210 mm',
+            detail: 'Yksittäinen etu- tai takakansi. Tekninen kuvasuhde 3:4, jätä reilu leikkausvara ja turvalliset marginaalit.',
+            aspectRatio: '3:4',
+            kind: 'single',
+            widthMm: 148,
+            heightMm: 210,
+        },
+        {
+            key: 'print_b_format',
+            label: 'Painettu kirja B-format, 130 x 198 mm',
+            detail: 'Romaani- ja yleiskirjakoko. Tekninen kuvasuhde 3:4, sommittelu tehdään painokannen pystymuotoon.',
+            aspectRatio: '3:4',
+            kind: 'single',
+            widthMm: 130,
+            heightMm: 198,
+        },
+        {
+            key: 'print_5x8',
+            label: 'Painettu kirja 5 x 8 tuumaa',
+            detail: 'Kompakti kaunokirjallinen pystykansi. Tekninen kuvasuhde 3:4.',
+            aspectRatio: '3:4',
+            kind: 'single',
+            widthMm: 127,
+            heightMm: 203,
+        },
+        {
+            key: 'print_6x9',
+            label: 'Painettu kirja 6 x 9 tuumaa',
+            detail: 'Yleinen trade paperback -koko. Tekninen kuvasuhde 3:4, runsaasti tilaa otsikkotypografialle.',
+            aspectRatio: '3:4',
+            kind: 'single',
+            widthMm: 152,
+            heightMm: 229,
+        },
+        {
+            key: 'ebook_epub',
+            label: 'E-kirjan kansi / EPUB, 1600 x 2560 px',
+            detail: 'Digitaalisiin kauppoihin sopiva pystykansi. Tekninen kuvasuhde 9:16.',
+            aspectRatio: '9:16',
+            kind: 'single',
+            widthPx: 1600,
+            heightPx: 2560,
+        },
+        {
+            key: 'audio_square',
+            label: 'Äänikirja ja markkinointikuva, neliö',
+            detail: 'Neliökuva palveluihin ja kampanjoihin. Ei painokannen mitoitus.',
+            aspectRatio: '1:1',
+            kind: 'single',
+        },
+        {
+            key: 'full_a5',
+            label: 'Koko kansi A5: takakansi + selkä + etukansi',
+            detail: 'Täysi kansiaukeama painoa varten. Vasemmalta oikealle: takakansi, selkä, etukansi. Tekninen kuvasuhde 4:3.',
+            aspectRatio: '4:3',
+            kind: 'full',
+            widthMm: 148,
+            heightMm: 210,
+        },
+        {
+            key: 'full_b_format',
+            label: 'Koko kansi B-format: takakansi + selkä + etukansi',
+            detail: 'Täysi kansiaukeama painoa varten. Vasemmalta oikealle: takakansi, selkä, etukansi. Tekninen kuvasuhde 4:3.',
+            aspectRatio: '4:3',
+            kind: 'full',
+            widthMm: 130,
+            heightMm: 198,
+        },
+        {
+            key: 'full_6x9',
+            label: 'Koko kansi 6 x 9 tuumaa: takakansi + selkä + etukansi',
+            detail: 'Täysi kansiaukeama painoa varten. Vasemmalta oikealle: takakansi, selkä, etukansi. Tekninen kuvasuhde 4:3.',
+            aspectRatio: '4:3',
+            kind: 'full',
+            widthMm: 152,
+            heightMm: 229,
+        },
+    ];
+
+    function coverFormatByKey(key) {
+        return coverFormatDefinitions.find(format => format.key === key) || coverFormatDefinitions[0];
+    }
+
+    function coverSideValue() {
+        const value = coverSideSelect?.value || 'front';
+        return value === 'back' || value === 'full' ? value : 'front';
+    }
+
+    function coverSideLabel(side = coverSideValue()) {
+        if (side === 'back') return 'Takakansi';
+        if (side === 'full') return 'Koko kansi';
+        return 'Etukansi';
+    }
+
+    function activeCoverFormat() {
+        return coverFormatByKey(coverFormatSelect?.value);
+    }
+
+    function renderCoverFormatOptions() {
+        if (!coverFormatSelect) return;
+        const side = coverSideValue();
+        const desiredKind = side === 'full' ? 'full' : 'single';
+        const currentValue = coverFormatSelect.value;
+        const formats = coverFormatDefinitions.filter(format => format.kind === desiredKind);
+        coverFormatSelect.innerHTML = formats
+            .map(format => `<option value="${escapeHtml(format.key)}">${escapeHtml(format.label)}</option>`)
+            .join('');
+        if (formats.some(format => format.key === currentValue)) {
+            coverFormatSelect.value = currentValue;
+        } else if (desiredKind === 'full') {
+            coverFormatSelect.value = 'full_a5';
+        } else {
+            coverFormatSelect.value = 'print_a5';
+        }
+        updateCoverFormatNote();
+    }
+
+    function updateCoverFormatNote() {
+        const format = activeCoverFormat();
+        if (coverFormatNote) coverFormatNote.textContent = `${format.detail} Mallille lähetettävä kuvasuhde: ${format.aspectRatio}.`;
+        if (coverSpineFields) coverSpineFields.style.display = coverSideValue() === 'full' ? 'grid' : 'none';
+    }
+
+    function coverTitleFromProject() {
+        return String(window.manuscriptData?.analysis?.product_info?.title || window.manuscriptData?.title || '').trim();
+    }
+
+    function coverAuthorFromProject() {
+        return String(window.manuscriptData?.analysis?.product_info?.author || window.manuscriptData?.author || '').trim();
+    }
+
+    function refreshCoverTextFields(force = false) {
+        if (coverTitleInput && (force || !coverTitleInput.value.trim())) coverTitleInput.value = coverTitleFromProject();
+        if (coverAuthorInput && (force || !coverAuthorInput.value.trim())) coverAuthorInput.value = coverAuthorFromProject();
+        if (coverPageCountInput && !coverPageCountInput.value.trim()) {
+            const pageCount = String(window.manuscriptData?.analysis?.product_info?.page_count || '').trim();
+            if (pageCount) coverPageCountInput.value = pageCount.replace(/[^\d]/g, '');
+        }
+    }
+
     function setIllustrationStatus(message, isError = false) {
         if (!illustrationStatus) return;
         illustrationStatus.textContent = message;
@@ -5425,6 +5574,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (!illustrationCurrentProject) return;
         const title = window.manuscriptData?.title || '[Ei aktiivista teosta]';
         illustrationCurrentProject.textContent = `Käsikirjoitus: ${title}`;
+        renderCoverFormatOptions();
+        refreshCoverTextFields();
     }
 
     function setMarketingStatus(message, isError = false) {
@@ -5926,14 +6077,21 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
         coverLatestPreview.innerHTML = `<img src="${items[0].data_url}" alt="Viimeisin kansi" style="width:100%; max-height:520px; object-fit:contain; border-radius:10px;">`;
         items.forEach(item => {
-            const typeLabel = item.asset_type === 'back_cover_image' ? 'Takakansi' : 'Etukansi';
+            const typeLabel = item.asset_type === 'full_cover_image'
+                ? 'Koko kansi'
+                : item.asset_type === 'back_cover_image'
+                    ? 'Takakansi'
+                    : 'Etukansi';
+            const imageShape = item.asset_type === 'full_cover_image'
+                ? 'aspect-ratio:4 / 3; object-fit:contain;'
+                : 'aspect-ratio:3 / 4; object-fit:cover;';
             const card = document.createElement('div');
             card.className = 'card glass-panel';
             card.style.display = 'flex';
             card.style.flexDirection = 'column';
             card.style.gap = '12px';
             card.innerHTML = `
-                <img src="${item.data_url}" alt="${escapeHtml(item.title)}" style="width:100%; aspect-ratio:3 / 4; object-fit:cover; border-radius:8px; border:1px solid var(--border-color);">
+                <img src="${item.data_url}" alt="${escapeHtml(item.title)}" style="width:100%; ${imageShape} border-radius:8px; border:1px solid var(--border-color); background:rgba(0,0,0,0.16);">
                 <div>
                     <strong style="font-size:14px;">${escapeHtml(item.title)}</strong>
                     <p class="card-meta" style="margin:6px 0 0;">${typeLabel} · ${escapeHtml(item.model || 'Kuvamalli')}</p>
@@ -5997,18 +6155,25 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             return;
         }
 
-        const coverSide = coverSideSelect?.value === 'back' ? 'back' : 'front';
+        const coverSide = coverSideValue();
+        const format = activeCoverFormat();
+        const titleText = coverTitleInput?.value.trim() || coverTitleFromProject();
+        const authorText = coverAuthorInput?.value.trim() || coverAuthorFromProject();
         const prompt = (coverPrompt?.value || '').trim();
-        const fallbackPrompt = coverSide === 'back' ? analysisBackCoverText() : analysisCoverPrompt();
+        const fallbackPrompt = coverSide === 'back'
+            ? analysisBackCoverText()
+            : coverSide === 'full'
+                ? [analysisCoverPrompt(), analysisBackCoverText()].filter(Boolean).join('\n\nTakakansiteksti:\n')
+                : analysisCoverPrompt();
         if (!prompt && fallbackPrompt && coverPrompt) {
             coverPrompt.value = fallbackPrompt;
         }
 
         if (coverGenerateBtn) coverGenerateBtn.disabled = true;
         if (coverLatestPreview) {
-            coverLatestPreview.innerHTML = `<div style="text-align:center; color:var(--text-secondary);">Generoidaan ${coverSide === 'back' ? 'takakantta' : 'kansikuvaa'}...</div>`;
+            coverLatestPreview.innerHTML = `<div style="text-align:center; color:var(--text-secondary);">Generoidaan: ${coverSideLabel(coverSide)}...</div>`;
         }
-        setIllustrationStatus(`${coverSide === 'back' ? 'Takakantta' : 'Kansikuvaa'} generoidaan. Tässä voi mennä hetki.`);
+        setIllustrationStatus(`${coverSideLabel(coverSide)} generoidaan formaattiin ${format.label}. Tässä voi mennä hetki.`);
 
         try {
             const res = await apiFetch(`/api/projects/${window.manuscriptData.id}/cover-images`, {
@@ -6018,19 +6183,22 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                     prompt: (coverPrompt?.value || '').trim(),
                     cover_side: coverSide,
                     model: coverModelSelect?.value || null,
-                    aspect_ratio: coverAspectSelect?.value || '3:4',
-                    title_text: window.manuscriptData.title || '',
-                    author_text: window.manuscriptData.author || ''
+                    cover_format: format.key,
+                    aspect_ratio: format.aspectRatio,
+                    title_text: titleText,
+                    author_text: authorText,
+                    spine_width_mm: coverSpineWidthInput?.value ? Number(coverSpineWidthInput.value) : null,
+                    page_count: coverPageCountInput?.value ? Number(coverPageCountInput.value) : null,
                 })
             });
             const data = await res.json().catch(() => null);
             if (!res.ok) throw new Error(data?.detail || 'Kansikuvan generointi epäonnistui.');
-            setIllustrationStatus(`${coverSide === 'back' ? 'Takakansi' : 'Kansikuva'} tallennettu käsikirjoitukselle.`);
+            setIllustrationStatus(`${coverSideLabel(coverSide)} tallennettu käsikirjoitukselle.`);
             await loadCoverImages();
             loadUsage();
         } catch (err) {
             if (coverLatestPreview) {
-                coverLatestPreview.innerHTML = `${coverSide === 'back' ? 'Takakantta' : 'Kansikuvaa'} ei saatu generoitua.`;
+                coverLatestPreview.innerHTML = `${coverSideLabel(coverSide)} ei saatu generoitua.`;
             }
             const message = String(err?.message || err || '');
             setIllustrationStatus(message.includes('Failed to fetch') ? networkFailureMessage(err, 'cover') : message, true);
@@ -6041,17 +6209,31 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     if (coverLoadPromptBtn) {
         coverLoadPromptBtn.addEventListener('click', () => {
-            const isBackCover = coverSideSelect?.value === 'back';
-            const prompt = isBackCover ? analysisBackCoverText() : analysisCoverPrompt();
+            const side = coverSideValue();
+            const isBackCover = side === 'back';
+            const isFullCover = side === 'full';
+            const prompt = isFullCover
+                ? [analysisCoverPrompt(), analysisBackCoverText()].filter(Boolean).join('\n\nTakakansiteksti:\n')
+                : isBackCover ? analysisBackCoverText() : analysisCoverPrompt();
             if (!prompt) {
-                setIllustrationStatus(isBackCover
+                setIllustrationStatus(isFullCover
+                    ? 'Analyysista ei löytynyt etukannen promptia tai takakansitekstiä. Voit kirjoittaa täyden kannen ohjeen käsin.'
+                    : isBackCover
                     ? 'Analyysista ei löytynyt takakansitekstiä. Voit kirjoittaa sen käsin.'
                     : 'Analyysista ei löytynyt kansikuvapromptia. Voit kirjoittaa promptin käsin.', true);
                 return;
             }
             if (coverPrompt) coverPrompt.value = prompt;
-            setIllustrationStatus(isBackCover ? 'Takakansiteksti ladattu kenttään.' : 'Analyysin kansikuvaprompti ladattu kenttään.');
+            setIllustrationStatus(isFullCover ? 'Etukannen prompti ja takakansiteksti ladattu kenttään.' : isBackCover ? 'Takakansiteksti ladattu kenttään.' : 'Analyysin kansikuvaprompti ladattu kenttään.');
         });
+    }
+
+    if (coverSideSelect) {
+        coverSideSelect.addEventListener('change', renderCoverFormatOptions);
+    }
+    if (coverFormatSelect) {
+        coverFormatSelect.addEventListener('change', updateCoverFormatNote);
+        renderCoverFormatOptions();
     }
 
     if (coverGenerateBtn) {
@@ -6760,6 +6942,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                     prompt,
                     cover_side: side,
                     aspect_ratio: '3:4',
+                    cover_format: 'print_a5',
                     title_text: window.manuscriptData.title || '',
                     author_text: window.manuscriptData.author || ''
                 })
