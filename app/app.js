@@ -1162,12 +1162,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function currentWritingChapterIndex() {
         const chapters = window.manuscriptData?.chapters || [];
         if (!chapters.length) return 0;
-        const firstWritable = chapters.findIndex(chapter => structureChapterHasText(chapter) || isBodyTextStructureKind(structureChapterKind(chapter)));
-        let index = Number.isInteger(writingSelection.cIndex) ? writingSelection.cIndex : firstWritable;
-        if (!chapters[index] || (!structureChapterHasText(chapters[index]) && !isBodyTextStructureKind(structureChapterKind(chapters[index])))) {
-            index = firstWritable >= 0 ? firstWritable : firstBodyChapterIndex(chapters);
-        }
-        if (!chapters[index]) index = 0;
+        let index = Number.isInteger(writingSelection.cIndex) ? writingSelection.cIndex : firstBodyChapterIndex(chapters);
+        if (!Number.isInteger(index) || index < 0 || index >= chapters.length) index = 0;
         writingSelection.cIndex = index;
         if (!Number.isInteger(writingSelection.pIndex)) writingSelection.pIndex = 0;
         return index;
@@ -2080,15 +2076,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const chapters = window.manuscriptData?.chapters || [];
         if (!chapters.length) return 0;
         const current = currentWritingChapterIndex();
-        const step = direction < 0 ? -1 : 1;
-        let index = current + step;
-        while (index >= 0 && index < chapters.length) {
-            if (structureChapterHasText(chapters[index]) || isBodyTextStructureKind(structureChapterKind(chapters[index]))) {
-                return index;
-            }
-            index += step;
-        }
-        return current;
+        const next = current + (direction < 0 ? -1 : 1);
+        if (next < 0 || next >= chapters.length) return current;
+        return next;
     }
 
     async function moveWritingChapter(direction) {
@@ -2099,7 +2089,11 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         writingSelection = { cIndex: nextIndex, pIndex: 0 };
         window.currentEditSelection = { cIndex: nextIndex, pIndex: 0 };
         const textEl = document.getElementById('writing-text');
-        if (textEl) delete textEl.dataset.writingRenderKey;
+        if (textEl) {
+            textEl.value = '';
+            textEl.scrollTop = 0;
+            delete textEl.dataset.writingRenderKey;
+        }
         renderWritingView();
         if (textEl) {
             textEl.focus();
