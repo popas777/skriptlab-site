@@ -31,8 +31,35 @@
       <div class="section-inner">
         <p class="section-label">Ota yhteyttä</p>
         <h1>Haluatko käsitellä <em>käsikirjoitusta</em> fiksummin?</h1>
-        <p>Pyydä demo ja katso, miten SkriptLab jäsentää tekstin, havainnot ja jatkotyön.</p>
-        <a href="mailto:skriptlab@skriptlab.com?subject=Demo%20SkriptLabista" class="btn-primary btn-large">skriptlab@skriptlab.com</a>
+        <p>Pyydä demo, tarjous tai lisätietoja. Kerro lyhyesti, millaisen aineiston tai työnkulun parissa työskentelet, niin palaamme asiaan.</p>
+        <form class="contact-form contact-page-form" name="yhteydenotto" method="POST" data-netlify="true" netlify-honeypot="company" data-site-contact>
+          <input type="hidden" name="form-name" value="yhteydenotto">
+          <p class="hidden-field">
+            <label>Yritys <input name="company" tabindex="-1" autocomplete="off"></label>
+          </p>
+
+          <label for="contact-page-name">Nimi</label>
+          <input id="contact-page-name" name="name" type="text" autocomplete="name" required>
+
+          <label for="contact-page-email">Sähköposti</label>
+          <input id="contact-page-email" name="email" type="email" autocomplete="email" required>
+
+          <label for="contact-page-interest">Mistä olet kiinnostunut?</label>
+          <select id="contact-page-interest" name="interest">
+            <option value="">Valitse aihe</option>
+            <option>Demo</option>
+            <option>Käsikirjoitusanalyysi</option>
+            <option>Käännökset tai suomennos</option>
+            <option>Julkaisuaineistot</option>
+            <option>Tiimi- tai yrityskäyttö</option>
+            <option>Muu yhteydenotto</option>
+          </select>
+
+          <label for="contact-page-message">Viesti</label>
+          <textarea id="contact-page-message" name="message" rows="6" placeholder="Kerro lyhyesti, mitä haluaisit selvittää." required></textarea>
+
+          <button class="btn-primary btn-large" type="submit">Lähetä viesti</button>
+        </form>
         <p class="cta-note">Kaikki oikeudet pysyvät tekijällä. Tekstejä ei käytetä mallien kouluttamiseen. Aineistoa käsitellään ja säilytetään turvallisesti EU-alueella.</p>
       </div>
     </section>
@@ -40,7 +67,7 @@
 
   <footer class="site-footer compact-footer">
     <div class="footer-inner footer-bottom">
-      <span>© 2026 SkriptLab.</span>
+      <span>© 2026 SkriptLab. SkriptLab Oy · Y-tunnus 3588291-2 · Helsinki.</span>
       <span><a href="index.html">Etusivu</a><a href="legal/privacy.html">Tietosuojaseloste</a><a href="legal/terms.html">Käyttöehdot</a></span>
     </div>
   </footer>

@@ -860,12 +860,35 @@ a {
 
 .contact-page {
   min-height: calc(100vh - 122px);
-  padding-top: 9rem;
+  padding-top: 7rem;
 }
 
 .contact-page .section-label {
   justify-content: center;
   color: var(--amber-light);
+}
+
+.contact-page .section-inner {
+  max-width: 760px;
+}
+
+.contact-page-form {
+  max-width: 620px;
+  margin: 2rem auto 0;
+  text-align: left;
+}
+
+.contact-page-form label {
+  color: rgba(245, 240, 232, 0.86);
+}
+
+.contact-page-form .btn-primary {
+  justify-self: center;
+  margin-top: 0.35rem;
+}
+
+.hidden-field {
+  display: none;
 }
 
 .site-footer {
@@ -1020,6 +1043,7 @@ a {
 }
 
 .contact-form input,
+.contact-form select,
 .contact-form textarea {
   width: 100%;
   border: 1px solid var(--border);
@@ -1036,6 +1060,7 @@ a {
 }
 
 .contact-form input:focus,
+.contact-form select:focus,
 .contact-form textarea:focus,
 .modal-close:focus-visible {
   border-color: var(--amber);

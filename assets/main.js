@@ -140,11 +140,11 @@ const commonTranslations = [
   { selector: ".footer-top .footer-col:nth-child(4) a:nth-of-type(2)", fi: "Ota yhteyttä", en: "Contact" },
   { selector: ".footer-top .footer-col:nth-child(4) a:nth-of-type(3)", fi: "Käyttöehdot", en: "Terms of use" },
   { selector: ".footer-top .footer-col:nth-child(4) a:nth-of-type(4)", fi: "Tietosuojaseloste", en: "Privacy notice" },
-  { selector: ".site-footer:not(.compact-footer) .footer-bottom span:first-child", fi: "© 2026 SkriptLab. Kaikki oikeudet pidätetään.", en: "© 2026 SkriptLab. All rights reserved." },
+  { selector: ".site-footer:not(.compact-footer) .footer-bottom span:first-child", fi: "© 2026 SkriptLab. Kaikki oikeudet pidätetään. SkriptLab Oy · Y-tunnus 3588291-2 · Helsinki.", en: "© 2026 SkriptLab. All rights reserved. SkriptLab Oy · Business ID 3588291-2 · Helsinki, Finland." },
   { selector: ".site-footer:not(.compact-footer) .footer-bottom a[href='legal/privacy.html']", fi: "Tietosuojaseloste", en: "Privacy notice" },
   { selector: ".site-footer:not(.compact-footer) .footer-bottom a[href='legal/terms.html']", fi: "Käyttöehdot", en: "Terms of use" },
   { selector: ".site-footer:not(.compact-footer) .footer-bottom a[href='legal/cookies.html']", fi: "Evästeet", en: "Cookies" },
-  { selector: ".compact-footer .footer-bottom span:first-child", fi: "© 2026 SkriptLab.", en: "© 2026 SkriptLab." },
+  { selector: ".compact-footer .footer-bottom span:first-child", fi: "© 2026 SkriptLab. SkriptLab Oy · Y-tunnus 3588291-2 · Helsinki.", en: "© 2026 SkriptLab. SkriptLab Oy · Business ID 3588291-2 · Helsinki, Finland." },
   { selector: ".compact-footer .footer-bottom a[href='index.html']", fi: "Etusivu", en: "Home" },
   { selector: ".compact-footer .footer-bottom a[href='yhteys.html']", fi: "Yhteystiedot", en: "Contact" },
   { selector: ".compact-footer .footer-bottom a[href='legal/privacy.html']", fi: "Tietosuojaseloste", en: "Privacy notice" },
@@ -153,11 +153,11 @@ const commonTranslations = [
   { selector: ".modal-label", fi: "Kirjaudu", en: "Log in" },
   { selector: "#login-modal-title", fi: "Sovelluksen selainkäyttö työn alla", en: "Browser access is being prepared" },
   { selector: ".login-modal > p", fi: "Emme ota toistaiseksi uusia käyttäjiä.", en: "We are not opening new accounts just yet." },
-  { selector: ".contact-form label[for='contact-email']", fi: "Sähköpostiosoitteesi", en: "Your email address" },
+  { selector: ".login-modal .contact-form label[for='contact-email']", fi: "Sähköpostiosoitteesi", en: "Your email address" },
   { selector: "#contact-email", attr: "placeholder", fi: "nimi@example.com", en: "name@example.com" },
-  { selector: ".contact-form label[for='contact-message']", fi: "Ota yhteyttä", en: "Contact us" },
+  { selector: ".login-modal .contact-form label[for='contact-message']", fi: "Ota yhteyttä", en: "Contact us" },
   { selector: "#contact-message", attr: "placeholder", fi: "Kerro lyhyesti, mistä haluaisit kuulla lisää.", en: "Briefly tell us what you would like to hear more about." },
-  { selector: ".contact-form .btn-primary", fi: "Lähetä sähköposti", en: "Send email" }
+  { selector: ".login-modal .contact-form .btn-primary", fi: "Siirry yhteydenottoon", en: "Go to contact form" }
 ];
 
 const pageTranslations = {
@@ -287,7 +287,7 @@ const pageTranslations = {
     { selector: ".quote-card:nth-child(2) strong", fi: "Esimerkki: 1-2 € / liuska", en: "Example: €1-2 / page" },
     { selector: ".quote-card:nth-child(2) span", fi: "300-sivuisen teoksen hinta on tyypillisesti muutamia satoja euroja.", en: "A 300-page work typically costs a few hundred euros." },
     { selector: ".one-off-pricing .btn-primary", fi: "Kysy tarjous", en: "Ask for a quote" },
-    { selector: ".one-off-pricing .btn-primary", attr: "href", fi: "mailto:skriptlab@skriptlab.com?subject=Tarjouspyynt%C3%B6%20SkriptLabista", en: "mailto:skriptlab@skriptlab.com?subject=SkriptLab%20quote%20request" }
+    { selector: ".one-off-pricing .btn-primary", attr: "href", fi: "yhteys.html", en: "yhteys.html" }
   ],
   trust: [
     { selector: ".section-label", fi: "Luottamus", en: "Trust" },
@@ -305,8 +305,20 @@ const pageTranslations = {
   contact: [
     { selector: ".section-label", fi: "Ota yhteyttä", en: "Contact" },
     { selector: ".cta-section h1", html: true, fi: "Haluatko käsitellä <em>käsikirjoitusta</em> fiksummin?", en: "Want to work with your <em>manuscript</em> more clearly?" },
-    { selector: ".cta-section .section-inner > p:not(.section-label):not(.cta-note)", fi: "Pyydä demo ja katso, miten SkriptLab jäsentää tekstin, havainnot ja jatkotyön.", en: "Request a demo and see how SkriptLab structures the text, findings and next steps." },
-    { selector: ".cta-section .btn-primary", attr: "href", fi: "mailto:skriptlab@skriptlab.com?subject=Demo%20SkriptLabista", en: "mailto:skriptlab@skriptlab.com?subject=SkriptLab%20demo" },
+    { selector: ".cta-section .section-inner > p:not(.section-label):not(.cta-note)", fi: "Pyydä demo, tarjous tai lisätietoja. Kerro lyhyesti, millaisen aineiston tai työnkulun parissa työskentelet, niin palaamme asiaan.", en: "Request a demo, quote or more information. Briefly describe the material or workflow you are working with, and we will get back to you." },
+    { selector: ".contact-page-form label[for='contact-page-name']", fi: "Nimi", en: "Name" },
+    { selector: ".contact-page-form label[for='contact-page-email']", fi: "Sähköposti", en: "Email" },
+    { selector: ".contact-page-form label[for='contact-page-interest']", fi: "Mistä olet kiinnostunut?", en: "What are you interested in?" },
+    { selector: "#contact-page-interest option:nth-child(1)", fi: "Valitse aihe", en: "Choose a topic" },
+    { selector: "#contact-page-interest option:nth-child(2)", fi: "Demo", en: "Demo" },
+    { selector: "#contact-page-interest option:nth-child(3)", fi: "Käsikirjoitusanalyysi", en: "Manuscript analysis" },
+    { selector: "#contact-page-interest option:nth-child(4)", fi: "Käännökset tai suomennos", en: "Translations or Finnish translation" },
+    { selector: "#contact-page-interest option:nth-child(5)", fi: "Julkaisuaineistot", en: "Publishing materials" },
+    { selector: "#contact-page-interest option:nth-child(6)", fi: "Tiimi- tai yrityskäyttö", en: "Team or business use" },
+    { selector: "#contact-page-interest option:nth-child(7)", fi: "Muu yhteydenotto", en: "Other enquiry" },
+    { selector: ".contact-page-form label[for='contact-page-message']", fi: "Viesti", en: "Message" },
+    { selector: "#contact-page-message", attr: "placeholder", fi: "Kerro lyhyesti, mitä haluaisit selvittää.", en: "Briefly tell us what you would like to discuss." },
+    { selector: ".contact-page-form .btn-primary", fi: "Lähetä viesti", en: "Send message" },
     { selector: ".cta-note", fi: "Kaikki oikeudet pysyvät tekijällä. Tekstejä ei käytetä mallien kouluttamiseen. Aineistoa käsitellään ja säilytetään turvallisesti EU-alueella.", en: "All rights remain with the author. Texts are not used to train models. Material is handled and stored securely in the EU." }
   ],
   "legal-privacy": [
@@ -317,7 +329,7 @@ const pageTranslations = {
     { selector: ".legal-document h2:nth-of-type(2)", fi: "Käsikirjoitusaineistot", en: "Manuscript materials" },
     { selector: ".legal-document > p:nth-of-type(3)", fi: "Käsikirjoituksia käsitellään vain palvelun tuottamiseksi. Aineistoa ei käytetä tekoälymallien kouluttamiseen ilman erillistä lupaa, eikä käsikirjoitusten sisältöä kirjata sovelluslokeihin.", en: "Manuscripts are processed only to provide the service. Material is not used to train AI models without separate permission, and manuscript content is not written into application logs." },
     { selector: ".legal-document h2:nth-of-type(3)", fi: "Yhteydenotot", en: "Contact" },
-    { selector: ".legal-document > p:nth-of-type(4)", html: true, fi: "Tietosuojaan liittyvissä kysymyksissä voit ottaa yhteyttä osoitteeseen <a href=\"mailto:skriptlab@skriptlab.com\">skriptlab@skriptlab.com</a>.", en: "For privacy-related questions, contact <a href=\"mailto:skriptlab@skriptlab.com\">skriptlab@skriptlab.com</a>." }
+    { selector: ".legal-document > p:nth-of-type(4)", html: true, fi: "Tietosuojaan liittyvissä kysymyksissä voit ottaa yhteyttä <a href=\"../yhteys.html\">yhteydenottolomakkeella</a>.", en: "For privacy-related questions, use the <a href=\"../yhteys.html\">contact form</a>." }
   ],
   "legal-terms": [
     { selector: ".legal-document h1", fi: "Käyttöehdot", en: "Terms of use" },
@@ -327,7 +339,7 @@ const pageTranslations = {
     { selector: ".legal-document h2:nth-of-type(2)", fi: "EU-käsittely", en: "EU processing" },
     { selector: ".legal-document > p:nth-of-type(3)", fi: "Palvelun oma backend, tietokanta, lokit ja varmuuskopiot sijaitsevat EU-alueella. Käsikirjoitusaineistoja käsitellään ja säilytetään EU-palvelimilla palvelun tuottamista varten.", en: "The service backend, database, logs and backups are located in the EU. Manuscript materials are processed and stored on EU servers to provide the service." },
     { selector: ".legal-document h2:nth-of-type(3)", fi: "Yhteydenotot", en: "Contact" },
-    { selector: ".legal-document > p:nth-of-type(4)", html: true, fi: "Käyttöehtoihin liittyvissä kysymyksissä voit ottaa yhteyttä osoitteeseen <a href=\"mailto:skriptlab@skriptlab.com\">skriptlab@skriptlab.com</a>.", en: "For questions about the terms of use, contact <a href=\"mailto:skriptlab@skriptlab.com\">skriptlab@skriptlab.com</a>." }
+    { selector: ".legal-document > p:nth-of-type(4)", html: true, fi: "Käyttöehtoihin liittyvissä kysymyksissä voit ottaa yhteyttä <a href=\"../yhteys.html\">yhteydenottolomakkeella</a>.", en: "For questions about the terms of use, use the <a href=\"../yhteys.html\">contact form</a>." }
   ],
   "legal-cookies": [
     { selector: ".legal-document h1", fi: "Evästeet", en: "Cookies" },
@@ -336,7 +348,7 @@ const pageTranslations = {
     { selector: ".legal-document > p:nth-of-type(2)", fi: "Sivu on staattinen verkkosivu, joka toimii ilman evästeitä. Selaimesi voi kuitenkin käsitellä tavanomaisia teknisiä tietoja sivun lataamista varten.", en: "The site is a static website and works without cookies. Your browser may still process ordinary technical information required to load the page." },
     { selector: ".legal-document h2:nth-of-type(2)", fi: "Muutokset", en: "Changes" },
     { selector: ".legal-document > p:nth-of-type(3)", fi: "Jos sivustolle lisätään myöhemmin analytiikkaa, kirjautumistoimintoja tai muita evästeitä hyödyntäviä palveluja, päivitämme tämän sivun ennen niiden käyttöönottoa.", en: "If analytics, login functionality or other services using cookies are added later, this page will be updated before they are introduced." },
-    { selector: ".legal-document > p:nth-of-type(4)", html: true, fi: "Kysymyksissä voit ottaa yhteyttä osoitteeseen <a href=\"mailto:skriptlab@skriptlab.com\">skriptlab@skriptlab.com</a>.", en: "For questions, contact <a href=\"mailto:skriptlab@skriptlab.com\">skriptlab@skriptlab.com</a>." }
+    { selector: ".legal-document > p:nth-of-type(4)", html: true, fi: "Kysymyksissä voit ottaa yhteyttä <a href=\"../yhteys.html\">yhteydenottolomakkeella</a>.", en: "For questions, use the <a href=\"../yhteys.html\">contact form</a>." }
   ]
 };
 
@@ -644,27 +656,8 @@ loginModal.addEventListener("click", (event) => {
 contactForm.addEventListener("submit", (event) => {
   event.preventDefault();
 
-  const formData = new FormData(contactForm);
-  const email = String(formData.get("email") || "").trim();
-  const message = String(formData.get("message") || "").trim();
-  const body = currentLanguage === "en"
-    ? [
-        "Hello SkriptLab,",
-        "",
-        message || "I would like to hear more about SkriptLab.",
-        "",
-        email ? `My reply address: ${email}` : ""
-      ].filter(Boolean).join("\n")
-    : [
-        "Hei SkriptLab,",
-        "",
-        message || "Haluaisin kuulla lisää SkriptLabista.",
-        "",
-        email ? `Vastausosoitteeni: ${email}` : ""
-      ].filter(Boolean).join("\n");
-
-  const subject = currentLanguage === "en" ? "SkriptLab enquiry" : "Yhteydenotto SkriptLabista";
-  window.location.href = `mailto:skriptlab@skriptlab.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const target = currentLanguage === "en" ? "/yhteys.html?lang=en" : "/yhteys.html";
+  window.location.href = target;
 });
 
 window.addEventListener("keydown", (event) => {
