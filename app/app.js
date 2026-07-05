@@ -8450,6 +8450,81 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
     }
 
+    function translationHistoryCard(item, options = {}) {
+        const isFinnish = options.isFinnish === true;
+        const idAttr = isFinnish ? 'data-finnish-translation-id' : 'data-translation-id';
+        const exportAttr = isFinnish ? 'data-finnish-translation-export-id' : 'data-translation-export-id';
+        const deleteAttr = isFinnish ? 'data-finnish-translation-delete-id' : 'data-translation-delete-id';
+        const label = isFinnish ? 'Suomi' : item.target_language_label;
+        return `
+            <div class="translation-history-card" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 12px; border-radius:8px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05);">
+                <button class="translation-history-open" ${idAttr}="${item.id}" type="button" style="flex:1 1 240px; min-width:180px; text-align:left; border:0; background:transparent; color:var(--text-primary); cursor:pointer; padding:0;">
+                    <strong>${escapeHtml(label)}</strong> · ${escapeHtml(item.style_label)} · ${item.chunks_count} osaa · ${escapeHtml(translationStatusLabel(item.status))}
+                </button>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button class="btn btn-secondary" ${exportAttr}="${item.id}" type="button" style="padding:6px 10px; font-size:12px;">Vie käsikirjoitukseksi</button>
+                    <button class="btn btn-secondary btn-danger-soft" ${deleteAttr}="${item.id}" type="button" style="padding:6px 10px; font-size:12px;">Poista</button>
+                </div>
+            </div>
+        `;
+    }
+
+    async function exportTranslationAsProject(translationId, options = {}) {
+        const isFinnish = options.isFinnish === true;
+        const status = document.getElementById(isFinnish ? 'finnish-translation-status' : 'translation-status');
+        const label = isFinnish ? 'Suomennos' : 'Käännös';
+        const genitiveLabel = isFinnish ? 'Suomennoksen' : 'Käännöksen';
+        if (!translationId) return;
+        try {
+            if (status) status.textContent = `${label} viedään uudeksi käsikirjoitukseksi...`;
+            const res = await apiFetch(`/api/translations/${translationId}/export-project`, { method: 'POST' });
+            if (!res.ok) throw new Error(await apiErrorMessage(res, 'Käännöksen vienti epäonnistui.'));
+            const project = await res.json();
+            updateAvailableProject(project);
+            setActiveManuscript(project);
+            await loadProjects();
+            if (status) status.textContent = `Uusi käsikirjoitus luotu: ${project.title || 'Nimetön'}.`;
+            alert(`Uusi käsikirjoitus luotu: ${project.title || 'Nimetön'}`);
+        } catch (err) {
+            if (status) status.textContent = err.message;
+            alert(`${genitiveLabel} vienti epäonnistui: ${err.message}`);
+        }
+    }
+
+    async function deleteSavedTranslation(translationId, options = {}) {
+        const isFinnish = options.isFinnish === true;
+        const status = document.getElementById(isFinnish ? 'finnish-translation-status' : 'translation-status');
+        const label = isFinnish ? 'suomennos' : 'käännös';
+        const genitiveLabel = isFinnish ? 'Suomennoksen' : 'Käännöksen';
+        const partitiveLabel = isFinnish ? 'suomennosta' : 'käännöstä';
+        if (!translationId) return;
+        if (!confirm(`Poistetaanko tallennettu ${label}?`)) return;
+        try {
+            if (status) status.textContent = `Poistetaan tallennettua ${partitiveLabel}...`;
+            const res = await apiFetch(`/api/translations/${translationId}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error(await apiErrorMessage(res, 'Käännöksen poisto epäonnistui.'));
+            if (isFinnish) {
+                if (selectedFinnishTranslation && String(selectedFinnishTranslation.id) === String(translationId)) {
+                    selectedFinnishTranslation = null;
+                    latestFinnishTranslationText = '';
+                }
+                currentFinnishTranslationHistory = currentFinnishTranslationHistory.filter(item => String(item.id) !== String(translationId));
+                await renderFinnishTranslationHistory();
+            } else {
+                if (selectedTranslation && String(selectedTranslation.id) === String(translationId)) {
+                    selectedTranslation = null;
+                    latestTranslationText = '';
+                }
+                currentTranslationHistory = currentTranslationHistory.filter(item => String(item.id) !== String(translationId));
+                await renderTranslationHistory();
+            }
+            if (status) status.textContent = `Tallennettu ${label} poistettu.`;
+        } catch (err) {
+            if (status) status.textContent = err.message;
+            alert(`${genitiveLabel} poisto epäonnistui: ${err.message}`);
+        }
+    }
+
     async function renderTranslationHistory() {
         const history = document.getElementById('translation-history');
         const project = currentTranslationProject();
@@ -8481,17 +8556,25 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 history.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Ei tallennettuja käännöksiä.</div>';
                 return;
             }
-            history.innerHTML = currentTranslationHistory.map(item => `
-                <button class="translation-history-item" data-translation-id="${item.id}" style="text-align:left; padding:10px 12px; border-radius:8px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:var(--text-primary); cursor:pointer;">
-                    <strong>${escapeHtml(item.target_language_label)}</strong> · ${escapeHtml(item.style_label)} · ${item.chunks_count} osaa · ${escapeHtml(translationStatusLabel(item.status))}
-                </button>
-            `).join('');
-            history.querySelectorAll('.translation-history-item').forEach(button => {
+            history.innerHTML = currentTranslationHistory.map(item => translationHistoryCard(item)).join('');
+            history.querySelectorAll('[data-translation-id]').forEach(button => {
                 button.addEventListener('click', () => {
                     const selected = currentTranslationHistory.find(item => String(item.id) === String(button.dataset.translationId));
                     if (!selected) return;
                     selectTranslationForReview(selected.id);
                     showTranslationPanel('translation-review-panel');
+                });
+            });
+            history.querySelectorAll('[data-translation-export-id]').forEach(button => {
+                button.addEventListener('click', event => {
+                    event.stopPropagation();
+                    exportTranslationAsProject(button.dataset.translationExportId);
+                });
+            });
+            history.querySelectorAll('[data-translation-delete-id]').forEach(button => {
+                button.addEventListener('click', event => {
+                    event.stopPropagation();
+                    deleteSavedTranslation(button.dataset.translationDeleteId);
                 });
             });
         } catch (err) {
@@ -8530,17 +8613,25 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 history.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Ei tallennettuja suomennoksia.</div>';
                 return;
             }
-            history.innerHTML = currentFinnishTranslationHistory.map(item => `
-                <button class="translation-history-item" data-finnish-translation-id="${item.id}" style="text-align:left; padding:10px 12px; border-radius:8px; border:1px solid var(--border-color); background:rgba(255,255,255,0.05); color:var(--text-primary); cursor:pointer;">
-                    <strong>Suomi</strong> · ${escapeHtml(item.style_label)} · ${item.chunks_count} osaa · ${escapeHtml(translationStatusLabel(item.status))}
-                </button>
-            `).join('');
+            history.innerHTML = currentFinnishTranslationHistory.map(item => translationHistoryCard(item, { isFinnish: true })).join('');
             history.querySelectorAll('[data-finnish-translation-id]').forEach(button => {
                 button.addEventListener('click', () => {
                     const selected = currentFinnishTranslationHistory.find(item => String(item.id) === String(button.dataset.finnishTranslationId));
                     if (!selected) return;
                     selectFinnishTranslationForReview(selected.id);
                     showFinnishTranslationPanel('suomentaja-review-panel');
+                });
+            });
+            history.querySelectorAll('[data-finnish-translation-export-id]').forEach(button => {
+                button.addEventListener('click', event => {
+                    event.stopPropagation();
+                    exportTranslationAsProject(button.dataset.finnishTranslationExportId, { isFinnish: true });
+                });
+            });
+            history.querySelectorAll('[data-finnish-translation-delete-id]').forEach(button => {
+                button.addEventListener('click', event => {
+                    event.stopPropagation();
+                    deleteSavedTranslation(button.dataset.finnishTranslationDeleteId, { isFinnish: true });
                 });
             });
         } catch (err) {
@@ -9104,6 +9195,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (!project || !selectedTranslation) {
             renderAlignedTranslationReview('translation', project, null, project ? 'Valitse käännös.' : 'Valitse käsikirjoitus.');
             status.textContent = 'Valitse käännös tarkastettavaksi.';
+            if (output) output.value = '';
+            if (outputStatus) outputStatus.textContent = project ? 'Valitse käännös.' : 'Valitse käsikirjoitus.';
             return;
         }
 
@@ -9132,6 +9225,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (!project || !selectedFinnishTranslation) {
             renderAlignedTranslationReview('finnish-translation', project, null, project ? 'Valitse suomennos.' : 'Valitse käsikirjoitus.');
             status.textContent = 'Valitse suomennos tarkastettavaksi.';
+            if (output) output.value = '';
+            if (outputStatus) outputStatus.textContent = project ? 'Valitse suomennos.' : 'Valitse käsikirjoitus.';
             return;
         }
 
