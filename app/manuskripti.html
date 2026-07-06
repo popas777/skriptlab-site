@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="manuskripti.css">
+<link rel="stylesheet" href="manuskripti.css?v=2">
 </head>
 <body>
 
@@ -182,17 +182,24 @@
         const token = localStorage.getItem("skriptlab_auth_token");
         if (token) headers.Authorization = "Bearer " + token;
         requestOptions.headers = headers;
-        const response = await fetch(url, requestOptions);
-        if (response.status === 401) {
-          localStorage.removeItem("skriptlab_auth_token");
-          localStorage.removeItem("skriptlab_auth_user");
-          window.location.replace("login.html");
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 20000);
+        if (!requestOptions.signal) requestOptions.signal = controller.signal;
+        try {
+          const response = await fetch(url, requestOptions);
+          if (response.status === 401) {
+            localStorage.removeItem("skriptlab_auth_token");
+            localStorage.removeItem("skriptlab_auth_user");
+            window.location.replace("login.html");
+          }
+          return response;
+        } finally {
+          clearTimeout(timeout);
         }
-        return response;
       }
     };
   })();
 </script>
-<script src="manuskripti.js"></script>
+<script src="manuskripti.js?v=2"></script>
 </body>
 </html>

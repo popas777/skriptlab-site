@@ -75,8 +75,12 @@
   }
 
   function working(show, label) {
-    $("working").hidden = !show;
-    if (label) $("working-label").textContent = label;
+    const el = $("working");
+    const labelEl = $("working-label");
+    if (!el) return;
+    el.hidden = !show;
+    el.setAttribute("aria-busy", show ? "true" : "false");
+    if (label && labelEl) labelEl.textContent = label;
   }
 
   function wordCount(chapter) {
@@ -722,14 +726,25 @@
   }
 
   document.addEventListener("DOMContentLoaded", () => {
+    working(false);
     bindEvents();
     window.ManuskriptiModule = {
       async loadState() {
-        await renderLibrary();
-        const projectId = requestedProjectId || localStorage.getItem("skriptlab_active_project_id") || "";
-        if (projectId && pendingInitialStep) await openProject(projectId);
+        working(false);
+        try {
+          await renderLibrary();
+          const projectId = requestedProjectId || localStorage.getItem("skriptlab_active_project_id") || "";
+          if (projectId && pendingInitialStep) await openProject(projectId);
+        } catch (error) {
+          toast(error.message || "Moduulin lataus epäonnistui.");
+        } finally {
+          working(false);
+        }
       }
     };
-    window.ManuskriptiModule.loadState();
+    window.ManuskriptiModule.loadState().catch((error) => {
+      toast(error.message || "Moduulin lataus epäonnistui.");
+      working(false);
+    });
   });
 })();
