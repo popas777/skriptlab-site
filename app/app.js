@@ -3179,6 +3179,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (viewId === 'view-kirja') {
             setBookTab(requestedViewId === 'view-taitto' ? 'book-layout-tab' : 'book-preview-tab');
         }
+        if (['view-kirjani', 'view-analyysi', 'view-rakenne'].includes(viewId)) {
+            refreshManuskriptiFrame(viewId);
+        }
     }
 
     function persistPendingModuleEdits(nextViewId) {
@@ -7690,6 +7693,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         biographyState = normalizeBiographyState(window.manuscriptData.analysis?.biography || {});
         renderBiography();
         if (currentViewId === 'view-elamakerta') refreshElamakertaFrame();
+        if (['view-kirjani', 'view-analyysi', 'view-rakenne'].includes(currentViewId)) refreshManuskriptiFrame(currentViewId);
         renderAnalysisSummary(window.manuscriptData.analysis);
         renderProductInfo(true);
         renderAudioView(true);
@@ -9799,6 +9803,31 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function activeBiographyProjectId() {
         return window.manuscriptData?.id || null;
+    }
+
+    function manuscriptFrameStep(viewId) {
+        if (viewId === 'view-analyysi') return 'analyysi';
+        if (viewId === 'view-rakenne') return 'rakenne';
+        return '';
+    }
+
+    function refreshManuskriptiFrame(viewId = currentViewId) {
+        const frameId = {
+            'view-kirjani': 'manuskripti-frame-kirjani',
+            'view-analyysi': 'manuskripti-frame-analyysi',
+            'view-rakenne': 'manuskripti-frame-rakenne'
+        }[viewId];
+        if (!frameId) return;
+        const frame = document.getElementById(frameId);
+        if (!frame) return;
+        const params = new URLSearchParams();
+        const step = manuscriptFrameStep(viewId);
+        const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
+        if (step) params.set('step', step);
+        if (projectId) params.set('project', projectId);
+        params.set('v', '2');
+        params.set('t', String(Date.now()));
+        frame.src = `manuskripti.html?${params.toString()}`;
     }
 
     function refreshElamakertaFrame() {

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=45">
+    <link rel="stylesheet" href="styles.css?v=46">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -157,6 +157,14 @@
 
             <!-- 1. VIEW: KIRJANI -->
             <div id="view-kirjani" class="view-section">
+                <iframe
+                    id="manuskripti-frame-kirjani"
+                    class="manuskripti-frame"
+                    title="Käsikirjoitukseni"
+                    src="manuskripti.html?v=2"
+                    loading="lazy"
+                ></iframe>
+                <div id="legacy-kirjani-view" hidden aria-hidden="true">
                 <input type="file" id="manuscript-upload" accept=".txt,.md,.docx,.pdf,.rtf,.odt,.html,.htm" style="display:none">
                 <section class="app-intro-card glass-panel">
                     <div class="app-intro-copy">
@@ -192,6 +200,7 @@
                        Ohjelmistossa ei ole vielä aktiivisia käsikirjoitushankkeita ladattuna.<br>
                        Käytä <strong>Lataa Käsikirjoitus</strong> -painiketta aloittaaksesi uuden hankkeen editoinnin.
                    </div>
+                </div>
                 </div>
             </div>
 
@@ -311,6 +320,14 @@
 
             <!-- 1.15 VIEW: RAKENNE -->
             <div id="view-rakenne" class="view-section hidden">
+                <iframe
+                    id="manuskripti-frame-rakenne"
+                    class="manuskripti-frame"
+                    title="Rakenne"
+                    src="manuskripti.html?step=rakenne&v=2"
+                    loading="lazy"
+                ></iframe>
+                <div id="legacy-rakenne-view" hidden aria-hidden="true">
 	                <div class="header">
 	                    <div class="header-info">
 	                        <h2>Rakenne</h2>
@@ -344,6 +361,7 @@
                             <button class="btn btn-secondary" id="structure-reject-btn" type="button" disabled>Hylkää ehdotus</button>
                         </div>
                     </section>
+                </div>
                 </div>
             </div>
 
@@ -1244,6 +1262,14 @@
 
             <!-- 4. VIEW: ANALYYSI -->
 	            <div id="view-analyysi" class="view-section hidden">
+                <iframe
+                    id="manuskripti-frame-analyysi"
+                    class="manuskripti-frame"
+                    title="Analyysi ja rakenne"
+                    src="manuskripti.html?step=analyysi&v=2"
+                    loading="lazy"
+                ></iframe>
+                <div id="legacy-analyysi-view" hidden aria-hidden="true">
 	                <div class="header">
 	                    <div class="header-info">
 	                        <h2>Analyysi ja rakenne</h2>
@@ -1282,6 +1308,7 @@
                             <button class="btn btn-primary hidden" id="save-analysis-btn" style="margin-top:16px;">Tallenna analyysimuutokset</button>
                         </div>
                     </div>
+                </div>
                 </div>
             </div>
 
@@ -2395,6 +2422,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=71"></script>
+    <script src="app.js?v=72"></script>
 </body>
 </html>

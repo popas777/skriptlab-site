@@ -1409,6 +1409,15 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     background: #fbf9f4;
     box-shadow: 0 18px 55px rgba(0, 0, 0, 0.22);
 }
+.manuskripti-frame {
+    display: block;
+    width: 100%;
+    min-height: calc(100vh - 120px);
+    border: 0;
+    border-radius: 16px;
+    background: #fbf9f4;
+    box-shadow: 0 18px 55px rgba(0, 0, 0, 0.22);
+}
 .writing-workspace {
     display: grid;
     grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
