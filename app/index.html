@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=47">
+    <link rel="stylesheet" href="styles.css?v=48">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -869,6 +869,13 @@
 
             <!-- 1.5 VIEW: VALMIS KIRJA -->
             <div id="view-kirja" class="view-section hidden">
+                <iframe
+                    id="tuotanto-frame-kirja"
+                    class="tuotanto-frame"
+                    title="Valmis kirja ja taitto"
+                    src="tuotanto.html?tab=kirja&v=1"
+                    loading="lazy"
+                ></iframe>
                 <div class="header">
                     <div class="header-info">
                         <h2>Valmis kirja & taitto</h2>
@@ -2207,6 +2214,13 @@
 
             <!-- 11.5 VIEW: OHEISAINEISTOT -->
             <div id="view-muut-toiminnot" class="view-section hidden">
+                <iframe
+                    id="tuotanto-frame-aineistot"
+                    class="tuotanto-frame"
+                    title="Oheisaineistot"
+                    src="tuotanto.html?tab=aineistot&v=1"
+                    loading="lazy"
+                ></iframe>
                 <div class="header">
                     <div class="header-info">
                         <h2>Oheisaineistot</h2>
@@ -2279,6 +2293,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=75"></script>
+    <script src="app.js?v=76"></script>
 </body>
 </html>

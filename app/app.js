@@ -248,6 +248,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         return 'view-kirjoita';
     }
     let currentViewId = defaultViewForUser();
+    let tuotantoActiveTab = 'kirja';
     let workflowRunning = false;
     let workflowSteps = [];
     const fullWorkspaceRoles = new Set(['admin', 'test_user']);
@@ -3177,13 +3178,16 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             }
         });
         if (viewId === 'view-kirja') {
-            setBookTab(requestedViewId === 'view-taitto' ? 'book-layout-tab' : 'book-preview-tab');
+            refreshTuotantoFrame(viewId, requestedViewId);
         }
         if (['view-kirjani', 'view-analyysi', 'view-rakenne'].includes(viewId)) {
             refreshManuskriptiFrame(viewId);
         }
         if (['view-kirjoita', 'view-toimitus'].includes(viewId)) {
             refreshTyostoFrame(viewId);
+        }
+        if (viewId === 'view-muut-toiminnot') {
+            refreshTuotantoFrame(viewId, requestedViewId);
         }
     }
 
@@ -7628,6 +7632,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         updateTranslationProjectSelect();
         updateFinnishTranslationProjectSelect();
         updateMiscProjectSelect();
+        if (['view-kirja', 'view-muut-toiminnot'].includes(currentViewId)) {
+            refreshTuotantoFrame(currentViewId);
+        }
         renderCoverImages([]);
     }
 
@@ -7701,6 +7708,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         if (!options.skipTyostoFrameRefresh && ['view-kirjoita', 'view-toimitus'].includes(currentViewId)) {
             refreshTyostoFrame(currentViewId);
+        }
+        if (!options.skipTuotantoFrameRefresh && ['view-kirja', 'view-muut-toiminnot'].includes(currentViewId)) {
+            refreshTuotantoFrame(currentViewId);
         }
         renderAnalysisSummary(window.manuscriptData.analysis);
         renderProductInfo(true);
@@ -9888,6 +9898,33 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         params.set('v', '1');
         params.set('t', String(Date.now()));
         frame.src = `tyosto.html?${params.toString()}`;
+    }
+
+    function tuotantoFrameTab(viewId, requestedViewId = null) {
+        if (requestedViewId === 'view-taitto') return 'taitto';
+        if (requestedViewId === 'view-kirja') return 'kirja';
+        if (requestedViewId === 'view-muut-toiminnot') return 'aineistot';
+        if (viewId === 'view-muut-toiminnot') return 'aineistot';
+        return tuotantoActiveTab || 'kirja';
+    }
+
+    function refreshTuotantoFrame(viewId = currentViewId, requestedViewId = null) {
+        const frameId = {
+            'view-kirja': 'tuotanto-frame-kirja',
+            'view-muut-toiminnot': 'tuotanto-frame-aineistot'
+        }[viewId];
+        if (!frameId) return;
+        const frame = document.getElementById(frameId);
+        if (!frame) return;
+        const params = new URLSearchParams();
+        const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
+        const nextTab = tuotantoFrameTab(viewId, requestedViewId);
+        if (nextTab !== 'aineistot') tuotantoActiveTab = nextTab;
+        params.set('tab', nextTab);
+        if (projectId) params.set('project', projectId);
+        params.set('v', '1');
+        params.set('t', String(Date.now()));
+        frame.src = `tuotanto.html?${params.toString()}`;
     }
 
     function refreshElamakertaFrame() {

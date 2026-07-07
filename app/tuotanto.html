@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FBF9F4">
+<title>Tuotanto – SkriptLab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tuotanto.css?v=1">
+</head>
+<body>
+
+<main class="screen is-active" aria-label="Tuotanto">
+  <header class="step-header">
+    <button class="back-btn" id="btn-back" aria-label="Takaisin" hidden>←</button>
+    <div class="grow">
+      <p class="eyebrow">Tuotanto</p>
+      <h2 id="project-title">–</h2>
+    </div>
+    <p class="hint" id="status-text" role="status" aria-live="polite" style="margin:0"></p>
+  </header>
+
+  <div class="step-body">
+    <div class="mode-switch" role="tablist" aria-label="Tuotannon vaiheet">
+      <button id="tab-aineistot" class="is-active" role="tab">Aineistot</button>
+      <button id="tab-kirja" role="tab">Kirja</button>
+      <button id="tab-taitto" role="tab">Taitto</button>
+    </div>
+
+    <!-- ======================= AINEISTOT ======================= -->
+    <section id="panel-aineistot" aria-label="Oheisaineistot">
+      <p class="step-intro">Muodosta kirjan oheisaineistot tekoälyllä. Nimiölehti ja sisällysluettelo syntyvät automaattisesti Kirja-vaiheessa, joten niitä ei tarvitse tehdä täällä.</p>
+
+      <div class="tool-chips" id="tool-chips" role="radiogroup" aria-label="Aineistotyyppi"></div>
+
+      <label class="field">
+        <span class="field-label">Lisäohjeet (valinnainen)</span>
+        <input type="text" id="misc-instructions" placeholder="Esim. vain päähenkilöt, enintään 15 kohtaa">
+      </label>
+
+      <div class="row">
+        <button class="btn btn-ai" id="btn-run-misc">✦ Muodosta aineisto</button>
+      </div>
+
+      <h3 class="list-title" style="margin-top:22px">Tallennetut aineistot</h3>
+      <div class="empty" id="assets-empty">Ei vielä tallennettuja aineistoja.</div>
+      <div id="assets-list"></div>
+    </section>
+
+    <!-- ======================= KIRJA ======================= -->
+    <section id="panel-kirja" aria-label="Valmis kirja" hidden>
+      <label class="check-row"><input type="checkbox" id="opt-title-page" checked> Nimiölehti (automaattinen)</label>
+      <label class="check-row"><input type="checkbox" id="opt-toc" checked> Sisällysluettelo (automaattinen)</label>
+
+      <div id="book-included-wrap" hidden>
+        <h3 class="list-title" style="margin-top:14px">Kirjaan liitetyt aineistot</h3>
+        <p class="hint" style="margin-bottom:8px">Järjestä nuolilla. Copysivu sijoittuu kirjan alkuun, muut loppuun.</p>
+        <div id="book-included-list"></div>
+      </div>
+
+      <div class="reader-controls">
+        <button class="fmt-btn" id="btn-font-smaller" aria-label="Pienennä tekstiä">A−</button>
+        <button class="fmt-btn" id="btn-font-larger" aria-label="Suurenna tekstiä">A+</button>
+        <span class="hint" id="book-word-count"></span>
+        <span class="spacer"></span>
+        <button class="btn btn-ghost" id="btn-download-txt" style="flex:none">Lataa TXT</button>
+      </div>
+
+      <div class="reader-card" id="book-preview" style="font-size:16px">Ladataan…</div>
+    </section>
+
+    <!-- ======================= TAITTO ======================= -->
+    <section id="panel-taitto" aria-label="Taitto" hidden>
+      <p class="step-intro">Taitto tuottaa kolme tiedostoa: LaTeX-lähteen jatkotyöskentelyyn, PDF-tarkistusvedoksen ja EPUB-luonnoksen. Kirja-vaiheen valinnat (nimiölehti, sisällysluettelo, liitetyt aineistot) ovat mukana.</p>
+
+      <h3 class="list-title">Kirjan koko</h3>
+      <div class="tool-chips" id="size-chips" role="radiogroup" aria-label="Kirjan koko"></div>
+
+      <details class="mass-section">
+        <summary>Tavutus</summary>
+        <div class="mass-body">
+          <label class="field">
+            <span class="field-label">Tavutuksen taso</span>
+            <select id="hyphenation-select">
+              <option value="balanced" selected>Tasapainoinen (suositus)</option>
+              <option value="light">Kevyt – vähemmän tavutusta</option>
+              <option value="strong">Voimakas – tiivis palsta</option>
+              <option value="none">Ei tavutusta</option>
+            </select>
+          </label>
+        </div>
+      </details>
+
+      <div class="row" style="margin-top:12px">
+        <button class="btn btn-ai" id="btn-run-layout">✦ Luo taittotiedostot</button>
+      </div>
+
+      <div class="warnings" id="layout-warnings" hidden style="margin-top:12px"></div>
+
+      <h3 class="list-title" style="margin-top:18px">Tiedostot</h3>
+      <div class="empty" id="layout-empty">Taittoa ei ole vielä ajettu.</div>
+      <div id="layout-files"></div>
+    </section>
+  </div>
+</main>
+
+<!-- ======================= TULOSARKKI ======================= -->
+<div class="sheet-backdrop" id="sheet-backdrop" hidden></div>
+<div class="sheet" id="result-sheet" role="dialog" aria-modal="true" aria-labelledby="result-title" hidden>
+  <div class="sheet-handle" aria-hidden="true"></div>
+  <h3 id="result-title">Aineisto</h3>
+  <div class="sheet-content">
+    <div class="warnings" id="result-warnings" hidden></div>
+    <label class="field">
+      <span class="field-label">Sisältö (voit muokata ennen tallennusta)</span>
+      <textarea id="result-text" rows="12"></textarea>
+    </label>
+    <label class="check-row"><input type="checkbox" id="result-include" checked> Mukana valmiissa kirjassa ja taitossa</label>
+  </div>
+  <div class="row">
+    <button class="btn btn-ghost" id="btn-discard-result">Hylkää</button>
+    <button class="btn btn-primary" id="btn-save-result">Tallenna</button>
+  </div>
+</div>
+
+<!-- ======================= AINEISTON KATSELUARKKI ======================= -->
+<div class="sheet" id="asset-sheet" role="dialog" aria-modal="true" aria-labelledby="asset-sheet-title" hidden>
+  <div class="sheet-handle" aria-hidden="true"></div>
+  <h3 id="asset-sheet-title">Aineisto</h3>
+  <div class="sheet-content">
+    <div class="reader-card" id="asset-sheet-text" style="max-height:45vh;font-size:15px"></div>
+  </div>
+  <div class="row">
+    <button class="btn btn-ghost" id="btn-delete-asset">Poista</button>
+    <button class="btn btn-primary" id="btn-close-asset-sheet">Sulje</button>
+  </div>
+</div>
+
+<div class="working" id="working" hidden aria-live="polite">
+  <div class="working-thread" aria-hidden="true"></div>
+  <p id="working-label">Hetki…</p>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="config.js?v=1"></script>
+<script>
+  (function () {
+    const params = new URLSearchParams(window.location.search);
+    const config = window.SKRIPTLAB_CONFIG || {};
+    const apiRoot = String(config.API_BASE_URL || "").replace(/\/$/, "");
+    const projectId = params.get("project") || localStorage.getItem("skriptlab_active_project_id") || null;
+    window.TUOTANTO_CONFIG = {
+      apiBase: (apiRoot || "") + "/api",
+      projectId,
+      tab: params.get("tab") || "aineistot",
+      demo: false,
+      fetchImpl: async function (url, options) {
+        const requestOptions = Object.assign({}, options || {});
+        const headers = Object.assign({}, requestOptions.headers || {});
+        const token = localStorage.getItem("skriptlab_auth_token");
+        if (token) headers.Authorization = "Bearer " + token;
+        requestOptions.headers = headers;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 20000);
+        if (!requestOptions.signal) requestOptions.signal = controller.signal;
+        try {
+          const response = await fetch(url, requestOptions);
+          if (response.status === 401) {
+            localStorage.removeItem("skriptlab_auth_token");
+            localStorage.removeItem("skriptlab_auth_user");
+            window.location.replace("login.html");
+          }
+          return response;
+        } finally {
+          clearTimeout(timeout);
+        }
+      },
+      backHref: null
+    };
+  })();
+</script>
+<script src="tuotanto.js?v=1"></script>
+</body>
+</html>
