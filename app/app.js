@@ -268,8 +268,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         'view-om-kokonaisuus',
         'view-om-vienti'
     ]);
-    const writerViews = new Set(['view-kirjani', 'view-kirjoita', 'view-analyysi', 'view-rakenne', 'view-toimitus', 'view-tyopoyta', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-elamakerta']);
-    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-analyysi', 'view-rakenne', 'view-toimitus', 'view-tyopoyta', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
+    const writerViews = new Set(['view-kirjani', 'view-kirjoita', 'view-analyysi', 'view-rakenne', 'view-toimitus', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-elamakerta']);
+    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-analyysi', 'view-rakenne', 'view-toimitus', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset', 'view-suomentaja']);
     const biographyViews = new Set(['view-kirjani', 'view-rakenne', 'view-kirjoita', 'view-ai-tyonkulku', 'view-elamakerta', 'view-toimitus', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-audio', 'view-kirja', 'view-julkaise']);
     const roleLabels = {
