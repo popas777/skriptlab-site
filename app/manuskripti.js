@@ -5,6 +5,7 @@
      POST   {api}/projects                       (luonti/päivitys, replace_chapters)
      POST   {api}/projects/import                (multipart file)
      GET    {api}/projects/{id}
+     DELETE {api}/projects/{id}
      PATCH  {api}/projects/{id}/chapters/{index}
      PATCH  {api}/projects/{id}/structure
      PATCH  {api}/projects/{id}/metadata
@@ -19,6 +20,7 @@
   const CONFIG = window.MANUSKRIPTI_CONFIG || {};
   const API_BASE = (CONFIG.apiBase || "/api").replace(/\/$/, "");
   const doFetch = CONFIG.fetchImpl || ((url, options) => fetch(url, options));
+  const ACTIVE_PROJECT_ID_KEY = "skriptlab_active_project_id";
 
   let demoMode = CONFIG.demo === true;
   let projects = [];
@@ -81,6 +83,48 @@
     el.hidden = !show;
     el.setAttribute("aria-busy", show ? "true" : "false");
     if (label && labelEl) labelEl.textContent = label;
+  }
+
+  function activeProjectId() {
+    try {
+      return localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || "";
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function rememberActiveProject(selected) {
+    if (!selected || !selected.id) return;
+    try {
+      localStorage.setItem(ACTIVE_PROJECT_ID_KEY, String(selected.id));
+      localStorage.setItem("skriptlab_manuscript", JSON.stringify(selected));
+    } catch (error) {
+      /* localStorage voi olla pois käytöstä upotetussa näkymässä. */
+    }
+    notifyParent("skriptlab:project-selected", {
+      projectId: String(selected.id),
+      project: selected,
+    });
+  }
+
+  function forgetActiveProject(projectId) {
+    if (!projectId || String(activeProjectId()) !== String(projectId)) return;
+    try {
+      localStorage.removeItem(ACTIVE_PROJECT_ID_KEY);
+      localStorage.removeItem("skriptlab_manuscript");
+      localStorage.removeItem("skriptlab_raw_text");
+    } catch (error) {
+      /* ohitetaan */
+    }
+  }
+
+  function notifyParent(type, payload) {
+    if (!window.parent || window.parent === window) return;
+    try {
+      window.parent.postMessage(Object.assign({ type }, payload || {}), window.location.origin);
+    } catch (error) {
+      /* Parent-ikkunaa ei ole pakko olla. */
+    }
   }
 
   function wordCount(chapter) {
@@ -227,6 +271,16 @@
     return api("/projects/" + projectId + "/metadata", jsonOptions("PATCH", { analysis }));
   }
 
+  async function apiDeleteProject(projectId) {
+    if (demoMode) {
+      const before = demo.projects.length;
+      demo.projects = demo.projects.filter((p) => String(p.id) !== String(projectId));
+      if (demo.projects.length === before) throw new Error("Projektia ei löydy.");
+      return { status: "ok" };
+    }
+    return api("/projects/" + projectId, { method: "DELETE" });
+  }
+
   async function apiStartAnalysis(projectId) {
     if (demoMode) return { job_id: 1, status: "queued", current: 0, total: 1 };
     return api("/analyze/jobs", jsonOptions("POST", { project_id: projectId }));
@@ -271,6 +325,7 @@
     try {
       working(true, "Avataan käsikirjoitusta…");
       project = await apiGetProject(id);
+      rememberActiveProject(project);
       proposal = null;
       renderProject();
       if (pendingInitialStep) {
@@ -283,6 +338,36 @@
       }
     } catch (error) {
       toast(error.message);
+    } finally {
+      working(false);
+    }
+  }
+
+  function canDeleteProject(item) {
+    const level = item.access_level || "";
+    return !level || level === "owner" || level === "admin";
+  }
+
+  async function deleteProjectFromLibrary(item) {
+    if (!item || !item.id) return;
+    const title = item.title || "Nimetön käsikirjoitus";
+    const confirmed = confirm('Poistetaanko käsikirjoitus "' + title + '" pysyvästi?\n\nTätä ei voi perua.');
+    if (!confirmed) return;
+
+    try {
+      working(true, "Poistetaan käsikirjoitusta…");
+      await apiDeleteProject(item.id);
+      if (project && String(project.id) === String(item.id)) {
+        project = null;
+        proposal = null;
+        showScreen("library");
+      }
+      forgetActiveProject(item.id);
+      notifyParent("skriptlab:project-deleted", { projectId: String(item.id) });
+      await renderLibrary();
+      toast("Käsikirjoitus poistettu.");
+    } catch (error) {
+      toast(error.message || "Poisto epäonnistui.");
     } finally {
       working(false);
     }
@@ -306,18 +391,41 @@
     const list = $("project-list");
     list.innerHTML = "";
     $("library-empty").hidden = items.length > 0;
+    const activeId = activeProjectId();
     for (const item of items) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "project-card";
+      const li = document.createElement("li");
+      li.className = "project-card" + (String(item.id) === String(activeId) ? " is-active" : "");
+
+      const openBtn = document.createElement("button");
+      openBtn.type = "button";
+      openBtn.className = "project-open";
       const status = item.analysis_status === "completed" ? '<span class="badge done">Analysoitu</span>'
         : item.analysis_status === "partial" ? '<span class="badge">Osittainen analyysi</span>' : "";
-      btn.innerHTML =
+      const current = String(item.id) === String(activeId) ? '<span class="badge current">Valittuna</span>' : "";
+      openBtn.innerHTML =
         "<h3>" + escapeHtml(item.title) + "</h3>" +
         '<span class="meta">' + escapeHtml(item.author || "Tekijä puuttuu") + " · " +
-        item.chapter_count + " lukua</span> " + status;
-      btn.addEventListener("click", () => openProject(item.id));
-      list.appendChild(btn);
+        item.chapter_count + " lukua</span> " + current + status;
+      openBtn.addEventListener("click", () => openProject(item.id));
+      li.appendChild(openBtn);
+
+      if (canDeleteProject(item)) {
+        const actions = document.createElement("div");
+        actions.className = "project-card-actions";
+        const deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.className = "project-delete";
+        deleteBtn.textContent = "Poista";
+        deleteBtn.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          deleteProjectFromLibrary(item);
+        });
+        actions.appendChild(deleteBtn);
+        li.appendChild(actions);
+      }
+
+      list.appendChild(li);
     }
   }
 
@@ -734,7 +842,7 @@
         try {
           await renderLibrary();
           const projectId = requestedProjectId || localStorage.getItem("skriptlab_active_project_id") || "";
-          if (projectId && pendingInitialStep) await openProject(projectId);
+          if (projectId && (pendingInitialStep || requestedProjectId)) await openProject(projectId);
         } catch (error) {
           toast(error.message || "Moduulin lataus epäonnistui.");
         } finally {

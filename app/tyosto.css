@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Käsikirjoitukset – mobiilinatiivi käyttöliittymä
+   Elämäkerta – mobiilinatiivi käyttöliittymä
    Paletti: paperi + muste + mustikka (pääväri) + hilla (edistyminen)
    Tunnusmerkki: "tarinan lanka" – ommelviiva, joka sitoo vaiheet yhteen
    ========================================================================== */
@@ -569,59 +569,19 @@ button:focus-visible {
 
 .project-card {
   width: 100%;
+  text-align: left;
   background: var(--kortti);
   border: 1px solid var(--raja);
   border-radius: var(--radius);
+  padding: 16px;
   box-shadow: var(--shadow);
-  overflow: hidden;
-}
-
-.project-card.is-active {
-  border-color: var(--mustikka);
-  box-shadow: 0 0 0 2px rgba(67, 64, 110, 0.12), var(--shadow);
-}
-
-.project-open {
-  width: 100%;
-  text-align: left;
-  border: 0;
-  background: transparent;
-  padding: 16px 16px 10px;
   cursor: pointer;
   font: inherit;
   color: inherit;
 }
 
-.project-open:focus-visible,
-.project-delete:focus-visible {
-  outline: 2px solid var(--mustikka);
-  outline-offset: 2px;
-}
-
 .project-card h3 { margin: 0 0 2px; font-family: var(--display); font-weight: 600; font-size: 19px; }
 .project-card .meta { font-size: 13px; color: var(--muste-45); }
-
-.project-card-actions {
-  display: flex;
-  justify-content: flex-end;
-  padding: 0 12px 12px;
-}
-
-.project-delete {
-  border: 1px solid rgba(163, 59, 46, 0.32);
-  border-radius: 999px;
-  background: rgba(163, 59, 46, 0.08);
-  color: var(--virhe);
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  padding: 6px 12px;
-}
-
-.project-delete:hover {
-  background: rgba(163, 59, 46, 0.14);
-}
 
 .badge {
   display: inline-block;
@@ -636,7 +596,6 @@ button:focus-visible {
 }
 
 .badge.done { background: var(--hilla-vaalea); color: #8A5A14; }
-.badge.current { background: var(--mustikka-vaalea); color: var(--mustikka); }
 
 .meta-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 16px; }
 .meta-chips .badge { font-weight: 600; }
@@ -744,3 +703,277 @@ details.analysis-section[open] summary::after { transform: rotate(180deg); }
 }
 
 .proposal-card { margin-top: 18px; }
+
+/* ==========================================================================
+   Kirjoita ja editoi -moduulin lisätyylit
+   ========================================================================== */
+
+.mode-switch, .scope-switch {
+  display: flex;
+  background: var(--paperi-tumma);
+  border: 1px solid var(--raja);
+  border-radius: 999px;
+  padding: 3px;
+  margin: 14px 0;
+}
+
+.mode-switch button, .scope-switch button {
+  flex: 1;
+  min-height: 42px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  color: var(--muste-45);
+  cursor: pointer;
+}
+
+.mode-switch button.is-active, .scope-switch button.is-active {
+  background: var(--kortti);
+  color: var(--mustikka);
+  box-shadow: var(--shadow);
+}
+
+.scope-switch { margin: 0 0 12px; }
+.scope-switch button { min-height: 36px; font-size: 14px; }
+
+/* osiopalkki */
+
+.chapter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.chapter-bar .nav-arrow {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--raja);
+  background: var(--kortti);
+  font-size: 18px;
+  color: var(--mustikka);
+  cursor: pointer;
+}
+
+.chapter-bar .nav-arrow:disabled { opacity: 0.35; }
+
+.chapter-title-btn {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--raja);
+  border-radius: var(--radius-s);
+  background: var(--kortti);
+  font: inherit;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--muste);
+  padding: 8px 12px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chapter-title-btn .sub { display: block; font-family: var(--body); font-weight: 400; font-size: 12px; color: var(--muste-45); }
+
+/* kirjoita */
+
+.writing-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.writing-toolbar select {
+  flex: 1;
+  min-height: 42px;
+  border: 1px solid var(--raja);
+  border-radius: var(--radius-s);
+  background: var(--kortti);
+  font: inherit;
+  font-size: 14px;
+  padding: 0 10px;
+  color: var(--muste);
+}
+
+.fmt-btn {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--raja);
+  border-radius: var(--radius-s);
+  background: var(--kortti);
+  font: inherit;
+  font-size: 15px;
+  color: var(--muste);
+  cursor: pointer;
+}
+
+.fmt-btn.b { font-weight: 800; }
+.fmt-btn.i { font-style: italic; }
+.fmt-btn.u { text-decoration: underline; }
+
+.writing-area {
+  width: 100%;
+  min-height: 46vh;
+  border: 1px solid var(--raja);
+  border-radius: var(--radius);
+  background: var(--kortti);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.65;
+  padding: 14px;
+  resize: vertical;
+}
+
+.writing-area:focus { outline: 2px solid var(--mustikka); outline-offset: 1px; }
+
+/* editoi */
+
+.original-card {
+  background: var(--kortti);
+  border: 1px solid var(--raja);
+  border-radius: var(--radius);
+  padding: 14px;
+  max-height: 34vh;
+  overflow-y: auto;
+  font-size: 15px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.suggestion-card {
+  margin-top: 14px;
+  background: var(--kortti);
+  border: 1.5px solid var(--mustikka);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.suggestion-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+
+.suggestion-tabs button {
+  border: 1px solid var(--raja);
+  border-radius: 999px;
+  background: var(--paperi-tumma);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muste-45);
+  padding: 6px 14px;
+  min-height: 34px;
+  cursor: pointer;
+}
+
+.suggestion-tabs button.is-active { background: var(--mustikka); border-color: var(--mustikka); color: #fff; }
+
+.suggestion-area {
+  width: 100%;
+  min-height: 26vh;
+  border: 1px solid var(--raja);
+  border-radius: var(--radius-s);
+  background: #fff;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.6;
+  padding: 12px;
+  resize: vertical;
+}
+
+.diff-view {
+  border: 1px solid var(--raja);
+  border-radius: var(--radius-s);
+  background: #fff;
+  font-size: 15px;
+  line-height: 1.7;
+  padding: 12px;
+  max-height: 34vh;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+
+.diff-view del { background: #F7DEDB; color: #8C2F26; text-decoration: line-through; text-decoration-thickness: 1px; border-radius: 3px; padding: 0 1px; }
+.diff-view ins { background: #E1EBDD; color: #2E5A2A; text-decoration: none; border-radius: 3px; padding: 0 1px; }
+
+/* massamuutokset ja osiolistat arkeissa */
+
+.sheet .group-title {
+  margin: 14px 0 6px;
+  font-family: var(--body);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muste-45);
+}
+
+.sheet-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+
+.sheet-list .toc-item { min-height: 48px; }
+.sheet-list .toc-item.is-current { border-color: var(--mustikka); background: var(--mustikka-vaalea); }
+
+details.mass-section {
+  background: var(--paperi-tumma);
+  border: 1px solid var(--raja);
+  border-radius: var(--radius-s);
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+details.mass-section summary {
+  list-style: none;
+  padding: 12px 14px;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+  color: var(--mustikka);
+  cursor: pointer;
+}
+
+details.mass-section summary::-webkit-details-marker { display: none; }
+details.mass-section summary::after { content: "▾"; color: var(--muste-45); }
+details.mass-section[open] summary::after { transform: rotate(180deg); }
+details.mass-section .mass-body { padding: 0 14px 14px; }
+
+.check-row { display: flex; align-items: center; gap: 10px; min-height: 40px; font-size: 15px; }
+.check-row input { width: 20px; height: 20px; accent-color: var(--mustikka); }
+
+.undo-toast {
+  position: fixed;
+  left: 16px; right: 16px;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  background: var(--muste);
+  color: var(--paperi);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  z-index: 60;
+  box-shadow: 0 8px 24px rgba(41,36,29,0.35);
+}
+
+.undo-toast button {
+  border: none;
+  background: none;
+  color: var(--hilla);
+  font: inherit;
+  font-weight: 700;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.range-row { display: flex; align-items: center; gap: 10px; margin: 8px 0 4px; }
+.range-row input[type="range"] { flex: 1; accent-color: var(--mustikka); }
+.range-row .range-val { min-width: 34px; text-align: right; font-variant-numeric: tabular-nums; font-size: 14px; color: var(--muste-45); }

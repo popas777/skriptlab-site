@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FBF9F4">
+<title>Kirjoita ja editoi – SkriptLab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tyosto.css?v=1">
+</head>
+<body>
+
+<main id="view-tyosto" class="screen is-active" aria-label="Kirjoita ja editoi">
+  <header class="step-header">
+    <button class="back-btn" id="btn-back" aria-label="Takaisin" hidden>←</button>
+    <div class="grow">
+      <p class="eyebrow">Kirjoita ja editoi</p>
+      <h2 id="project-title">–</h2>
+    </div>
+    <p class="hint" id="save-status" role="status" aria-live="polite" style="margin:0"></p>
+  </header>
+
+  <div class="step-body">
+    <!-- osiopalkki -->
+    <div class="chapter-bar">
+      <button class="nav-arrow" id="btn-prev-chapter" aria-label="Edellinen osio">‹</button>
+      <button class="chapter-title-btn" id="btn-chapter-title" aria-haspopup="dialog">
+        <span id="chapter-title-text">–</span>
+        <span class="sub" id="chapter-title-sub"></span>
+      </button>
+      <button class="nav-arrow" id="btn-next-chapter" aria-label="Seuraava osio">›</button>
+    </div>
+
+    <!-- tilakytkin -->
+    <div class="mode-switch" role="tablist" aria-label="Työskentelytila">
+      <button id="mode-kirjoita" role="tab" aria-selected="true" class="is-active">Kirjoita</button>
+      <button id="mode-editoi" role="tab" aria-selected="false">✦ Editoi</button>
+    </div>
+
+    <!-- ======================= KIRJOITA ======================= -->
+    <section id="panel-kirjoita" aria-label="Kirjoita">
+      <div class="writing-toolbar">
+        <select id="block-format" aria-label="Otsikkotaso">
+          <option value="">Leipäteksti</option>
+          <option value="#">Otsikko: luku</option>
+          <option value="##">Otsikko: aliluku</option>
+        </select>
+        <button class="fmt-btn b" id="btn-bold" aria-label="Lihavoi">B</button>
+        <button class="fmt-btn i" id="btn-italic" aria-label="Kursivoi">K</button>
+        <button class="fmt-btn u" id="btn-underline" aria-label="Alleviivaa">A</button>
+      </div>
+      <textarea class="writing-area" id="writing-text"
+        placeholder="Kirjoita tähän. Tyhjä rivi erottaa kappaleet. Ensimmäinen #-otsikkorivi nimeää osion."></textarea>
+      <p class="hint" style="margin-top:8px">Tallentuu automaattisesti kirjoittaessa.</p>
+    </section>
+
+    <!-- ======================= EDITOI ======================= -->
+    <section id="panel-editoi" aria-label="Editoi" hidden>
+      <div class="scope-switch" role="tablist" aria-label="Käsiteltävä laajuus">
+        <button id="scope-paragraph" class="is-active">Kappale</button>
+        <button id="scope-chapter">Koko osio</button>
+      </div>
+
+      <div class="chapter-bar" id="paragraph-bar">
+        <button class="nav-arrow" id="btn-prev-paragraph" aria-label="Edellinen kappale">‹</button>
+        <button class="chapter-title-btn" id="paragraph-status" disabled style="text-align:center">Kappale 1/1</button>
+        <button class="nav-arrow" id="btn-next-paragraph" aria-label="Seuraava kappale">›</button>
+      </div>
+
+      <div class="original-card" id="original-text" aria-label="Alkuperäinen teksti"></div>
+
+      <details class="mass-section" style="margin-top:12px">
+        <summary>Tekoälyn ohjeet ja lämpötila</summary>
+        <div class="mass-body">
+          <label class="field">
+            <span class="field-label">Ohje tekoälylle</span>
+            <textarea id="edit-instructions" rows="2" placeholder="Esim. korjaa virheet ja sujuvoita, säilytä puhekielisyys"></textarea>
+          </label>
+          <div class="range-row">
+            <span class="field-label" style="margin:0">Lämpötila</span>
+            <input type="range" id="edit-temperature" min="0" max="1" step="0.1" value="0.3">
+            <span class="range-val" id="edit-temperature-val">0.3</span>
+          </div>
+        </div>
+      </details>
+
+      <div class="row" style="margin-top:12px">
+        <button class="btn btn-ai" id="btn-ai-improve">✦ Paranna teksti</button>
+      </div>
+
+      <div class="suggestion-card" id="suggestion-card" hidden>
+        <div class="suggestion-tabs" role="tablist">
+          <button id="tab-suggestion" class="is-active">Ehdotus</button>
+          <button id="tab-diff">Muutokset</button>
+        </div>
+        <textarea class="suggestion-area" id="suggestion-text" aria-label="Ehdotettu teksti"></textarea>
+        <div class="diff-view" id="diff-view" hidden></div>
+        <p class="hint" id="suggestion-note" style="margin-top:8px"></p>
+        <div class="row" style="margin-top:10px">
+          <button class="btn btn-ghost" id="btn-reject-suggestion">Hylkää</button>
+          <button class="btn btn-primary" id="btn-accept-suggestion">Korvaa alkuperäinen</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="step-actions">
+    <button class="btn btn-ghost" id="btn-open-mass">Massamuutokset</button>
+    <button class="btn btn-ghost" id="btn-open-chapters">Osiot</button>
+  </footer>
+</main>
+
+<!-- ======================= OSIOARKKI ======================= -->
+<div class="sheet-backdrop" id="sheet-backdrop" hidden></div>
+
+<div class="sheet" id="chapter-sheet" role="dialog" aria-modal="true" aria-label="Osiot" hidden>
+  <div class="sheet-handle" aria-hidden="true"></div>
+  <h3>Osiot</h3>
+  <div class="sheet-content" id="chapter-sheet-list"></div>
+  <details class="mass-section" id="new-chapter-form">
+    <summary>+ Uusi osio</summary>
+    <div class="mass-body">
+      <label class="field">
+        <span class="field-label">Osion tyyppi</span>
+        <select id="new-chapter-kind">
+          <option value="main">Luku</option>
+          <option value="part">Osa</option>
+          <option value="front">Etusivu (esim. esipuhe)</option>
+          <option value="back">Lopputeksti (esim. kiitokset)</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field-label">Osion nimi</span>
+        <input type="text" id="new-chapter-title" placeholder="Esim. Luku 5">
+      </label>
+      <div class="row">
+        <button class="btn btn-primary" id="btn-add-chapter">Lisää valitun jälkeen</button>
+      </div>
+    </div>
+  </details>
+  <div class="row" style="margin-top:10px">
+    <button class="btn btn-ghost" id="btn-delete-chapter">Poista valittu osio</button>
+    <button class="btn btn-primary" id="btn-close-chapter-sheet">Valmis</button>
+  </div>
+</div>
+
+<!-- ======================= MASSAMUUTOSARKKI ======================= -->
+<div class="sheet" id="mass-sheet" role="dialog" aria-modal="true" aria-label="Massamuutokset" hidden>
+  <div class="sheet-handle" aria-hidden="true"></div>
+  <h3>Massamuutokset</h3>
+  <div class="sheet-content">
+
+    <div class="scope-switch" role="tablist" aria-label="Massamuutosten laajuus">
+      <button id="mass-scope-chapter" class="is-active">Valittu osio</button>
+      <button id="mass-scope-book">Koko kirja</button>
+    </div>
+
+    <details class="mass-section" open>
+      <summary>Etsi ja korvaa</summary>
+      <div class="mass-body">
+        <label class="field"><span class="field-label">Etsi</span><input type="text" id="fr-find"></label>
+        <label class="field"><span class="field-label">Korvaa</span><input type="text" id="fr-replace"></label>
+        <label class="check-row"><input type="checkbox" id="fr-case"> Sama kirjainkoko</label>
+        <div class="row"><button class="btn btn-primary" id="btn-run-replace">Korvaa kaikki</button></div>
+      </div>
+    </details>
+
+    <details class="mass-section">
+      <summary>✦ Kursivointi automaatiolla</summary>
+      <div class="mass-body">
+        <label class="check-row"><input type="checkbox" data-italic="works" checked> Teosten nimet</label>
+        <label class="check-row"><input type="checkbox" data-italic="thoughts"> Ajatukset ja sisäinen monologi</label>
+        <label class="check-row"><input type="checkbox" data-italic="emphasis"> Korostus ja painotus</label>
+        <label class="check-row"><input type="checkbox" data-italic="foreign"> Vieras- ja lainasanat</label>
+        <label class="check-row"><input type="checkbox" data-italic="narration"> Kerronnan tasot</label>
+        <label class="check-row"><input type="checkbox" data-italic="phonetic"> Paino- ja äänneasut</label>
+        <div class="row" style="margin-top:8px"><button class="btn btn-ai" id="btn-run-italics">✦ Kursivoi</button></div>
+      </div>
+    </details>
+
+    <details class="mass-section">
+      <summary>✦ Ehdota uutta jakoa</summary>
+      <div class="mass-body">
+        <p class="hint">Tekoäly jakaa valitun osion tekstin uusiksi osioiksi otsikoineen. Sisältö ei muutu, vain jako.</p>
+        <label class="field">
+          <span class="field-label">Lisäohjeet (valinnainen)</span>
+          <input type="text" id="restructure-instructions" placeholder="Esim. jaa kohtausten mukaan">
+        </label>
+        <div class="row"><button class="btn btn-ai" id="btn-run-restructure">✦ Ehdota jakoa</button></div>
+      </div>
+    </details>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <button class="btn btn-primary" id="btn-close-mass-sheet">Valmis</button>
+  </div>
+</div>
+
+<div class="working" id="working" hidden aria-live="polite">
+  <div class="working-thread" aria-hidden="true"></div>
+  <p id="working-label">Hetki…</p>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<div class="undo-toast" id="undo-toast" hidden>
+  <span id="undo-toast-text">Osio poistettu.</span>
+  <button id="btn-undo">Kumoa</button>
+</div>
+
+<script src="config.js?v=1"></script>
+<script>
+  (function () {
+    const params = new URLSearchParams(window.location.search);
+    const apiRoot = (window.SKRIPTLAB_CONFIG && window.SKRIPTLAB_CONFIG.API_BASE_URL) || "";
+    const projectId = params.get("project") || localStorage.getItem("skriptlab_active_project_id") || null;
+    window.TYOSTO_CONFIG = {
+      apiBase: apiRoot.replace(/\/$/, "") + "/api",
+      projectId,
+      mode: params.get("mode") || "kirjoita",
+      demo: false,
+      fetchImpl: async function (url, options) {
+        const requestOptions = Object.assign({}, options || {});
+        const headers = Object.assign({}, requestOptions.headers || {});
+        const token = localStorage.getItem("skriptlab_auth_token");
+        if (token) headers.Authorization = "Bearer " + token;
+        requestOptions.headers = headers;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 20000);
+        if (!requestOptions.signal) requestOptions.signal = controller.signal;
+        try {
+          const response = await fetch(url, requestOptions);
+          if (response.status === 401) {
+            localStorage.removeItem("skriptlab_auth_token");
+            localStorage.removeItem("skriptlab_auth_user");
+            window.location.replace("login.html");
+          }
+          return response;
+        } finally {
+          clearTimeout(timeout);
+        }
+      },
+      backHref: null
+    };
+  })();
+</script>
+<script src="tyosto.js?v=1"></script>
+</body>
+</html>

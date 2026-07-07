@@ -3182,6 +3182,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (['view-kirjani', 'view-analyysi', 'view-rakenne'].includes(viewId)) {
             refreshManuskriptiFrame(viewId);
         }
+        if (['view-kirjoita', 'view-toimitus'].includes(viewId)) {
+            refreshTyostoFrame(viewId);
+        }
     }
 
     function persistPendingModuleEdits(nextViewId) {
@@ -7678,7 +7681,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         return data;
     }
 
-    function setActiveManuscript(data) {
+    function setActiveManuscript(data, options = {}) {
         if (!data) {
             clearActiveManuscript();
             return;
@@ -7693,7 +7696,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         biographyState = normalizeBiographyState(window.manuscriptData.analysis?.biography || {});
         renderBiography();
         if (currentViewId === 'view-elamakerta') refreshElamakertaFrame();
-        if (['view-kirjani', 'view-analyysi', 'view-rakenne'].includes(currentViewId)) refreshManuskriptiFrame(currentViewId);
+        if (!options.skipManuskriptiFrameRefresh && ['view-kirjani', 'view-analyysi', 'view-rakenne'].includes(currentViewId)) {
+            refreshManuskriptiFrame(currentViewId);
+        }
+        if (!options.skipTyostoFrameRefresh && ['view-kirjoita', 'view-toimitus'].includes(currentViewId)) {
+            refreshTyostoFrame(currentViewId);
+        }
         renderAnalysisSummary(window.manuscriptData.analysis);
         renderProductInfo(true);
         renderAudioView(true);
@@ -8046,11 +8054,42 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         return updateCachedProject(await res.json());
     }
 
-    async function activateProject(projectOrId) {
+    async function activateProject(projectOrId, options = {}) {
         const project = await loadProjectDetails(projectOrId);
-        setActiveManuscript(project);
+        setActiveManuscript(project, options);
         return project;
     }
+
+    window.addEventListener('message', async event => {
+        if (event.origin !== window.location.origin) return;
+        const message = event.data;
+        if (!message || typeof message !== 'object') return;
+
+        if (message.type === 'skriptlab:project-selected') {
+            const target = message.project && typeof message.project === 'object'
+                ? message.project
+                : message.projectId;
+            if (!target) return;
+            try {
+                await activateProject(target, {
+                    skipManuskriptiFrameRefresh: true,
+                    skipTyostoFrameRefresh: true
+                });
+            } catch (err) {
+                console.warn('Käsikirjoituksen aktivointi epäonnistui:', err);
+            }
+        }
+
+        if (message.type === 'skriptlab:project-deleted') {
+            const deletedId = message.projectId ? String(message.projectId) : '';
+            if (!deletedId) return;
+            availableProjects = availableProjects.filter(project => String(project.id) !== deletedId);
+            if (window.manuscriptData?.id && String(window.manuscriptData.id) === deletedId) {
+                clearActiveManuscript();
+            }
+            loadProjects().catch(err => console.warn('Käsikirjoituslistan päivitys epäonnistui:', err));
+        }
+    });
 
     function currentTranslationProject() {
         const select = document.getElementById('translation-project-select');
@@ -9825,9 +9864,30 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
         if (step) params.set('step', step);
         if (projectId) params.set('project', projectId);
-        params.set('v', '2');
+        params.set('v', '4');
         params.set('t', String(Date.now()));
         frame.src = `manuskripti.html?${params.toString()}`;
+    }
+
+    function tyostoFrameMode(viewId) {
+        return viewId === 'view-toimitus' ? 'editoi' : 'kirjoita';
+    }
+
+    function refreshTyostoFrame(viewId = currentViewId) {
+        const frameId = {
+            'view-kirjoita': 'tyosto-frame-kirjoita',
+            'view-toimitus': 'tyosto-frame-toimitus'
+        }[viewId];
+        if (!frameId) return;
+        const frame = document.getElementById(frameId);
+        if (!frame) return;
+        const params = new URLSearchParams();
+        const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
+        params.set('mode', tyostoFrameMode(viewId));
+        if (projectId) params.set('project', projectId);
+        params.set('v', '1');
+        params.set('t', String(Date.now()));
+        frame.src = `tyosto.html?${params.toString()}`;
     }
 
     function refreshElamakertaFrame() {

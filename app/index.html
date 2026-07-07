@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=46">
+    <link rel="stylesheet" href="styles.css?v=47">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -161,7 +161,7 @@
                     id="manuskripti-frame-kirjani"
                     class="manuskripti-frame"
                     title="Käsikirjoitukseni"
-                    src="manuskripti.html?v=2"
+                    src="manuskripti.html?v=4"
                     loading="lazy"
                 ></iframe>
                 <div id="legacy-kirjani-view" hidden aria-hidden="true">
@@ -324,7 +324,7 @@
                     id="manuskripti-frame-rakenne"
                     class="manuskripti-frame"
                     title="Rakenne"
-                    src="manuskripti.html?step=rakenne&v=2"
+                    src="manuskripti.html?step=rakenne&v=4"
                     loading="lazy"
                 ></iframe>
                 <div id="legacy-rakenne-view" hidden aria-hidden="true">
@@ -367,50 +367,13 @@
 
             <!-- 1.2 VIEW: KIRJOITA -->
             <div id="view-kirjoita" class="view-section hidden">
-                <div class="header">
-                    <div class="header-info">
-                        <h2>Kirjoita</h2>
-                        <p>Käsikirjoitus: [Ei aktiivista teosta] (kirjoittaminen ja tekstin jatkaminen)</p>
-                    </div>
-                    <div class="header-actions">
-                        <details class="tool-menu">
-                            <summary class="btn btn-secondary">Työkalut</summary>
-                            <div class="tool-menu-panel">
-                                <button class="btn btn-secondary" id="clean-writing-text-btn">Putsaa teksti</button>
-                            </div>
-                        </details>
-                        <button class="btn btn-primary" id="save-writing-btn">Tallenna teksti</button>
-                    </div>
-                </div>
-                <div class="writing-workspace writing-workspace-simple">
-                    <section class="writing-editor glass-panel">
-	                        <div class="panel-header">
-	                            <h3 id="writing-selection-title">Käsikirjoitusteksti</h3>
-	                            <div class="panel-status-stack">
-	                                <span id="writing-tool-status" class="writing-tool-status"></span>
-	                                <span id="writing-save-status" class="save-timestamp">Tallennus: -</span>
-	                            </div>
-	                        </div>
-	                        <div class="writing-format-toolbar" aria-label="Tekstin muotoilu">
-	                            <select id="writing-block-format" title="Tekstin tyyppi">
-	                                <option value="body">Leipäteksti</option>
-	                                <option value="1">Otsikko 1</option>
-	                                <option value="2">Otsikko 2</option>
-	                                <option value="3">Otsikko 3</option>
-	                                <option value="4">Otsikko 4</option>
-	                            </select>
-	                            <button class="btn btn-secondary writing-nav-btn" id="writing-prev-chapter-btn" type="button">Edellinen</button>
-	                            <span class="writing-chapter-status" id="writing-chapter-status">Osio -</span>
-	                            <button class="btn btn-secondary writing-nav-btn" id="writing-next-chapter-btn" type="button">Seuraava</button>
-	                            <button class="btn btn-secondary writing-nav-btn" id="add-writing-chapter-btn" type="button">Lisää osio</button>
-	                            <button class="btn btn-secondary writing-nav-btn writing-danger-btn" id="delete-writing-chapter-btn" type="button">Poista osio</button>
-	                            <button class="btn btn-secondary writing-format-btn" id="writing-bold-btn" type="button" title="Lihavoi valinta"><strong>B</strong></button>
-	                            <button class="btn btn-secondary writing-format-btn" id="writing-italic-btn" type="button" title="Kursivoi valinta"><em>I</em></button>
-	                            <button class="btn btn-secondary writing-format-btn" id="writing-underline-btn" type="button" title="Alleviivaa valinta"><u>U</u></button>
-	                        </div>
-	                        <textarea id="writing-text" class="writing-text" placeholder="Kirjoita tai jatka käsikirjoitusta tähän. Rakenne tehdään myöhemmin Rakenne-moduulissa."></textarea>
-	                    </section>
-	                </div>
+                <iframe
+                    id="tyosto-frame-kirjoita"
+                    class="tyosto-frame"
+                    title="Kirjoita"
+                    src="tyosto.html?mode=kirjoita&v=1"
+                    loading="lazy"
+                ></iframe>
             </div>
 
             <!-- 1.25 VIEW: AI-TYÖNKULKU -->
@@ -1266,7 +1229,7 @@
                     id="manuskripti-frame-analyysi"
                     class="manuskripti-frame"
                     title="Analyysi ja rakenne"
-                    src="manuskripti.html?step=analyysi&v=2"
+                    src="manuskripti.html?step=analyysi&v=4"
                     loading="lazy"
                 ></iframe>
                 <div id="legacy-analyysi-view" hidden aria-hidden="true">
@@ -2303,125 +2266,19 @@
 
             <!-- 5. VIEW: EDITOINTI (Vierekkäisnäkymä) -->
             <div id="view-toimitus" class="view-section hidden">
-                <div class="header">
-                    <div class="header-info">
-                        <h2 id="toimitus-book-title">[Ei aktiivista teosta] <span class="badge">Luonnos</span></h2>
-	                        <p>Valitse osio ja käsittele tekstiä käsin tai avustettuna.</p>
-                        <span id="editor-save-status" class="save-timestamp">Tallennus: -</span>
-                    </div>
-                    <div class="header-actions">
-	                        <button class="btn btn-secondary" id="add-editor-chapter-btn">Uusi osio</button>
-	                        <button class="btn btn-secondary btn-danger-soft" id="delete-editor-chapter-btn">Poista osio</button>
-                        <button class="btn btn-secondary" id="toggle-editor-markup-btn">Näytä merkinnät</button>
-                        <button class="btn btn-secondary" id="view-editor-markdown-btn">Katso .md</button>
-                        <button class="btn btn-secondary" id="toggle-editor-nav-btn">Piilota navigaatio</button>
-                        <button class="btn btn-secondary" id="toggle-editor-comments-btn">Näytä kommentit</button>
-                    </div>
-                </div>
-
-                <div class="editor-workspace hide-editor-comments" id="editor-workspace" style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr) 220px; gap: 16px; overflow: hidden; height: calc(100vh - 160px);">
-                    <!-- 1. Lukuvalikko -->
-                    <div class="glass-panel" id="editor-nav-panel" style="padding: 16px; overflow-y: auto; display:flex; flex-direction:column;">
-                        <h4 style="color:var(--text-primary); margin-bottom:12px;">Rakenne</h4>
-                        <div id="editor-chapter-list" class="chapter-list"></div>
-                    </div>
-
-                    <!-- 2. Original Panel -->
-                    <div class="editor-panel original-panel" style="height: 100%; overflow-y:auto; display:flex; flex-direction:column;">
-                        <div class="panel-header">
-	                            <h3 style="font-size:14px;">Alkuperäinen <span id="original-chapter-label" style="font-size:12px; color:var(--text-secondary);">(Valitse osio)</span></h3>
-                        </div>
-                        <div class="editor-content" id="original-text" style="flex:1; overflow-y:auto; line-height:1.8;">
-	                            <p style="color:var(--text-secondary); font-style:italic;">Valitse osio vasemman reunan rakenteesta nähdäksesi sisällön tässä.</p>
-                        </div>
-                    </div>
-
-                    <!-- 3. Editable Panel -->
-                    <div class="editor-panel editable-panel glass-panel" style="height: 100%; overflow-y:auto; display:flex; flex-direction:column;">
-                        <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
-                            <h3 style="font-size:14px;">Kohdeversio <span class="badge glowing">Teksti</span></h3>
-                            <div style="display:flex; gap:8px; align-items:center;">
-                                <button id="italic-selection-btn" class="btn btn-secondary" style="font-size:11px; padding:4px 10px;">Kursivoi</button>
-                                <button id="delete-edit-paragraph-btn" class="btn btn-secondary btn-danger-soft" style="font-size:11px; padding:4px 10px;">Poista kohta</button>
-                                <button id="save-edit-target-btn" class="btn btn-secondary" style="font-size:11px; padding:4px 10px;">Tallenna</button>
-                                <button id="replace-original-btn" class="btn btn-primary" style="font-size:11px; padding:4px 10px; background:linear-gradient(135deg, var(--ai-gradient-start), var(--ai-gradient-end)); border:none;">Korvaa alkuperäinen</button>
-                            </div>
-                        </div>
-	                        <div class="editor-content editable rich-editor" id="edited-text" contenteditable="true" data-placeholder="Valitse osio ja paina analysoi ja ehdota -nappia tai muokkaa käsin..."></div>
-                    </div>
-
-                    <!-- 4. Action / AI Settings -->
-                    <div class="action-column" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 16px; padding-top: 10px;">
-                        <button class="ai-action-btn" id="ai-improve-btn" style="width:100%; aspect-ratio:1;" title="Analysoi nykyinen kohta tai koko luku ja ehdota parannuksia">
-                            <span class="sparkle">✨</span>
-                            <br>Analysoi ja ehdota
-                        </button>
-                        
-                        <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; font-size: 11px;">
-                            <label style="color:var(--text-secondary); display:block; margin-bottom:6px;">Käsittele:</label>
-                            <select id="edit-scope" style="width:100%; margin-bottom:12px; padding:6px; border-radius:4px; background:rgba(255,255,255,0.05); color:var(--text-primary); border:1px solid #333;">
-                                <option value="paragraph">Nykyinen kohta</option>
-	                                <option value="chapter">Koko valittu osio</option>
-                            </select>
-
-                            <label style="color:var(--text-secondary); display:block; margin-bottom:6px;">Kehotetarkennus:</label>
-                            <textarea id="toimitus-prompt" style="width:100%; height:70px; font-size:11px; background:rgba(255,255,255,0.05); color:var(--text-primary); border:1px solid #333; border-radius:4px; margin-bottom:12px; padding:6px; resize:none;">Korjaa virheet ja sujuvoita tekstiä, mutta säilytä kirjailijan oma ääni tarkasti.</textarea>
-                            
-                            <label style="color:var(--text-secondary); display:block; margin-bottom:6px;">Luovuus (Temp): <span id="temp-val">0.3</span></label>
-                            <input type="range" min="0" max="100" value="30" style="width:100%; accent-color: var(--ai-gradient-start);" oninput="document.getElementById('temp-val').textContent=(this.value/100).toFixed(1)">
-                            <div style="display:flex; justify-content:space-between; color:#666; margin-top:4px; font-size:10px;"><span>Tarkka</span><span>Vapaa</span></div>
-                        </div>
-
-                        <div class="mass-edit-panel">
-                            <button class="mass-edit-toggle" id="mass-edit-toggle" type="button" aria-expanded="false" aria-controls="mass-edit-body">
-                                <span>Massamuutokset</span>
-                                <span aria-hidden="true">›</span>
-                            </button>
-                            <div class="mass-edit-body hidden" id="mass-edit-body">
-                                <label>Laajuus</label>
-                                <select id="mass-edit-scope">
-	                                    <option value="chapter">Valittu osio</option>
-                                    <option value="book">Koko käsikirjoitus</option>
-                                </select>
-                                <label>Etsi</label>
-                                <input id="mass-find-input" type="text" placeholder="Etsittävä teksti">
-                                <label>Korvaa</label>
-                                <input id="mass-replace-input" type="text" placeholder="Korvaava teksti">
-                                <button class="btn btn-secondary" id="mass-replace-btn" type="button">Etsi ja korvaa</button>
-                                <label>Kursivoi automaatiolla</label>
-                                <div class="italic-rule-list">
-                                    <label><input type="checkbox" class="italic-rule-option" value="Teosten nimet: Kirjojen, elokuvien, lehtien, taideteosten ja musiikkialbumien nimet kursivoidaan."> Teosten nimet</label>
-                                    <label><input type="checkbox" class="italic-rule-option" value="Ajatukset ja sisäinen monologi: Hahmon ääneen lausumattomat ajatukset esitetään usein kursiivilla."> Ajatukset ja sisäinen monologi</label>
-                                    <label><input type="checkbox" class="italic-rule-option" value="Korostus ja painotus: Yksittäisen sanan tai lauseen korostaminen lauseen sisällä."> Korostus ja painotus</label>
-                                    <label><input type="checkbox" class="italic-rule-option" value="Vieras- ja lainasanat: Vieraiden kielten sanat, termit ja latinankieliset vastineet kursivoidaan, kun se sopii tekstiin."> Vieras- ja lainasanat</label>
-                                    <label><input type="checkbox" class="italic-rule-option" value="Kerronnan tasot: Takaumat, unet, kirjeet ja tekstiviestit voidaan erottaa kursiivilla muusta kerronnasta."> Kerronnan tasot</label>
-                                    <label><input type="checkbox" class="italic-rule-option" value="Paino- ja äänneasut: Kursivoi sanat, joita hahmo painottaa puheessaan poikkeuksellisen voimakkaasti."> Paino- ja äänneasut</label>
-                                </div>
-                                <button class="btn btn-secondary" id="ai-italicize-btn" type="button">Kursivoi automaatiolla</button>
-                                <button class="btn btn-secondary" id="ai-restructure-btn" type="button">Ehdota uutta jakoa</button>
-                                <p id="mass-edit-status"></p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 5. Kommentointipaneeli -->
-                    <div class="glass-panel" id="editor-comments-panel" style="padding: 16px; display:flex; flex-direction:column; height: 100%;">
-                        <h4 style="color:var(--text-primary); margin-bottom: 12px;">Kommentit</h4>
-                        <div style="flex:1; overflow-y:auto; margin-bottom:12px;">
-                            <p style="font-size:12px; color:var(--text-secondary); margin:0; line-height:1.4;">Ei kommentteja tälle kohdalle.</p>
-                        </div>
-                        <div style="display:flex; flex-direction:column; gap:8px;">
-                            <textarea placeholder="Kirjoita uusi kommentti..." style="width:100%; font-size:12px; padding:8px; border-radius:4px; background:rgba(255,255,255,0.05); color:#fff; border:1px solid #333; resize:none;"></textarea>
-                            <button class="btn btn-secondary" style="font-size:12px; padding:6px;">Tallenna Kommentti</button>
-                        </div>
-                    </div>
-                </div>
+                <iframe
+                    id="tyosto-frame-toimitus"
+                    class="tyosto-frame"
+                    title="Editointi"
+                    src="tyosto.html?mode=editoi&v=1"
+                    loading="lazy"
+                ></iframe>
             </div>
 
         </main>
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=72"></script>
+    <script src="app.js?v=75"></script>
 </body>
 </html>
