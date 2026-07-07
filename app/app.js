@@ -204,7 +204,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let proofreadSuggestions = [];
     let proofreadSelection = { cIndex: null };
     let proofreadExtraFindings = [];
-    let proofreadPanel = 'proofread-panel-chapter';
+    let proofreadPanel = 'oikoluku';
+    let proofreadScope = 'chapter';
+    let proofreadParagraphStyle = 'spacing';
+    let proofreadHyphenation = 'none';
+    let proofreadPreviewTimer = null;
+    let proofreadDefaultRules = '';
+    let proofreadRulesLoaded = false;
     const EXTRA_PROOFREAD_RULES_KEY = 'skriptlab_extra_proofread_rules';
     const DEFAULT_EXTRA_PROOFREAD_RULES = `Tarkista teksti kustannustoimituksen ja taittovedoksen viimeistelyn näkökulmasta. Älä käytä Python-heuristiikkaa, vaan arvioi kohdat kielellisesti ja kontekstin perusteella.
 
@@ -6364,123 +6370,241 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         return (chapter?.paragraphs || []).filter(Boolean).join('\n\n');
     }
 
-    function updateProofreadProjectText() {
-        const current = document.getElementById('proofread-current-project');
-        if (!current) return;
-        current.textContent = window.manuscriptData
-            ? `Käsikirjoitus: ${window.manuscriptData.title || 'Nimetön'}`
-            : 'Käsikirjoitus: [Ei aktiivista teosta]';
+    function proofreadWarningsArray(value) {
+        if (Array.isArray(value)) return value.filter(Boolean).map(String);
+        return value ? [String(value)] : [];
     }
 
-    function proofreadExtraRulesValue() {
-        return localStorage.getItem(EXTRA_PROOFREAD_RULES_KEY) || DEFAULT_EXTRA_PROOFREAD_RULES;
+    function setProofreadWarnings(id, warnings) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const values = proofreadWarningsArray(warnings);
+        el.textContent = values.join('\n');
+        el.classList.toggle('hidden', !values.length);
     }
 
-    function renderProofreadExtraRules(force = false) {
-        const textarea = document.getElementById('proofread-extra-rules');
-        if (!textarea) return;
-        if (force || !textarea.value.trim()) {
-            textarea.value = proofreadExtraRulesValue();
+    let proofreadToastTimer = null;
+    function proofreadToast(message) {
+        const el = document.getElementById('proofread-toast');
+        if (!el) {
+            alert(message);
+            return;
         }
+        el.textContent = message;
+        el.classList.remove('hidden');
+        clearTimeout(proofreadToastTimer);
+        proofreadToastTimer = setTimeout(() => el.classList.add('hidden'), 3400);
     }
 
-    function saveProofreadExtraRules() {
-        const textarea = document.getElementById('proofread-extra-rules');
-        const status = document.getElementById('proofread-extra-rules-status');
-        if (!textarea) return;
-        localStorage.setItem(EXTRA_PROOFREAD_RULES_KEY, textarea.value.trim() || DEFAULT_EXTRA_PROOFREAD_RULES);
-        if (status) status.textContent = `Sääntöprompti tallennettu ${formatSaveTimestamp()}.`;
+    function setProofreadWorking(show, label = 'Hetki...') {
+        const el = document.getElementById('proofread-working');
+        const labelEl = document.getElementById('proofread-working-label');
+        if (labelEl) labelEl.textContent = label;
+        if (el) el.classList.toggle('hidden', !show);
+    }
+
+    function currentProofreadChapters() {
+        return window.manuscriptData?.chapters || [];
+    }
+
+    function currentProofreadChapter() {
+        return currentProofreadChapters()[proofreadSelection.cIndex || 0] || null;
+    }
+
+    function proofreadCleanupKinds() {
+        return Array.from(document.querySelectorAll('[data-cleanup]'))
+            .filter(element => element.checked)
+            .map(element => element.dataset.cleanup);
+    }
+
+    function downloadProofreadText(text, filename) {
+        const blob = new Blob([text || ''], { type: 'text/plain;charset=utf-8' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(link.href);
+    }
+
+    async function ensureProofreadProjectSaved(label = 'Tallennetaan käsikirjoitusta...') {
+        if (!window.manuscriptData) throw new Error('Valitse käsikirjoitus ensin.');
+        setProofreadWorking(true, label);
+        const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
+        if (savedProject?.id) {
+            window.manuscriptData = savedProject;
+            updateAvailableProject(savedProject);
+        }
+        if (!window.manuscriptData?.id) throw new Error('Tallenna käsikirjoitus ennen oikolukua.');
+        return window.manuscriptData;
+    }
+
+    async function loadProofreadDefaultRules(force = false) {
+        if (proofreadRulesLoaded && !force) return proofreadDefaultRules;
+        try {
+            const res = await apiFetch('/api/proofread/rules');
+            if (!res.ok) throw new Error(await apiErrorMessage(res, 'Sääntöpromptin haku epäonnistui.'));
+            const data = await res.json();
+            proofreadDefaultRules = data.rules || DEFAULT_EXTRA_PROOFREAD_RULES;
+        } catch (err) {
+            proofreadDefaultRules = DEFAULT_EXTRA_PROOFREAD_RULES;
+        }
+        proofreadRulesLoaded = true;
+        const textarea = document.getElementById('extra-rules');
+        if (textarea && !textarea.value.trim()) textarea.value = proofreadDefaultRules;
+        return proofreadDefaultRules;
     }
 
     function resetProofreadExtraRules() {
-        const textarea = document.getElementById('proofread-extra-rules');
-        const status = document.getElementById('proofread-extra-rules-status');
-        localStorage.removeItem(EXTRA_PROOFREAD_RULES_KEY);
-        if (textarea) textarea.value = DEFAULT_EXTRA_PROOFREAD_RULES;
-        if (status) status.textContent = 'Oletussäännöt palautettu.';
+        const textarea = document.getElementById('extra-rules');
+        if (textarea) textarea.value = proofreadDefaultRules || DEFAULT_EXTRA_PROOFREAD_RULES;
+        proofreadToast('Oletussäännöt palautettu.');
     }
 
     function updateProofreadExtraScopeUi() {
-        const scope = document.getElementById('proofread-extra-scope')?.value || 'pdf';
-        const uploadRow = document.getElementById('proofread-pdf-upload-row');
-        const fileInput = document.getElementById('proofread-pdf-file');
-        const fileStatus = document.getElementById('proofread-pdf-file-status');
-        if (uploadRow) uploadRow.classList.toggle('hidden', scope !== 'pdf');
-        if (fileStatus) {
-            if (scope === 'pdf') {
-                const fileName = fileInput?.files?.[0]?.name;
-                fileStatus.textContent = fileName
-                    ? `Valittu tiedosto: ${fileName}`
-                    : 'Valitse PDF-tiedosto, jonka teksti tarkistetaan erillisenä aineistona.';
-            } else {
-                fileStatus.textContent = '';
-            }
+        renderProofreadScopeChips();
+    }
+
+    function showProofreadPanel(panelId = 'oikoluku') {
+        const aliases = {
+            'proofread-panel-chapter': 'oikoluku',
+            'proofread-panel-pdf': 'tarkistus',
+            'proofread-panel-finishing': 'viimeistely',
+        };
+        const next = aliases[panelId] || panelId || 'oikoluku';
+        proofreadPanel = next;
+        ['oikoluku', 'tarkistus', 'viimeistely'].forEach(name => {
+            document.getElementById(`panel-${name}`)?.classList.toggle('hidden', name !== next);
+            document.getElementById(`tab-${name}`)?.classList.toggle('is-active', name === next);
+            document.getElementById(`tab-${name}`)?.classList.toggle('active', name === next);
+        });
+        if (next === 'tarkistus') {
+            loadProofreadDefaultRules();
+            renderProofreadScopeChips();
+        }
+        if (next === 'viimeistely') {
+            scheduleProofreadPreview();
         }
     }
 
-    function showProofreadPanel(panelId = 'proofread-panel-chapter') {
-        proofreadPanel = panelId;
-        document.querySelectorAll('.proofread-panel').forEach(panel => {
-            panel.classList.toggle('hidden', panel.id !== panelId);
-        });
-        document.querySelectorAll('.proofread-tab').forEach(tab => {
-            tab.classList.toggle('active', tab.dataset.proofreadPanel === panelId);
-        });
-        const runButton = document.getElementById('proofread-run-btn');
-        if (runButton) runButton.classList.toggle('hidden', panelId !== 'proofread-panel-chapter');
-        if (panelId === 'proofread-panel-pdf') {
-            renderProofreadExtraRules();
-            updateProofreadExtraScopeUi();
-        }
-    }
-
-    function renderProofreadExtraFindings(summary = '') {
-        const list = document.getElementById('proofread-extra-list');
-        const count = document.getElementById('proofread-extra-count');
-        const status = document.getElementById('proofread-extra-status');
-        if (!list) return;
-        if (count) count.textContent = `${proofreadExtraFindings.length} löydöstä`;
-        if (status && summary) status.textContent = summary;
-        if (!proofreadExtraFindings.length) {
-            list.innerHTML = '<p style="color:var(--text-secondary);">Ei löydöksiä vielä.</p>';
+    function renderProofreadChapterBar() {
+        const titleEl = document.getElementById('chapter-title-text');
+        const subEl = document.getElementById('chapter-title-sub');
+        const prev = document.getElementById('btn-prev-chapter');
+        const next = document.getElementById('btn-next-chapter');
+        const projectTitle = document.getElementById('proofread-project-title');
+        const statusText = document.getElementById('proofread-status-text');
+        const previewName = document.getElementById('preview-chapter-name');
+        const chapters = currentProofreadChapters();
+        if (projectTitle) projectTitle.textContent = window.manuscriptData?.title || 'Ei aktiivista teosta';
+        if (!chapters.length) {
+            if (titleEl) titleEl.textContent = 'Valitse käsikirjoitus';
+            if (subEl) subEl.textContent = '';
+            if (statusText) statusText.textContent = 'Lataa tai valitse käsikirjoitus ensin.';
+            if (prev) prev.disabled = true;
+            if (next) next.disabled = true;
             return;
         }
-        list.innerHTML = proofreadExtraFindings.map(item => `
-            <div class="proofread-suggestion">
-                <span class="badge">${escapeHtml(item.category || 'Tarkistus')}</span>
-                <p><strong>Sijainti:</strong> ${escapeHtml(item.location || 'Ei tarkkaa sijaintia')}</p>
-                <p><strong>Kohta:</strong><br>${escapeHtml(item.excerpt || '')}</p>
-                <p><strong>Havainto:</strong> ${escapeHtml(item.issue || '')}</p>
-                <p><strong>Ehdotus:</strong> ${escapeHtml(item.suggestion || 'Tarkista kohta käsin.')}</p>
-                <p class="card-meta">Vakavuus: ${escapeHtml(item.severity || 'tarkista')}</p>
-            </div>
+        if (proofreadSelection.cIndex === null || !chapters[proofreadSelection.cIndex]) {
+            proofreadSelection.cIndex = firstBodyChapterIndex(chapters);
+        }
+        const index = proofreadSelection.cIndex || 0;
+        const chapter = chapters[index];
+        const title = chapter?.toc_title || chapter?.title || `Luku ${index + 1}`;
+        const words = proofreadChapterText(chapter).split(/\s+/).filter(Boolean).length;
+        if (titleEl) titleEl.textContent = title;
+        if (subEl) subEl.textContent = `Luku ${index + 1}/${chapters.length}${words ? ` · noin ${formatNumber(words)} sanaa` : ''}`;
+        if (statusText) statusText.textContent = window.manuscriptData?.id ? 'Valmis.' : 'Käsikirjoitus tallennetaan ennen ajoa.';
+        if (previewName) previewName.textContent = `- ${title}`;
+        if (prev) prev.disabled = index <= 0;
+        if (next) next.disabled = index >= chapters.length - 1;
+    }
+
+    function gotoProofreadChapter(index) {
+        const chapters = currentProofreadChapters();
+        if (!chapters.length) return;
+        proofreadSelection.cIndex = Math.max(0, Math.min(index, chapters.length - 1));
+        proofreadSuggestions = [];
+        proofreadExtraFindings = [];
+        renderProofreadView();
+        if (proofreadPanel === 'viimeistely') scheduleProofreadPreview();
+    }
+
+    function renderProofreadChapterSheet() {
+        const list = document.getElementById('chapter-sheet-list');
+        if (!list) return;
+        const chapters = currentProofreadChapters();
+        list.innerHTML = chapters.map((chapter, index) => `
+            <li>
+                <button class="toc-item ${index === proofreadSelection.cIndex ? 'is-current' : ''}" data-proofread-chapter-index="${index}" type="button">
+                    <span class="toc-title">${escapeHtml(chapter.toc_title || chapter.title || `Luku ${index + 1}`)}</span>
+                </button>
+            </li>
         `).join('');
+        list.querySelectorAll('[data-proofread-chapter-index]').forEach(button => {
+            button.addEventListener('click', () => {
+                closeProofreadSheets();
+                gotoProofreadChapter(Number(button.dataset.proofreadChapterIndex || 0));
+            });
+        });
+    }
+
+    function openProofreadSheet() {
+        renderProofreadChapterSheet();
+        document.getElementById('sheet-backdrop')?.classList.remove('hidden');
+        document.getElementById('chapter-sheet')?.classList.remove('hidden');
+    }
+
+    function closeProofreadSheets() {
+        document.getElementById('sheet-backdrop')?.classList.add('hidden');
+        document.getElementById('chapter-sheet')?.classList.add('hidden');
     }
 
     function renderProofreadSuggestions() {
-        const list = document.getElementById('proofread-suggestions-list');
-        const count = document.getElementById('proofread-count');
+        const list = document.getElementById('suggestions-list');
+        const summary = document.getElementById('proofread-summary');
+        const acceptAll = document.getElementById('accept-all-row');
         if (!list) return;
-        const visible = proofreadSuggestions.filter(item => item.status !== 'rejected' && item.status !== 'accepted');
-        if (count) count.textContent = `${visible.length} ehdotusta`;
+        const open = proofreadSuggestions.filter(item => item.status === 'open');
+        if (acceptAll) acceptAll.classList.toggle('hidden', open.length < 2);
+        if (summary) {
+            summary.classList.toggle('hidden', !proofreadSuggestions.length);
+            summary.textContent = proofreadSuggestions.length
+                ? `${proofreadSuggestions.length} korjausehdotusta, ${open.length} avointa.`
+                : '';
+        }
         if (!proofreadSuggestions.length) {
-            list.innerHTML = '<p style="color:var(--text-secondary);">Ei ehdotuksia vielä.</p>';
+            list.innerHTML = '<p class="card-meta">Ei ehdotuksia vielä.</p>';
             return;
         }
         list.innerHTML = proofreadSuggestions.map((item, index) => {
-            const statusText = item.status === 'accepted' ? 'Hyväksytty' : item.status === 'rejected' ? 'Hylätty' : 'Avoin';
+            const statusText = {
+                accepted: 'Hyväksytty',
+                rejected: 'Hylätty',
+                stale: 'Kohtaa ei enää löytynyt',
+                open: 'Avoin',
+            }[item.status || 'open'] || 'Avoin';
             return `
-                <div class="proofread-suggestion" data-proofread-index="${index}" style="${item.status ? 'opacity:0.62;' : ''}">
-                    <span class="badge">${escapeHtml(item.type || 'Oikoluku')}</span>
-                    <p><strong>Alkuperäinen:</strong><br><del>${escapeHtml(item.original || '')}</del></p>
-                    <p><strong>Ehdotus:</strong><br>${escapeHtml(item.replacement || '')}</p>
-                    <p><strong>Perustelu:</strong> ${escapeHtml(item.reason || '')}</p>
-                    <p class="card-meta">Tila: ${statusText}${Number.isInteger(item.paragraph_index) ? ` · kappale ${item.paragraph_index + 1}` : ''}</p>
-                    <div class="proofread-suggestion-actions">
-                        <button class="btn btn-secondary accept-proofread-btn" type="button" data-proofread-index="${index}" ${item.status ? 'disabled' : ''}>Hyväksy</button>
-                        <button class="btn btn-secondary btn-danger-soft reject-proofread-btn" type="button" data-proofread-index="${index}" ${item.status ? 'disabled' : ''}>Hylkää</button>
+                <article class="suggestion-item ${item.status && item.status !== 'open' ? 'is-done' : ''}">
+                    <div class="suggestion-head">
+                        <span class="badge">${escapeHtml(item.type || 'oikoluku')}</span>
+                        <span class="where">Kappale ${Number.isInteger(item.paragraph_index) ? item.paragraph_index + 1 : '?'}</span>
+                        <span class="where">${escapeHtml(statusText)}</span>
                     </div>
-                </div>
+                    <div class="suggestion-change">
+                        <del>${escapeHtml(item.original || '')}</del>
+                        <span class="arrow">muuttuu</span>
+                        <ins>${escapeHtml(item.replacement || '')}</ins>
+                    </div>
+                    ${item.reason ? `<p class="suggestion-reason">${escapeHtml(item.reason)}</p>` : ''}
+                    ${item.status === 'open' ? `
+                        <div class="proofread-actions-row">
+                            <button class="btn btn-secondary reject-proofread-btn" data-proofread-index="${index}" type="button">Hylkää</button>
+                            <button class="btn btn-primary accept-proofread-btn" data-proofread-index="${index}" type="button">Hyväksy</button>
+                        </div>
+                    ` : ''}
+                </article>
             `;
         }).join('');
         list.querySelectorAll('.accept-proofread-btn').forEach(button => {
@@ -6496,192 +6620,355 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         });
     }
 
-    function renderProofreadView() {
-        updateProofreadProjectText();
-        renderProofreadExtraRules();
-        showProofreadPanel(proofreadPanel);
-        updateProofreadExtraScopeUi();
-        const select = document.getElementById('proofread-chapter-select');
-        const source = document.getElementById('proofread-source-text');
-        const title = document.getElementById('proofread-chapter-title');
-        const status = document.getElementById('proofread-status');
-        if (!select || !source || !title) return;
-        const chapters = window.manuscriptData?.chapters || [];
-        select.innerHTML = '';
-        if (!chapters.length) {
-            source.value = '';
-            title.textContent = 'Valitse käsikirjoitus';
-            if (status) status.textContent = 'Lataa tai valitse käsikirjoitus ensin.';
-            proofreadSuggestions = [];
-            renderProofreadSuggestions();
+    function renderProofreadScopeChips() {
+        const container = document.getElementById('scope-chips');
+        const uploadRow = document.getElementById('pdf-upload-row');
+        if (!container) return;
+        const scopes = [
+            ['chapter', 'Valittu luku'],
+            ['book', 'Koko kirja'],
+            ['pdf', 'PDF-tiedosto'],
+        ];
+        container.innerHTML = scopes.map(([value, label]) => `
+            <button class="tool-chip ${value === proofreadScope ? 'is-active' : ''}" data-proofread-scope="${value}" type="button">${label}</button>
+        `).join('');
+        container.querySelectorAll('[data-proofread-scope]').forEach(button => {
+            button.addEventListener('click', () => {
+                proofreadScope = button.dataset.proofreadScope || 'chapter';
+                renderProofreadScopeChips();
+            });
+        });
+        if (uploadRow) uploadRow.classList.toggle('hidden', proofreadScope !== 'pdf');
+    }
+
+    function renderProofreadExtraFindings(summary = '', warnings = []) {
+        const list = document.getElementById('findings-list');
+        const summaryEl = document.getElementById('extra-summary');
+        if (!list) return;
+        setProofreadWarnings('extra-warnings', warnings);
+        if (summaryEl) {
+            summaryEl.classList.toggle('hidden', !summary);
+            summaryEl.textContent = summary;
+        }
+        if (!proofreadExtraFindings.length) {
+            list.innerHTML = '<p class="card-meta">Ei löydöksiä vielä.</p>';
             return;
         }
-        chapters.forEach((chapter, index) => {
-            const option = document.createElement('option');
-            option.value = String(index);
-            option.textContent = chapter.title || `Luku ${index + 1}`;
-            select.appendChild(option);
-        });
-        if (proofreadSelection.cIndex === null || !chapters[proofreadSelection.cIndex]) {
-            proofreadSelection.cIndex = firstBodyChapterIndex(chapters);
-        }
-        select.value = String(proofreadSelection.cIndex);
-        const chapter = chapters[proofreadSelection.cIndex];
-        title.textContent = chapter?.title || `Luku ${proofreadSelection.cIndex + 1}`;
-        source.value = proofreadChapterText(chapter);
-        if (status && !proofreadSuggestions.length) status.textContent = 'Valitse luku ja käynnistä oikoluku.';
+        list.innerHTML = proofreadExtraFindings.map(item => `
+            <article class="finding-item" data-severity="${escapeHtml(item.severity || 'tarkista')}">
+                <div class="finding-head">
+                    <span class="badge">${escapeHtml(item.category || 'viimeistely')}</span>
+                    ${item.location ? `<span class="where">${escapeHtml(item.location)}</span>` : ''}
+                </div>
+                ${item.excerpt ? `<span class="excerpt">${escapeHtml(item.excerpt)}</span>` : ''}
+                ${item.issue ? `<p class="issue">${escapeHtml(item.issue)}</p>` : ''}
+                ${item.suggestion ? `<p class="fix">${escapeHtml(item.suggestion)}</p>` : ''}
+            </article>
+        `).join('');
+    }
+
+    function renderProofreadView() {
+        renderProofreadChapterBar();
         renderProofreadSuggestions();
+        renderProofreadScopeChips();
+        renderProofreadExtraFindings();
+        loadProofreadDefaultRules();
+        showProofreadPanel(proofreadPanel);
     }
 
     async function runProofreadChapter() {
-        if (!window.manuscriptData?.id) {
-            alert('Valitse tai tallenna käsikirjoitus ensin.');
-            return;
-        }
-        const select = document.getElementById('proofread-chapter-select');
-        const button = document.getElementById('proofread-run-btn');
-        const status = document.getElementById('proofread-status');
-        const chapterIndex = Number(select?.value ?? proofreadSelection.cIndex ?? 0);
-        const chapter = window.manuscriptData.chapters?.[chapterIndex];
-        if (!chapter) {
-            alert('Valitse luku ensin.');
+        const button = document.getElementById('btn-run-proofread');
+        const chapterIndex = proofreadSelection.cIndex ?? 0;
+        if (!currentProofreadChapters()[chapterIndex]) {
+            proofreadToast('Valitse luku ensin.');
             return;
         }
         if (button) button.disabled = true;
-        if (status) status.textContent = 'Tallennetaan nykyinen versio ja oikoluetaan lukua...';
         proofreadSuggestions = [];
         renderProofreadSuggestions();
+        setProofreadWarnings('proofread-warnings', []);
         try {
-            const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
-            if (savedProject?.id) window.manuscriptData = savedProject;
+            await ensureProofreadProjectSaved('Tallennetaan nykyinen versio...');
+            setProofreadWorking(true, 'Oikoluetaan lukua...');
             const res = await apiFetch('/api/proofread/chapter', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                     project_id: window.manuscriptData.id,
-                    chapter_index: chapterIndex
-                })
+                    chapter_index: chapterIndex,
+                }),
             });
             const data = await res.json().catch(() => null);
             if (!res.ok) throw new Error(data?.detail || 'Oikoluku epäonnistui.');
-            proofreadSelection.cIndex = chapterIndex;
-            proofreadSuggestions = (data.suggestions || []).map(item => ({ ...item, status: '' }));
-            if (status) {
-                status.textContent = data.warnings
-                    ? `${data.warnings} ${proofreadSuggestions.length} ehdotusta.`
-                    : `${proofreadSuggestions.length} korjausehdotusta.`;
-            }
-            renderProofreadView();
+            proofreadSuggestions = (data.suggestions || []).map(item => ({ ...item, status: 'open' }));
+            setProofreadWarnings('proofread-warnings', data.warnings || []);
+            renderProofreadSuggestions();
             loadUsage();
         } catch (err) {
-            if (status) status.textContent = err.message;
-            alert('Oikoluku epäonnistui: ' + err.message);
+            proofreadToast('Oikoluku epäonnistui: ' + err.message);
             loadUsage();
         } finally {
+            setProofreadWorking(false);
             if (button) button.disabled = false;
         }
     }
 
     async function runProofreadExtraCheck() {
-        const button = document.getElementById('proofread-extra-run-btn');
-        const status = document.getElementById('proofread-extra-status');
-        const scope = document.getElementById('proofread-extra-scope')?.value || 'pdf';
-        const rules = document.getElementById('proofread-extra-rules')?.value?.trim() || DEFAULT_EXTRA_PROOFREAD_RULES;
-        const chapterIndex = Number(document.getElementById('proofread-chapter-select')?.value ?? proofreadSelection.cIndex ?? 0);
-        const pdfFile = document.getElementById('proofread-pdf-file')?.files?.[0] || null;
-
-        if (scope === 'pdf') {
+        const button = document.getElementById('btn-run-extra');
+        const rules = document.getElementById('extra-rules')?.value?.trim() || proofreadDefaultRules || DEFAULT_EXTRA_PROOFREAD_RULES;
+        const chapterIndex = proofreadSelection.cIndex ?? 0;
+        const pdfFile = document.getElementById('pdf-file')?.files?.[0] || null;
+        if (proofreadScope === 'pdf') {
             if (!pdfFile) {
-                alert('Valitse PDF-tiedosto ensin.');
+                proofreadToast('Valitse PDF-tiedosto ensin.');
                 return;
             }
             if (!pdfFile.name.toLowerCase().endsWith('.pdf')) {
-                alert('Pdf-tarkistin ottaa tässä vaiheessa vastaan PDF-tiedoston.');
-                return;
-            }
-        } else {
-            if (!window.manuscriptData?.id) {
-                alert('Valitse tai tallenna käsikirjoitus ensin.');
-                return;
-            }
-            if (scope === 'chapter' && !window.manuscriptData.chapters?.[chapterIndex]) {
-                alert('Valitse luku ensin.');
+                proofreadToast('Tarkistin ottaa vastaan PDF-tiedoston.');
                 return;
             }
         }
-
+        if (proofreadScope !== 'pdf' && !currentProofreadChapters()[chapterIndex]) {
+            proofreadToast('Valitse luku tai käsikirjoitus ensin.');
+            return;
+        }
         if (button) button.disabled = true;
-        if (status) {
-            if (scope === 'pdf') {
-                status.textContent = 'Luetaan PDF-tiedosto ja ajetaan Pdf-tarkistus...';
-            } else {
-                status.textContent = scope === 'book'
-                    ? 'Tallennetaan nykyinen versio ja tarkistetaan käsikirjoitusta...'
-                    : 'Tallennetaan nykyinen versio ja tarkistetaan valittua lukua...';
-            }
-        }
         proofreadExtraFindings = [];
-        renderProofreadExtraFindings();
+        renderProofreadExtraFindings('', []);
         try {
-            saveProofreadExtraRules();
             let res;
-            if (scope === 'pdf') {
+            if (proofreadScope === 'pdf') {
+                setProofreadWorking(true, 'Luetaan PDF-tiedostoa...');
                 const formData = new FormData();
                 formData.append('file', pdfFile);
                 formData.append('rules_prompt', rules);
                 if (window.manuscriptData?.id) formData.append('project_id', String(window.manuscriptData.id));
-                res = await apiFetch('/api/proofread/pdf-check', {
-                    method: 'POST',
-                    body: formData
-                });
+                res = await apiFetch('/api/proofread/pdf-check', { method: 'POST', body: formData });
             } else {
-                const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
-                if (savedProject?.id) window.manuscriptData = savedProject;
+                await ensureProofreadProjectSaved('Tallennetaan nykyinen versio...');
+                setProofreadWorking(true, proofreadScope === 'book' ? 'Tarkistetaan koko kirjaa...' : 'Tarkistetaan lukua...');
                 res = await apiFetch('/api/proofread/extra-check', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         project_id: window.manuscriptData.id,
-                        scope,
-                        chapter_index: chapterIndex,
-                        rules_prompt: rules
-                    })
+                        scope: proofreadScope,
+                        chapter_index: proofreadScope === 'chapter' ? chapterIndex : null,
+                        rules_prompt: rules,
+                    }),
                 });
             }
             const data = await res.json().catch(() => null);
-            if (!res.ok) throw new Error(data?.detail || 'Pdf-tarkistus epäonnistui.');
+            if (!res.ok) throw new Error(data?.detail || 'Tarkistus epäonnistui.');
             proofreadExtraFindings = Array.isArray(data.findings) ? data.findings : [];
-            const summary = [
-                data.summary || `${proofreadExtraFindings.length} löydöstä.`,
-                data.warnings || ''
-            ].filter(Boolean).join(' ');
-            renderProofreadExtraFindings(summary);
+            renderProofreadExtraFindings(data.summary || `${proofreadExtraFindings.length} löydöstä.`, data.warnings || []);
             loadUsage();
         } catch (err) {
-            if (status) status.textContent = err.message;
-            alert('Pdf-tarkistus epäonnistui: ' + err.message);
+            proofreadToast('Tarkistus epäonnistui: ' + err.message);
             loadUsage();
         } finally {
+            setProofreadWorking(false);
             if (button) button.disabled = false;
         }
     }
 
     async function acceptProofreadSuggestion(index) {
         const suggestion = proofreadSuggestions[index];
-        const chapter = window.manuscriptData?.chapters?.[proofreadSelection.cIndex];
+        const chapter = currentProofreadChapter();
         if (!suggestion || !chapter) return;
         const changed = applyProofreadSuggestionToChapter(chapter, suggestion);
         if (!changed) {
-            alert('Alkuperäistä kohtaa ei löytynyt enää luvusta. Ehdotus voi olla vanhentunut.');
+            suggestion.status = 'stale';
+            renderProofreadSuggestions();
+            proofreadToast('Kohtaa ei enää löytynyt. Ehdotus voi olla vanhentunut.');
             return;
         }
-        suggestion.status = 'accepted';
-        await window.saveProjectChapterToDB(window.manuscriptData, proofreadSelection.cIndex);
-        renderBookOverview();
-        renderWritingView();
-        renderProofreadView();
-        renderMarketingMaterialsFromAnalysis(false);
-        if (window.renderNavList) window.renderNavList();
+        try {
+            setProofreadWorking(true, 'Tallennetaan korjausta...');
+            const saved = await window.saveProjectChapterToDB(window.manuscriptData, proofreadSelection.cIndex);
+            if (saved?.id) {
+                window.manuscriptData = saved;
+                updateAvailableProject(saved);
+            }
+            suggestion.status = 'accepted';
+            renderBookOverview();
+            renderWritingView();
+            renderProofreadView();
+            renderMarketingMaterialsFromAnalysis(false);
+            if (window.renderNavList) window.renderNavList();
+        } catch (err) {
+            proofreadToast('Korjauksen tallennus epäonnistui: ' + err.message);
+        } finally {
+            setProofreadWorking(false);
+        }
+    }
+
+    async function acceptAllOpenProofreadSuggestions() {
+        const chapter = currentProofreadChapter();
+        if (!chapter) return;
+        let applied = 0;
+        proofreadSuggestions.forEach(suggestion => {
+            if (suggestion.status !== 'open') return;
+            if (applyProofreadSuggestionToChapter(chapter, suggestion)) {
+                suggestion.status = 'accepted';
+                applied++;
+            } else {
+                suggestion.status = 'stale';
+            }
+        });
+        if (!applied) {
+            renderProofreadSuggestions();
+            proofreadToast('Ei hyväksyttäviä ehdotuksia.');
+            return;
+        }
+        try {
+            setProofreadWorking(true, 'Tallennetaan korjauksia...');
+            const saved = await window.saveProjectChapterToDB(window.manuscriptData, proofreadSelection.cIndex);
+            if (saved?.id) {
+                window.manuscriptData = saved;
+                updateAvailableProject(saved);
+            }
+            renderBookOverview();
+            renderWritingView();
+            renderProofreadView();
+            proofreadToast(`${applied} korjausta tallennettu.`);
+        } catch (err) {
+            proofreadToast('Korjausten tallennus epäonnistui: ' + err.message);
+        } finally {
+            setProofreadWorking(false);
+        }
+    }
+
+    function scheduleProofreadPreview() {
+        clearTimeout(proofreadPreviewTimer);
+        proofreadPreviewTimer = setTimeout(refreshProofreadPreview, 350);
+    }
+
+    async function refreshProofreadPreview() {
+        const preview = document.getElementById('finishing-preview');
+        const chips = document.getElementById('cleanup-counts');
+        if (!preview) return;
+        if (!window.manuscriptData?.id) {
+            preview.textContent = 'Tallenna käsikirjoitus ennen viimeistelyn esikatselua.';
+            if (chips) chips.innerHTML = '';
+            return;
+        }
+        try {
+            const res = await apiFetch('/api/proofread/finishing/preview', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    project_id: window.manuscriptData.id,
+                    scope: 'chapter',
+                    chapter_index: proofreadSelection.cIndex ?? 0,
+                    settings: {
+                        paragraph_style: proofreadParagraphStyle,
+                        hyphenation: proofreadHyphenation,
+                    },
+                    cleanup: proofreadCleanupKinds(),
+                }),
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.detail || 'Esikatselu epäonnistui.');
+            preview.textContent = data.text || '';
+            if (chips) {
+                const counts = data.cleanup_counts || {};
+                const total = Object.values(counts).reduce((sum, value) => sum + Number(value || 0), 0);
+                chips.innerHTML = total
+                    ? `<span class="badge">Siistintä löysi ${formatNumber(total)} kohtaa koko kirjasta</span>`
+                    : '<span class="badge">Ei automaattisia siistintöjä</span>';
+            }
+        } catch (err) {
+            preview.textContent = 'Esikatselu epäonnistui: ' + err.message;
+            if (chips) chips.innerHTML = '';
+        }
+    }
+
+    async function downloadProofreadFinished() {
+        try {
+            await ensureProofreadProjectSaved('Tallennetaan ennen TXT-koontia...');
+            setProofreadWorking(true, 'Kootaan viimeisteltyä TXT:tä...');
+            const res = await apiFetch('/api/proofread/finishing/preview', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    project_id: window.manuscriptData.id,
+                    scope: 'book',
+                    settings: {
+                        paragraph_style: proofreadParagraphStyle,
+                        hyphenation: proofreadHyphenation,
+                    },
+                    cleanup: proofreadCleanupKinds(),
+                }),
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.detail || 'TXT-koonti epäonnistui.');
+            const slug = (window.manuscriptData.title || 'kirja').toLowerCase().replace(/[^a-z0-9åäö]+/g, '-').replace(/^-|-$/g, '');
+            downloadProofreadText(data.text || '', `viimeistelty-${slug || 'kirja'}.txt`);
+        } catch (err) {
+            proofreadToast('TXT-lataus epäonnistui: ' + err.message);
+        } finally {
+            setProofreadWorking(false);
+        }
+    }
+
+    async function applyProofreadFinishing() {
+        try {
+            await ensureProofreadProjectSaved('Tallennetaan ennen viimeistelyä...');
+            setProofreadWorking(true, 'Valmistellaan viimeisteltyä versiota...');
+            const res = await apiFetch('/api/proofread/finishing/apply', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    project_id: window.manuscriptData.id,
+                    cleanup: proofreadCleanupKinds(),
+                    settings: {
+                        paragraph_style: proofreadParagraphStyle,
+                        hyphenation: proofreadHyphenation,
+                    },
+                }),
+            });
+            const result = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(result?.detail || 'Viimeistely epäonnistui.');
+            setProofreadWorking(false);
+            const total = Number(result.total_changes || 0);
+            const message = total
+                ? `Siistintä muuttaa ${formatNumber(total)} kohtaa koko käsikirjoituksesta.\n\nLuodaanko viimeistelty versio? Nykyiset luvut korvataan.`
+                : 'Siistintä ei löytänyt korjattavaa. Tallennetaanko kappale- ja tavutusasetukset silti?';
+            if (!confirm(message)) return;
+            setProofreadWorking(true, 'Tallennetaan viimeisteltyä versiota...');
+            const saveRes = await apiFetch('/api/projects', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    id: window.manuscriptData.id,
+                    title: window.manuscriptData.title,
+                    author: window.manuscriptData.author,
+                    chapters: result.chapters || [],
+                    replace_chapters: true,
+                }),
+            });
+            const saved = await saveRes.json().catch(() => null);
+            if (!saveRes.ok) throw new Error(saved?.detail || 'Viimeistellyn version tallennus epäonnistui.');
+            const metadataRes = await apiFetch(`/api/projects/${window.manuscriptData.id}/metadata`, {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ analysis: result.finishing_metadata || {} }),
+            });
+            const metadataProject = await metadataRes.json().catch(() => null);
+            if (!metadataRes.ok) throw new Error(metadataProject?.detail || 'Viimeistelyn metadatan tallennus epäonnistui.');
+            window.manuscriptData = metadataProject || saved;
+            updateAvailableProject(window.manuscriptData);
+            renderBookOverview();
+            renderWritingView();
+            renderProofreadView();
+            if (window.renderNavList) window.renderNavList();
+            proofreadToast('Viimeistelty versio tallennettu.');
+        } catch (err) {
+            proofreadToast('Viimeistely epäonnistui: ' + err.message);
+        } finally {
+            setProofreadWorking(false);
+        }
     }
 
     function applyProofreadSuggestionToChapter(chapter, suggestion) {
@@ -11097,13 +11384,13 @@ ${state.validation || 'Ei validointia.'}`;
     const miscSaveBtn = document.getElementById('misc-save-btn');
     const miscSaveBookBtn = document.getElementById('misc-save-book-btn');
     const layoutRunBtn = document.getElementById('layout-run-btn');
-    const proofreadRunBtn = document.getElementById('proofread-run-btn');
+    const proofreadRunBtn = document.getElementById('btn-run-proofread');
     const proofreadChapterSelect = document.getElementById('proofread-chapter-select');
-    const proofreadExtraRunBtn = document.getElementById('proofread-extra-run-btn');
+    const proofreadExtraRunBtn = document.getElementById('btn-run-extra');
     const proofreadExtraScopeSelect = document.getElementById('proofread-extra-scope');
-    const proofreadPdfFileInput = document.getElementById('proofread-pdf-file');
+    const proofreadPdfFileInput = document.getElementById('pdf-file');
     const proofreadExtraSaveRulesBtn = document.getElementById('proofread-extra-save-rules-btn');
-    const proofreadExtraResetRulesBtn = document.getElementById('proofread-extra-reset-rules-btn');
+    const proofreadExtraResetRulesBtn = document.getElementById('btn-reset-rules');
     const workflowModeSelect = document.getElementById('workflow-mode');
     const workflowStartBtn = document.getElementById('workflow-start-btn');
 	    const workflowRefreshBtn = document.getElementById('workflow-refresh-btn');
@@ -11141,7 +11428,7 @@ ${state.validation || 'Ei validointia.'}`;
         tab.addEventListener('click', () => showBiographyPanel(tab.dataset.bioPanel));
     });
     document.querySelectorAll('.proofread-tab').forEach(tab => {
-        tab.addEventListener('click', () => showProofreadPanel(tab.dataset.proofreadPanel || 'proofread-panel-chapter'));
+        tab.addEventListener('click', () => showProofreadPanel(tab.dataset.proofreadPanel || 'oikoluku'));
     });
     ['translation-source-select', 'translation-language-select', 'translation-style-select', 'translation-model-select', 'translation-chunk-select'].forEach(id => {
         const element = document.getElementById(id);
@@ -11254,9 +11541,41 @@ ${state.validation || 'Ei validointia.'}`;
     if (proofreadRunBtn) proofreadRunBtn.addEventListener('click', runProofreadChapter);
     if (proofreadExtraRunBtn) proofreadExtraRunBtn.addEventListener('click', runProofreadExtraCheck);
     if (proofreadExtraScopeSelect) proofreadExtraScopeSelect.addEventListener('change', updateProofreadExtraScopeUi);
-    if (proofreadPdfFileInput) proofreadPdfFileInput.addEventListener('change', updateProofreadExtraScopeUi);
-    if (proofreadExtraSaveRulesBtn) proofreadExtraSaveRulesBtn.addEventListener('click', saveProofreadExtraRules);
+    if (proofreadPdfFileInput) proofreadPdfFileInput.addEventListener('change', () => {
+        proofreadScope = 'pdf';
+        renderProofreadScopeChips();
+    });
+    if (proofreadExtraSaveRulesBtn) proofreadExtraSaveRulesBtn.addEventListener('click', () => proofreadToast('Sääntöpromptia käytetään tässä ajossa.'));
     if (proofreadExtraResetRulesBtn) proofreadExtraResetRulesBtn.addEventListener('click', resetProofreadExtraRules);
+    document.getElementById('btn-prev-chapter')?.addEventListener('click', () => gotoProofreadChapter((proofreadSelection.cIndex || 0) - 1));
+    document.getElementById('btn-next-chapter')?.addEventListener('click', () => gotoProofreadChapter((proofreadSelection.cIndex || 0) + 1));
+    document.getElementById('btn-chapter-title')?.addEventListener('click', openProofreadSheet);
+    document.getElementById('btn-close-chapter-sheet')?.addEventListener('click', closeProofreadSheets);
+    document.getElementById('sheet-backdrop')?.addEventListener('click', closeProofreadSheets);
+    document.getElementById('btn-accept-all')?.addEventListener('click', acceptAllOpenProofreadSuggestions);
+    document.getElementById('btn-download-finished')?.addEventListener('click', downloadProofreadFinished);
+    document.getElementById('btn-apply-finishing')?.addEventListener('click', applyProofreadFinishing);
+    document.querySelectorAll('[data-cleanup]').forEach(element => {
+        element.addEventListener('change', scheduleProofreadPreview);
+    });
+    document.querySelectorAll('[data-parastyle]').forEach(button => {
+        button.addEventListener('click', () => {
+            proofreadParagraphStyle = button.dataset.parastyle || 'spacing';
+            document.querySelectorAll('[data-parastyle]').forEach(other => {
+                other.classList.toggle('is-active', other === button);
+            });
+            scheduleProofreadPreview();
+        });
+    });
+    document.querySelectorAll('[data-hyphen]').forEach(button => {
+        button.addEventListener('click', () => {
+            proofreadHyphenation = button.dataset.hyphen || 'none';
+            document.querySelectorAll('[data-hyphen]').forEach(other => {
+                other.classList.toggle('is-active', other === button);
+            });
+            scheduleProofreadPreview();
+        });
+    });
     if (workflowModeSelect) {
         workflowModeSelect.addEventListener('change', () => {
             if (!workflowRunning) workflowSteps = defaultWorkflowSteps(workflowModeSelect.value || 'light');

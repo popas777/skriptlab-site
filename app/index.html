@@ -1390,88 +1390,127 @@
 
             <!-- 5.2 VIEW: OIKOLUKU -->
             <div id="view-oikoluku" class="view-section hidden">
-                <div class="header">
-                    <div class="header-info">
-	                        <h2>Oikoluku ja viimeistely</h2>
-                        <p id="proofread-current-project">Käsikirjoitus: [Ei aktiivista teosta]</p>
-                    </div>
-                    <div class="header-actions">
-                        <button class="btn btn-primary" id="proofread-run-btn">Oikolue luku</button>
-                    </div>
-                </div>
-
-                <div class="translation-tabs proofread-tabs">
-                    <button class="translation-tab proofread-tab active" data-proofread-panel="proofread-panel-chapter">Lukukohtainen oikoluku</button>
-                    <button class="translation-tab proofread-tab" data-proofread-panel="proofread-panel-pdf">Pdf-tarkistin</button>
-                </div>
-
-                <div id="proofread-panel-chapter" class="proofread-panel">
-                    <div class="proofread-workspace">
-                        <aside class="proofread-nav glass-panel">
-                            <h3>Luvut</h3>
-                            <select id="proofread-chapter-select"></select>
-                            <p id="proofread-status">Valitse luku ja käynnistä oikoluku.</p>
-                        </aside>
-                        <section class="proofread-text glass-panel">
-                            <div class="panel-header">
-                                <h3 id="proofread-chapter-title">Valitse luku</h3>
-                            </div>
-                            <textarea id="proofread-source-text" class="writing-text" readonly placeholder="Luvun teksti näkyy tässä."></textarea>
-                        </section>
-                        <section class="proofread-suggestions glass-panel">
-                            <div class="panel-header">
-                                <h3>Korjausehdotukset</h3>
-                                <span id="proofread-count" class="save-timestamp">0 ehdotusta</span>
-                            </div>
-                            <div id="proofread-suggestions-list" class="proofread-suggestions-list">
-                                <p style="color:var(--text-secondary);">Ei ehdotuksia vielä.</p>
-                            </div>
-                        </section>
-                    </div>
-                </div>
-
-                <div id="proofread-panel-pdf" class="proofread-extra proofread-panel glass-panel hidden">
-                    <div class="panel-header">
-                        <div>
-                            <h3>Pdf-tarkistin</h3>
-                            <p class="card-meta">Irrallinen tarkistin PDF-tiedostolle, valitulle luvulle tai koko käsikirjoitukselle. Python-tarkistusta ei ajeta.</p>
+                <div class="proofread-modern">
+                    <header class="proofread-step-header">
+                        <div class="grow">
+                            <p class="eyebrow">Oikoluku ja viimeistely</p>
+                            <h2 id="proofread-project-title">Ei aktiivista teosta</h2>
                         </div>
-                        <button class="btn btn-primary" id="proofread-extra-run-btn" type="button">Aja Pdf-tarkistus</button>
+                        <p class="hint" id="proofread-status-text" role="status" aria-live="polite"></p>
+                    </header>
+
+                    <div class="mode-switch proofread-mode-switch" role="tablist" aria-label="Työvaiheet">
+                        <button id="tab-oikoluku" class="proofread-tab is-active" data-proofread-panel="oikoluku" role="tab" type="button">Oikoluku</button>
+                        <button id="tab-tarkistus" class="proofread-tab" data-proofread-panel="tarkistus" role="tab" type="button">Tarkistus</button>
+                        <button id="tab-viimeistely" class="proofread-tab" data-proofread-panel="viimeistely" role="tab" type="button">Viimeistely</button>
                     </div>
-                    <div class="proofread-extra-grid">
-                        <section class="proofread-extra-rules">
-                            <div class="settings-row">
-                                <label for="proofread-extra-scope">Tarkistuksen kohde</label>
-                                <select id="proofread-extra-scope">
-                                    <option value="pdf">Erillinen PDF-tiedosto</option>
-                                    <option value="chapter">Valittu luku</option>
-                                    <option value="book">Koko käsikirjoitus</option>
-                                </select>
+
+                    <section id="panel-oikoluku" class="proofread-panel">
+                        <div class="chapter-bar">
+                            <button class="nav-arrow" id="btn-prev-chapter" aria-label="Edellinen luku" type="button">‹</button>
+                            <button class="chapter-title-btn" id="btn-chapter-title" type="button">
+                                <span id="chapter-title-text">Valitse luku</span>
+                                <span class="sub" id="chapter-title-sub"></span>
+                            </button>
+                            <button class="nav-arrow" id="btn-next-chapter" aria-label="Seuraava luku" type="button">›</button>
+                        </div>
+
+                        <div class="proofread-actions-row">
+                            <button class="btn btn-primary" id="btn-run-proofread" type="button">Oikolue luku</button>
+                        </div>
+
+                        <div class="warnings hidden" id="proofread-warnings"></div>
+                        <div class="summary-card hidden" id="proofread-summary"></div>
+                        <div id="suggestions-list" class="proofread-modern-list"></div>
+                        <div class="proofread-actions-row hidden" id="accept-all-row">
+                            <button class="btn btn-secondary" id="btn-accept-all" type="button">Hyväksy kaikki avoimet</button>
+                        </div>
+                    </section>
+
+                    <section id="panel-tarkistus" class="proofread-panel hidden">
+                        <p class="step-intro">Viimeistelytarkistus etsii typografian ja taittovalmiuden riskikohdat ja tuottaa raportin. Se ei muuta tekstiä.</p>
+
+                        <h3 class="list-title">Tarkistuksen kohde</h3>
+                        <div class="tool-chips" id="scope-chips" role="radiogroup"></div>
+
+                        <div class="field hidden" id="pdf-upload-row">
+                            <span class="field-label">PDF-tiedosto</span>
+                            <input type="file" id="pdf-file" accept=".pdf,application/pdf">
+                        </div>
+
+                        <details class="mass-section">
+                            <summary>Tarkistussäännöt</summary>
+                            <div class="mass-body">
+                                <label class="field">
+                                    <span class="field-label">Sääntöprompti</span>
+                                    <textarea id="extra-rules" rows="7"></textarea>
+                                </label>
+                                <div class="proofread-actions-row">
+                                    <button class="btn btn-secondary" id="btn-reset-rules" type="button">Palauta oletukset</button>
+                                </div>
                             </div>
-                            <div class="settings-row" id="proofread-pdf-upload-row">
-                                <label for="proofread-pdf-file">PDF-tiedosto</label>
-                                <input id="proofread-pdf-file" type="file" accept=".pdf,application/pdf">
-                                <p id="proofread-pdf-file-status" class="card-meta">Valitse PDF-tiedosto, jonka teksti tarkistetaan erillisenä aineistona.</p>
-                            </div>
-                            <label for="proofread-extra-rules">Suomen kielen sääntöprompti</label>
-                            <textarea id="proofread-extra-rules" placeholder="Kirjoita tähän ylimääräisen tarkistuksen säännöt."></textarea>
-                            <div class="proofread-extra-actions">
-                                <button class="btn btn-secondary" id="proofread-extra-save-rules-btn" type="button">Tallenna sääntöprompti</button>
-                                <button class="btn btn-secondary" id="proofread-extra-reset-rules-btn" type="button">Palauta oletus</button>
-                            </div>
-                            <p id="proofread-extra-rules-status" class="card-meta">Säännöt tallennetaan tämän selaimen asetuksiin.</p>
-                        </section>
-                        <section class="proofread-extra-results">
-                            <div class="panel-header">
-                                <h3>Pdf-tarkistuksen raportti</h3>
-                                <span id="proofread-extra-count" class="save-timestamp">0 löydöstä</span>
-                            </div>
-                            <p id="proofread-extra-status">Valitse PDF tai tarkistuksen kohde ja aja tarkistus.</p>
-                            <div id="proofread-extra-list" class="proofread-suggestions-list">
-                                <p style="color:var(--text-secondary);">Ei löydöksiä vielä.</p>
-                            </div>
-                        </section>
+                        </details>
+
+                        <div class="proofread-actions-row">
+                            <button class="btn btn-primary" id="btn-run-extra" type="button">Tarkista</button>
+                        </div>
+
+                        <div class="warnings hidden" id="extra-warnings"></div>
+                        <div class="summary-card hidden" id="extra-summary"></div>
+                        <div id="findings-list" class="proofread-modern-list"></div>
+                    </section>
+
+                    <section id="panel-viimeistely" class="proofread-panel hidden">
+                        <p class="step-intro">Tee käsikirjoituksesta viimeistelty versio: siisti typografia, valitse kappaleiden asettelu ja suomen tavutus. Uuden version voi taittaa Tuotanto-moduulissa.</p>
+
+                        <h3 class="list-title">Typografian siistintä</h3>
+                        <label class="check-row"><input type="checkbox" data-cleanup="spaces" checked> Tuplavälit ja välit reunoilla</label>
+                        <label class="check-row"><input type="checkbox" data-cleanup="punctuation_spacing" checked> Välit välimerkkien ympärillä</label>
+                        <label class="check-row"><input type="checkbox" data-cleanup="quotes" checked> Lainausmerkit suomen käytännön mukaan</label>
+                        <label class="check-row"><input type="checkbox" data-cleanup="dashes" checked> Ajatusviivat</label>
+                        <label class="check-row"><input type="checkbox" data-cleanup="ellipsis" checked> Kolme pistettä</label>
+
+                        <h3 class="list-title">Kappaleet</h3>
+                        <div class="scope-switch proofread-scope-switch" role="radiogroup" aria-label="Kappaleiden asettelu">
+                            <button data-parastyle="spacing" class="is-active" type="button">Väli</button>
+                            <button data-parastyle="indent" type="button">Sisennys</button>
+                            <button data-parastyle="both" type="button">Molemmat</button>
+                        </div>
+
+                        <h3 class="list-title">Tavutus</h3>
+                        <div class="scope-switch proofread-scope-switch" role="radiogroup" aria-label="Tavutus">
+                            <button data-hyphen="none" class="is-active" type="button">Ei tavutusta</button>
+                            <button data-hyphen="soft" type="button">Pehmeä tavutus</button>
+                        </div>
+                        <p class="hint">Pehmeät tavuviivat näkyvät vain rivin katketessa ja tallentuvat asetuksena, eivät lähdetekstiin.</p>
+
+                        <h3 class="list-title">Esikatselu <span class="hint" id="preview-chapter-name"></span></h3>
+                        <div class="counts-chips" id="cleanup-counts"></div>
+                        <div class="reader-card" id="finishing-preview">Valitse käsikirjoitus.</div>
+
+                        <div class="proofread-actions-row">
+                            <button class="btn btn-secondary" id="btn-download-finished" type="button">Lataa viimeistelty TXT</button>
+                            <button class="btn btn-primary" id="btn-apply-finishing" type="button">Luo viimeistelty versio</button>
+                        </div>
+                    </section>
+
+                    <div class="sheet-backdrop hidden" id="sheet-backdrop"></div>
+                    <div class="proofread-sheet hidden" id="chapter-sheet" role="dialog" aria-modal="true" aria-label="Luvut">
+                        <div class="sheet-handle" aria-hidden="true"></div>
+                        <h3>Luvut</h3>
+                        <div class="sheet-content">
+                            <ul class="sheet-list" id="chapter-sheet-list"></ul>
+                        </div>
+                        <div class="proofread-actions-row">
+                            <button class="btn btn-primary" id="btn-close-chapter-sheet" type="button">Sulje</button>
+                        </div>
                     </div>
+
+                    <div class="proofread-working hidden" id="proofread-working" aria-live="polite">
+                        <div class="working-thread" aria-hidden="true"></div>
+                        <p id="proofread-working-label">Hetki...</p>
+                    </div>
+                    <div class="proofread-toast hidden" id="proofread-toast" role="status" aria-live="polite"></div>
                 </div>
             </div>
 
