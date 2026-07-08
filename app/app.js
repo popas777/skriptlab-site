@@ -8756,6 +8756,55 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         return latestFinnishTranslationEstimate;
     }
 
+    async function fetchSavedTranslation(translationId) {
+        const res = await apiFetch(`/api/translations/${translationId}`);
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.detail || 'Valmiin käännöksen haku epäonnistui.');
+        return data;
+    }
+
+    async function pollTranslationJob(jobId, statusEl, label) {
+        while (true) {
+            const res = await apiFetch(`/api/translations/jobs/${jobId}`);
+            const job = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(job?.detail || 'Käännöstyön tilan haku epäonnistui.');
+            const done = Number(job?.done_chunks || 0);
+            const total = Number(job?.total_chunks || 0);
+            if (statusEl && total) {
+                statusEl.textContent = `${label} käynnissä. Osa ${Math.min(done, total)}/${total}.`;
+            } else if (statusEl && job?.message) {
+                statusEl.textContent = job.message;
+            }
+            if ((job.status === 'done' || job.status === 'completed' || job.status === 'partial') && job.translation_id) {
+                return fetchSavedTranslation(job.translation_id);
+            }
+            if (job.status === 'done' || job.status === 'completed' || job.status === 'partial') {
+                throw new Error(job.message || `${label} valmistui, mutta valmista käännöstä ei löytynyt.`);
+            }
+            if (job.status === 'failed' || job.status === 'error') {
+                throw new Error(job.error || job.message || `${label} epäonnistui.`);
+            }
+            await wait(2500);
+        }
+    }
+
+    async function runTranslationJob(payload, statusEl, label) {
+        const res = await apiFetch('/api/translations/jobs', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        const job = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(job?.detail || `${label} ei käynnistynyt.`);
+        if (statusEl) {
+            const total = Number(job?.total_chunks || 0);
+            statusEl.textContent = total
+                ? `${label} jonossa. ${total} osaa odottaa käännöstä.`
+                : `${label} jonossa.`;
+        }
+        return pollTranslationJob(job.job_id, statusEl, label);
+    }
+
     async function createFinnishTranslationGuidelines() {
         const payload = finnishTranslationRequestPayload({ includeInstructions: true });
         const project = currentFinnishTranslationProject();
@@ -9490,11 +9539,33 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                     model: modelEl?.value || null,
-                    prompt
+                    prompt,
+                    preview: true
                 })
             });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.detail || 'Käännöspalan uudelleenajo epäonnistui.');
+            const preview = await res.json();
+            if (!res.ok) throw new Error(preview.detail || 'Käännöspalan uudelleenajo epäonnistui.');
+            const proposedTranslation = String(preview.translation || '').trim();
+            if (!proposedTranslation) {
+                throw new Error('Uudelleenajo ei palauttanut käännöstekstiä.');
+            }
+            const warningText = preview.quality_warning ? `\n\nHuomautus: ${preview.quality_warning}` : '';
+            const previewText = proposedTranslation.length > 1600
+                ? `${proposedTranslation.slice(0, 1600)}\n\n[...]`
+                : proposedTranslation;
+            const accepted = confirm(`Uusi ehdotus:\n\n${previewText}${warningText}\n\nHyväksytäänkö ehdotus ja korvataan nykyinen pala?`);
+            if (!accepted) {
+                if (statusEl) statusEl.textContent = 'Uudelleenajo tehty esikatseluna. Nykyistä palaa ei muutettu.';
+                return;
+            }
+
+            const saveRes = await apiFetch(`/api/translations/${item.id}/chunks/${index}`, {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ translation: proposedTranslation })
+            });
+            const data = await saveRes.json();
+            if (!saveRes.ok) throw new Error(data.detail || 'Uuden ehdotuksen tallennus epäonnistui.');
 
             if (isFinnish) {
                 selectedFinnishTranslation = data;
@@ -9515,7 +9586,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 renderTranslationParts();
                 await renderTranslationHistory();
             }
-            if (statusEl) statusEl.textContent = 'Osa ajettu uudelleen ja käännös päivitetty.';
+            if (statusEl) statusEl.textContent = 'Uusi ehdotus hyväksytty ja pala päivitetty.';
         } catch (err) {
             if (statusEl) statusEl.textContent = err.message;
             alert('Uudelleenajo epäonnistui: ' + err.message);
@@ -9685,13 +9756,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 : await fetchTranslationEstimate(payload);
             startTranslationTimer(estimate);
             if (status) status.textContent = `Käännös käynnissä. ${estimate.chunks_count} osaa${translationParallelLabel(estimate)}, arvioitu kesto noin ${formatDuration(estimate.estimated_seconds)}.`;
-            const res = await apiFetch('/api/translations', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.detail || 'Käännös epäonnistui.');
+            const data = await runTranslationJob(payload, status, 'Käännös');
             latestTranslationText = data.translated_text || '';
             if (output) output.value = latestTranslationText;
             if (status) {
@@ -9746,13 +9811,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 const runLabel = useCustomInstructions ? 'Räätälöity suomennos' : 'Suomennos';
                 status.textContent = `${runLabel} käynnissä. ${estimate.chunks_count} osaa${translationParallelLabel(estimate)}, arvioitu kesto noin ${formatDuration(estimate.estimated_seconds)}.`;
             }
-            const res = await apiFetch('/api/translations', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.detail || 'Suomennos epäonnistui.');
+            const data = await runTranslationJob(payload, status, useCustomInstructions ? 'Räätälöity suomennos' : 'Suomennos');
             latestFinnishTranslationText = data.translated_text || '';
             if (output) output.value = latestFinnishTranslationText;
             if (status) {
