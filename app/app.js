@@ -268,10 +268,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         'view-om-kokonaisuus',
         'view-om-vienti'
     ]);
-    const writerViews = new Set(['view-kirjani', 'view-kirjoita', 'view-analyysi', 'view-rakenne', 'view-toimitus', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-kaannokset', 'view-suomentaja', 'view-elamakerta']);
-    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-analyysi', 'view-rakenne', 'view-toimitus', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
+    const writerViews = new Set(['view-kirjani', 'view-kirjoita', 'view-analyysi', 'view-rakenne', 'view-kehityseditointi', 'view-toimitus', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-kaannokset', 'view-suomentaja', 'view-elamakerta']);
+    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-analyysi', 'view-rakenne', 'view-kehityseditointi', 'view-toimitus', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset', 'view-suomentaja']);
-    const biographyViews = new Set(['view-kirjani', 'view-rakenne', 'view-kirjoita', 'view-ai-tyonkulku', 'view-elamakerta', 'view-toimitus', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-audio', 'view-kirja', 'view-julkaise']);
+    const biographyViews = new Set(['view-kirjani', 'view-rakenne', 'view-kehityseditointi', 'view-kirjoita', 'view-ai-tyonkulku', 'view-elamakerta', 'view-toimitus', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-audio', 'view-kirja', 'view-julkaise']);
     const roleLabels = {
         admin: 'Admin',
         test_user: 'Test user',
@@ -3204,6 +3204,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (currentViewId === 'view-tyopoyta' && nextViewId !== 'view-tyopoyta') {
             saveWriterDeskText(false);
         }
+        if (currentViewId === 'view-kehityseditointi' && nextViewId !== 'view-kehityseditointi') {
+            saveDevelopmentEditingEdits(false);
+        }
     }
 
     navItems.forEach(item => {
@@ -3224,6 +3227,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             }
             if (nextViewId === 'view-rakenne') {
                 renderStructureModule();
+            }
+            if (nextViewId === 'view-kehityseditointi') {
+                renderDevelopmentEditingView();
             }
             if (nextViewId === 'view-tyopoyta') {
                 renderWriterDeskView();
@@ -6997,6 +7003,455 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             .filter(({ chapter, index }) => chapterPlacement(chapter, index) === 'body' && (chapter.paragraphs || []).join('').trim());
     }
 
+    function developmentData() {
+        if (!window.manuscriptData) return {};
+        window.manuscriptData.analysis = window.manuscriptData.analysis || {};
+        window.manuscriptData.analysis.development_editing = window.manuscriptData.analysis.development_editing || {};
+        return window.manuscriptData.analysis.development_editing;
+    }
+
+    function compactDevelopmentText(value, maxChars = 1800) {
+        const text = analysisValue(value).replace(/\s+/g, ' ').trim();
+        if (!text || text.length <= maxChars) return text;
+        const head = Math.floor(maxChars * 0.62);
+        const tail = Math.max(160, maxChars - head - 20);
+        return `${text.slice(0, head).trim()} ... ${text.slice(-tail).trim()}`;
+    }
+
+    function developmentFocusValues() {
+        return Array.from(document.querySelectorAll('.development-focus-grid input[type="checkbox"]:checked'))
+            .map(input => input.value)
+            .filter(Boolean);
+    }
+
+    function setDevelopmentFocusValues(values = []) {
+        const selected = new Set((values || []).map(value => String(value || '').toLowerCase()));
+        document.querySelectorAll('.development-focus-grid input[type="checkbox"]').forEach(input => {
+            input.checked = selected.size ? selected.has(String(input.value || '').toLowerCase()) : input.defaultChecked;
+        });
+    }
+
+    function readDevelopmentBriefFromForm() {
+        return {
+            genre: document.getElementById('development-genre')?.value?.trim() || '',
+            target_audience: document.getElementById('development-audience')?.value?.trim() || '',
+            feedback_mode: document.getElementById('development-tone')?.value || 'normal',
+            focus_areas: developmentFocusValues(),
+            support_material: document.getElementById('development-support')?.value?.trim() || '',
+            author_questions: document.getElementById('development-questions')?.value?.trim() || '',
+        };
+    }
+
+    function writeDevelopmentBriefToForm(brief = {}) {
+        const genre = document.getElementById('development-genre');
+        const audience = document.getElementById('development-audience');
+        const tone = document.getElementById('development-tone');
+        const support = document.getElementById('development-support');
+        const questions = document.getElementById('development-questions');
+        if (genre) genre.value = brief.genre || '';
+        if (audience) audience.value = brief.target_audience || '';
+        if (tone) tone.value = brief.feedback_mode || 'normal';
+        if (support) support.value = brief.support_material || '';
+        if (questions) questions.value = brief.author_questions || '';
+        setDevelopmentFocusValues(brief.focus_areas || []);
+    }
+
+    function developmentToneLabel(value) {
+        const labels = {
+            friendly: 'Kirjailijaystävällinen palaute',
+            normal: 'Normaali kehityspalaute',
+            strict: 'Tiukka kustannustoimittajan palaute',
+            publisher_internal: 'Kustantamon sisäinen arvio',
+            revision_plan: 'Korjaussuunnitelma'
+        };
+        return labels[value] || labels.normal;
+    }
+
+    function developmentChapterBrief(maxChapters = 18) {
+        const entries = bodyChapterEntries();
+        const selected = entries.slice(0, maxChapters);
+        const omitted = Math.max(0, entries.length - selected.length);
+        const rows = selected.map(({ chapter, index }, order) => {
+            const title = structureDisplayTitle(chapter, index) || `Osio ${order + 1}`;
+            const text = (chapter.paragraphs || []).join('\n\n').trim();
+            const opening = compactDevelopmentText(text.slice(0, 900), 560);
+            const ending = text.length > 1500 ? compactDevelopmentText(text.slice(-700), 280) : '';
+            return [
+                `CHAPTER_${String(order + 1).padStart(2, '0')} | lähdeindeksi ${index + 1} | ${title}`,
+                `Sanoja noin: ${countWords(text)}`,
+                opening ? `Alkunäyte: ${opening}` : '',
+                ending ? `Loppunäyte: ${ending}` : ''
+            ].filter(Boolean).join('\n');
+        });
+        if (omitted) {
+            rows.push(`HUOM: ${omitted} myöhempää osiota jätettiin pois tästä kevyestä promptista. Käytä saatavilla olevaa analyysiä ja merkitse epävarmuus näkyviin.`);
+        }
+        return rows.join('\n\n---\n\n');
+    }
+
+    function developmentAnalysisBrief() {
+        const analysis = window.manuscriptData?.analysis || {};
+        return [
+            ['Tallennettu synopsis', analysis.synopsis],
+            ['Tyyli ja äänensävy', analysis.style],
+            ['Toimituksellinen arvio', analysis.editorial_assessment],
+            ['Lukutason analyysi', analysis.chapter_analysis || analysis.structure || analysis.rakenne],
+            ['Hahmot', analysis.characters],
+            ['Teemat', analysis.themes],
+            ['Sanasto', analysis.glossary],
+            ['Genre ja metadata', analysis.genre || analysis.metadata || analysis.product_info]
+        ].map(([label, value]) => {
+            const text = compactDevelopmentText(value, 900);
+            return text ? `${label}:\n${text}` : '';
+        }).filter(Boolean).join('\n\n');
+    }
+
+    function developmentProjectInput() {
+        const project = window.manuscriptData;
+        const brief = readDevelopmentBriefFromForm();
+        const text = getFullManuscriptText(project);
+        return [
+            `PROJEKTI: ${project?.title || 'Nimetön'}`,
+            `TEKIJÄ: ${project?.author || 'Tuntematon'}`,
+            `Pituus: noin ${formatNumber(countWords(text))} sanaa / ${formatNumber(text.length)} merkkiä`,
+            '',
+            'KÄYTTÄJÄN BRIEF:',
+            `Genre: ${brief.genre || 'Ei annettu, päättele varovaisesti.'}`,
+            `Kohderyhmä: ${brief.target_audience || 'Ei annettu, päättele varovaisesti.'}`,
+            `Palautteen sävy: ${developmentToneLabel(brief.feedback_mode)}`,
+            `Painopisteet: ${brief.focus_areas.length ? brief.focus_areas.join(', ') : 'Ei valittu erikseen.'}`,
+            brief.support_material ? `Tukiaineisto:\n${compactDevelopmentText(brief.support_material, 1600)}` : '',
+            brief.author_questions ? `Kirjailijan kysymykset:\n${compactDevelopmentText(brief.author_questions, 1200)}` : '',
+            '',
+            'AIEMPI ANALYYSI JA METADATA:',
+            developmentAnalysisBrief() || 'Ei aiempaa analyysiä. Tee varovainen ensimmäinen rakennemalli tekstinäytteiden perusteella.',
+            '',
+            'NYKYINEN OSIORAKENNE JA TEKSTINÄYTTEET:',
+            developmentChapterBrief()
+        ].filter(Boolean).join('\n');
+    }
+
+    function buildDevelopmentBlueprintPrompt() {
+        return `Toimi Agentti 1:nä: käsikirjoituksen rakennemallintajana.
+
+Älä kirjoita vielä kehityspalautetta. Muodosta toimituksellinen rakennemalli, jonka toinen agentti voi käyttää palautteen pohjana.
+
+Palauta suomeksi Markdown-muotoinen apuaineistopaketti näillä otsikoilla:
+
+# Manuscript blueprint
+## Projektin tulkittu ydin
+## Koko teoksen synopsis
+## Osio- ja lukukohtaiset tiivistelmät
+## Kohtauskortit
+Kirjoita jokaisesta havaitusta kohtauksesta tiivis kortti: tapahtuma, konflikti, muutos, funktio, varmuus. Jos kohtauksen funktio tai konflikti ei selviä, sano se.
+## Hahmokartta ja hahmojen funktiot
+## Teemakartta
+## Lukijan tiedon eteneminen
+## Näkökulmat ja aikatasot
+## Rakenteellisten riskien rekisteri
+Jokaisesta riskistä: sijainti, kuvaus, miksi sillä voi olla väliä, varmuus, tarvitseeko alkuperäistekstin tarkistusta.
+## Suositellut tekstikatkelmat kehityseditoijalle
+Valitse kohdat, jotka seuraavan agentin kannattaa nähdä: alku, käännekohta, keskivaihe, emotionaalinen kohta, dialogi, mahdollinen rytmin lasku, päähenkilön valinta ja loppuratkaisu.
+## Epävarmuudet
+
+Säännöt:
+- Älä keksi tietoja, joita aineisto ei tue.
+- Erottele varmistettu havainto, perusteltu tulkinta ja epävarma tulkinta.
+- Jos aiempi analyysi ja tekstinäytteet eivät riitä, merkitse asia epävarmaksi.
+- Viittaa osioihin nimillä ja CHAPTER-tunnisteilla aina kun mahdollista.`;
+    }
+
+    function buildDevelopmentFeedbackPrompt() {
+        const brief = readDevelopmentBriefFromForm();
+        return `Toimi Agentti 2:na: kokeneena kehitys- ja rakenne-editoijana.
+
+Saat rakennemallin, validointitiedot, käyttäjän korjaukset ja tekstinäytteitä. Kirjoita konkreettinen, priorisoitu palaute. Palautteen sävy: ${developmentToneLabel(brief.feedback_mode)}.
+
+Palauta suomeksi Markdown näillä otsikoilla:
+
+# Kehitys- ja rakennepalauteraportti
+## 1. Tiivis kokonaisarvio
+## 2. Teoksen tulkittu lupaus
+## 3. Mikä toimii parhaiten
+## 4. Suurimmat kehityskohdat
+## 5. Rakenne ja rytmi
+## 6. Osakohtainen palaute
+## 7. Lukukohtaiset havainnot
+## 8. Päähenkilön kaari
+## 9. Sivuhahmot
+## 10. Konflikti ja panokset
+## 11. Teemat ja motiivit
+## 12. Aikatasot ja näkökulma
+## 13. Lukijan tiedon eteneminen
+## 14. Loppuratkaisun toimivuus
+## 15. Priorisoitu korjaussuunnitelma
+## 16. Kysymykset kirjailijalle
+## 17. Yhteenveto
+
+Säännöt:
+- Älä anna geneerisiä kirjoitusneuvoja.
+- Jokaisessa isossa havainnossa kerro missä se näkyy, miksi se haittaa tai vahvistaa kokonaisuutta ja mitä voisi tehdä.
+- Merkitse epävarmuus näkyviin.
+- Älä pakota käsikirjoitusta yhteen dramaturgiseen kaavaan.
+- Keskity painopisteisiin: ${brief.focus_areas.length ? brief.focus_areas.join(', ') : 'rakenne, henkilöt, rytmi ja korjaussuunnitelma'}.`;
+    }
+
+    function buildDevelopmentFeedbackInput() {
+        const data = developmentData();
+        return [
+            developmentProjectInput(),
+            '',
+            'RAKENNEMALLI:',
+            compactDevelopmentText(data.blueprint || document.getElementById('development-blueprint')?.value || 'Rakennemallia ei ole vielä tuotettu.', 18000),
+            '',
+            'VALIDOINTIRAPORTTI:',
+            compactDevelopmentText(data.validation_report || document.getElementById('development-validation')?.value || 'Ei erillistä validointiraporttia.', 3000),
+            '',
+            'KÄYTTÄJÄN KORJAUKSET RAKENNEMALLIIN:',
+            compactDevelopmentText(document.getElementById('development-corrections')?.value?.trim() || data.corrections || 'Ei korjauksia.', 3000)
+        ].join('\n\n');
+    }
+
+    function extractMarkdownSection(markdown, headingText) {
+        const text = String(markdown || '');
+        const escaped = headingText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const match = text.match(new RegExp(`(^|\\n)#{2,3}\\s*\\d*\\.?\\s*${escaped}\\s*\\n([\\s\\S]*?)(?=\\n#{2,3}\\s|$)`, 'i'));
+        return match ? match[2].trim() : '';
+    }
+
+    function developmentFileSlug(value) {
+        return String(value || '')
+            .toLocaleLowerCase('fi-FI')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 72);
+    }
+
+    function developmentValidationFromBlueprint(blueprint) {
+        const lower = String(blueprint || '').toLocaleLowerCase('fi-FI');
+        const missing = [];
+        if (!lower.includes('kohtaus')) missing.push('Kohtauskortit näyttävät puuttuvan tai ovat hyvin ohuet.');
+        if (!lower.includes('hahmo')) missing.push('Hahmokartta näyttää puuttuvan tai on hyvin ohut.');
+        if (!lower.includes('teema')) missing.push('Teemakartta näyttää puuttuvan tai on hyvin ohut.');
+        if (!lower.includes('epävar') && !lower.includes('epaselv') && !lower.includes('epäselv')) missing.push('Epävarmuuksia ei ole merkitty näkyvästi.');
+        if (!lower.includes('riski')) missing.push('Rakenteellisten riskien rekisteriä ei tunnistettu.');
+        const safe = missing.length <= 2;
+        return [
+            '# Validointiraportti',
+            '',
+            `safe_to_generate_feedback: ${safe ? 'true' : 'true_with_caution'}`,
+            '',
+            '## Puuttuvat tai heikot kohdat',
+            missing.length ? missing.map(item => `- ${item}`).join('\n') : '- Ei ilmeisiä puutteita kevyessä tarkistuksessa.',
+            '',
+            '## Ohje Agentti 2:lle',
+            safe
+                ? '- Palautteen voi muodostaa rakennemallin perusteella, mutta vakavat havainnot pitää sitoa näkyviin osioihin.'
+                : '- Palautteen voi muodostaa, mutta epävarmuus pitää sanoa näkyvästi ja isoja väitteitä pitää pehmentää.'
+        ].join('\n');
+    }
+
+    function setDevelopmentStatus(message, isError = false) {
+        const el = document.getElementById('development-status');
+        if (!el) return;
+        el.textContent = message || '';
+        el.classList.toggle('is-saved', !isError && Boolean(message));
+        el.style.color = isError ? '#ffb4b4' : '';
+    }
+
+    function renderDevelopmentSummary() {
+        const container = document.getElementById('development-summary-list');
+        if (!container) return;
+        const data = window.manuscriptData;
+        const dev = data?.analysis?.development_editing || {};
+        const bodyCount = bodyChapterEntries().length;
+        const text = getFullManuscriptText(data);
+        const items = [
+            ['Käsikirjoitus', data ? `${data.title || 'Nimetön'} · ${formatNumber(countWords(text))} sanaa · ${bodyCount || (data.chapters || []).length} osiota` : 'Ei aktiivista käsikirjoitusta.'],
+            ['Analyysi', hasSavedAnalysis(data?.analysis) ? 'Tallennettu analyysi käytettävissä.' : 'Varsinaista analyysiä ei ole vielä tallennettu. Moduuli voi silti tehdä alustavan mallin.'],
+            ['Rakennemalli', dev.blueprint ? `Luotu ${dev.blueprint_updated_at ? new Date(dev.blueprint_updated_at).toLocaleString('fi-FI') : 'aiemmin'}.` : 'Ei vielä luotu.'],
+            ['Kehityspalaute', dev.feedback_report ? `Luotu ${dev.feedback_updated_at ? new Date(dev.feedback_updated_at).toLocaleString('fi-FI') : 'aiemmin'}.` : 'Ei vielä luotu.'],
+            ['Tallennus', dev.updated_at ? `Päivitetty ${new Date(dev.updated_at).toLocaleString('fi-FI')}.` : 'Ei tallennettua kehityseditointia.']
+        ];
+        container.innerHTML = items.map(([title, value]) => `
+            <div class="development-summary-item">
+                <strong>${escapeHtml(title)}</strong>
+                <span>${escapeHtml(value)}</span>
+            </div>
+        `).join('');
+    }
+
+    function renderDevelopmentEditingView() {
+        const current = document.getElementById('development-current-project');
+        if (!current) return;
+        const data = window.manuscriptData;
+        const dev = data?.analysis?.development_editing || {};
+        current.textContent = data
+            ? `Käsikirjoitus: ${data.title || 'Nimetön'} (rakennemalli, kehityspalaute ja korjaussuunnitelma)`
+            : 'Valitse käsikirjoitus ja muodosta toimituksellinen rakennemalli.';
+        writeDevelopmentBriefToForm(dev.brief || {});
+        const blueprint = document.getElementById('development-blueprint');
+        const validation = document.getElementById('development-validation');
+        const corrections = document.getElementById('development-corrections');
+        const feedback = document.getElementById('development-feedback');
+        const plan = document.getElementById('development-plan');
+        if (blueprint) blueprint.value = dev.blueprint || '';
+        if (validation) validation.value = dev.validation_report || '';
+        if (corrections) corrections.value = dev.corrections || '';
+        if (feedback) feedback.value = dev.feedback_report || '';
+        if (plan) plan.value = dev.revision_plan || '';
+        renderDevelopmentSummary();
+        setDevelopmentStatus(data ? 'Valmis.' : 'Valitse käsikirjoitus ensin.', !data);
+    }
+
+    async function saveDevelopmentEditingEdits(showStatus = true) {
+        if (!window.manuscriptData) {
+            setDevelopmentStatus('Valitse käsikirjoitus ensin.', true);
+            return null;
+        }
+        const dev = developmentData();
+        dev.brief = readDevelopmentBriefFromForm();
+        dev.blueprint = document.getElementById('development-blueprint')?.value || '';
+        dev.validation_report = document.getElementById('development-validation')?.value || '';
+        dev.corrections = document.getElementById('development-corrections')?.value || '';
+        dev.feedback_report = document.getElementById('development-feedback')?.value || '';
+        dev.revision_plan = document.getElementById('development-plan')?.value || '';
+        dev.updated_at = new Date().toISOString();
+        await window.saveManuscriptToDB(window.manuscriptData);
+        renderDevelopmentSummary();
+        if (showStatus) setDevelopmentStatus('Muutokset tallennettu.');
+        return dev;
+    }
+
+    async function runDevelopmentBlueprint() {
+        if (!window.manuscriptData?.chapters?.length) {
+            setDevelopmentStatus('Valitse käsikirjoitus ensin.', true);
+            return;
+        }
+        await flushPendingManuscriptEdits();
+        const button = document.getElementById('development-blueprint-btn');
+        if (button) button.disabled = true;
+        setDevelopmentStatus('Luodaan rakennemallia...');
+        try {
+            const res = await apiFetch('/api/edit', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    text: developmentProjectInput(),
+                    temperature: 0.2,
+                    prompt: buildDevelopmentBlueprintPrompt()
+                })
+            });
+            const payload = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(payload?.detail || 'Rakennemallin luonti epäonnistui.');
+            const dev = developmentData();
+            dev.brief = readDevelopmentBriefFromForm();
+            dev.blueprint = payload?.edited_text || '';
+            dev.validation_report = developmentValidationFromBlueprint(dev.blueprint);
+            dev.blueprint_updated_at = new Date().toISOString();
+            dev.updated_at = dev.blueprint_updated_at;
+            const blueprintEl = document.getElementById('development-blueprint');
+            const validationEl = document.getElementById('development-validation');
+            if (blueprintEl) blueprintEl.value = dev.blueprint;
+            if (validationEl) validationEl.value = dev.validation_report;
+            await window.saveManuscriptToDB(window.manuscriptData);
+            renderDevelopmentSummary();
+            loadUsage();
+            setDevelopmentStatus('Rakennemalli luotu ja tallennettu.');
+        } catch (err) {
+            setDevelopmentStatus(networkFailureMessage(err), true);
+            alert('Rakennemallin luonti epäonnistui: ' + networkFailureMessage(err));
+            loadUsage();
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
+    async function runDevelopmentFeedback() {
+        if (!window.manuscriptData?.chapters?.length) {
+            setDevelopmentStatus('Valitse käsikirjoitus ensin.', true);
+            return;
+        }
+        await saveDevelopmentEditingEdits(false);
+        const dev = developmentData();
+        if (!String(dev.blueprint || '').trim()) {
+            setDevelopmentStatus('Luo rakennemalli ensin.', true);
+            alert('Luo ensin rakennemalli. Kehityspalaute käyttää sitä apuaineistona.');
+            return;
+        }
+        const button = document.getElementById('development-feedback-btn');
+        if (button) button.disabled = true;
+        setDevelopmentStatus('Luodaan kehitys- ja rakennepalautetta...');
+        try {
+            const res = await apiFetch('/api/edit', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    text: buildDevelopmentFeedbackInput(),
+                    temperature: 0.25,
+                    prompt: buildDevelopmentFeedbackPrompt()
+                })
+            });
+            const payload = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(payload?.detail || 'Kehityspalautteen luonti epäonnistui.');
+            dev.feedback_report = payload?.edited_text || '';
+            dev.revision_plan = extractMarkdownSection(dev.feedback_report, 'Priorisoitu korjaussuunnitelma') || dev.revision_plan || '';
+            dev.feedback_updated_at = new Date().toISOString();
+            dev.updated_at = dev.feedback_updated_at;
+            const feedbackEl = document.getElementById('development-feedback');
+            const planEl = document.getElementById('development-plan');
+            if (feedbackEl) feedbackEl.value = dev.feedback_report;
+            if (planEl) planEl.value = dev.revision_plan;
+            await window.saveManuscriptToDB(window.manuscriptData);
+            renderDevelopmentSummary();
+            loadUsage();
+            setDevelopmentStatus('Kehityspalaute luotu ja tallennettu.');
+        } catch (err) {
+            setDevelopmentStatus(networkFailureMessage(err), true);
+            alert('Kehityspalautteen luonti epäonnistui: ' + networkFailureMessage(err));
+            loadUsage();
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
+    function downloadDevelopmentMarkdown() {
+        const dev = developmentData();
+        const brief = readDevelopmentBriefFromForm();
+        const title = window.manuscriptData?.title || 'kasikirjoitus';
+        const markdown = [
+            `# Rakenne- ja kehityseditointi: ${title}`,
+            '',
+            '## Brief',
+            `- Genre: ${brief.genre || '-'}`,
+            `- Kohderyhmä: ${brief.target_audience || '-'}`,
+            `- Sävy: ${developmentToneLabel(brief.feedback_mode)}`,
+            `- Painopisteet: ${brief.focus_areas.join(', ') || '-'}`,
+            brief.author_questions ? `\n### Kirjailijan kysymykset\n${brief.author_questions}` : '',
+            '',
+            dev.blueprint ? dev.blueprint : '## Rakennemalli\nEi vielä tuotettu.',
+            '',
+            dev.validation_report ? dev.validation_report : '## Validointiraportti\nEi vielä tuotettu.',
+            '',
+            dev.corrections ? `## Käyttäjän korjaukset\n${dev.corrections}` : '',
+            '',
+            dev.feedback_report ? dev.feedback_report : '## Kehityspalaute\nEi vielä tuotettu.',
+            '',
+            dev.revision_plan ? `## Korjaussuunnitelma\n${dev.revision_plan}` : ''
+        ].filter(Boolean).join('\n\n');
+        const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${developmentFileSlug(title) || 'kasikirjoitus'}-kehityseditointi.md`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+    }
+
     function defaultWorkflowSteps(mode = 'light') {
         const steps = [
             { id: 'analysis', title: 'Analyysi ja rakenne', detail: 'Muodostetaan kokonaiskuva, tyyli, synopsis ja metatiedot.', status: 'pending' },
@@ -7637,6 +8092,11 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const structureAiBtn = document.getElementById('structure-ai-btn');
     const structureAcceptBtn = document.getElementById('structure-accept-btn');
     const structureRejectBtn = document.getElementById('structure-reject-btn');
+    const developmentRefreshBtn = document.getElementById('development-refresh-btn');
+    const developmentSaveBtn = document.getElementById('development-save-btn');
+    const developmentBlueprintBtn = document.getElementById('development-blueprint-btn');
+    const developmentFeedbackBtn = document.getElementById('development-feedback-btn');
+    const developmentDownloadBtn = document.getElementById('development-download-btn');
     const cleanWritingTextBtn = document.getElementById('clean-writing-text-btn');
     const restructureWritingBtn = document.getElementById('restructure-writing-btn');
     const toggleWritingMarkupBtn = document.getElementById('toggle-writing-markup-btn');
@@ -7747,6 +8207,11 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     if (structureAiBtn) structureAiBtn.addEventListener('click', createAiStructureProposal);
     if (structureAcceptBtn) structureAcceptBtn.addEventListener('click', acceptStructureProposal);
     if (structureRejectBtn) structureRejectBtn.addEventListener('click', rejectStructureProposal);
+    if (developmentRefreshBtn) developmentRefreshBtn.addEventListener('click', renderDevelopmentEditingView);
+    if (developmentSaveBtn) developmentSaveBtn.addEventListener('click', () => saveDevelopmentEditingEdits(true));
+    if (developmentBlueprintBtn) developmentBlueprintBtn.addEventListener('click', runDevelopmentBlueprint);
+    if (developmentFeedbackBtn) developmentFeedbackBtn.addEventListener('click', runDevelopmentFeedback);
+    if (developmentDownloadBtn) developmentDownloadBtn.addEventListener('click', downloadDevelopmentMarkdown);
     document.querySelectorAll('.structure-option, .structure-front-option').forEach(input => {
         input.addEventListener('change', () => syncStructureOptionState(input));
     });
@@ -7911,6 +8376,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         renderBookOverview();
         renderWriterDeskView();
         renderStructureModule();
+        renderDevelopmentEditingView();
         renderWritingView();
         renderProofreadView();
         renderProductInfo(true);
@@ -8005,6 +8471,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         renderBookOverview();
         renderWriterDeskView();
         renderStructureModule();
+        renderDevelopmentEditingView();
         renderWritingView();
         if (window.renderNavList) window.renderNavList();
         updateTranslationProjectSelect();

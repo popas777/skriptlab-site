@@ -71,6 +71,7 @@
                 <ul id="nav-menu">
                     <li class="active" data-view="view-kirjani">Käsikirjoitukseni</li>
                     <li data-view="view-analyysi">Analyysi ja rakenne</li>
+                    <li data-view="view-kehityseditointi">Rakenne- ja kehityseditointi</li>
                     <li data-view="view-kirjoita">Kirjoita</li>
                     <li data-view="view-toimitus">Editointi</li>
                     <li data-view="view-oikoluku">Oikoluku ja viimeistely</li>
@@ -361,6 +362,109 @@
                         </div>
                     </section>
                 </div>
+                </div>
+            </div>
+
+            <!-- 1.18 VIEW: RAKENNE- JA KEHITYSEDITOINTI -->
+            <div id="view-kehityseditointi" class="view-section hidden">
+                <div class="header">
+                    <div class="header-info">
+                        <h2>Rakenne- ja kehityseditointi</h2>
+                        <p id="development-current-project">Valitse käsikirjoitus ja muodosta toimituksellinen rakennemalli.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" id="development-refresh-btn" type="button">Päivitä</button>
+                        <button class="btn btn-secondary" id="development-save-btn" type="button">Tallenna muutokset</button>
+                        <button class="btn btn-primary" id="development-blueprint-btn" type="button">Luo rakennemalli</button>
+                        <button class="btn btn-primary" id="development-feedback-btn" type="button">Luo kehityspalaute</button>
+                    </div>
+                </div>
+
+                <div class="development-grid">
+                    <section class="card glass-panel development-settings">
+                        <h3>Kirjailijan brief</h3>
+                        <p class="card-meta">Nämä tiedot ohjaavat rakennemallia ja kehityspalautteen sävyä. Jos jokin jää tyhjäksi, järjestelmä päättelee sen käsikirjoituksesta.</p>
+
+                        <div class="settings-row">
+                            <label for="development-genre">Laji tai genre</label>
+                            <input id="development-genre" type="text" placeholder="Esim. romaani, tietokirja, fantasia, muistelmamainen romaani">
+                        </div>
+                        <div class="settings-row">
+                            <label for="development-audience">Kohderyhmä</label>
+                            <input id="development-audience" type="text" placeholder="Kenelle teos on tarkoitettu?">
+                        </div>
+                        <div class="settings-row">
+                            <label for="development-tone">Palautteen sävy</label>
+                            <select id="development-tone">
+                                <option value="friendly">Kirjailijaystävällinen</option>
+                                <option value="normal" selected>Normaali kehityspalaute</option>
+                                <option value="strict">Tiukka kustannustoimittajan palaute</option>
+                                <option value="publisher_internal">Kustantamon sisäinen arvio</option>
+                                <option value="revision_plan">Korjaussuunnitelma</option>
+                            </select>
+                        </div>
+                        <div class="settings-row">
+                            <label>Painopisteet</label>
+                            <div class="development-focus-grid">
+                                <label><input type="checkbox" value="rakenne" checked> Rakenne</label>
+                                <label><input type="checkbox" value="juoni" checked> Juoni</label>
+                                <label><input type="checkbox" value="henkilöt" checked> Henkilöt</label>
+                                <label><input type="checkbox" value="teemat"> Teemat</label>
+                                <label><input type="checkbox" value="rytmi" checked> Rytmi</label>
+                                <label><input type="checkbox" value="näkökulma"> Näkökulma</label>
+                                <label><input type="checkbox" value="aikatasot"> Aikatasot</label>
+                                <label><input type="checkbox" value="kaupallinen potentiaali"> Kaupallinen potentiaali</label>
+                                <label><input type="checkbox" value="kirjallinen laatu"> Kirjallinen laatu</label>
+                            </div>
+                        </div>
+                        <div class="settings-row">
+                            <label for="development-support">Synopsis, saate tai muu tukiaineisto</label>
+                            <textarea id="development-support" rows="6" placeholder="Voit liittää tähän oman synopsiksen, intentiot, aiemman palautteen tai muuta taustatietoa."></textarea>
+                        </div>
+                        <div class="settings-row">
+                            <label for="development-questions">Kirjailijan omat kysymykset</label>
+                            <textarea id="development-questions" rows="5" placeholder="Mihin haluat erityisesti vastauksen?"></textarea>
+                        </div>
+                    </section>
+
+                    <section class="card glass-panel development-summary-card">
+                        <div class="panel-header">
+                            <h3>Työn tila</h3>
+                            <span id="development-status" class="save-timestamp"></span>
+                        </div>
+                        <div class="development-summary-list" id="development-summary-list"></div>
+                        <div class="development-action-row">
+                            <button class="btn btn-secondary" id="development-download-btn" type="button">Lataa Markdown</button>
+                        </div>
+                    </section>
+                </div>
+
+                <div class="development-output-grid">
+                    <section class="card glass-panel">
+                        <h3>Rakennemalli / apuaineistopaketti</h3>
+                        <p class="card-meta">Agentti 1 mallintaa käsikirjoituksen. Tarkista tulkinnat ennen kehityspalautetta.</p>
+                        <textarea id="development-blueprint" class="development-textarea" placeholder="Rakennemalli näkyy tässä."></textarea>
+                    </section>
+                    <section class="card glass-panel">
+                        <h3>Käyttäjän korjaukset rakennemalliin</h3>
+                        <p class="card-meta">Korjaa esimerkiksi päähenkilö, ydinkonflikti, teema tai epäselvä rakenne. Nämä välitetään kehityseditoijalle.</p>
+                        <textarea id="development-corrections" class="development-textarea medium" placeholder="Esim. Päähenkilö on X, ei Y. Keskeinen konflikti on..."></textarea>
+                    </section>
+                    <section class="card glass-panel">
+                        <h3>Validointiraportti</h3>
+                        <p class="card-meta">Tarkistus siitä, mihin palautteessa pitää suhtautua varauksella.</p>
+                        <textarea id="development-validation" class="development-textarea medium" placeholder="Validoinnin tulos näkyy tässä."></textarea>
+                    </section>
+                    <section class="card glass-panel">
+                        <h3>Kehitys- ja rakennepalaute</h3>
+                        <p class="card-meta">Agentti 2 arvioi käsikirjoituksen rakennemallin, korjausten ja tekstikatkelmien perusteella.</p>
+                        <textarea id="development-feedback" class="development-textarea" placeholder="Kehityspalaute näkyy tässä."></textarea>
+                    </section>
+                    <section class="card glass-panel development-plan-card">
+                        <h3>Priorisoitu korjaussuunnitelma</h3>
+                        <p class="card-meta">Tiivis työlista seuraavaa muokkauskierrosta varten.</p>
+                        <textarea id="development-plan" class="development-textarea medium" placeholder="Korjaussuunnitelma poimitaan palautteesta tai sitä voi muokata käsin."></textarea>
+                    </section>
                 </div>
             </div>
 

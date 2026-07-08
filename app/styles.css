@@ -720,6 +720,94 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 .chapter-title-input:focus {
     border-color: var(--ai-gradient-start);
 }
+
+/* Development editing */
+.development-grid {
+    display: grid;
+    grid-template-columns: minmax(320px, 1.1fr) minmax(280px, 0.9fr);
+    gap: 16px;
+    align-items: start;
+    margin-bottom: 16px;
+}
+.development-output-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+.development-plan-card {
+    grid-column: 1 / -1;
+}
+.development-settings .settings-row {
+    margin-top: 14px;
+}
+.development-settings input[type="text"],
+.development-settings select,
+.development-settings textarea,
+.development-textarea {
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: rgba(0,0,0,0.24);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.55;
+    padding: 10px 12px;
+    resize: vertical;
+}
+[data-theme="light"] .development-settings input[type="text"],
+[data-theme="light"] .development-settings select,
+[data-theme="light"] .development-settings textarea,
+[data-theme="light"] .development-textarea {
+    background: rgba(255,255,255,0.72);
+}
+.development-textarea {
+    min-height: 460px;
+    white-space: pre-wrap;
+}
+.development-textarea.medium {
+    min-height: 260px;
+}
+.development-focus-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 12px;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+.development-focus-grid label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.development-summary-list {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+}
+.development-summary-item {
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+}
+.development-summary-item strong {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--text-primary);
+    font-size: 13px;
+}
+.development-summary-item span {
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.45;
+}
+.development-action-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+}
 .chapter-nav-meta {
     display: block;
     margin-top: 2px;
@@ -2714,6 +2802,8 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 	    .product-grid,
 	    .book-workspace,
 	    .translation-review-grid,
+        .development-grid,
+        .development-output-grid,
     .proofread-workspace,
     .writer-stage-panel,
     .writer-desk-workspace,
