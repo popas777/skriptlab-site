@@ -9863,7 +9863,7 @@ Säännöt:
                     const selected = currentTranslationHistory.find(item => String(item.id) === String(button.dataset.translationId));
                     if (!selected) return;
                     selectTranslationForReview(selected.id);
-                    showTranslationPanel('translation-review-panel');
+                    showTranslationPanel('translation-parts-panel');
                 });
             });
             history.querySelectorAll('[data-translation-export-id]').forEach(button => {
@@ -9922,7 +9922,7 @@ Säännöt:
                     const selected = currentFinnishTranslationHistory.find(item => String(item.id) === String(button.dataset.finnishTranslationId));
                     if (!selected) return;
                     selectFinnishTranslationForReview(selected.id);
-                    showFinnishTranslationPanel('suomentaja-review-panel');
+                    showFinnishTranslationPanel('suomentaja-parts-panel');
                 });
             });
             history.querySelectorAll('[data-finnish-translation-export-id]').forEach(button => {
@@ -10755,7 +10755,7 @@ Säännöt:
             }
             await renderTranslationHistory();
             selectTranslationForReview(data.id);
-            showTranslationPanel('translation-review-panel');
+            showTranslationPanel('translation-parts-panel');
         } catch (err) {
             if (status) status.textContent = err.message;
             alert('Käännös epäonnistui: ' + err.message);
@@ -10812,7 +10812,7 @@ Säännöt:
             }
             await renderFinnishTranslationHistory();
             selectFinnishTranslationForReview(data.id);
-            showFinnishTranslationPanel('suomentaja-review-panel');
+            showFinnishTranslationPanel('suomentaja-parts-panel');
             loadUsage();
         } catch (err) {
             if (status) status.textContent = err.message;
