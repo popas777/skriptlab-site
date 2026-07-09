@@ -4263,7 +4263,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function structureInstructionTargets(extra = structureExtraInstructions(), options = structureSelectedOptions()) {
         const text = String(extra || '').toLocaleLowerCase('fi-FI');
         const explicitTargetChapters = structureTargetChapterCountFromText(text);
-        const inferredTargetChapters = explicitTargetChapters ? null : inferredStructureTargetFromAnalysis();
         const frontKinds = structureKindsMentionedInText(text, BOOK_FRONT_SECTION_RULES);
         const backKinds = structureKindsMentionedInText(text, BOOK_BACK_SECTION_RULES);
         const wantsTitlePage = Boolean(options.titlePage)
@@ -4277,14 +4276,14 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         );
         return {
             raw: extra,
-            targetChapters: explicitTargetChapters || inferredTargetChapters || null,
-            targetChaptersSource: explicitTargetChapters ? 'lisäohje' : inferredTargetChapters ? 'analyysi' : '',
+            targetChapters: explicitTargetChapters || null,
+            targetChaptersSource: explicitTargetChapters ? 'lisäohje' : '',
             frontKinds,
             backKinds,
             wantsTitlePage,
             wantsTableOfContents,
             wantsOpening,
-            hasExplicitTarget: Boolean(wantsTitlePage || wantsTableOfContents || wantsOpening || frontKinds.length || backKinds.length || explicitTargetChapters || inferredTargetChapters),
+            hasExplicitTarget: Boolean(wantsTitlePage || wantsTableOfContents || wantsOpening || frontKinds.length || backKinds.length || explicitTargetChapters),
         };
     }
 
@@ -4313,13 +4312,20 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             const kind = structureChapterKind(chapter);
             const paragraphs = Array.isArray(chapter?.paragraphs) ? chapter.paragraphs : [];
             const hasExplicitSourceTitle = Boolean(String(chapter?.title || chapter?.toc_title || chapter?.tocTitle || chapter?.structure_title || '').trim());
-            if (kind === 'title_page' && !options.titlePage && !paragraphs.some(paragraph => String(paragraph || '').trim()) && !hasExplicitSourceTitle) {
+            const hasText = paragraphs.some(paragraph => String(paragraph || '').trim());
+            if (kind === 'title_page' && !options.titlePage && !hasText) {
                 return null;
             }
-            if (kind === 'table_of_contents' && !options.tableOfContents && !paragraphs.some(paragraph => String(paragraph || '').trim()) && !hasExplicitSourceTitle) {
+            if (kind === 'table_of_contents' && !options.tableOfContents && !hasText) {
                 return null;
             }
-            if (kind === 'part' && !options.parts && !paragraphs.some(paragraph => String(paragraph || '').trim()) && !hasExplicitSourceTitle) {
+            if (structureKindPlacement(kind) === 'front' && !hasText && !options.titlePage && !options.tableOfContents) {
+                return null;
+            }
+            if (structureKindPlacement(kind) === 'back' && !hasText) {
+                return null;
+            }
+            if (kind === 'part' && !options.parts && !hasText && !hasExplicitSourceTitle) {
                 return null;
             }
             const next = {
@@ -4546,10 +4552,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 chapterIndexes = rows
                     .map((chapter, index) => ({ chapter, index }))
                     .filter(nextItem => structureChapterKind(nextItem.chapter) === 'chapter');
-            }
-            while (chapterCount < targets.targetChapters) {
-                chapterCount++;
-                rows.push(makeStructureMetaRow('chapter', `Luku ${chapterCount}`, chapterCount));
             }
         }
         return normalizeStructureProposalChapters(rows);
@@ -4803,14 +4805,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function localStructureFallbackProposal() {
         const repaired = currentStructureAsProposal();
         const targets = structureInstructionTargets();
-        if (!targets.targetChapters) {
-            const estimated = estimatedStructureTargetFromLength({ ...window.manuscriptData, chapters: repaired });
-            if (estimated) {
-                targets.targetChapters = estimated;
-                targets.targetChaptersSource = 'pituusarvio';
-                targets.hasExplicitTarget = true;
-            }
-        }
         return { chapters: repaired, targets };
     }
 
@@ -4862,7 +4856,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
 	Periaatteet:
 	- Ehdottamasi rivit ovat vain rakenteen metatietoa. Älä lisää otsikoita leipätekstiin.
-	- Etusivujen ja lopputekstien rivit ovat metarivejä, ellei niille ole nykyisessä tekstissä selvä oma tekstisisältö.
+	- Tärkein tehtäväsi on tunnistaa nykyisestä käsikirjoituksesta oikeat luku-, osa- ja väliotsikot. Älä korvaa selviä käsikirjoituksen otsikoita geneerisellä jaolla.
+	- Älä ehdota Nimiölehteä, Sisällysluetteloa, Tekijänoikeussivua, Kiitoksia, Tietoja kirjailijasta tai muita etu-/lopputekstejä, ellei kyseinen otsikko tai oma tekstisisältö ole jo nykyisessä käsikirjoituksessa tai käyttäjä pyydä sitä lisäohjeessa.
+	- Älä lisää tyhjiä osioita. Jokaisella ehdotetulla osiolla pitää olla oma lähdealue tai sen pitää vastata nykyisessä käsikirjoituksessa näkyvää otsikkoa.
 	- Päätekstin tekstillisten osioiden pitää kattaa nykyinen käsikirjoitusteksti järjestyksessä.
 	- Älä keksi uusia kohtauksia, kappaleita tai sisältöä.
 	- Jos ehdotat uutta jakoa, anna jokaiselle tekstilliselle päätekstin osiolle lähdealue nykyisistä OSIO-numeroista muodossa [LÄHDE: 1-3] tai [LÄHDE: 4].
@@ -4877,7 +4873,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 	  ALILUKU 1.1: Aliluvun nimi [LÄHDE: 2]
 	  PÄÄTEKSTI: Epilogi [LÄHDE: 12]
 	  LOPPUTEKSTIT: Kiitokset
-	  LOPPUTEKSTIT: Tietoja kirjailijasta
 
 	Käyttäjän ohje ja päätellyt reunaehdot:
 	${constraints.map(item => `- ${item}`).join('\n')}`;
