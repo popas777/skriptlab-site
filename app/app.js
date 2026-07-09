@@ -9033,6 +9033,76 @@ Säännöt:
         return workers > 1 ? `, ${workers} rinnakkaista kutsua` : '';
     }
 
+    function translationChunkRecommendation(modelValue, isFinnish = false) {
+        const model = String(modelValue || '').toLocaleLowerCase('fi-FI');
+        if (model.includes('3.1-flash-lite') || model.includes('flash-lite') || model.includes('lite')) {
+            return {
+                label: 'Gemini 3.1 Flash-Lite',
+                min: 500,
+                max: 1000,
+                ideal: 1000,
+                note: 'nopea ja edullinen; pienempi pala vähentää tyylin ja vastauspituuden riskiä pitkällä promptilla'
+            };
+        }
+        if (model.includes('3.1-pro') || model.includes('pro')) {
+            return {
+                label: 'Gemini 3.1 Pro',
+                min: 2000,
+                max: 4000,
+                ideal: 3000,
+                note: 'paras kirjalliseen laatuun; 2 000 sopii vaikeaan suomennokseen, 3 000-4 000 nopeampaan kokonaisuuteen'
+            };
+        }
+        if (model.includes('3.5-flash')) {
+            return {
+                label: 'Gemini 3.5 Flash',
+                min: 1000,
+                max: 2000,
+                ideal: 2000,
+                note: 'hyvä oletus pitkällä tyyli- ja sanastopromptilla sekä rinnakkaisilla paloilla'
+            };
+        }
+        return {
+            label: 'Valittu malli',
+            min: 1000,
+            max: 2000,
+            ideal: 2000,
+            note: 'turvallinen yleissuositus kaunokirjalliseen käännökseen'
+        };
+    }
+
+    function translationChunkRecommendationText(modelValue, chunkWords, isFinnish = false, compact = false) {
+        const rec = translationChunkRecommendation(modelValue, isFinnish);
+        const selected = Number(chunkWords || 0);
+        const range = rec.min === rec.max
+            ? `${formatNumber(rec.ideal)} sanaa`
+            : `${formatNumber(rec.min)}-${formatNumber(rec.max)} sanaa`;
+        const fit = selected && selected < rec.min
+            ? 'valittu on varovainen mutta hitaampi'
+            : selected && selected > rec.max
+                ? 'valittu on suositusta suurempi; tarkista katkeamiset'
+                : selected
+                    ? 'valittu on sopiva'
+                    : '';
+        if (compact) {
+            return `${rec.label}: suositus ${range}, ihanne noin ${formatNumber(rec.ideal)} sanaa${fit ? `; ${fit}` : ''}`;
+        }
+        return `Palakoon suositus: ${range} (${rec.label}, ihanne noin ${formatNumber(rec.ideal)} sanaa; ${rec.note}${fit ? `; ${fit}` : ''}).`;
+    }
+
+    function updateTranslationChunkAdvice(prefix = 'translation') {
+        const isFinnish = prefix === 'finnish-translation';
+        const advice = document.getElementById(isFinnish ? 'finnish-translation-chunk-advice' : 'translation-chunk-advice');
+        const model = document.getElementById(isFinnish ? 'finnish-translation-model-select' : 'translation-model-select')?.value || '';
+        const chunkWords = parseInt(document.getElementById(isFinnish ? 'finnish-translation-chunk-select' : 'translation-chunk-select')?.value || '2000', 10);
+        if (advice) advice.textContent = translationChunkRecommendationText(model, chunkWords, isFinnish);
+    }
+
+    function translationEstimateSummary(data, payload, isFinnish = false) {
+        const chunkInfo = translationChunkRecommendationText(payload?.model, data?.chunk_words || payload?.chunk_words, isFinnish, true);
+        return `${formatNumber(data.word_count)} sanaa, ${data.chunks_count} osaa${translationParallelLabel(data)}, arvioitu kesto noin ${formatDuration(data.estimated_seconds)} (${chunkInfo}).`;
+    }
+
     function startTranslationTimer(estimate = null) {
         const timer = document.getElementById('translation-timer');
         window.clearInterval(translationTimerInterval);
@@ -9219,10 +9289,14 @@ Säännöt:
                     select.appendChild(option);
                 });
             });
+            updateTranslationChunkAdvice('translation');
+            updateTranslationChunkAdvice('finnish-translation');
         } catch (err) {
             selects.forEach(select => {
                 select.innerHTML = '<option value="">Oletusmalli</option>';
             });
+            updateTranslationChunkAdvice('translation');
+            updateTranslationChunkAdvice('finnish-translation');
         }
     }
 
@@ -9416,6 +9490,7 @@ Säännöt:
     async function updateTranslationEstimate() {
         const estimateEl = document.getElementById('translation-estimate');
         const payload = translationRequestPayload();
+        updateTranslationChunkAdvice('translation');
         if (!estimateEl || !payload.project_id) {
             if (estimateEl) estimateEl.textContent = 'Valitse ensin käsikirjoitus.';
             latestTranslationEstimate = null;
@@ -9430,7 +9505,7 @@ Säännöt:
         estimateEl.textContent = 'Lasketaan arviota...';
         try {
             const data = await fetchTranslationEstimate(payload);
-            estimateEl.textContent = `${formatNumber(data.word_count)} sanaa, ${data.chunks_count} osaa${translationParallelLabel(data)}, arvioitu kesto noin ${formatDuration(data.estimated_seconds)}.`;
+            estimateEl.textContent = translationEstimateSummary(data, payload);
         } catch (err) {
             latestTranslationEstimate = null;
             estimateEl.textContent = err.message;
@@ -9440,6 +9515,7 @@ Säännöt:
     async function updateFinnishTranslationEstimate() {
         const estimateEl = document.getElementById('finnish-translation-estimate');
         const payload = finnishTranslationRequestPayload();
+        updateTranslationChunkAdvice('finnish-translation');
         if (!estimateEl || !payload.project_id) {
             if (estimateEl) estimateEl.textContent = 'Valitse ensin vieraskielinen käsikirjoitus.';
             latestFinnishTranslationEstimate = null;
@@ -9454,7 +9530,7 @@ Säännöt:
         estimateEl.textContent = 'Lasketaan suomennoksen osia...';
         try {
             const data = await fetchFinnishTranslationEstimate(payload);
-            estimateEl.textContent = `${formatNumber(data.word_count)} sanaa, ${data.chunks_count} osaa${translationParallelLabel(data)}, arvioitu kesto noin ${formatDuration(data.estimated_seconds)}.`;
+            estimateEl.textContent = translationEstimateSummary(data, payload, true);
         } catch (err) {
             latestFinnishTranslationEstimate = null;
             estimateEl.textContent = err.message;
@@ -10298,7 +10374,7 @@ Säännöt:
                 ? latestTranslationEstimate
                 : await fetchTranslationEstimate(payload);
             startTranslationTimer(estimate);
-            if (status) status.textContent = `Käännös käynnissä. ${estimate.chunks_count} osaa${translationParallelLabel(estimate)}, arvioitu kesto noin ${formatDuration(estimate.estimated_seconds)}.`;
+            if (status) status.textContent = `Käännös käynnissä. ${translationEstimateSummary(estimate, payload)}`;
             const data = await runTranslationJob(payload, status, 'Käännös');
             latestTranslationText = data.translated_text || '';
             if (output) output.value = latestTranslationText;
@@ -10352,7 +10428,7 @@ Säännöt:
             startFinnishTranslationTimer(estimate);
             if (status) {
                 const runLabel = useCustomInstructions ? 'Räätälöity suomennos' : 'Suomennos';
-                status.textContent = `${runLabel} käynnissä. ${estimate.chunks_count} osaa${translationParallelLabel(estimate)}, arvioitu kesto noin ${formatDuration(estimate.estimated_seconds)}.`;
+                status.textContent = `${runLabel} käynnissä. ${translationEstimateSummary(estimate, payload, true)}`;
             }
             const data = await runTranslationJob(payload, status, useCustomInstructions ? 'Räätälöity suomennos' : 'Suomennos');
             latestFinnishTranslationText = data.translated_text || '';
