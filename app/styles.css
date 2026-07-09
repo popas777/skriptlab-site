@@ -1311,6 +1311,20 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     height: calc(100vh - 250px);
     min-height: 520px;
 }
+.translation-ai-check-grid {
+    display: grid;
+    grid-template-columns: minmax(170px, 220px) repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    height: calc(100vh - 250px);
+    min-height: 520px;
+}
+.translation-ai-check-grid .translation-review-column {
+    min-height: 0;
+}
+.translation-ai-check-text {
+    resize: vertical;
+    min-height: 520px;
+}
 .translation-part-list-wrap {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
@@ -1443,9 +1457,16 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
         grid-template-columns: 1fr;
         height: auto;
     }
+    .translation-ai-check-grid {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
     .translation-review-text,
     .translation-review-textarea {
         height: 420px;
+    }
+    .translation-ai-check-text {
+        min-height: 360px;
     }
     .translation-part-list {
         max-height: 220px;

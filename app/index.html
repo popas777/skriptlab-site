@@ -2202,6 +2202,7 @@
                     <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-prompt-panel">Käännösprompti</button>
                     <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-review-panel">Käännöksen tarkastus</button>
                     <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-parts-panel">Tarkasta käännöspaloittain</button>
+                    <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-ai-check-panel">AI-tarkastus</button>
                 </div>
                 <div id="suomentaja-create-panel" class="suomentaja-panel">
                     <div class="grid-cards" style="grid-template-columns: minmax(280px, 440px) minmax(0, 1fr); align-items:start;">
@@ -2393,6 +2394,43 @@
                                 <h4>Käännös / mallin vastaus</h4>
                                 <textarea id="finnish-translation-part-response" class="translation-review-text translation-response-editor">Valitse käännösosa.</textarea>
                                 <button id="finnish-translation-part-save-btn" class="btn btn-secondary" type="button">Tallenna palan korjaus</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="suomentaja-ai-check-panel" class="suomentaja-panel hidden">
+                    <div class="card glass-panel">
+                        <div class="translation-review-header">
+                            <div>
+                                <h3>AI-tarkastus paloittain</h3>
+                                <p id="finnish-translation-ai-check-status">Valitse käännös ja tarkista yksittäinen pala alkutekstiä vasten.</p>
+                            </div>
+                            <div class="translation-review-actions">
+                                <select id="finnish-translation-ai-check-model"></select>
+                                <button id="finnish-translation-ai-check-run-btn" class="btn btn-secondary" type="button">Tarkasta AI:lla</button>
+                                <button id="finnish-translation-ai-check-accept-btn" class="btn btn-primary" type="button">Korvaa tällä</button>
+                            </div>
+                        </div>
+                        <div class="translation-ai-check-grid">
+                            <div class="translation-part-list-wrap">
+                                <h4>Käännöspalat</h4>
+                                <div id="finnish-translation-ai-check-list" class="translation-part-list"></div>
+                            </div>
+                            <div class="translation-review-column">
+                                <h4>Alkuteksti</h4>
+                                <textarea id="finnish-translation-ai-check-source" class="translation-review-text translation-ai-check-text" readonly>Valitse käännösosa.</textarea>
+                            </div>
+                            <div class="translation-review-column">
+                                <h4>Käännös</h4>
+                                <textarea id="finnish-translation-ai-check-current" class="translation-review-text translation-ai-check-text">Valitse käännösosa.</textarea>
+                            </div>
+                            <div class="translation-review-column">
+                                <h4>Tarkastettu ja vertailtu käännös</h4>
+                                <textarea id="finnish-translation-ai-check-checked" class="translation-review-text translation-ai-check-text">Aja AI-tarkastus.</textarea>
+                            </div>
+                            <div class="translation-review-column">
+                                <h4>Huomiot</h4>
+                                <textarea id="finnish-translation-ai-check-notes" class="translation-review-text translation-ai-check-text">Aja AI-tarkastus.</textarea>
                             </div>
                         </div>
                     </div>

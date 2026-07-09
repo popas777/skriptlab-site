@@ -9361,6 +9361,7 @@ Säännöt:
         updateFinnishTranslationAnalysisNotice(project);
         renderSelectedFinnishTranslationForReview();
         renderFinnishTranslationParts();
+        renderFinnishTranslationAiCheck();
         renderFinnishTranslationHistory();
     }
 
@@ -9400,7 +9401,7 @@ Säännöt:
     }
 
     async function loadTranslationModels() {
-        const selects = ['translation-model-select', 'finnish-translation-model-select']
+        const selects = ['translation-model-select', 'finnish-translation-model-select', 'finnish-translation-ai-check-model']
             .map(id => document.getElementById(id))
             .filter(Boolean);
         if (!selects.length) return;
@@ -9892,6 +9893,7 @@ Säännöt:
             populateFinnishTranslationReviewSelect();
             renderSelectedFinnishTranslationForReview();
             renderFinnishTranslationParts();
+            renderFinnishTranslationAiCheck();
             history.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Ei valittua käsikirjoitusta.</div>';
             return;
         }
@@ -9909,6 +9911,7 @@ Säännöt:
             populateFinnishTranslationReviewSelect();
             renderSelectedFinnishTranslationForReview();
             renderFinnishTranslationParts();
+            renderFinnishTranslationAiCheck();
             if (!currentFinnishTranslationHistory.length) {
                 history.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Ei tallennettuja käännöksiä.</div>';
                 return;
@@ -10333,12 +10336,163 @@ Säännöt:
             button.addEventListener('click', () => {
                 selectedFinnishTranslationPartIndex = Number(button.dataset.finnishTranslationPartIndex || 0);
                 renderFinnishTranslationParts();
+                renderFinnishTranslationAiCheck();
             });
         });
         const selected = chunks[selectedFinnishTranslationPartIndex] || {};
         renderTranslationPartDetail('finnish-translation', selected, 'Valitse käännösosa.');
         const label = translationPartLabel(selected, selectedFinnishTranslationPartIndex);
         status.textContent = `${label.title}: ${label.meta}.`;
+    }
+
+    function setTranslationAiCheckText(key, value) {
+        const element = document.getElementById(`finnish-translation-ai-check-${key}`);
+        if (!element) return;
+        element.value = value || '';
+    }
+
+    function selectedFinnishTranslationChunk() {
+        const chunks = translationChunkDetails(selectedFinnishTranslation);
+        if (!chunks.length) return null;
+        selectedFinnishTranslationPartIndex = Math.max(0, Math.min(selectedFinnishTranslationPartIndex, chunks.length - 1));
+        return chunks[selectedFinnishTranslationPartIndex] || null;
+    }
+
+    function renderFinnishTranslationAiCheck() {
+        const list = document.getElementById('finnish-translation-ai-check-list');
+        const status = document.getElementById('finnish-translation-ai-check-status');
+        const runBtn = document.getElementById('finnish-translation-ai-check-run-btn');
+        const acceptBtn = document.getElementById('finnish-translation-ai-check-accept-btn');
+        const modelSelect = document.getElementById('finnish-translation-ai-check-model');
+        const checkedEl = document.getElementById('finnish-translation-ai-check-checked');
+        if (!list || !status) return;
+
+        const chunks = translationChunkDetails(selectedFinnishTranslation);
+        if (!selectedFinnishTranslation) {
+            list.innerHTML = '';
+            setTranslationAiCheckText('source', 'Valitse käännös.');
+            setTranslationAiCheckText('current', 'Valitse käännös.');
+            setTranslationAiCheckText('checked', '');
+            setTranslationAiCheckText('notes', '');
+            status.textContent = 'Valitse käännös ja sen jälkeen tarkistettava pala.';
+            if (runBtn) runBtn.disabled = true;
+            if (acceptBtn) acceptBtn.disabled = true;
+            return;
+        }
+        if (!chunks.length) {
+            list.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Tällä käännöksellä ei ole osalokia. Luo käännös uudelleen, niin AI-tarkastus voidaan tehdä paloittain.</div>';
+            setTranslationAiCheckText('source', '');
+            setTranslationAiCheckText('current', selectedFinnishTranslation.translated_text || '');
+            setTranslationAiCheckText('checked', '');
+            setTranslationAiCheckText('notes', 'Osaloki puuttuu.');
+            status.textContent = 'Osaloki puuttuu tältä käännökseltä.';
+            if (runBtn) runBtn.disabled = true;
+            if (acceptBtn) acceptBtn.disabled = true;
+            return;
+        }
+
+        selectedFinnishTranslationPartIndex = Math.max(0, Math.min(selectedFinnishTranslationPartIndex, chunks.length - 1));
+        list.innerHTML = chunks.map((chunk, index) => {
+            const label = translationPartLabel(chunk, index);
+            const checked = chunk?.ai_check?.checked_translation ? ' · AI-tarkastettu' : '';
+            return `
+                <button class="translation-part-item ${index === selectedFinnishTranslationPartIndex ? 'active' : ''}" data-finnish-ai-check-part-index="${index}">
+                    ${escapeHtml(label.title)}
+                    <small>${escapeHtml(label.meta + checked)}</small>
+                </button>
+            `;
+        }).join('');
+        list.querySelectorAll('[data-finnish-ai-check-part-index]').forEach(button => {
+            button.addEventListener('click', () => {
+                selectedFinnishTranslationPartIndex = Number(button.dataset.finnishAiCheckPartIndex || 0);
+                renderFinnishTranslationParts();
+                renderFinnishTranslationAiCheck();
+            });
+        });
+
+        const selected = chunks[selectedFinnishTranslationPartIndex] || {};
+        const sections = translationPartSections(selected);
+        const aiCheck = selected.ai_check && typeof selected.ai_check === 'object' ? selected.ai_check : {};
+        setTranslationAiCheckText('source', sections.source || selected.source_text || '');
+        setTranslationAiCheckText('current', selected.translation || '');
+        setTranslationAiCheckText('checked', aiCheck.checked_translation || '');
+        setTranslationAiCheckText('notes', aiCheck.notes || '');
+        const label = translationPartLabel(selected, selectedFinnishTranslationPartIndex);
+        status.textContent = aiCheck.checked_translation
+            ? `${label.title}: AI-tarkastus valmiina.`
+            : `${label.title}: valitse Tarkasta AI:lla.`;
+        if (runBtn) runBtn.disabled = !translationModels.length;
+        if (acceptBtn) acceptBtn.disabled = !String(checkedEl?.value || '').trim();
+        if (modelSelect && translationModels.length) {
+            const currentValue = translationPartModelValue(selected, selectedFinnishTranslation);
+            if (currentValue && translationModels.some(model => `${model.provider}:${model.model_name}` === currentValue)) {
+                modelSelect.value = currentValue;
+            }
+        }
+    }
+
+    async function runFinnishTranslationAiCheck() {
+        const item = selectedFinnishTranslation;
+        const chunk = selectedFinnishTranslationChunk();
+        const status = document.getElementById('finnish-translation-ai-check-status');
+        const runBtn = document.getElementById('finnish-translation-ai-check-run-btn');
+        const modelEl = document.getElementById('finnish-translation-ai-check-model');
+        const currentEl = document.getElementById('finnish-translation-ai-check-current');
+        if (!item || !chunk) {
+            alert('Valitse ensin käännös ja käännöspala.');
+            return;
+        }
+        if (runBtn) runBtn.disabled = true;
+        if (status) status.textContent = 'Tarkastetaan käännöspalaa AI:lla...';
+        try {
+            const res = await apiFetch(`/api/translations/${item.id}/chunks/${selectedFinnishTranslationPartIndex}/check`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    model: modelEl?.value || null,
+                    current_translation: currentEl?.value || chunk.translation || '',
+                    save: true
+                })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'AI-tarkastus epäonnistui.');
+            const chunks = translationChunkDetails(selectedFinnishTranslation);
+            if (chunks[selectedFinnishTranslationPartIndex]) {
+                chunks[selectedFinnishTranslationPartIndex].ai_check = {
+                    checked_translation: data.checked_translation || '',
+                    notes: data.notes || '',
+                    model: data.model || '',
+                    checked_at: new Date().toISOString()
+                };
+                selectedFinnishTranslation.chunk_details = chunks;
+                const itemIndex = currentFinnishTranslationHistory.findIndex(historyItem => String(historyItem.id) === String(selectedFinnishTranslation.id));
+                if (itemIndex >= 0) currentFinnishTranslationHistory[itemIndex] = selectedFinnishTranslation;
+            }
+            setTranslationAiCheckText('checked', data.checked_translation || '');
+            setTranslationAiCheckText('notes', data.notes || '');
+            if (status) status.textContent = 'AI-tarkastus valmis. Voit hyväksyä ehdotuksen tai poimia siitä osia käsin.';
+            renderFinnishTranslationAiCheck();
+        } catch (err) {
+            if (status) status.textContent = err.message;
+            alert('AI-tarkastus epäonnistui: ' + networkFailureMessage(err));
+        } finally {
+            if (runBtn) runBtn.disabled = false;
+        }
+    }
+
+    async function acceptFinnishTranslationAiCheck() {
+        const checkedEl = document.getElementById('finnish-translation-ai-check-checked');
+        const value = String(checkedEl?.value || '').trim();
+        if (!value) {
+            alert('Tarkastettua käännöstä ei ole.');
+            return;
+        }
+        const responseEl = document.getElementById('finnish-translation-part-response');
+        if (responseEl) responseEl.value = value;
+        await saveTranslationPartCorrection('finnish-translation');
+        const currentEl = document.getElementById('finnish-translation-ai-check-current');
+        if (currentEl) currentEl.value = value;
+        renderFinnishTranslationAiCheck();
     }
 
     async function rerunTranslationPart(prefix) {
@@ -10407,6 +10561,7 @@ Säännöt:
                 populateFinnishTranslationReviewSelect();
                 renderSelectedFinnishTranslationForReview();
                 renderFinnishTranslationParts();
+                renderFinnishTranslationAiCheck();
                 await renderFinnishTranslationHistory();
             } else {
                 selectedTranslation = data;
@@ -10463,6 +10618,7 @@ Säännöt:
                 populateFinnishTranslationReviewSelect();
                 renderSelectedFinnishTranslationForReview();
                 renderFinnishTranslationParts();
+                renderFinnishTranslationAiCheck();
                 await renderFinnishTranslationHistory();
             } else {
                 selectedTranslation = data;
@@ -10503,6 +10659,7 @@ Säännöt:
         populateFinnishTranslationReviewSelect();
         renderSelectedFinnishTranslationForReview();
         renderFinnishTranslationParts();
+        renderFinnishTranslationAiCheck();
     }
 
     function renderSelectedTranslationForReview() {
@@ -12318,7 +12475,12 @@ ${state.validation || 'Ei validointia.'}`;
     });
     document.querySelectorAll('.suomentaja-tab').forEach(tab => {
         if (tab.dataset.suomentajaPanel) {
-            tab.addEventListener('click', () => showFinnishTranslationPanel(tab.dataset.suomentajaPanel));
+            tab.addEventListener('click', () => {
+                showFinnishTranslationPanel(tab.dataset.suomentajaPanel);
+                if (tab.dataset.suomentajaPanel === 'suomentaja-ai-check-panel') {
+                    renderFinnishTranslationAiCheck();
+                }
+            });
         }
     });
     document.querySelectorAll('.biography-tab').forEach(tab => {
@@ -12405,6 +12567,12 @@ ${state.validation || 'Ei validointia.'}`;
     if (finnishTranslationReviewDownloadBtn) finnishTranslationReviewDownloadBtn.addEventListener('click', downloadFinnishTranslation);
     document.getElementById('finnish-translation-part-rerun-btn')?.addEventListener('click', () => rerunTranslationPart('finnish-translation'));
     document.getElementById('finnish-translation-part-save-btn')?.addEventListener('click', () => saveTranslationPartCorrection('finnish-translation'));
+    document.getElementById('finnish-translation-ai-check-run-btn')?.addEventListener('click', runFinnishTranslationAiCheck);
+    document.getElementById('finnish-translation-ai-check-accept-btn')?.addEventListener('click', acceptFinnishTranslationAiCheck);
+    document.getElementById('finnish-translation-ai-check-checked')?.addEventListener('input', event => {
+        const acceptBtn = document.getElementById('finnish-translation-ai-check-accept-btn');
+        if (acceptBtn) acceptBtn.disabled = !String(event.target.value || '').trim();
+    });
     if (finnishTranslationReviewText) {
         finnishTranslationReviewText.addEventListener('input', () => {
             latestFinnishTranslationText = finnishTranslationReviewText.value;
