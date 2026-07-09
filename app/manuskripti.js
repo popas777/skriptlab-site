@@ -139,6 +139,165 @@
     return String(text || "").split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
   }
 
+  function structureTitle(chapter, index) {
+    return String((chapter && (chapter.toc_title || chapter.title)) || "Luku " + (index + 1)).trim();
+  }
+
+  function projectTextWithHeadings(sourceProject) {
+    return (sourceProject.chapters || []).map((chapter, index) => {
+      const title = structureTitle(chapter, index);
+      return [title].concat(chapter.paragraphs || []).filter(Boolean).join("\n\n");
+    }).join("\n\n");
+  }
+
+  function kindFromHeading(title) {
+    const text = String(title || "").trim().toLocaleLowerCase("fi-FI");
+    if (/^(osa|part)\s+[\divxlcdm]+/.test(text)) return "part";
+    if (/^(sisällysluettelo|sisallysluettelo|nimiölehti|nimiolehti|tekijänoikeus|tekijanoikeus|omistuskirjoitus|epigrafi|esipuhe|johdanto)\b/.test(text)) return "front";
+    if (/^(jälkisanat|jalkisanat|liitteet|liite|sanasto|bibliografia|kiitokset|tietoja kirjailijasta|huomautukset|hakemisto|kolofoni)\b/.test(text)) return "back";
+    return "main";
+  }
+
+  function headingFromLine(value) {
+    const text = String(value || "").replace(/\s+/g, " ").trim();
+    if (!text || text.length > 150) return "";
+    if (/^(luku|chapter)\s+(?:\d+|[ivxlcdm]+)\b(?:\s*[:.\-–)]?\s*[^.!?]{0,110})?$/i.test(text)) return text;
+    if (/^(osa|part)\s+(?:\d+|[ivxlcdm]+)\b(?:\s*[:.\-–)]?\s*[^.!?]{0,110})?$/i.test(text)) return text;
+    if (/^(prologi|epilogi|esipuhe|johdanto|sisällysluettelo|sisallysluettelo|jälkisanat|jalkisanat|kiitokset|sanasto|bibliografia|hakemisto|kolofoni)$/i.test(text)) return text;
+    return "";
+  }
+
+  function splitTrailingHeading(value) {
+    const text = String(value || "").replace(/\s+/g, " ").trim();
+    const match = text.match(/\b(?:luku|chapter|osa|part)\s+(?:\d+|[ivxlcdm]+)\b(?:\s*[:.\-–)]?\s*[^.!?]{0,110})?$/i);
+    if (!match || match.index <= 0) return null;
+    const before = text.slice(0, match.index).trim();
+    const heading = headingFromLine(match[0]);
+    if (!before || !heading || !/[.!?…:;)"”’]$/.test(before)) return null;
+    return { before, heading };
+  }
+
+  function splitBlockToStructureParts(block) {
+    const parts = [];
+    const lines = String(block || "").split("\n").map((line) => line.trim()).filter(Boolean);
+    const sourceLines = lines.length ? lines : [String(block || "").trim()].filter(Boolean);
+    let textLines = [];
+    const pushText = () => {
+      const text = textLines.join("\n").trim();
+      if (text) parts.push({ type: "text", text });
+      textLines = [];
+    };
+    sourceLines.forEach((line) => {
+      const heading = headingFromLine(line);
+      if (heading) {
+        pushText();
+        parts.push({ type: "heading", text: heading });
+        return;
+      }
+      const trailing = splitTrailingHeading(line);
+      if (trailing) {
+        textLines.push(trailing.before);
+        pushText();
+        parts.push({ type: "heading", text: trailing.heading });
+        return;
+      }
+      textLines.push(line);
+    });
+    pushText();
+    return parts;
+  }
+
+  function splitProjectByVisibleHeadings(sourceProject) {
+    const blocks = textToParagraphs(projectTextWithHeadings(sourceProject));
+    const chapters = [];
+    let current = null;
+    let chapterCounter = 0;
+    let metaCounter = 0;
+
+    const pushCurrent = () => {
+      if (!current) return;
+      if ((current.paragraphs || []).some((p) => String(p || "").trim()) || current.kind !== "main") {
+        chapters.push(current);
+      }
+    };
+    const startSection = (title) => {
+      pushCurrent();
+      const kind = kindFromHeading(title);
+      if (kind === "main") chapterCounter += 1;
+      else metaCounter += 1;
+      const prefix = kind === "part" ? "osa" : kind === "front" ? "alku" : kind === "back" ? "loppu" : "luku";
+      current = {
+        id: prefix + "_" + (kind === "main" ? chapterCounter : metaCounter),
+        title,
+        toc_title: title,
+        kind,
+        paragraphs: [],
+      };
+    };
+
+    blocks.forEach((block) => {
+      splitBlockToStructureParts(block).forEach((part) => {
+        if (part.type === "heading") {
+          startSection(part.text);
+          return;
+        }
+        if (!current) startSection("Luku 1");
+        current.paragraphs.push(part.text);
+      });
+    });
+    pushCurrent();
+    return chapters.length ? chapters : [{ id: "luku_1", title: "Luku 1", toc_title: "Luku 1", kind: "main", paragraphs: blocks }];
+  }
+
+  function cloneChaptersForMetadata(chapters) {
+    return (chapters || []).map((chapter, index) => ({
+      id: chapter.id || "luku_" + (index + 1),
+      title: structureTitle(chapter, index),
+      toc_title: structureTitle(chapter, index),
+      kind: chapter.kind || "main",
+      paragraphs: (chapter.paragraphs || []).slice(),
+    }));
+  }
+
+  function metadataOnlyProposal(rawProposal) {
+    const current = cloneChaptersForMetadata(project.chapters || []);
+    const incoming = rawProposal && Array.isArray(rawProposal.chapters) ? rawProposal.chapters : [];
+    const byId = new Map(incoming.map((chapter) => [String(chapter.id || ""), chapter]));
+    const sameLength = incoming.length === current.length;
+    const chapters = current.map((chapter, index) => {
+      const suggested = byId.get(String(chapter.id || "")) || (sameLength ? incoming[index] : null);
+      if (!suggested) return chapter;
+      const title = structureTitle(suggested, index) || structureTitle(chapter, index);
+      return Object.assign({}, chapter, {
+        title,
+        toc_title: title,
+        kind: suggested.kind || chapter.kind || "main",
+        paragraphs: (chapter.paragraphs || []).slice(),
+      });
+    });
+    const warnings = (rawProposal && rawProposal.warnings ? rawProposal.warnings.slice() : []);
+    if (incoming.length !== current.length) {
+      warnings.push("AI-ehdotus sisälsi eri määrän osioita kuin nykyinen käsikirjoitus. Lisätyt tai puuttuvat osiot ohitettiin, jotta teksti ei muutu.");
+    }
+    return {
+      source: rawProposal && rawProposal.source === "ai" ? "ai" : "rule_based",
+      mode: "metadata",
+      chapters,
+      requires_chapter_replacement: false,
+      warnings,
+    };
+  }
+
+  function paragraphSequence(chapters) {
+    return (chapters || []).flatMap((chapter) => (chapter.paragraphs || []).map((paragraph) => String(paragraph || "")));
+  }
+
+  function sameParagraphSequence(leftChapters, rightChapters) {
+    const left = paragraphSequence(leftChapters);
+    const right = paragraphSequence(rightChapters);
+    return left.length === right.length && left.every((paragraph, index) => paragraph === right[index]);
+  }
+
   /* ------------------------------------------------------------ demotila */
 
   const demo = {
@@ -261,7 +420,22 @@
   }
 
   async function apiPatchStructure(projectId, chapters) {
-    if (demoMode) return apiSaveProject({ id: projectId, replace_chapters: true, chapters });
+    if (demoMode) {
+      const target = demo.projects.find((p) => p.id === projectId);
+      if (!target) throw new Error("Projektia ei löydy.");
+      const byId = new Map((target.chapters || []).map((chapter) => [String(chapter.id || ""), chapter]));
+      target.chapters = chapters.map((item, index) => {
+        const existing = byId.get(String(item.id || "")) || target.chapters[index] || {};
+        return Object.assign({}, existing, {
+          id: item.id || existing.id || "luku_" + (index + 1),
+          title: item.title || item.toc_title || existing.title || "Luku " + (index + 1),
+          toc_title: item.toc_title || item.title || existing.toc_title || existing.title || "Luku " + (index + 1),
+          kind: item.kind || existing.kind || "main",
+          paragraphs: (existing.paragraphs || []).slice(),
+        });
+      });
+      return JSON.parse(JSON.stringify(target));
+    }
     const structure = chapters.map((c) => ({ id: c.id, title: c.title, toc_title: c.toc_title, kind: c.kind }));
     return api("/projects/" + projectId + "/structure", jsonOptions("PATCH", { chapters: structure }));
   }
@@ -439,7 +613,7 @@
       { id: "analyysi", num: 2, name: "Analyysi", desc: "Arvio, synopsis ja metatiedot",
         done: analysis.analysis_status === "completed" || analysis.analysis_status === "partial" },
       { id: "rakenne", num: 3, name: "Rakenne", desc: "Sisällysluettelo ja osajako",
-        done: analysis.structure_status === "accepted" },
+        done: analysis.structure_completed === true || ["accepted", "accepted_metadata", "accepted_reparse"].includes(analysis.structure_status) },
     ];
   }
 
@@ -710,15 +884,26 @@
       list.appendChild(tocItem(chapter, subtitle, null));
     });
 
-    $("proposal-note").textContent = proposal.requires_chapter_replacement
-      ? "Hyväksyntä järjestää kappaleet uudelleen lukuihin."
-      : "Hyväksyntä päivittää vain otsikot ja järjestyksen – teksti ei muutu.";
+    $("proposal-note").textContent = proposal.mode === "reparse"
+      ? "Hyväksyntä tallentaa uuden osiojaon näkyvien otsikkorivien perusteella."
+      : "Hyväksyntä päivittää vain osioiden nimet ja metatiedot – teksti ei muutu.";
   }
 
   async function createProposal(useAi) {
     try {
-      working(true, useAi ? "Tekoäly suunnittelee rakennetta…" : "Tunnistetaan osioita…");
-      proposal = await apiProposal(project.id, useAi, $("f-structure-instructions").value);
+      working(true, useAi ? "Tekoäly ehdottaa metatietoja…" : "Jaetaan näkyvien otsikoiden mukaan…");
+      if (useAi) {
+        const rawProposal = await apiProposal(project.id, true, $("f-structure-instructions").value);
+        proposal = metadataOnlyProposal(rawProposal);
+      } else {
+        proposal = {
+          source: "rule_based",
+          mode: "reparse",
+          chapters: splitProjectByVisibleHeadings(project),
+          requires_chapter_replacement: true,
+          warnings: [],
+        };
+      }
       renderProposal();
       $("proposal-card").scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (error) {
@@ -731,25 +916,29 @@
   async function acceptProposal() {
     if (!proposal) return;
     try {
+      const acceptedMode = proposal.mode === "reparse" ? "reparse" : "metadata";
       working(true, "Tallennetaan rakennetta…");
-      if (proposal.requires_chapter_replacement) {
+      if (acceptedMode === "reparse") {
         project = await apiSaveProject({
           id: project.id, title: project.title, author: project.author,
           replace_chapters: true, chapters: proposal.chapters,
         });
       } else {
+        if (!sameParagraphSequence(project.chapters, proposal.chapters)) {
+          throw new Error("Rakenne-ehdotus yritti muuttaa tekstikappaleita. Käytä tekstin jakamiseen Jaa otsikoiden mukaan -toimintoa.");
+        }
         project = await apiPatchStructure(project.id, proposal.chapters);
       }
       await apiPatchMetadata(project.id, {
         structure_completed: true,
-        structure_status: "accepted",
+        structure_status: acceptedMode === "reparse" ? "accepted_reparse" : "accepted_metadata",
         structure_completed_at: new Date().toISOString(),
       });
       project = await apiGetProject(project.id);
       proposal = null;
       renderStructure();
       renderProject();
-      toast("Rakenne hyväksytty.");
+      toast(acceptedMode === "reparse" ? "Uusi osiojako hyväksytty." : "Metatiedot hyväksytty.");
     } catch (error) {
       toast(error.message);
     } finally {

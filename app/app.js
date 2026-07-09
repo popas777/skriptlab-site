@@ -4032,7 +4032,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             chapters[index] = chapters[nextIndex];
             chapters[nextIndex] = current;
             setStructureStatus('Tallennetaan osioiden järjestystä...');
-            await window.replaceProjectChaptersInDB(window.manuscriptData);
+            await window.saveProjectStructureToDB(window.manuscriptData);
             refreshViewsAfterStructureChange();
             setStructureStatus('Osio siirretty ja tallennettu.');
         } catch (err) {
@@ -4043,6 +4043,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     let structureProposalChapters = null;
+    let structureProposalMode = 'metadata';
 
     function structureDisplayTitle(chapter, index = 0) {
         return String(
@@ -4306,7 +4307,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
     }
 
-    function normalizeStructureProposalChapters(chapters, options = structureSelectedOptions()) {
+    function normalizeStructureProposalChapters(chapters, options = structureSelectedOptions(), settings = {}) {
+        const preserveIds = Boolean(settings.preserveIds);
+        const usedIds = new Set();
         const kindCounts = {};
         return (chapters || []).map(chapter => {
             const kind = structureChapterKind(chapter);
@@ -4336,7 +4339,13 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             };
             kindCounts[kind] = (kindCounts[kind] || 0) + 1;
             const prefix = STRUCTURE_KIND_PREFIXES[kind] || STRUCTURE_KIND_PREFIXES.chapter;
-            next.id = `${prefix}_${kindCounts[kind]}`;
+            const candidateId = String(chapter?.id || '').trim();
+            if (preserveIds && candidateId && !usedIds.has(candidateId)) {
+                next.id = candidateId;
+            } else {
+                next.id = `${prefix}_${kindCounts[kind]}`;
+            }
+            usedIds.add(next.id);
             next.toc_title = String(next.toc_title || next.title || STRUCTURE_KIND_TITLES[kind] || `Osio ${kindCounts[kind]}`).trim();
             return next;
         }).filter(Boolean);
@@ -4509,7 +4518,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         return result;
     }
 
-    function applyStructureInstructionTargets(chapters, targets = structureInstructionTargets()) {
+    function applyStructureInstructionTargets(chapters, targets = structureInstructionTargets(), settings = {}) {
+        if (settings.metadataOnly) {
+            return normalizeStructureProposalChapters(chapters, structureSelectedOptions(), { preserveIds: true });
+        }
         let rows = [...(chapters || [])];
         const leadingRows = [];
         const ensureLeadingKind = (kind, title) => {
@@ -4791,15 +4803,23 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         status.style.color = isError ? '#ffb4b4' : '';
     }
 
-    function setStructureProposal(chapters, message, targets = structureInstructionTargets()) {
-        structureProposalChapters = sanitizeChaptersForTextStorage(applyStructureInstructionTargets(normalizeStructureProposalChapters(chapters), targets));
+    function setStructureProposal(chapters, message, targets = structureInstructionTargets(), mode = 'metadata') {
+        structureProposalMode = mode === 'reparse' ? 'reparse' : 'metadata';
+        const metadataOnly = structureProposalMode === 'metadata';
+        const normalized = normalizeStructureProposalChapters(chapters, structureSelectedOptions(), { preserveIds: metadataOnly });
+        structureProposalChapters = metadataOnly
+            ? applyStructureInstructionTargets(normalized, targets, { metadataOnly: true })
+            : sanitizeChaptersForTextStorage(applyStructureInstructionTargets(normalized, targets));
         const proposalEl = document.getElementById('structure-proposal');
         if (proposalEl) proposalEl.value = structureProposalText(structureProposalChapters);
         const acceptBtn = document.getElementById('structure-accept-btn');
         const rejectBtn = document.getElementById('structure-reject-btn');
         if (acceptBtn) acceptBtn.disabled = !structureProposalChapters?.length;
         if (rejectBtn) rejectBtn.disabled = !structureProposalChapters?.length;
-        setStructureStatus(`${message || 'Ehdotus valmis tarkistettavaksi.'}${structureInstructionStatusNote(structureProposalChapters, targets)}`);
+        const safetyNote = metadataOnly
+            ? ' Tekstikappaleita ei muuteta.'
+            : ' Tämä ehdotus muuttaa tekstin osiojakoa vain hyväksynnän jälkeen.';
+        setStructureStatus(`${message || 'Ehdotus valmis tarkistettavaksi.'}${safetyNote}${structureInstructionStatusNote(structureProposalChapters, targets)}`);
     }
 
     function localStructureFallbackProposal() {
@@ -4810,6 +4830,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function rejectStructureProposal() {
         structureProposalChapters = null;
+        structureProposalMode = 'metadata';
         const proposalEl = document.getElementById('structure-proposal');
         if (proposalEl) proposalEl.value = '';
         const acceptBtn = document.getElementById('structure-accept-btn');
@@ -4832,7 +4853,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             return;
         }
         const chapters = sanitizeChaptersForTextStorage(parseRestructuredChapters(sourceText, '', { useFallbackTitle: false }));
-        setStructureProposal(chapters, 'Sääntöpohjainen jako valmis tarkistettavaksi.');
+        setStructureProposal(chapters, 'Otsikoiden perusteella tehty jako valmis tarkistettavaksi.', structureInstructionTargets(), 'reparse');
     }
 
     function buildStructureAiPrompt() {
@@ -4852,27 +4873,26 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (extra) constraints.push(`Käyttäjän lisäohje: ${compactStructureMiddle(extra, STRUCTURE_AI_EXTRA_MAX_CHARS)}`);
         return `STRUCTURE_MODULE:proposal
 
-	Ehdota käsikirjoitukselle kirjarakenne metatietona. Päättele analyysin, synopsiksen, nykyisten osioiden ja käyttäjän lisäohjeen perusteella, moneenko päätekstin osioon teksti kannattaa jakaa.
+	Ehdota käsikirjoituksen nykyisille osioille rakenteen metatietoja. Älä jaa, yhdistä, lisää tai poista tekstiosioita.
 
 	Periaatteet:
 	- Ehdottamasi rivit ovat vain rakenteen metatietoa. Älä lisää otsikoita leipätekstiin.
 	- Tärkein tehtäväsi on tunnistaa nykyisestä käsikirjoituksesta oikeat luku-, osa- ja väliotsikot. Älä korvaa selviä käsikirjoituksen otsikoita geneerisellä jaolla.
 	- Älä ehdota Nimiölehteä, Sisällysluetteloa, Tekijänoikeussivua, Kiitoksia, Tietoja kirjailijasta tai muita etu-/lopputekstejä, ellei kyseinen otsikko tai oma tekstisisältö ole jo nykyisessä käsikirjoituksessa tai käyttäjä pyydä sitä lisäohjeessa.
-	- Älä lisää tyhjiä osioita. Jokaisella ehdotetulla osiolla pitää olla oma lähdealue tai sen pitää vastata nykyisessä käsikirjoituksessa näkyvää otsikkoa.
-	- Päätekstin tekstillisten osioiden pitää kattaa nykyinen käsikirjoitusteksti järjestyksessä.
+	- Palauta korkeintaan yksi rivi jokaista nykyistä OSIO-numeroa kohti. Älä käytä lähdealueita kuten [LÄHDE: 1-3], vaan viittaa yhteen nykyiseen osioon kerrallaan.
+	- Älä lisää tyhjiä osioita. Jos jokin nimiölehti, sisällysluettelo tai loppuaineisto puuttuu tekstistä, jätä se pois.
+	- Nykyisten tekstillisten osioiden määrän ja järjestyksen pitää säilyä.
 	- Älä keksi uusia kohtauksia, kappaleita tai sisältöä.
-	- Jos ehdotat uutta jakoa, anna jokaiselle tekstilliselle päätekstin osiolle lähdealue nykyisistä OSIO-numeroista muodossa [LÄHDE: 1-3] tai [LÄHDE: 4].
-	- Jos nykyinen käsikirjoitus on yhtenä pitkänä osiona, voit ehdottaa useita LUKU-rivejä ilman lähdealuetta; sovellus jakaa tekstin kappalerajoista.
+	- Jos nykyinen käsikirjoitus on yhtenä pitkänä osiona, älä yritä jakaa sitä. Käyttäjä tekee varsinaisen jaon erillisellä "Jaa otsikoiden mukaan" -toiminnolla.
 	- Palauta vain rakennerivejä, ei perusteluja.
 	- Käytä vain näitä rivimuotoja:
-	  ETUSIVUT: Nimiölehti
-	  ETUSIVUT: Sisällysluettelo
 	  PÄÄTEKSTI: Prologi [LÄHDE: 1]
-	  OSA 1: Osan nimi
-	  LUKU 1: Luvun nimi [LÄHDE: 1-2]
-	  ALILUKU 1.1: Aliluvun nimi [LÄHDE: 2]
+	  OSA 1: Osan nimi [LÄHDE: 2]
+	  LUKU 1: Luvun nimi [LÄHDE: 3]
+	  ALILUKU 1.1: Aliluvun nimi [LÄHDE: 4]
 	  PÄÄTEKSTI: Epilogi [LÄHDE: 12]
-	  LOPPUTEKSTIT: Kiitokset
+	  ETUSIVUT: Esipuhe [LÄHDE: 1]
+	  LOPPUTEKSTIT: Kiitokset [LÄHDE: 18]
 
 	Käyttäjän ohje ja päätellyt reunaehdot:
 	${constraints.map(item => `- ${item}`).join('\n')}`;
@@ -5025,18 +5045,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         };
     }
 
-    function prependMissingSourceMetaRows(result, sourceRows) {
-        const preserved = [];
-        sourceRows.forEach(row => {
-            const kind = structureChapterKind(row);
-            if (kind === 'chapter') return;
-            if (!structureChapterHasText(row)) return;
-            if (result.some(item => structureChapterKind(item) === kind && structureDisplayTitle(item) === structureDisplayTitle(row))) return;
-            preserved.push(row);
-        });
-        return preserved.length ? [...preserved, ...result] : result;
-    }
-
     function textBearingStructureRows(rows) {
         return (rows || []).filter(chapter => {
             const kind = structureChapterKind(chapter);
@@ -5063,42 +5071,47 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         };
     }
 
-    function chaptersFromAiStructureOutline(rawText) {
-        const sourceChapters = repairMisplacedStructureHeadings(window.manuscriptData?.chapters || []);
+    function cloneCurrentStructureRows(chapters = window.manuscriptData?.chapters || []) {
+        return (chapters || []).map((chapter, index) => ({
+            id: chapter?.id || `luku_${index + 1}`,
+            title: String(chapter?.title || '').trim(),
+            toc_title: structureDisplayTitle(chapter, index),
+            paragraphs: Array.isArray(chapter?.paragraphs) ? [...chapter.paragraphs] : []
+        }));
+    }
+
+    function metadataProposalFromAiStructureOutline(rawText) {
+        const sourceChapters = cloneCurrentStructureRows();
         const entries = parseAiStructureOutline(rawText);
         if (!sourceChapters.length) return [];
         if (!entries.length) return sourceChapters;
 
-        const sourceTextRows = textBearingStructureRows(sourceChapters);
-        const bodyTextEntries = entries.filter(entry => isBodyTextStructureKind(entry.kind));
-        const paragraphGroups = bodyTextEntries.length
-            ? structureParagraphGroups(sourceTextRows, bodyTextEntries.length)
-            : [];
-        let bodyTextIndex = 0;
-        const rows = entries.map((entry, index) => {
-            const placement = structureKindPlacement(entry.kind);
-            if (placement !== 'body' || entry.kind === 'part') {
-                return makeStructureMetaRow(entry.kind, entry.title || STRUCTURE_KIND_TITLES[entry.kind], index + 1);
+        const entryForSourceIndex = new Map();
+        entries.forEach(entry => {
+            const start = Number(entry?.sourceStart || entry?.sourceIndex + 1 || 0);
+            const end = Number(entry?.sourceEnd || start);
+            if (!Number.isFinite(start) || start < 1) return;
+            for (let sourceIndex = start; sourceIndex <= end; sourceIndex++) {
+                if (!entryForSourceIndex.has(sourceIndex)) entryForSourceIndex.set(sourceIndex, entry);
             }
-            let row;
-            if (entry.sourceStart) {
-                row = mergeSourceRowsForEntry(sourceTextRows, entry, bodyTextIndex);
-            } else if (bodyTextEntries.length !== sourceTextRows.length && paragraphGroups[bodyTextIndex]) {
-                row = mergeStructureParagraphGroup(paragraphGroups[bodyTextIndex], entry.title, bodyTextIndex);
-            } else {
-                row = mergeSourceRowsForEntry(sourceTextRows, entry, bodyTextIndex);
-            }
-            bodyTextIndex++;
+        });
+
+        const sequentialEntries = entries.filter(entry => !entry.sourceStart && entry.sourceIndex === undefined);
+        return sourceChapters.map((chapter, index) => {
+            const entry = entryForSourceIndex.get(index + 1) || sequentialEntries[index] || null;
+            if (!entry) return chapter;
+            const nextTitle = String(entry.title || structureDisplayTitle(chapter, index) || `Osio ${index + 1}`).trim();
             return {
-                ...row,
-                toc_title: String(entry.title || row.toc_title || row.title || `Luku ${bodyTextIndex}`).trim()
+                ...chapter,
+                title: nextTitle,
+                toc_title: nextTitle,
+                paragraphs: Array.isArray(chapter.paragraphs) ? [...chapter.paragraphs] : []
             };
         });
-        return sanitizeChaptersForTextStorage(prependMissingSourceMetaRows(rows, sourceChapters));
     }
 
     function currentStructureAsProposal() {
-        return repairMisplacedStructureHeadings(window.manuscriptData?.chapters || []);
+        return cloneCurrentStructureRows();
     }
 
     async function createAiStructureProposal() {
@@ -5107,8 +5120,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             return;
         }
         await flushPendingManuscriptEdits();
-        const repairedChapters = repairMisplacedStructureHeadings(window.manuscriptData.chapters);
-        const structureBrief = structureBriefForAi({ ...window.manuscriptData, chapters: repairedChapters });
+        const structureBrief = structureBriefForAi(window.manuscriptData);
         if (!structureBrief.trim()) {
             alert('Käsikirjoituksesta ei löytynyt käsiteltävää tekstiä.');
             return;
@@ -5128,9 +5140,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || 'Rakenne-ehdotuksen luonti epäonnistui.');
-            const chapters = chaptersFromAiStructureOutline(data.edited_text || '');
+            const chapters = metadataProposalFromAiStructureOutline(data.edited_text || '');
             if (!chapters.length) throw new Error('AI ei palauttanut tunnistettavaa rakennetta.');
-            setStructureProposal(chapters, 'AI-ehdotus valmis tarkistettavaksi. Nykyiset jakokohdat on säilytetty.');
+            setStructureProposal(chapters, 'AI-metatiedot valmiit tarkistettavaksi. Nykyiset tekstiosiot säilytetään.', structureInstructionTargets(), 'metadata');
             loadUsage();
         } catch (err) {
             const fallback = localStructureFallbackProposal();
@@ -5158,20 +5170,19 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         return leftParagraphs.every((paragraph, index) => String(paragraph || '') === String(rightParagraphs[index] || ''));
     }
 
-    function structureProposalRequiresChapterReplacement(proposalChapters, currentChapters) {
-        const proposalById = new Map((proposalChapters || []).map(chapter => [String(chapter?.id || ''), chapter]));
-        const currentById = new Map((currentChapters || []).map(chapter => [String(chapter?.id || ''), chapter]));
-        for (const chapter of currentChapters || []) {
-            if (!structureChapterHasText(chapter)) continue;
-            const next = proposalById.get(String(chapter?.id || ''));
-            if (!next || !sameStructureParagraphs(chapter, next)) return true;
-        }
-        for (const chapter of proposalChapters || []) {
-            if (!structureChapterHasText(chapter)) continue;
-            const current = currentById.get(String(chapter?.id || ''));
-            if (!current || !sameStructureParagraphs(chapter, current)) return true;
-        }
-        return false;
+    function paragraphSequence(chapters) {
+        return (chapters || []).flatMap(chapter => (
+            Array.isArray(chapter?.paragraphs)
+                ? chapter.paragraphs.map(paragraph => String(paragraph || ''))
+                : []
+        ));
+    }
+
+    function sameParagraphSequence(leftChapters, rightChapters) {
+        const left = paragraphSequence(leftChapters);
+        const right = paragraphSequence(rightChapters);
+        if (left.length !== right.length) return false;
+        return left.every((paragraph, index) => paragraph === right[index]);
     }
 
     function refreshViewsAfterStructureChange() {
@@ -5195,30 +5206,41 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     async function acceptStructureProposal() {
         if (!structureProposalChapters?.length || !window.manuscriptData) return;
-        const cleanProposalChapters = sanitizeChaptersForTextStorage(structureProposalChapters);
+        const isReparseProposal = structureProposalMode === 'reparse';
+        const cleanProposalChapters = isReparseProposal
+            ? sanitizeChaptersForTextStorage(structureProposalChapters)
+            : normalizeStructureProposalChapters(structureProposalChapters, structureSelectedOptions(), { preserveIds: true });
         const paragraphCount = cleanProposalChapters.reduce((sum, chapter) => sum + (chapter.paragraphs || []).length, 0);
-        if (!confirm(`Hyväksytäänkö ehdotettu rakenne?\n\n${cleanProposalChapters.length} osiota, ${paragraphCount} tekstikappaletta.`)) {
+        const actionDescription = isReparseProposal
+            ? 'Tämä tallentaa uuden osiojaon otsikkorivien perusteella.'
+            : 'Tämä päivittää vain osioiden nimet ja rakenteen metatiedot. Tekstikappaleita ei muuteta.';
+        if (!confirm(`Hyväksytäänkö ehdotettu rakenne?\n\n${cleanProposalChapters.length} osiota, ${paragraphCount} tekstikappaletta.\n\n${actionDescription}`)) {
             return;
         }
         const currentChapters = window.manuscriptData.chapters || [];
-        const replaceChapterLayout = structureProposalRequiresChapterReplacement(cleanProposalChapters, currentChapters);
+        if (!isReparseProposal && !sameParagraphSequence(currentChapters, cleanProposalChapters)) {
+            alert('Rakenne-ehdotusta ei tallennettu, koska se muuttaisi käsikirjoituksen tekstikappaleita. Käytä tekstin jakamiseen erillistä "Jaa otsikoiden mukaan" -toimintoa.');
+            setStructureStatus('Tallennus estettiin: metadataehdotus yritti muuttaa tekstikappaleita.', true);
+            return;
+        }
         window.manuscriptData.chapters = cleanProposalChapters;
         window.manuscriptData.analysis = window.manuscriptData.analysis || {};
         window.manuscriptData.analysis.structure_completed = true;
-        window.manuscriptData.analysis.structure_status = 'accepted';
+        window.manuscriptData.analysis.structure_status = isReparseProposal ? 'accepted_reparse' : 'accepted_metadata';
         window.manuscriptData.analysis.structure_completed_at = new Date().toISOString();
         writingSelection = { cIndex: firstBodyChapterIndex(structureProposalChapters), pIndex: 0 };
         window.currentEditSelection = { cIndex: writingSelection.cIndex, pIndex: 0 };
-        if (replaceChapterLayout) {
+        if (isReparseProposal) {
             await window.replaceProjectChaptersInDB(window.manuscriptData);
         } else {
             await window.saveProjectStructureToDB(window.manuscriptData);
         }
         structureProposalChapters = null;
+        structureProposalMode = 'metadata';
         const proposalEl = document.getElementById('structure-proposal');
         if (proposalEl) proposalEl.value = '';
         refreshViewsAfterStructureChange();
-        setStructureStatus('Rakenne hyväksytty ja tallennettu.');
+        setStructureStatus(isReparseProposal ? 'Uusi osiojako hyväksytty ja tallennettu.' : 'Rakenteen metatiedot hyväksytty ja tallennettu.');
     }
 
     const geminiMagicText = `Musta pimeys kietoi ikiaikaisen varjometsän syliinsä, ja puut piirtyivät taivasta vasten kuin sysimustat kynnet. Jokin liikkui äänettömästi aluskasvillisuuden seassa – askeleet olivat huomaamattomat, mutta ilmassa lepäsi odottava jännite. Hahmo oli epäilemättä taikaolennon kaltainen; ehkäpä matkalainen etsimässä loistavaa kiveä.
