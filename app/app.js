@@ -3568,12 +3568,14 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                     pushCurrent();
                     return;
                 }
-                if (isExplicitStructureHeadingLine(line)) {
-                    pushCurrent();
-                    blocks.push(line);
-                    return;
-                }
-                current.push(line);
+                splitStructureHeadingParts(line).forEach(part => {
+                    if (part.type === 'heading') {
+                        pushCurrent();
+                        blocks.push(part.text);
+                        return;
+                    }
+                    current.push(part.text);
+                });
             });
         pushCurrent();
         return blocks;
@@ -3904,15 +3906,42 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function extractTrailingStructureHeading(value) {
         const text = String(value || '').replace(/\s+/g, ' ').trim();
         if (!text || text.length < 8) return null;
-        const headingPattern = /\b(?:LUKU|Luku|CHAPTER|Chapter|OSA|Osa|PART|Part)\s+(?:(?:\d+|[IVXLC]+)\.?\s*|[A-ZÅÄÖ][\p{L}\p{N}'’_-]*\s*)[^\n!?]{0,120}$/u;
+        const numberWords = 'yksi|yhden|kaksi|kahden|kolme|kolmen|neljä|neljan|neljän|viisi|viiden|kuusi|kuuden|seitsemän|seitseman|kahdeksan|yhdeksän|yhdeksan|kymmenen|ensimmäinen|toinen|kolmas|neljäs|viides|kuudes|seitsemäs|kahdeksas|yhdeksäs|kymmenes';
+        const headingPattern = new RegExp(`\\b(?:luku|chapter|osa|part)\\s+(?:\\d+|[ivxlcdm]+|${numberWords})\\b(?:\\s*[:.\\-–)]?\\s*[^\\n.!?]{0,110})?$`, 'iu');
         const match = text.match(headingPattern);
         if (!match || match.index === undefined || match.index <= 0) return null;
         const before = text.slice(0, match.index).trim();
         const heading = normalizedHeadingLine(match[0]);
         if (!before || !heading || !isExplicitStructureHeadingLine(heading)) return null;
-        const beforeLooksComplete = /[.!?…:;)"”’]$/.test(before) || match[0] === match[0].toLocaleUpperCase('fi-FI');
+        const isStrongHeading = /^(?:luku|chapter|osa|part)\s+(?:\d+|[ivxlcdm]+)/i.test(heading);
+        const startsWithUppercaseHeading = /^[A-ZÅÄÖ]/.test(match[0]);
+        const beforeLooksComplete = /[.!?…:;)"”’]$/.test(before)
+            || match[0] === match[0].toLocaleUpperCase('fi-FI')
+            || (isStrongHeading && startsWithUppercaseHeading && before.length >= 12);
         if (!beforeLooksComplete) return null;
         return { before, heading };
+    }
+
+    function splitStructureHeadingParts(value) {
+        const raw = String(value || '').replace(/\r\n?/g, '\n').trim();
+        if (!raw) return [];
+        if (raw.includes('\n')) {
+            return raw
+                .split('\n')
+                .map(line => line.trim())
+                .filter(Boolean)
+                .flatMap(line => splitStructureHeadingParts(line));
+        }
+        const standaloneHeading = extractedStandaloneStructureHeading(raw);
+        if (standaloneHeading) return [{ type: 'heading', text: standaloneHeading }];
+        const trailingHeading = extractTrailingStructureHeading(raw);
+        if (trailingHeading?.heading) {
+            return [
+                trailingHeading.before ? { type: 'text', text: trailingHeading.before } : null,
+                { type: 'heading', text: trailingHeading.heading },
+            ].filter(Boolean);
+        }
+        return [{ type: 'text', text: raw }];
     }
 
     function chapterKindFromHeadingTitle(title) {
@@ -3948,37 +3977,69 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function repairMisplacedStructureHeadings(chapters) {
         const rows = (chapters || []).map((chapter, index) => cloneChapterWithStructureTitle(chapter, structureDisplayTitle(chapter, index), index));
-        rows.forEach(chapter => {
-            while (chapter.paragraphs?.length) {
-                const heading = extractedStandaloneStructureHeading(chapter.paragraphs[0]);
-                if (!heading) break;
-                applyDetectedHeadingToChapter(chapter, heading);
-                chapter.paragraphs.shift();
-            }
+        const repaired = [];
+        let generatedIndex = 0;
+        const makeEmptyChapter = () => ({
+            id: `luku_korjattu_${Date.now()}_${generatedIndex++}`,
+            title: '',
+            toc_title: '',
+            paragraphs: []
         });
-        for (let index = 0; index < rows.length; index++) {
-            const chapter = rows[index];
-            if (!chapter?.paragraphs?.length) continue;
-            const lastIndex = chapter.paragraphs.length - 1;
-            const lastParagraph = chapter.paragraphs[lastIndex];
-            const standaloneHeading = extractedStandaloneStructureHeading(lastParagraph);
-            const trailingHeading = standaloneHeading
-                ? { before: '', heading: standaloneHeading }
-                : extractTrailingStructureHeading(lastParagraph);
-            if (!trailingHeading?.heading) continue;
-            if (trailingHeading.before) {
-                chapter.paragraphs[lastIndex] = trailingHeading.before;
-            } else {
-                chapter.paragraphs.splice(lastIndex, 1);
-            }
-            let nextChapter = rows[index + 1];
-            if (!nextChapter) {
-                nextChapter = { id: `luku_${rows.length + 1}`, title: '', toc_title: '', paragraphs: [] };
-                rows.splice(index + 1, 0, nextChapter);
-            }
-            applyDetectedHeadingToChapter(nextChapter, trailingHeading.heading);
+        const pushIfContent = chapter => {
+            if (chapterHasContent(chapter)) repaired.push(chapter);
+        };
+
+        rows.forEach((sourceChapter, sourceIndex) => {
+            let current = {
+                ...sourceChapter,
+                paragraphs: []
+            };
+            (sourceChapter.paragraphs || []).forEach(paragraph => {
+                splitStructureHeadingParts(paragraph).forEach(part => {
+                    if (part.type !== 'heading') {
+                        if (part.text) current.paragraphs.push(part.text);
+                        return;
+                    }
+                    const heading = part.text;
+                    const sameAsCurrentTitle = comparableStructureHeading(heading) === comparableStructureHeading(structureDisplayTitle(current, sourceIndex));
+                    const currentHasText = (current.paragraphs || []).some(item => String(item || '').trim());
+                    if (!currentHasText && sameAsCurrentTitle) {
+                        applyDetectedHeadingToChapter(current, heading);
+                        return;
+                    }
+                    if (!currentHasText && !explicitChapterTitle(current) && !classifyBookSectionTitle(structureDisplayTitle(current, sourceIndex))) {
+                        applyDetectedHeadingToChapter(current, heading);
+                        return;
+                    }
+                    pushIfContent(current);
+                    current = makeEmptyChapter();
+                    applyDetectedHeadingToChapter(current, heading);
+                });
+            });
+            pushIfContent(current);
+        });
+        return normalizeStructureProposalChapters(sanitizeChaptersForTextStorage(repaired));
+    }
+
+    async function moveStructureChapter(index, direction) {
+        if (!window.manuscriptData?.chapters?.length) return;
+        const chapters = window.manuscriptData.chapters;
+        const nextIndex = index + direction;
+        if (nextIndex < 0 || nextIndex >= chapters.length) return;
+        try {
+            await flushPendingManuscriptEdits();
+            const current = chapters[index];
+            chapters[index] = chapters[nextIndex];
+            chapters[nextIndex] = current;
+            setStructureStatus('Tallennetaan osioiden järjestystä...');
+            await window.replaceProjectChaptersInDB(window.manuscriptData);
+            refreshViewsAfterStructureChange();
+            setStructureStatus('Osio siirretty ja tallennettu.');
+        } catch (err) {
+            console.error('Structure reorder failed', err);
+            setStructureStatus('Osion siirtäminen epäonnistui: ' + networkFailureMessage(err), true);
+            renderStructureModule();
         }
-        return normalizeStructureProposalChapters(sanitizeChaptersForTextStorage(rows));
     }
 
     let structureProposalChapters = null;
@@ -4684,10 +4745,16 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                                     ? 'Epilogi'
                                     : 'Pääteksti';
             return `
-                <button class="${className}" data-structure-chapter-index="${index}" type="button">
-                    <span class="chapter-nav-title">${escapeHtml(line.text)}</span>
-                    <small>${escapeHtml(prefix)} · ${paragraphMeta} tekstikappaletta</small>
-                </button>
+                <div class="structure-toc-row">
+                    <button class="${className}" data-structure-chapter-index="${index}" type="button">
+                        <span class="chapter-nav-title">${escapeHtml(line.text)}</span>
+                        <small>${escapeHtml(prefix)} · ${paragraphMeta} tekstikappaletta</small>
+                    </button>
+                    <div class="structure-row-actions" aria-label="Muuta osion järjestystä">
+                        <button class="structure-move-btn" data-structure-move-index="${index}" data-structure-move-direction="-1" type="button" ${index === 0 ? 'disabled' : ''} title="Siirrä ylöspäin">↑</button>
+                        <button class="structure-move-btn" data-structure-move-index="${index}" data-structure-move-direction="1" type="button" ${index === chapters.length - 1 ? 'disabled' : ''} title="Siirrä alaspäin">↓</button>
+                    </div>
+                </div>
             `;
         }).join('');
         tocEl.querySelectorAll('[data-structure-chapter-index]').forEach(button => {
@@ -4697,6 +4764,15 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 window.currentEditSelection = { cIndex: index, pIndex: 0 };
                 window.openModule('view-kirjoita');
                 renderWritingView();
+            });
+        });
+        tocEl.querySelectorAll('[data-structure-move-index]').forEach(button => {
+            button.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                const index = Number(button.dataset.structureMoveIndex || 0);
+                const direction = Number(button.dataset.structureMoveDirection || 0);
+                moveStructureChapter(index, direction);
             });
         });
         if (proposalEl && structureProposalChapters) {

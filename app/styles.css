@@ -701,6 +701,33 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     margin-left: 12px;
     width: calc(100% - 12px);
 }
+.structure-toc-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: stretch;
+    gap: 6px;
+}
+.structure-row-actions {
+    display: grid;
+    grid-template-columns: repeat(2, 30px);
+    gap: 4px;
+}
+.structure-move-btn {
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: rgba(255,255,255,0.04);
+    color: var(--text-primary);
+    cursor: pointer;
+    font: inherit;
+    font-size: 14px;
+}
+.structure-move-btn:hover:not(:disabled) {
+    background: rgba(255,255,255,0.08);
+}
+.structure-move-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
 .chapter-nav-title {
     display: block;
     font-weight: 600;
