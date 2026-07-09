@@ -1238,6 +1238,7 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 }
 .translation-review-text,
 .translation-review-textarea {
+    box-sizing: border-box;
     width: 100%;
     height: 100%;
     overflow: auto;
@@ -1352,13 +1353,18 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     color: var(--text-muted);
 }
 .translation-prompt-sections {
+    display: flex;
+    flex-direction: column;
     overflow: auto;
     padding-right: 4px;
+    min-height: 0;
 }
 .translation-prompt-sections h4 {
+    flex: 0 0 auto;
     margin: 10px 0 6px;
 }
 .translation-part-rerun-box {
+    flex: 0 0 auto;
     display: grid;
     gap: 8px;
     margin-bottom: 12px;
@@ -1380,6 +1386,7 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     width: fit-content;
 }
 .translation-prompt-sections .translation-review-text {
+    flex: 0 0 auto;
     height: auto;
     min-height: 88px;
     max-height: 180px;
@@ -1389,8 +1396,8 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     line-height: 1.55;
 }
 .translation-prompt-sections .translation-source-text {
-    height: 840px;
-    min-height: 840px;
+    height: clamp(520px, 72vh, 840px);
+    min-height: 520px;
     max-height: none;
     resize: vertical;
     font-family: Georgia, "Times New Roman", serif;
@@ -1413,8 +1420,8 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 }
 .translation-response-editor {
     resize: vertical;
-    height: 840px;
-    min-height: 840px;
+    height: clamp(520px, 72vh, 840px);
+    min-height: 520px;
 }
 #translation-part-save-btn,
 #finnish-translation-part-save-btn {
@@ -1442,6 +1449,11 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     }
     .translation-part-list {
         max-height: 220px;
+    }
+    .translation-prompt-sections .translation-source-text,
+    .translation-response-editor {
+        height: 520px;
+        min-height: 420px;
     }
 }
 .layout-offers button {
