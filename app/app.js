@@ -195,6 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let finnishTranslationTimerInterval = null;
     let latestTranslationEstimate = null;
     let latestFinnishTranslationEstimate = null;
+    let loadedTranslationPromptProjectId = null;
 	    let miscModels = [];
 	    let miscTimerInterval = null;
 	    let latestMiscText = '';
@@ -8972,6 +8973,43 @@ Säännöt:
         return availableProjects.find(project => String(project.id) === String(selectedId)) || null;
     }
 
+    function savedTranslationPrompt(project) {
+        const analysis = project?.analysis && typeof project.analysis === 'object' ? project.analysis : {};
+        const direct = String(analysis.translation_prompt || '').trim();
+        if (direct) return direct;
+        const prompts = Array.isArray(analysis.translation_prompts) ? analysis.translation_prompts : [];
+        const latest = prompts.find(item => item && String(item.prompt || '').trim());
+        return latest ? String(latest.prompt || '').trim() : '';
+    }
+
+    function loadSavedTranslationPrompt(project, options = {}) {
+        const textarea = document.getElementById('finnish-translation-instructions');
+        if (!textarea) return;
+        const projectId = project?.id ? String(project.id) : '';
+        if (!projectId) {
+            loadedTranslationPromptProjectId = null;
+            textarea.value = '';
+            return;
+        }
+        if (!options.force && loadedTranslationPromptProjectId === projectId) return;
+        textarea.value = savedTranslationPrompt(project);
+        loadedTranslationPromptProjectId = projectId;
+    }
+
+    function replaceAvailableProject(project) {
+        if (!project?.id) return;
+        const index = availableProjects.findIndex(item => String(item.id) === String(project.id));
+        if (index >= 0) {
+            availableProjects[index] = project;
+        } else {
+            availableProjects.unshift(project);
+        }
+        if (window.manuscriptData?.id && String(window.manuscriptData.id) === String(project.id)) {
+            window.manuscriptData = project;
+            localStorage.setItem('skriptlab_manuscript', JSON.stringify(window.manuscriptData));
+        }
+    }
+
     function projectTextForTranslation(project) {
         return project ? getFullManuscriptText(project) : '';
     }
@@ -9035,16 +9073,8 @@ Säännöt:
         const styleSelect = document.getElementById('finnish-translation-style-select');
         if (startBtn) startBtn.textContent = 'Aloita käännös';
         if (guidelinesBtn) {
-            guidelinesBtn.disabled = targetLanguage !== 'fi';
-            guidelinesBtn.title = targetLanguage === 'fi'
-                ? ''
-                : 'Automaattiset suomen kielen käännösohjeet ovat käytössä vain suomennoksille.';
-        }
-        if (status && targetLanguage === 'fi' && status.textContent.includes('vain kohdekielelle suomi')) {
-            status.textContent = '';
-        }
-        if (status && targetLanguage !== 'fi' && !status.textContent) {
-            status.textContent = 'Automaattiset suomen kielen ohjeet ovat käytössä vain kohdekielelle suomi. Voit kirjoittaa oman ohjeen kenttään.';
+            guidelinesBtn.disabled = false;
+            guidelinesBtn.title = 'Luo käännösprompti valitulla mallilla.';
         }
         if (styleSelect) {
             const current = styleSelect.value;
@@ -9326,6 +9356,7 @@ Säännöt:
                 ? `Prompti kohdistuu teokseen: ${project.title || 'Nimetön'}`
                 : 'Valitse käsikirjoitus.';
         }
+        loadSavedTranslationPrompt(project);
         updateUnifiedTranslationLabels();
         updateFinnishTranslationAnalysisNotice(project);
         renderSelectedFinnishTranslationForReview();
@@ -9540,30 +9571,29 @@ Säännöt:
         return pollTranslationJob(job.job_id, statusEl, label);
     }
 
-    async function createFinnishTranslationGuidelines() {
+    async function createFinnishTranslationGuidelines(options = {}) {
+        const useModel = options.useModel !== false;
         const payload = finnishTranslationRequestPayload({ includeInstructions: true });
+        payload.use_model = useModel;
         const project = currentFinnishTranslationProject();
         const textarea = document.getElementById('finnish-translation-instructions');
-        const button = document.getElementById('finnish-translation-guidelines-btn');
+        const button = document.getElementById(useModel ? 'finnish-translation-guidelines-btn' : 'finnish-translation-analysis-guidelines-btn');
+        const alternateButton = document.getElementById(useModel ? 'finnish-translation-analysis-guidelines-btn' : 'finnish-translation-guidelines-btn');
         const status = document.getElementById('finnish-translation-guidelines-status');
-        if (payload.target_language !== 'fi') {
-            const message = 'Automaattiset suomen kielen käännösohjeet ovat käytössä vain silloin, kun kohdekieli on suomi. Kirjoita muille kielille oma ohjeistus tekstikenttään.';
-            if (status) status.textContent = message;
-            alert(message);
-            return;
-        }
         if (!payload.project_id || !project) {
             alert('Valitse ensin käsikirjoitus.');
             return;
         }
-        if (textarea?.value?.trim() && !confirm('Korvataanko nykyinen hienosäätö luoduilla käännösohjeilla?')) {
+        const actionLabel = useModel ? 'mallilla luodulla käännöspromptilla' : 'analyysin perusteella luodulla käännöspromptilla';
+        if (textarea?.value?.trim() && !confirm(`Korvataanko nykyinen hienosäätö ${actionLabel}?`)) {
             return;
         }
         if (button) button.disabled = true;
+        if (alternateButton) alternateButton.disabled = true;
         if (status) {
-            status.textContent = hasTranslationAnalysis(project)
-                ? 'Luodaan käännösohjeita...'
-                : 'Luodaan käännösohjeita alkutekstin pohjalta...';
+            status.textContent = useModel
+                ? 'Luodaan käännöspromptia mallilla...'
+                : 'Luodaan käännöspromptia analyysin perusteella ilman mallikutsua...';
         }
         try {
             const res = await apiFetch('/api/translations/guidelines', {
@@ -9580,8 +9610,8 @@ Säännöt:
             latestFinnishTranslationEstimate = null;
             if (status) {
                 status.textContent = data.warnings
-                    ? `Käännösohjeet luotu. ${data.warnings}`
-                    : 'Käännösohjeet luotu.';
+                    ? `Käännösprompti luotu. ${data.warnings}`
+                    : `Käännösprompti luotu ${useModel ? 'mallilla' : 'analyysin perusteella'}.`;
             }
             if (hasTranslationAnalysis(project)) {
                 await updateFinnishTranslationEstimate();
@@ -9589,7 +9619,65 @@ Säännöt:
             loadUsage();
         } catch (err) {
             if (status) status.textContent = err.message;
-            alert('Käännösohjeiden luonti epäonnistui: ' + networkFailureMessage(err));
+            alert('Käännöspromptin luonti epäonnistui: ' + networkFailureMessage(err));
+        } finally {
+            if (button) button.disabled = false;
+            if (alternateButton) alternateButton.disabled = false;
+        }
+    }
+
+    async function saveFinnishTranslationInstructions() {
+        const project = currentFinnishTranslationProject();
+        const textarea = document.getElementById('finnish-translation-instructions');
+        const status = document.getElementById('finnish-translation-guidelines-status');
+        const button = document.getElementById('finnish-translation-save-instructions-btn');
+        const promptText = String(textarea?.value || '').trim();
+        if (!project?.id) {
+            alert('Valitse ensin käsikirjoitus.');
+            return;
+        }
+        if (!promptText) {
+            alert('Kirjoita tai luo ensin käännöspromptti.');
+            return;
+        }
+        const analysis = project.analysis && typeof project.analysis === 'object' ? project.analysis : {};
+        const savedAt = new Date().toISOString();
+        const promptEntry = {
+            prompt: promptText,
+            saved_at: savedAt,
+            source_language: finnishTranslationSourceLanguage(),
+            target_language: finnishTranslationTargetLanguage(),
+            style: document.getElementById('finnish-translation-style-select')?.value || '',
+            model: document.getElementById('finnish-translation-model-select')?.value || '',
+        };
+        const existing = Array.isArray(analysis.translation_prompts) ? analysis.translation_prompts : [];
+        const deduped = existing.filter(item => String(item?.prompt || '').trim() !== promptText);
+        const payload = {
+            analysis: {
+                translation_prompt: promptText,
+                translation_prompt_saved_at: savedAt,
+                translation_prompt_meta: promptEntry,
+                translation_prompts: [promptEntry, ...deduped].slice(0, 10),
+            },
+        };
+        if (button) button.disabled = true;
+        if (status) status.textContent = 'Tallennetaan käännösprompttia...';
+        try {
+            const res = await apiFetch(`/api/projects/${project.id}/metadata`, {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const savedProject = await res.json();
+            if (!res.ok) throw new Error(savedProject.detail || 'Käännöspromptin tallennus epäonnistui.');
+            replaceAvailableProject(savedProject);
+            loadedTranslationPromptProjectId = String(savedProject.id);
+            latestFinnishTranslationEstimate = null;
+            if (status) status.textContent = 'Käännöspromptti tallennettu.';
+            await updateFinnishTranslationEstimate();
+        } catch (err) {
+            if (status) status.textContent = err.message;
+            alert('Käännöspromptin tallennus epäonnistui: ' + networkFailureMessage(err));
         } finally {
             if (button) button.disabled = false;
         }
@@ -12173,7 +12261,9 @@ ${state.validation || 'Ei validointia.'}`;
     const translationReviewText = document.getElementById('translation-review-text');
     const finnishTranslationProjectSelect = document.getElementById('finnish-translation-project-select');
     const finnishTranslationEstimateBtn = document.getElementById('finnish-translation-estimate-btn');
+    const finnishTranslationAnalysisGuidelinesBtn = document.getElementById('finnish-translation-analysis-guidelines-btn');
     const finnishTranslationGuidelinesBtn = document.getElementById('finnish-translation-guidelines-btn');
+    const finnishTranslationSaveInstructionsBtn = document.getElementById('finnish-translation-save-instructions-btn');
     const finnishTranslationClearInstructionsBtn = document.getElementById('finnish-translation-clear-instructions-btn');
     const finnishTranslationStartBtn = document.getElementById('finnish-translation-start-btn');
     const finnishTranslationCustomStartBtn = document.getElementById('finnish-translation-custom-start-btn');
@@ -12295,7 +12385,13 @@ ${state.validation || 'Ei validointia.'}`;
         });
     }
     if (finnishTranslationEstimateBtn) finnishTranslationEstimateBtn.addEventListener('click', updateFinnishTranslationEstimate);
-    if (finnishTranslationGuidelinesBtn) finnishTranslationGuidelinesBtn.addEventListener('click', createFinnishTranslationGuidelines);
+    if (finnishTranslationAnalysisGuidelinesBtn) {
+        finnishTranslationAnalysisGuidelinesBtn.addEventListener('click', () => createFinnishTranslationGuidelines({ useModel: false }));
+    }
+    if (finnishTranslationGuidelinesBtn) {
+        finnishTranslationGuidelinesBtn.addEventListener('click', () => createFinnishTranslationGuidelines({ useModel: true }));
+    }
+    if (finnishTranslationSaveInstructionsBtn) finnishTranslationSaveInstructionsBtn.addEventListener('click', saveFinnishTranslationInstructions);
     if (finnishTranslationClearInstructionsBtn) finnishTranslationClearInstructionsBtn.addEventListener('click', clearFinnishTranslationInstructions);
     if (finnishTranslationStartBtn) finnishTranslationStartBtn.addEventListener('click', () => startFinnishTranslation());
     if (finnishTranslationCustomStartBtn) {

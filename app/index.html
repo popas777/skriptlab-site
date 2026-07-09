@@ -2087,6 +2087,7 @@
                             <select id="translation-chunk-select">
                                 <option value="200">200 sanaa</option>
                                 <option value="500">500 sanaa</option>
+                                <option value="750">750 sanaa</option>
                                 <option value="1000">1 000 sanaa</option>
                                 <option value="1500">1 500 sanaa</option>
                                 <option value="2000" selected>2 000 sanaa</option>
@@ -2271,6 +2272,7 @@
                                 <select id="finnish-translation-chunk-select">
                                     <option value="200">200 sanaa</option>
                                     <option value="500">500 sanaa</option>
+                                    <option value="750">750 sanaa</option>
                                     <option value="1000">1 000 sanaa</option>
                                     <option value="1500">1 500 sanaa</option>
                                     <option value="2000" selected>2 000 sanaa</option>
@@ -2313,7 +2315,9 @@
                             <h3>Käännösprompti</h3>
                             <p id="finnish-translation-prompt-project" class="card-meta">Valitse käsikirjoitus.</p>
                             <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                                <button class="btn btn-primary" id="finnish-translation-guidelines-btn" type="button">Luo käännösohjeet</button>
+                                <button class="btn btn-secondary" id="finnish-translation-analysis-guidelines-btn" type="button">Luo analyysin perusteella</button>
+                                <button class="btn btn-primary" id="finnish-translation-guidelines-btn" type="button">Luo mallilla</button>
+                                <button class="btn btn-secondary" id="finnish-translation-save-instructions-btn" type="button">Tallenna promptti</button>
                                 <button class="btn btn-secondary" id="finnish-translation-clear-instructions-btn" type="button">Tyhjennä</button>
                             </div>
                             <p id="finnish-translation-guidelines-status" class="card-meta" style="margin-top:12px;"></p>
