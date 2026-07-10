@@ -386,6 +386,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const coverFormatNote = document.getElementById('cover-format-note');
     const coverTitleInput = document.getElementById('cover-title-input');
     const coverAuthorInput = document.getElementById('cover-author-input');
+    const coverWithoutTextInput = document.getElementById('cover-without-text-input');
     const coverSpineFields = document.getElementById('cover-spine-fields');
     const coverSpineWidthInput = document.getElementById('cover-spine-width-input');
     const coverPageCountInput = document.getElementById('cover-page-count-input');
@@ -6323,6 +6324,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                     aspect_ratio: format.aspectRatio,
                     title_text: titleText,
                     author_text: authorText,
+                    without_text: Boolean(coverWithoutTextInput?.checked),
                     spine_width_mm: coverSpineWidthInput?.value ? Number(coverSpineWidthInput.value) : null,
                     page_count: coverPageCountInput?.value ? Number(coverPageCountInput.value) : null,
                 })
