@@ -746,6 +746,43 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         return `${text.slice(0, maxLength).trim()}...`;
     }
 
+    function cleanAnalysisRichText(value, labels = []) {
+        let text = analysisValue(value)
+            .replace(/^\s{0,3}#{1,6}\s+/gm, '')
+            .replace(/__+/g, '')
+            .trim();
+        let changed = true;
+        while (changed) {
+            changed = false;
+            labels.forEach(label => {
+                const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const next = text.replace(new RegExp(`^\\*{0,2}${escaped}(?:\\s+[^:\\n*]{1,60})?\\*{0,2}\\s*:\\s*`, 'i'), '').trim();
+                if (next !== text) {
+                    text = next;
+                    changed = true;
+                }
+            });
+        }
+        return text;
+    }
+
+    function formatAnalysisMarkdown(value) {
+        let html = escapeHtml(value || '');
+        html = html.replace(/\*\*([^*\n]{1,160})\*\*/g, (_match, text) => `<strong>${text}</strong>`);
+        html = html.replace(/(^|[\s(])\*([^*\n]{1,100})\*/g, (_match, prefix, text) => `${prefix}<em>${text}</em>`);
+        html = html.replace(/^([A-ZÅÄÖa-zåäö0-9][^:\n]{1,90}):/gm, (_match, heading) => `<strong>${heading}:</strong>`);
+        return html
+            .replace(/\n{2,}/g, '<br><br>')
+            .replace(/\n/g, '<br>');
+    }
+
+    function analysisRichSnippet(value, maxLength, labels = []) {
+        const text = cleanAnalysisRichText(value, labels).replace(/[ \t]+/g, ' ').trim();
+        if (!text) return '';
+        const truncated = text.length <= maxLength ? text : `${text.slice(0, maxLength).trim()}...`;
+        return formatAnalysisMarkdown(truncated);
+    }
+
     function paragraphSnippet(value) {
         const text = String(value || '').replace(/\s+/g, ' ').trim();
         return text ? truncateText(text, 54) : 'Tyhjä kappale';
@@ -1428,17 +1465,17 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const results = document.getElementById('analysis-results');
         if (results) results.classList.remove('hidden');
         const source = window.manuscriptData?.source_filename || window.manuscriptData?.title || 'käsikirjoitus';
-        const style = truncateText(analysis.style, 360, ['Tyyli', 'Tyylianalyysi', 'Äänensävy']) || 'Ei vielä sisältöä.';
-        const assessment = truncateText(analysis.editorial_assessment, 420, ['Toimituksellinen arvio', 'Toimituksellinen analyysi', 'Arvio']) || 'Ei vielä sisältöä.';
-        const synopsis = truncateText(analysis.synopsis, 360, ['Synopsis', 'Synopsisis', 'Tiivistelmä']) || 'Ei vielä sisältöä.';
-        const chapterAnalysis = truncateText(analysis.chapter_analysis, 700, ['Lukutason analyysi', 'Lukuanalyysi', 'Luku- tai osatason analyysi']) || 'Ei vielä sisältöä.';
+        const style = analysisRichSnippet(analysis.style, 360, ['Tyyli', 'Tyylianalyysi', 'Äänensävy']) || 'Ei vielä sisältöä.';
+        const assessment = analysisRichSnippet(analysis.editorial_assessment, 420, ['Toimituksellinen arvio', 'Toimituksellinen analyysi', 'Arvio']) || 'Ei vielä sisältöä.';
+        const synopsis = analysisRichSnippet(analysis.synopsis, 360, ['Synopsis', 'Synopsisis', 'Tiivistelmä']) || 'Ei vielä sisältöä.';
+        const chapterAnalysis = analysisRichSnippet(analysis.chapter_analysis, 700, ['Lukutason analyysi', 'Lukuanalyysi', 'Luku- tai osatason analyysi']) || 'Ei vielä sisältöä.';
         statusText.innerHTML = `
             <div class="analysis-summary">
                 <div class="analysis-summary-title">Analyysi laadittu! (${escapeHtml(source)})</div>
-                <div class="analysis-summary-item"><span class="analysis-summary-label">Tyyli:</span> ${escapeHtml(style)}</div>
-                <div class="analysis-summary-item"><span class="analysis-summary-label">Toimituksellinen arvio:</span> ${escapeHtml(assessment)}</div>
-                <div class="analysis-summary-item"><span class="analysis-summary-label">Synopsis:</span> ${escapeHtml(synopsis)}</div>
-                <div class="analysis-summary-item"><span class="analysis-summary-label">Lukutason analyysi:</span> ${escapeHtml(chapterAnalysis)}</div>
+                <div class="analysis-summary-item"><span class="analysis-summary-label">Tyyli:</span> <span class="analysis-summary-text">${style}</span></div>
+                <div class="analysis-summary-item"><span class="analysis-summary-label">Toimituksellinen arvio:</span> <span class="analysis-summary-text">${assessment}</span></div>
+                <div class="analysis-summary-item"><span class="analysis-summary-label">Synopsis:</span> <span class="analysis-summary-text">${synopsis}</span></div>
+                <div class="analysis-summary-item"><span class="analysis-summary-label">Lukutason analyysi:</span> <span class="analysis-summary-text">${chapterAnalysis}</span></div>
             </div>
         `;
         renderAnalysisSections(analysis);

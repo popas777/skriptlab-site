@@ -1046,6 +1046,14 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     color: var(--text-primary);
     font-weight: 600;
 }
+.analysis-summary-text strong {
+    color: var(--text-primary);
+    font-weight: 650;
+}
+.analysis-summary-text em {
+    color: var(--text-secondary);
+    font-style: italic;
+}
 .book-workspace {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 280px;
