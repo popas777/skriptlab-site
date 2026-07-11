@@ -7442,6 +7442,7 @@ Säännöt:
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                     text: developmentProjectInput(),
+                    purpose: 'development_editing',
                     temperature: 0.2,
                     prompt: buildDevelopmentBlueprintPrompt()
                 })
@@ -7492,6 +7493,7 @@ Säännöt:
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                     text: buildDevelopmentFeedbackInput(),
+                    purpose: 'development_editing',
                     temperature: 0.25,
                     prompt: buildDevelopmentFeedbackPrompt()
                 })
