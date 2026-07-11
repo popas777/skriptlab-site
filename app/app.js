@@ -6241,6 +6241,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function renderCoverImages(items = []) {
         updateIllustrationProjectText();
         if (!coverGallery || !coverEmptyState || !coverLatestPreview) return;
+        const coverItemsById = new Map(items.map(item => [String(item.id), item]));
         coverGallery.innerHTML = '';
         coverEmptyState.hidden = items.length > 0;
 
@@ -6249,7 +6250,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             return;
         }
 
-        coverLatestPreview.innerHTML = `<img src="${items[0].data_url}" alt="Viimeisin kansi" style="width:100%; max-height:520px; object-fit:contain; border-radius:10px;">`;
+        coverLatestPreview.innerHTML = `
+            <div class="cover-preview-stack">
+                <img src="${items[0].data_url}" alt="Viimeisin kansi" style="width:100%; max-height:520px; object-fit:contain; border-radius:10px;">
+                <button class="btn btn-secondary cover-download-btn" type="button" data-cover-download-id="${items[0].id}">Lataa kuva</button>
+            </div>
+        `;
         items.forEach(item => {
             const typeLabel = item.asset_type === 'full_cover_image'
                 ? 'Koko kansi'
@@ -6274,13 +6280,54 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                     <summary>Prompti</summary>
                     <p style="white-space:pre-wrap; margin-top:8px;">${escapeHtml(item.prompt || '')}</p>
                 </details>
+                <button class="btn btn-secondary cover-download-btn" type="button" data-cover-download-id="${item.id}">Lataa kuva</button>
                 <button class="btn btn-secondary btn-danger-soft delete-cover-btn" type="button" data-asset-id="${item.id}">Poista kuva</button>
             `;
             coverGallery.appendChild(card);
         });
+        document.querySelectorAll('.cover-download-btn').forEach(button => {
+            button.addEventListener('click', () => downloadCoverImage(coverItemsById.get(String(button.dataset.coverDownloadId))));
+        });
         coverGallery.querySelectorAll('.delete-cover-btn').forEach(button => {
             button.addEventListener('click', () => deleteCoverImage(button.dataset.assetId));
         });
+    }
+
+    function safeFileStem(value, fallback = 'kansi') {
+        return String(value || fallback)
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9åäö]+/gi, '-')
+            .replace(/^-|-$/g, '') || fallback;
+    }
+
+    function coverImageFileName(asset) {
+        const title = safeFileStem(window.manuscriptData?.title || asset?.title || 'kansi', 'kansi');
+        const side = asset?.asset_type === 'full_cover_image'
+            ? 'koko-kansi'
+            : asset?.asset_type === 'back_cover_image'
+                ? 'takakansi'
+                : 'etukansi';
+        const extension = String(asset?.mime_type || '').includes('jpeg') || String(asset?.mime_type || '').includes('jpg')
+            ? 'jpg'
+            : String(asset?.mime_type || '').includes('webp')
+                ? 'webp'
+                : 'png';
+        return `${title}-${side}.${extension}`;
+    }
+
+    function downloadCoverImage(asset) {
+        if (!asset?.data_url) {
+            setIllustrationStatus('Kuvatiedostoa ei löytynyt ladattavaksi.', true);
+            return;
+        }
+        const link = document.createElement('a');
+        link.href = asset.data_url;
+        link.download = coverImageFileName(asset);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setIllustrationStatus('Kansikuva ladattu.');
     }
 
     async function loadCoverImages() {
