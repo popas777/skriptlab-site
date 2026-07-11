@@ -8995,6 +8995,28 @@ Säännöt:
             loadProjects().catch(err => console.warn('Käsikirjoituslistan päivitys epäonnistui:', err));
         }
 
+        if (message.type === 'skriptlab:project-renamed') {
+            const renamedId = message.projectId ? String(message.projectId) : '';
+            const title = String(message.title || message.project?.title || '').trim();
+            if (!renamedId || !title) return;
+            availableProjects = availableProjects.map(project => (
+                String(project.id) === renamedId ? Object.assign({}, project, { title }) : project
+            ));
+            renderProjectCards(availableProjects);
+            updateTranslationProjectSelect();
+            updateFinnishTranslationProjectSelect();
+            updateMiscProjectSelect();
+            if (window.manuscriptData?.id && String(window.manuscriptData.id) === renamedId) {
+                window.manuscriptData.title = title;
+                localStorage.setItem('skriptlab_manuscript', JSON.stringify(window.manuscriptData));
+                window.updateDynamicTexts();
+                renderBookOverview();
+                renderWriterDeskView();
+                renderWritingView();
+                renderAnalysisSummary(window.manuscriptData.analysis);
+            }
+        }
+
         if (message.type === 'skriptlab:open-module') {
             const viewId = String(message.viewId || '');
             if (viewId && document.getElementById(viewId)) openModule(viewId);
@@ -11460,7 +11482,7 @@ Säännöt:
         const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
         if (step) params.set('step', step);
         if (projectId) params.set('project', projectId);
-        params.set('v', '5');
+        params.set('v', '6');
         params.set('t', String(Date.now()));
         frame.src = `manuskripti.html?${params.toString()}`;
     }

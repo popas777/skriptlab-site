@@ -460,6 +460,16 @@
     return api("/projects/" + projectId + "/metadata", jsonOptions("PATCH", { analysis }));
   }
 
+  async function apiRenameProject(projectId, title) {
+    if (demoMode) {
+      const target = demo.projects.find((p) => String(p.id) === String(projectId));
+      if (!target) throw new Error("Projektia ei löydy.");
+      target.title = title;
+      return JSON.parse(JSON.stringify(target));
+    }
+    return api("/projects/" + projectId + "/metadata", jsonOptions("PATCH", { title }));
+  }
+
   async function apiDeleteProject(projectId) {
     if (demoMode) {
       const before = demo.projects.length;
@@ -542,6 +552,51 @@
     return !level || level === "owner" || level === "admin";
   }
 
+  function canRenameProject(item) {
+    const level = item.access_level || "";
+    return !level || level === "owner" || level === "admin" || level === "shared_edit";
+  }
+
+  async function renameProjectFromLibrary(item, form) {
+    const input = form.querySelector(".project-title-edit");
+    const status = form.querySelector(".project-rename-status");
+    const saveBtn = form.querySelector(".project-rename-save");
+    const title = String(input?.value || "").trim();
+    if (!title) {
+      if (status) status.textContent = "Nimi ei voi olla tyhjä.";
+      input?.focus();
+      return;
+    }
+
+    try {
+      if (saveBtn) saveBtn.disabled = true;
+      if (status) status.textContent = "Tallennetaan nimeä…";
+      const updated = await apiRenameProject(item.id, title);
+      item.title = updated.title || title;
+      item.author = updated.author || item.author;
+      const listItem = projects.find((projectItem) => String(projectItem.id) === String(item.id));
+      if (listItem) Object.assign(listItem, item);
+      if (project && String(project.id) === String(item.id)) {
+        project.title = item.title;
+        project.author = item.author;
+        rememberActiveProject(project);
+        renderProject();
+      }
+      notifyParent("skriptlab:project-renamed", {
+        projectId: String(item.id),
+        title: item.title,
+        project: updated,
+      });
+      if (status) status.textContent = "Nimi tallennettu.";
+      form.hidden = true;
+      renderLibrary();
+    } catch (error) {
+      if (status) status.textContent = error.message || "Nimen tallennus epäonnistui.";
+    } finally {
+      if (saveBtn) saveBtn.disabled = false;
+    }
+  }
+
   async function deleteProjectFromLibrary(item) {
     if (!item || !item.id) return;
     const title = item.title || "Nimetön käsikirjoitus";
@@ -603,20 +658,70 @@
       openBtn.addEventListener("click", () => openProject(item.id));
       li.appendChild(openBtn);
 
-      if (canDeleteProject(item)) {
+      const canRename = canRenameProject(item);
+      const canDelete = canDeleteProject(item);
+      if (canRename || canDelete) {
         const actions = document.createElement("div");
         actions.className = "project-card-actions";
-        const deleteBtn = document.createElement("button");
-        deleteBtn.type = "button";
-        deleteBtn.className = "project-delete";
-        deleteBtn.textContent = "Poista";
-        deleteBtn.addEventListener("click", (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          deleteProjectFromLibrary(item);
-        });
-        actions.appendChild(deleteBtn);
+        let renameForm = null;
+        if (canRename) {
+          const renameBtn = document.createElement("button");
+          renameBtn.type = "button";
+          renameBtn.className = "project-rename-toggle";
+          renameBtn.textContent = "Nimeä";
+          renameBtn.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (!renameForm) return;
+            renameForm.hidden = !renameForm.hidden;
+            if (!renameForm.hidden) {
+              const input = renameForm.querySelector(".project-title-edit");
+              input.focus();
+              input.select();
+            }
+          });
+          actions.appendChild(renameBtn);
+        }
+        if (canDelete) {
+          const deleteBtn = document.createElement("button");
+          deleteBtn.type = "button";
+          deleteBtn.className = "project-delete";
+          deleteBtn.textContent = "Poista";
+          deleteBtn.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            deleteProjectFromLibrary(item);
+          });
+          actions.appendChild(deleteBtn);
+        }
         li.appendChild(actions);
+
+        if (canRename) {
+          renameForm = document.createElement("form");
+          renameForm.className = "project-rename-form";
+          renameForm.hidden = true;
+          renameForm.innerHTML =
+            '<label class="field-label" for="rename-project-' + escapeHtml(item.id) + '">Uusi nimi</label>' +
+            '<input id="rename-project-' + escapeHtml(item.id) + '" class="project-title-edit" type="text" value="' + escapeHtml(item.title || "") + '">' +
+            '<div class="project-rename-actions">' +
+              '<button class="project-rename-cancel" type="button">Peruuta</button>' +
+              '<button class="project-rename-save" type="submit">Tallenna</button>' +
+            '</div>' +
+            '<p class="project-rename-status" role="status" aria-live="polite"></p>';
+          renameForm.addEventListener("submit", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            renameProjectFromLibrary(item, renameForm);
+          });
+          renameForm.querySelector(".project-rename-cancel")?.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            renameForm.hidden = true;
+            const input = renameForm.querySelector(".project-title-edit");
+            if (input) input.value = item.title || "";
+          });
+          li.appendChild(renameForm);
+        }
       }
 
       list.appendChild(li);

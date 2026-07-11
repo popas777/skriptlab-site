@@ -624,6 +624,9 @@ button:focus-visible {
 }
 
 .project-open:focus-visible,
+.project-rename-toggle:focus-visible,
+.project-rename-save:focus-visible,
+.project-rename-cancel:focus-visible,
 .project-delete:focus-visible {
   outline: 2px solid var(--mustikka);
   outline-offset: 2px;
@@ -635,10 +638,15 @@ button:focus-visible {
 .project-card-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
   padding: 0 12px 12px;
 }
 
-.project-delete {
+.project-rename-toggle,
+.project-delete,
+.project-rename-save,
+.project-rename-cancel {
   border: 1px solid rgba(163, 59, 46, 0.32);
   border-radius: 999px;
   background: rgba(163, 59, 46, 0.08);
@@ -650,8 +658,52 @@ button:focus-visible {
   padding: 6px 12px;
 }
 
+.project-rename-toggle,
+.project-rename-save {
+  border-color: rgba(67, 64, 110, 0.28);
+  background: var(--mustikka-vaalea);
+  color: var(--mustikka);
+}
+
+.project-rename-cancel {
+  border-color: var(--raja);
+  background: var(--paperi);
+  color: var(--muste-70);
+}
+
+.project-rename-form {
+  padding: 0 12px 14px;
+}
+
+.project-rename-form input {
+  margin-bottom: 10px;
+}
+
+.project-rename-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.project-rename-status {
+  min-height: 1.2em;
+  margin: 8px 2px 0;
+  font-size: 12px;
+  color: var(--muste-45);
+}
+
+.project-rename-save:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
 .project-delete:hover {
   background: rgba(163, 59, 46, 0.14);
+}
+
+.project-rename-toggle:hover,
+.project-rename-save:hover {
+  background: rgba(67, 64, 110, 0.14);
 }
 
 .badge {
