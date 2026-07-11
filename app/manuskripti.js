@@ -25,6 +25,7 @@
   let demoMode = CONFIG.demo === true;
   let projects = [];
   let project = null;          // aktiivinen projekti (ProjectSchema)
+  let projectStageAssets = { misc: [], covers: [], layout: [] };
   let proposal = null;         // viimeisin rakenne-ehdotus
   let pollTimer = null;
   let saveTimer = null;
@@ -374,6 +375,20 @@
     return api("/projects/" + id);
   }
 
+  async function apiListProjectStageAssets(projectId) {
+    if (demoMode) return { misc: [], covers: [], layout: [] };
+    const [misc, covers, layout] = await Promise.allSettled([
+      api("/projects/" + projectId + "/misc-assets"),
+      api("/projects/" + projectId + "/cover-images"),
+      api("/projects/" + projectId + "/layout-assets"),
+    ]);
+    return {
+      misc: misc.status === "fulfilled" && Array.isArray(misc.value) ? misc.value : [],
+      covers: covers.status === "fulfilled" && Array.isArray(covers.value) ? covers.value : [],
+      layout: layout.status === "fulfilled" && Array.isArray(layout.value) ? layout.value : [],
+    };
+  }
+
   async function apiSaveProject(data) {
     if (demoMode) {
       let target = data.id ? demo.projects.find((p) => p.id === data.id) : null;
@@ -498,7 +513,12 @@
   async function openProject(id) {
     try {
       working(true, "Avataan käsikirjoitusta…");
-      project = await apiGetProject(id);
+      const [loadedProject, loadedAssets] = await Promise.all([
+        apiGetProject(id),
+        apiListProjectStageAssets(id),
+      ]);
+      project = loadedProject;
+      projectStageAssets = loadedAssets;
       rememberActiveProject(project);
       proposal = null;
       renderProject();
@@ -605,15 +625,79 @@
 
   /* ------------------------------------------------------------ projektin polku */
 
+  function projectHasText() {
+    return (project?.chapters || []).some((chapter) =>
+      (chapter.paragraphs || []).some((paragraph) => String(paragraph || "").trim())
+    );
+  }
+
+  function projectStageStatus(done, progress) {
+    if (done) return "done";
+    if (progress) return "progress";
+    return "todo";
+  }
+
+  function projectStageStatusLabel(status) {
+    if (status === "done") return "Valmis ✓";
+    if (status === "progress") return "Kesken";
+    return "Aloittamatta";
+  }
+
+  function hasSavedAnalysis(analysis) {
+    if (!analysis || typeof analysis !== "object") return false;
+    return ANALYSIS_SECTIONS.concat(META_SECTIONS).some(([field]) => String(analysis[field] || "").trim());
+  }
+
+  function structureIsDone(analysis) {
+    return analysis.structure_completed === true
+      || ["accepted", "accepted_metadata", "accepted_reparse"].includes(analysis.structure_status);
+  }
+
+  function structureIsStarted(analysis) {
+    return Boolean(
+      structureIsDone(analysis)
+      || analysis.structure_status
+      || analysis.structure_completed_at
+      || (project?.chapters || []).length > 1
+    );
+  }
+
+  function hasMiscAssets() {
+    return (projectStageAssets.misc || []).some((asset) =>
+      ["misc_material", "book_misc_material"].includes(asset.asset_type)
+    );
+  }
+
+  function hasCoverAssets() {
+    return (projectStageAssets.covers || []).some((asset) =>
+      ["cover_image", "back_cover_image", "full_cover_image"].includes(asset.asset_type)
+    );
+  }
+
+  function hasLayoutAssets() {
+    return (projectStageAssets.layout || []).some((asset) =>
+      ["layout_latex", "layout_pdf", "layout_epub"].includes(asset.asset_type)
+    );
+  }
+
   function pathSteps() {
     const analysis = project.analysis || {};
+    const analysisDone = analysis.analysis_status === "completed" || (!analysis.analysis_status && hasSavedAnalysis(analysis));
+    const analysisProgress = analysis.analysis_status === "partial" || (analysis.analysis_status && analysis.analysis_status !== "completed");
+    const coverPromptStarted = Boolean(analysis.cover_prompt || analysis.cover_prompts || analysis.cover_image_note);
     return [
       { id: "kasikirjoitus", num: 1, name: "Käsikirjoitus", desc: (project.chapters || []).length + " lukua",
-        done: (project.chapters || []).some((c) => (c.paragraphs || []).length) },
+        status: projectStageStatus(projectHasText(), false) },
       { id: "analyysi", num: 2, name: "Analyysi", desc: "Arvio, synopsis ja metatiedot",
-        done: analysis.analysis_status === "completed" || analysis.analysis_status === "partial" },
+        status: projectStageStatus(analysisDone, analysisProgress) },
       { id: "rakenne", num: 3, name: "Rakenne", desc: "Sisällysluettelo ja osajako",
-        done: analysis.structure_completed === true || ["accepted", "accepted_metadata", "accepted_reparse"].includes(analysis.structure_status) },
+        status: projectStageStatus(structureIsDone(analysis), structureIsStarted(analysis)) },
+      { id: "oheisaineistot", num: 4, name: "Oheisaineistot", desc: "Nimiölehti, copysivu ja hakemistot",
+        status: projectStageStatus(hasMiscAssets(), false), moduleView: "view-muut-toiminnot" },
+      { id: "kansi", num: 5, name: "Kansi", desc: "Etukansi, takakansi tai koko kansi",
+        status: projectStageStatus(hasCoverAssets(), coverPromptStarted), moduleView: "view-kuvitus" },
+      { id: "taitto", num: 6, name: "Taitto", desc: "PDF, LaTeX ja EPUB",
+        status: projectStageStatus(hasLayoutAssets(), false), moduleView: "view-kirja" },
     ];
   }
 
@@ -639,12 +723,25 @@
     for (const step of pathSteps()) {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "path-step" + (step.done ? " is-done" : "");
+      btn.className = "path-step is-" + step.status;
       btn.innerHTML =
         '<span class="step-name"><span class="step-num">' + step.num + "</span>" + escapeHtml(step.name) + "</span>" +
-        '<span class="step-status">' + (step.done ? "Valmis ✓" : escapeHtml(step.desc)) + "</span>";
-      btn.addEventListener("click", () => { renderStepView(step.id); showScreen(step.id); });
+        '<span class="step-status">' + escapeHtml(projectStageStatusLabel(step.status)) + "</span>" +
+        '<span class="step-desc">' + escapeHtml(step.desc) + "</span>";
+      btn.addEventListener("click", () => openPathStep(step));
       path.appendChild(btn);
+    }
+  }
+
+  function openPathStep(step) {
+    if (["kasikirjoitus", "analyysi", "rakenne"].includes(step.id)) {
+      renderStepView(step.id);
+      showScreen(step.id);
+      return;
+    }
+    if (step.moduleView) {
+      notifyParent("skriptlab:open-module", { viewId: step.moduleView });
+      toast("Avataan moduuli pääsovelluksessa.");
     }
   }
 

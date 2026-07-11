@@ -8994,6 +8994,11 @@ Säännöt:
             }
             loadProjects().catch(err => console.warn('Käsikirjoituslistan päivitys epäonnistui:', err));
         }
+
+        if (message.type === 'skriptlab:open-module') {
+            const viewId = String(message.viewId || '');
+            if (viewId && document.getElementById(viewId)) openModule(viewId);
+        }
     });
 
     function currentTranslationProject() {
@@ -11455,7 +11460,7 @@ Säännöt:
         const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
         if (step) params.set('step', step);
         if (projectId) params.set('project', projectId);
-        params.set('v', '4');
+        params.set('v', '5');
         params.set('t', String(Date.now()));
         frame.src = `manuskripti.html?${params.toString()}`;
     }

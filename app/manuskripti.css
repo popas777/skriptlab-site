@@ -15,6 +15,12 @@
   --mustikka-vaalea: #ECEAF4;
   --hilla: #D98E2B;
   --hilla-vaalea: #F8ECD8;
+  --valmis: #1F8A4C;
+  --valmis-vaalea: #E5F4EA;
+  --kesken: #D98E2B;
+  --kesken-vaalea: #F8ECD8;
+  --aloittamatta: #B43B32;
+  --aloittamatta-vaalea: #F8E5E2;
   --raja: #E4DECF;
   --kortti: #FFFFFF;
   --virhe: #A33B2E;
@@ -151,7 +157,23 @@ body {
   border: 2px solid var(--mustikka);
 }
 
-.path-step.is-done::before { background: var(--hilla); border-color: var(--hilla); }
+.path-step.is-done {
+  border-color: rgba(31, 138, 76, 0.28);
+  background: linear-gradient(180deg, var(--kortti), var(--valmis-vaalea));
+}
+
+.path-step.is-progress {
+  border-color: rgba(217, 142, 43, 0.34);
+  background: linear-gradient(180deg, var(--kortti), var(--kesken-vaalea));
+}
+
+.path-step.is-todo {
+  border-color: rgba(180, 59, 50, 0.26);
+}
+
+.path-step.is-done::before { background: var(--valmis); border-color: var(--valmis); }
+.path-step.is-progress::before { background: var(--kesken); border-color: var(--kesken); }
+.path-step.is-todo::before { background: var(--aloittamatta-vaalea); border-color: var(--aloittamatta); }
 
 .path-step .step-name {
   display: flex;
@@ -176,7 +198,16 @@ body {
   color: var(--muste-45);
 }
 
-.path-step.is-done .step-status { color: var(--hilla); font-weight: 600; }
+.path-step .step-desc {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--muste-45);
+}
+
+.path-step.is-done .step-status { color: var(--valmis); font-weight: 700; }
+.path-step.is-progress .step-status { color: var(--kesken); font-weight: 700; }
+.path-step.is-todo .step-status { color: var(--aloittamatta); font-weight: 700; }
 
 /* ---------------------------------------------------------------- vaihenäkymä */
 
