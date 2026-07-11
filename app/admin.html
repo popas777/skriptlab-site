@@ -132,7 +132,7 @@
                     <p id="model-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
 
                     <div class="settings-row" style="margin-top: 24px;">
-                        <label>Analyysi ja rakenne -vaiheiden oletusmalli</label>
+                        <label>Analyysi, rakenne ja kehityseditointi</label>
                         <select id="analysis-structure-model-select" style="padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; outline: none; margin-bottom: 12px;"></select>
                         <p style="color: var(--text-secondary); font-size: 12px; line-height: 1.5; margin-top: 0;">
                             Tätä käytetään käsikirjoitusanalyysissa, rakenne-ehdotuksessa sekä rakenne- ja kehityseditoinnin rakennemallissa.
@@ -141,6 +141,17 @@
 
                     <button id="save-analysis-structure-model-btn" class="btn btn-secondary">Tallenna analyysi/rakenne-malli</button>
                     <p id="analysis-structure-model-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
+
+                    <div class="settings-row" style="margin-top: 24px;">
+                        <label>Käännöspromptin luonti</label>
+                        <select id="translation-guidelines-model-select" style="padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; outline: none; margin-bottom: 12px;"></select>
+                        <p style="color: var(--text-secondary); font-size: 12px; line-height: 1.5; margin-top: 0;">
+                            Tätä käytetään, kun käännösosiossa luodaan räätälöity käännösprompti mallikutsulla. Varsinainen käännösmalli valitaan edelleen käännösosiossa.
+                        </p>
+                    </div>
+
+                    <button id="save-translation-guidelines-model-btn" class="btn btn-secondary">Tallenna käännöspromptin malli</button>
+                    <p id="translation-guidelines-model-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
 
                     <div class="settings-row" style="margin-top: 24px;">
                         <label>Mallirekisteri</label>
@@ -345,6 +356,9 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
         const analysisStructureModelSelect = document.getElementById('analysis-structure-model-select');
         const saveAnalysisStructureModelBtn = document.getElementById('save-analysis-structure-model-btn');
         const analysisStructureModelStatus = document.getElementById('analysis-structure-model-status');
+        const translationGuidelinesModelSelect = document.getElementById('translation-guidelines-model-select');
+        const saveTranslationGuidelinesModelBtn = document.getElementById('save-translation-guidelines-model-btn');
+        const translationGuidelinesModelStatus = document.getElementById('translation-guidelines-model-status');
         const systemStatusList = document.getElementById('system-status-list');
         const systemStatusMessage = document.getElementById('system-status-message');
         const feedbackList = document.getElementById('feedback-list');
@@ -454,6 +468,7 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                 `<option value="${model.id}" ${model.is_default ? 'selected' : ''}>${model.display_name} (${model.model_name}${model.requires_enterprise_approval ? ', pro' : ''})</option>`
             )).join('');
             renderAnalysisStructureModelSelect();
+            renderTranslationGuidelinesModelSelect();
 
             modelRegistryList.innerHTML = models.map(model => {
                 const capabilities = [
@@ -504,6 +519,23 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
             }
         }
 
+        function renderTranslationGuidelinesModelSelect() {
+            if (!translationGuidelinesModelSelect) return;
+            const textModels = loadedModels.filter(model => model.task_type === 'text' && model.is_enabled);
+            const configured = loadedModelSettings?.translation_guidelines_model || 'gemini:gemini-3.5-flash';
+            translationGuidelinesModelSelect.innerHTML = textModels.map(model => {
+                const value = `${model.provider}:${model.model_name}`;
+                const suffix = model.requires_enterprise_approval ? ' · pro/yritys' : '';
+                return `<option value="${escapeHtml(value)}" ${value === configured ? 'selected' : ''}>${escapeHtml(model.display_name)}${suffix}</option>`;
+            }).join('');
+            if (configured && !textModels.some(model => `${model.provider}:${model.model_name}` === configured)) {
+                translationGuidelinesModelSelect.insertAdjacentHTML(
+                    'afterbegin',
+                    `<option value="${escapeHtml(configured)}" selected>${escapeHtml(configured)} (ei käytössä)</option>`
+                );
+            }
+        }
+
         async function loadModels() {
             try {
                 const res = await window.SkriptLabAuth.fetch('/api/admin/models');
@@ -524,9 +556,14 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                 if (!res.ok) throw new Error(data.detail || 'Malliasetusten lataus epäonnistui.');
                 loadedModelSettings = data;
                 renderAnalysisStructureModelSelect();
+                renderTranslationGuidelinesModelSelect();
                 const effective = data.effective_analysis_structure_model;
                 if (analysisStructureModelStatus && effective) {
                     analysisStructureModelStatus.textContent = `Käytössä: ${effective.display_name}`;
+                }
+                const translationEffective = data.effective_translation_guidelines_model;
+                if (translationGuidelinesModelStatus && translationEffective) {
+                    translationGuidelinesModelStatus.textContent = `Käytössä: ${translationEffective.display_name}`;
                 }
             } catch (err) {
                 if (analysisStructureModelStatus) analysisStructureModelStatus.textContent = err.message;
@@ -814,6 +851,31 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                     analysisStructureModelStatus.textContent = err.message;
                 } finally {
                     saveAnalysisStructureModelBtn.disabled = false;
+                }
+            });
+        }
+
+        if (saveTranslationGuidelinesModelBtn) {
+            saveTranslationGuidelinesModelBtn.addEventListener('click', async () => {
+                const modelRef = translationGuidelinesModelSelect?.value || '';
+                if (!modelRef) return;
+                saveTranslationGuidelinesModelBtn.disabled = true;
+                translationGuidelinesModelStatus.textContent = 'Tallennetaan käännöspromptin mallia...';
+                try {
+                    const res = await window.SkriptLabAuth.fetch('/api/admin/model-settings', {
+                        method: 'PATCH',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({translation_guidelines_model: modelRef})
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.detail || 'Käännöspromptin mallin tallennus epäonnistui.');
+                    loadedModelSettings = data;
+                    renderTranslationGuidelinesModelSelect();
+                    translationGuidelinesModelStatus.textContent = `Käännöspromptin luonti käyttää nyt: ${data.effective_translation_guidelines_model?.display_name || modelRef}`;
+                } catch (err) {
+                    translationGuidelinesModelStatus.textContent = err.message;
+                } finally {
+                    saveTranslationGuidelinesModelBtn.disabled = false;
                 }
             });
         }

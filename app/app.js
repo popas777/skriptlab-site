@@ -9080,7 +9080,7 @@ Säännöt:
         if (startBtn) startBtn.textContent = 'Aloita käännös';
         if (guidelinesBtn) {
             guidelinesBtn.disabled = false;
-            guidelinesBtn.title = 'Luo käännösprompti valitulla mallilla.';
+            guidelinesBtn.title = 'Luo käännösprompti adminissa valitulla oletusmallilla.';
         }
         if (styleSelect) {
             const current = styleSelect.value;
@@ -9582,6 +9582,7 @@ Säännöt:
         const useModel = options.useModel !== false;
         const payload = finnishTranslationRequestPayload({ includeInstructions: true });
         payload.use_model = useModel;
+        if (useModel) payload.model = null;
         const project = currentFinnishTranslationProject();
         const textarea = document.getElementById('finnish-translation-instructions');
         const button = document.getElementById(useModel ? 'finnish-translation-guidelines-btn' : 'finnish-translation-analysis-guidelines-btn');
