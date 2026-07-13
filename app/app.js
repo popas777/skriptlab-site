@@ -203,6 +203,8 @@ document.addEventListener('DOMContentLoaded', () => {
 	    let latestMiscText = '';
 	    let currentMiscAssets = [];
 	    let currentLayoutAssets = [];
+    let currentCoverImages = [];
+    let selectedCoverReference = null;
 	    let imageModels = [];
     let proofreadSuggestions = [];
     let proofreadSelection = { cIndex: null };
@@ -387,6 +389,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const coverTitleInput = document.getElementById('cover-title-input');
     const coverAuthorInput = document.getElementById('cover-author-input');
     const coverWithoutTextInput = document.getElementById('cover-without-text-input');
+    const coverUploadInput = document.getElementById('cover-upload-input');
+    const coverUploadBtn = document.getElementById('cover-upload-btn');
+    const coverClearReferenceBtn = document.getElementById('cover-clear-reference-btn');
+    const coverReferenceStatus = document.getElementById('cover-reference-status');
     const coverSpineFields = document.getElementById('cover-spine-fields');
     const coverSpineWidthInput = document.getElementById('cover-spine-width-input');
     const coverPageCountInput = document.getElementById('cover-page-count-input');
@@ -6238,9 +6244,44 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
     }
 
+    function coverAssetTypeLabel(item) {
+        return item?.asset_type === 'full_cover_image'
+            ? 'Koko kansi'
+            : item?.asset_type === 'back_cover_image'
+                ? 'Takakansi'
+                : 'Etukansi';
+    }
+
+    function updateCoverReferenceStatus() {
+        if (!coverReferenceStatus) return;
+        if (!selectedCoverReference) {
+            coverReferenceStatus.textContent = 'Ei valittua pohjakuvaa. Voit valita pohjakuvan tallennetuista kansista.';
+            return;
+        }
+        coverReferenceStatus.textContent = `Pohjakuvana: ${coverAssetTypeLabel(selectedCoverReference)} - ${selectedCoverReference.title || 'nimetön kuva'}.`;
+    }
+
+    function selectCoverReference(item) {
+        if (!item) return;
+        selectedCoverReference = item;
+        updateCoverReferenceStatus();
+        setIllustrationStatus('Pohjakuva valittu seuraavaa generointia varten.');
+    }
+
+    function clearCoverReference(showStatus = true) {
+        selectedCoverReference = null;
+        updateCoverReferenceStatus();
+        if (showStatus) setIllustrationStatus('Pohjakuva tyhjennetty.');
+    }
+
     function renderCoverImages(items = []) {
         updateIllustrationProjectText();
         if (!coverGallery || !coverEmptyState || !coverLatestPreview) return;
+        currentCoverImages = Array.isArray(items) ? items : [];
+        if (selectedCoverReference && !currentCoverImages.some(item => String(item.id) === String(selectedCoverReference.id))) {
+            selectedCoverReference = null;
+        }
+        updateCoverReferenceStatus();
         const coverItemsById = new Map(items.map(item => [String(item.id), item]));
         coverGallery.innerHTML = '';
         coverEmptyState.hidden = items.length > 0;
@@ -6253,15 +6294,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         coverLatestPreview.innerHTML = `
             <div class="cover-preview-stack">
                 <img src="${items[0].data_url}" alt="Viimeisin kansi" style="width:100%; max-height:520px; object-fit:contain; border-radius:10px;">
+                <button class="btn btn-secondary cover-reference-btn" type="button" data-cover-reference-id="${items[0].id}">Käytä pohjana</button>
                 <button class="btn btn-secondary cover-download-btn" type="button" data-cover-download-id="${items[0].id}">Lataa kuva</button>
             </div>
         `;
         items.forEach(item => {
-            const typeLabel = item.asset_type === 'full_cover_image'
-                ? 'Koko kansi'
-                : item.asset_type === 'back_cover_image'
-                    ? 'Takakansi'
-                    : 'Etukansi';
+            const typeLabel = coverAssetTypeLabel(item);
             const imageShape = item.asset_type === 'full_cover_image'
                 ? 'aspect-ratio:4 / 3; object-fit:contain;'
                 : 'aspect-ratio:3 / 4; object-fit:cover;';
@@ -6280,10 +6318,16 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                     <summary>Prompti</summary>
                     <p style="white-space:pre-wrap; margin-top:8px;">${escapeHtml(item.prompt || '')}</p>
                 </details>
-                <button class="btn btn-secondary cover-download-btn" type="button" data-cover-download-id="${item.id}">Lataa kuva</button>
-                <button class="btn btn-secondary btn-danger-soft delete-cover-btn" type="button" data-asset-id="${item.id}">Poista kuva</button>
+                <div class="cover-card-actions">
+                    <button class="btn btn-secondary cover-reference-btn" type="button" data-cover-reference-id="${item.id}">Käytä pohjana</button>
+                    <button class="btn btn-secondary cover-download-btn" type="button" data-cover-download-id="${item.id}">Lataa kuva</button>
+                    <button class="btn btn-secondary btn-danger-soft delete-cover-btn" type="button" data-asset-id="${item.id}">Poista kuva</button>
+                </div>
             `;
             coverGallery.appendChild(card);
+        });
+        document.querySelectorAll('.cover-reference-btn').forEach(button => {
+            button.addEventListener('click', () => selectCoverReference(coverItemsById.get(String(button.dataset.coverReferenceId))));
         });
         document.querySelectorAll('.cover-download-btn').forEach(button => {
             button.addEventListener('click', () => downloadCoverImage(coverItemsById.get(String(button.dataset.coverDownloadId))));
@@ -6328,6 +6372,47 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         link.click();
         link.remove();
         setIllustrationStatus('Kansikuva ladattu.');
+    }
+
+    async function uploadCoverImageFromInput() {
+        if (window.manuscriptData && !window.manuscriptData.id) {
+            const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
+            if (savedProject?.id) window.manuscriptData = savedProject;
+        }
+        if (!window.manuscriptData?.id) {
+            setIllustrationStatus('Valitse tai tallenna käsikirjoitus ennen kuvan tuontia.', true);
+            return;
+        }
+        const file = coverUploadInput?.files?.[0];
+        if (!file) return;
+        if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+            setIllustrationStatus('Kuvan pitää olla PNG-, JPG- tai WEBP-muodossa.', true);
+            coverUploadInput.value = '';
+            return;
+        }
+        const form = new FormData();
+        form.append('file', file);
+        form.append('cover_side', coverSideValue());
+        form.append('title', file.name.replace(/\.[^.]+$/, '') || 'Ladattu kansikuva');
+        if (coverUploadBtn) coverUploadBtn.disabled = true;
+        setIllustrationStatus('Tallennetaan omaa kuvaa palveluun...');
+        try {
+            const res = await apiFetch(`/api/projects/${window.manuscriptData.id}/cover-images/upload`, {
+                method: 'POST',
+                body: form
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.detail || 'Kuvan tuonti epäonnistui.');
+            await loadCoverImages();
+            const uploaded = currentCoverImages.find(item => String(item.id) === String(data.id)) || data;
+            selectCoverReference(uploaded);
+            setIllustrationStatus('Kuva tallennettu palveluun ja valittu pohjakuvaksi.');
+        } catch (err) {
+            setIllustrationStatus(err.message || 'Kuvan tuonti epäonnistui.', true);
+        } finally {
+            if (coverUploadBtn) coverUploadBtn.disabled = false;
+            if (coverUploadInput) coverUploadInput.value = '';
+        }
     }
 
     async function loadCoverImages() {
@@ -6411,6 +6496,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                     without_text: Boolean(coverWithoutTextInput?.checked),
                     spine_width_mm: coverSpineWidthInput?.value ? Number(coverSpineWidthInput.value) : null,
                     page_count: coverPageCountInput?.value ? Number(coverPageCountInput.value) : null,
+                    reference_image_id: selectedCoverReference?.id || null,
                 })
             });
             const data = await res.json().catch(() => null);
@@ -6456,6 +6542,15 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     if (coverFormatSelect) {
         coverFormatSelect.addEventListener('change', updateCoverFormatNote);
         renderCoverFormatOptions();
+    }
+
+    if (coverUploadBtn && coverUploadInput) {
+        coverUploadBtn.addEventListener('click', () => coverUploadInput.click());
+        coverUploadInput.addEventListener('change', uploadCoverImageFromInput);
+    }
+
+    if (coverClearReferenceBtn) {
+        coverClearReferenceBtn.addEventListener('click', () => clearCoverReference(true));
     }
 
     if (coverGenerateBtn) {

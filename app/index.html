@@ -1661,6 +1661,16 @@
                                 <span>Luo kansikuva ilman tekstejä, kirjaimia, numeroita, logoja tai viivakoodeja</span>
                             </label>
 
+                            <div class="cover-reference-box">
+                                <label style="font-size:13px; color:var(--text-secondary); display:block; margin-bottom:8px;">Pohjakuva ja omat kuvat</label>
+                                <input id="cover-upload-input" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+                                <div class="cover-reference-actions">
+                                    <button class="btn btn-secondary" id="cover-upload-btn" type="button">Tuo oma kuva</button>
+                                    <button class="btn btn-secondary" id="cover-clear-reference-btn" type="button">Tyhjennä pohjakuva</button>
+                                </div>
+                                <p id="cover-reference-status" class="card-meta">Ei valittua pohjakuvaa. Voit valita pohjakuvan tallennetuista kansista.</p>
+                            </div>
+
                             <div id="cover-spine-fields" style="display:none; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:16px;">
                                 <div>
                                     <label style="font-size:13px; color:var(--text-secondary); display:block; margin-bottom:8px;">Selän leveys mm</label>
