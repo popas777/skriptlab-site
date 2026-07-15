@@ -5578,6 +5578,26 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 	    // --- 5. Kuvitus Logic ---
     const coverFormatDefinitions = [
         {
+            key: 'portrait_1000x1500',
+            label: 'Pysty kansikuva, 1000 x 1500 px',
+            detail: 'Kirjan peruskansi pystyformaatissa. Tallennetaan täsmälleen 1000 x 1500 pikselin kokoisena.',
+            aspectRatio: '9:16',
+            displayRatio: '2 / 3',
+            kind: 'single',
+            widthPx: 1000,
+            heightPx: 1500,
+        },
+        {
+            key: 'audio_square',
+            label: 'Äänikirjan kansi, 1000 x 1000 px',
+            detail: 'Neliömuotoinen äänikirjakansi. Tallennetaan täsmälleen 1000 x 1000 pikselin kokoisena.',
+            aspectRatio: '1:1',
+            displayRatio: '1 / 1',
+            kind: 'single',
+            widthPx: 1000,
+            heightPx: 1000,
+        },
+        {
             key: 'print_a5',
             label: 'Painettu kirja A5, 148 x 210 mm',
             detail: 'Yksittäinen etu- tai takakansi. Tekninen kuvasuhde 3:4, jätä reilu leikkausvara ja turvalliset marginaalit.',
@@ -5621,13 +5641,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             kind: 'single',
             widthPx: 1600,
             heightPx: 2560,
-        },
-        {
-            key: 'audio_square',
-            label: 'Äänikirja ja markkinointikuva, neliö',
-            detail: 'Neliökuva palveluihin ja kampanjoihin. Ei painokannen mitoitus.',
-            aspectRatio: '1:1',
-            kind: 'single',
         },
         {
             key: 'full_a5',
@@ -5691,14 +5704,14 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         } else if (desiredKind === 'full') {
             coverFormatSelect.value = 'full_a5';
         } else {
-            coverFormatSelect.value = 'print_a5';
+            coverFormatSelect.value = 'portrait_1000x1500';
         }
         updateCoverFormatNote();
     }
 
     function updateCoverFormatNote() {
         const format = activeCoverFormat();
-        if (coverFormatNote) coverFormatNote.textContent = `${format.detail} Mallille lähetettävä kuvasuhde: ${format.aspectRatio}.`;
+        if (coverFormatNote) coverFormatNote.textContent = format.detail;
         if (coverSpineFields) coverSpineFields.style.display = coverSideValue() === 'full' ? 'grid' : 'none';
     }
 
@@ -6302,7 +6315,11 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             const typeLabel = coverAssetTypeLabel(item);
             const imageShape = item.asset_type === 'full_cover_image'
                 ? 'aspect-ratio:4 / 3; object-fit:contain;'
-                : 'aspect-ratio:3 / 4; object-fit:cover;';
+                : item.title.includes('1000 x 1000 px')
+                    ? 'aspect-ratio:1 / 1; object-fit:cover;'
+                    : item.title.includes('1000 x 1500 px')
+                        ? 'aspect-ratio:2 / 3; object-fit:cover;'
+                        : 'aspect-ratio:3 / 4; object-fit:cover;';
             const card = document.createElement('div');
             card.className = 'card glass-panel';
             card.style.display = 'flex';
@@ -7990,8 +8007,8 @@ Säännöt:
                 body: JSON.stringify({
                     prompt,
                     cover_side: side,
-                    aspect_ratio: '3:4',
-                    cover_format: 'print_a5',
+                    aspect_ratio: '9:16',
+                    cover_format: 'portrait_1000x1500',
                     title_text: window.manuscriptData.title || '',
                     author_text: window.manuscriptData.author || ''
                 })
