@@ -91,6 +91,46 @@
         }
         .user-info h4 { margin-bottom: 4px; font-size: 15px;}
         .user-info p { font-size: 12px; color: var(--text-secondary); }
+        .model-registry-item {
+            gap: 16px;
+        }
+        .model-row-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .model-region-control {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            color: var(--text-secondary);
+            font-size: 11px;
+        }
+        .model-region-select {
+            min-width: 112px;
+            padding: 6px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-color);
+            color: var(--text-primary);
+            font: inherit;
+        }
+        .model-region-select:disabled {
+            cursor: not-allowed;
+            opacity: 0.62;
+        }
+        @media (max-width: 640px) {
+            .model-registry-item {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+            .model-row-actions {
+                width: 100%;
+                justify-content: flex-start;
+            }
+        }
     </style>
 </head>
 <body>
@@ -120,7 +160,7 @@
                     <h3 style="margin-bottom: 24px; color: var(--text-primary);">Tekoälyn mallit</h3>
                     
                     <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.5; margin-bottom: 24px;">
-                        API-avaimet asetetaan palvelimen ympäristömuuttujiin. Tässä näkymässä valitaan sovelluksen oletustekstimalli ja seurataan teksti- sekä kuvamallien rekisteriä.
+                        API-avaimet asetetaan palvelimen ympäristömuuttujiin. Tässä näkymässä valitaan oletusmallit ja mallikohtainen käsittelyalue. EU-valinnan voi tehdä vain mallille, jolla on varmennettu alueellinen API-reitti.
                     </p>
                     
                     <div class="settings-row">
@@ -474,6 +514,7 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                 const capabilities = [
                     model.supports_images ? 'kuvat' : null,
                     model.supports_files ? 'tiedostot' : null,
+                    model.eu_processing_available ? 'EU-laskenta saatavilla' : null,
                     model.requires_enterprise_approval ? 'yritys/pro' : null
                 ].filter(Boolean).join(' · ');
                 const status = model.is_default ? 'Oletus' : (model.is_enabled ? 'Käytössä' : 'Pois');
@@ -485,13 +526,35 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                             ${model.is_enabled ? 'Poista käytöstä' : 'Ota käyttöön'}
                         </button>
                 `;
+                const regionControl = model.eu_processing_available ? `
+                    <label class="model-region-control">
+                        <span>Käsittely</span>
+                        <select class="model-region-select" data-id="${model.id}" data-current="${model.processing_region}" aria-label="${escapeHtml(model.display_name)}: käsittelyalue">
+                            <option value="global" ${model.processing_region !== 'eu' ? 'selected' : ''}>Globaali</option>
+                            <option value="eu" ${model.processing_region === 'eu' ? 'selected' : ''}>EU</option>
+                        </select>
+                    </label>
+                ` : `
+                    <label class="model-region-control" title="Tälle mallille ei ole vielä toteutettu varmennettua EU-rajapintaa.">
+                        <span>Käsittely</span>
+                        <select class="model-region-select" disabled aria-label="${escapeHtml(model.display_name)}: EU-käsittely ei saatavilla">
+                            <option>Globaali</option>
+                            <option>EU ei saatavilla</option>
+                        </select>
+                    </label>
+                `;
+                const euBadge = model.processing_region === 'eu'
+                    ? '<span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #047857; border-color: rgba(16, 185, 129, 0.35);">EU-laskenta</span>'
+                    : '';
                 return `
-                <div class="user-item">
+                <div class="user-item model-registry-item">
                     <div class="user-info">
                         <h4>${model.display_name}</h4>
                         <p>${model.provider} · ${model.model_name} · ${model.task_type} · ${model.model_tier}${capabilities ? ' · ' + capabilities : ''}</p>
                     </div>
-                    <div style="display:flex; align-items:center; gap:8px;">
+                    <div class="model-row-actions">
+                        ${regionControl}
+                        ${euBadge}
                         <span class="badge" style="${badgeStyle}">
                             ${status}
                         </span>
@@ -899,6 +962,29 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
             } catch (err) {
                 modelStatus.textContent = err.message;
                 button.disabled = false;
+            }
+        });
+
+        modelRegistryList.addEventListener('change', async (event) => {
+            const select = event.target.closest('.model-region-select');
+            if (!select || select.disabled) return;
+            const previousValue = select.dataset.current || 'global';
+            select.disabled = true;
+            modelStatus.textContent = 'Tallennetaan käsittelyaluetta...';
+            try {
+                const res = await window.SkriptLabAuth.fetch(`/api/admin/models/${select.dataset.id}`, {
+                    method: 'PATCH',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({processing_region: select.value})
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Käsittelyalueen tallennus epäonnistui.');
+                await loadModels();
+                modelStatus.textContent = `${data.display_name}: ${data.processing_region === 'eu' ? 'EU-laskenta käytössä' : 'globaali käsittely käytössä'}`;
+            } catch (err) {
+                select.value = previousValue;
+                select.disabled = false;
+                modelStatus.textContent = err.message;
             }
         });
 
