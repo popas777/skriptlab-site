@@ -1956,90 +1956,166 @@
 
             <!-- 10. VIEW: AUDIO -->
             <div id="view-audio" class="view-section hidden">
-                <div class="header">
+                <div class="header audio-header">
                     <div class="header-info">
-                        <h2>Äänikirja (Audio)</h2>
+                        <h2>Audio ja äänikirjatuotanto</h2>
                         <p id="audio-current-project">Käsikirjoitus: [Ei aktiivista teosta]</p>
                     </div>
-                    <div class="header-actions">
-                        <button class="btn btn-secondary" id="audio-test-voice-btn" type="button">Testaa / kuuntele ääntä</button>
-                        <button class="btn btn-primary" id="audio-guide-btn" type="button">Luo sanasto ja ääntämisohjeet</button>
-                    </div>
                 </div>
-                <p id="audio-status" style="color:var(--text-secondary); margin:-8px 0 22px; font-size:13px;">Audio-tuotantoa valmistellaan. Täysi äänikirjan generointi lisätään myöhemmin.</p>
-                <div class="grid-cards" style="grid-template-columns: minmax(260px, 360px) minmax(0, 1fr); align-items:start;">
-                    <div class="card glass-panel">
-                        <h3>Äänen testaus</h3>
-                        <p style="color:var(--text-secondary); margin:10px 0; line-height:1.6;">Tämä käyttää nyt selaimen omaa puhesynteesiä ensimmäisen luvun lyhyeen testiin. Varsinainen lukijaäänen valinta tehdään myöhemmin ulkoisen palvelun tai oman audiomoottorin kautta.</p>
-                        <div class="settings-row">
-                            <label>Lukijaääni</label>
-                            <select id="audio-voice-select">
-                                <option value="">Selaimen oletusääni</option>
-                            </select>
+                <p id="audio-status" class="audio-status" role="status">Valitse osio ja aloita lyhyellä testinäytteellä.</p>
+
+                <div class="audio-main-tabs" role="tablist" aria-label="Audio-osion näkymät">
+                    <button class="audio-main-tab active" type="button" data-audio-panel="audio-chapter-panel" role="tab" aria-selected="true">Osion valmistelu</button>
+                    <button class="audio-main-tab" type="button" data-audio-panel="audio-glossary-panel" role="tab" aria-selected="false">Teoksen sanasto</button>
+                    <button class="audio-main-tab" type="button" data-audio-panel="audio-credits-panel" role="tab" aria-selected="false">Alku ja loppu</button>
+                </div>
+
+                <section id="audio-chapter-panel" class="audio-panel" role="tabpanel">
+                    <div class="card glass-panel audio-control-card">
+                        <div class="audio-section-navigation">
+                            <button class="audio-icon-btn" id="audio-chapter-prev" type="button" aria-label="Edellinen osio" title="Edellinen osio">‹</button>
+                            <div class="settings-row audio-chapter-picker">
+                                <label for="audio-chapter-select">Käsiteltävä osio</label>
+                                <select id="audio-chapter-select"></select>
+                            </div>
+                            <button class="audio-icon-btn" id="audio-chapter-next" type="button" aria-label="Seuraava osio" title="Seuraava osio">›</button>
+                        </div>
+                        <div class="audio-settings-grid">
+                            <div class="settings-row">
+                                <label for="audio-scope-select">Käsittelyn laajuus</label>
+                                <select id="audio-scope-select">
+                                    <option value="sample_1500">Lyhyt testinäyte, noin 1 500 merkkiä</option>
+                                    <option value="sample_5000">Laaja testinäyte, noin 5 000 merkkiä</option>
+                                    <option value="chapter">Koko osio</option>
+                                </select>
+                            </div>
+                            <div class="settings-row">
+                                <label for="audio-production-mode">Toteutustapa</label>
+                                <select id="audio-production-mode">
+                                    <option value="single_narrator">Yksi lukija</option>
+                                    <option value="multi_voice">Useita ääniä</option>
+                                    <option value="audio_drama">Dramatisoitu luonnos</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="settings-row">
-                            <label>Nopeus</label>
-                            <select id="audio-rate-select">
-                                <option value="0.85">Rauhallinen</option>
-                                <option value="1" selected>Normaali</option>
-                                <option value="1.12">Nopea testi</option>
-                            </select>
+                            <label for="audio-extra-instructions">Tuottajan lisäohje</label>
+                            <textarea id="audio-extra-instructions" class="audio-instructions" placeholder="Esimerkiksi: merkitse erityisesti vaihtuvat kertojat ja pitkät tauot."></textarea>
                         </div>
-                        <button class="btn btn-secondary" id="audio-stop-voice-btn" type="button" style="margin-top:16px; width:100%;">Pysäytä kuuntelu</button>
+                        <div class="audio-primary-actions">
+                            <button class="btn btn-primary" id="audio-generate-package-btn" type="button">Luo tuotantoaineisto</button>
+                            <span id="audio-chapter-save-time" class="audio-save-time">Ei vielä tallennettua aineistoa</span>
+                        </div>
                     </div>
-                    <div class="card glass-panel" style="display:flex; flex-direction:column;">
-                        <h3>Sanasto ja ääntämisohjeet</h3>
-                        <p style="color:var(--text-secondary); margin:10px 0 14px; line-height:1.6;">Koko kirjasta etsitään nimet, paikat, vieraskieliset sanat ja muut ääntämisen kannalta tärkeät kohdat. Ohjeita voi muokata ennen varsinaista audiotuotantoa.</p>
-                        <textarea id="audio-pronunciation-guide" style="width:100%; min-height:430px; resize:vertical;" placeholder="Ääntämisohjeet muodostuvat tähän Markdown-taulukkona."></textarea>
-                        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
+
+                    <div class="audio-workspace">
+                        <article class="card glass-panel audio-source-panel">
+                            <div class="audio-panel-heading">
+                                <div>
+                                    <p class="audio-eyebrow">Lähde</p>
+                                    <h3 id="audio-source-title">Valittu osio</h3>
+                                </div>
+                                <span id="audio-source-count" class="audio-count">0 merkkiä</span>
+                            </div>
+                            <textarea id="audio-source-preview" class="audio-large-textarea" readonly aria-label="Käsiteltävä lähdeteksti"></textarea>
+                        </article>
+
+                        <article class="card glass-panel audio-output-panel">
+                            <div class="audio-panel-heading">
+                                <div>
+                                    <p class="audio-eyebrow">Tuotantoaineisto</p>
+                                    <h3>Muokkaa ja tarkista</h3>
+                                </div>
+                                <button class="btn btn-secondary" id="audio-download-package-btn" type="button">Lataa .txt</button>
+                            </div>
+                            <div class="audio-output-tabs" role="tablist" aria-label="Audio-tuotokset">
+                                <button class="audio-output-tab active" type="button" data-audio-output="audio-script-output" role="tab" aria-selected="true">Äänikäsikirjoitus</button>
+                                <button class="audio-output-tab" type="button" data-audio-output="audio-cast-output" role="tab" aria-selected="false">Roolilista</button>
+                                <button class="audio-output-tab" type="button" data-audio-output="audio-pronunciation-output" role="tab" aria-selected="false">Ääntäminen</button>
+                                <button class="audio-output-tab" type="button" data-audio-output="audio-notes-output" role="tab" aria-selected="false">Tuotantohuomiot</button>
+                            </div>
+                            <div id="audio-script-output" class="audio-output-content">
+                                <textarea id="audio-chapter-script" class="audio-large-textarea" placeholder="Äänikäsikirjoitus muodostuu tähän."></textarea>
+                            </div>
+                            <div id="audio-cast-output" class="audio-output-content hidden">
+                                <textarea id="audio-cast-list" class="audio-large-textarea" placeholder="Roolilista muodostuu tähän."></textarea>
+                            </div>
+                            <div id="audio-pronunciation-output" class="audio-output-content hidden">
+                                <textarea id="audio-chapter-pronunciation" class="audio-large-textarea" placeholder="Osion ääntämisohjeet muodostuvat tähän."></textarea>
+                            </div>
+                            <div id="audio-notes-output" class="audio-output-content hidden">
+                                <textarea id="audio-production-notes" class="audio-large-textarea" placeholder="Tuotantohuomiot muodostuvat tähän."></textarea>
+                            </div>
+                            <div class="audio-editor-actions">
+                                <button class="btn btn-primary" id="audio-save-chapter-btn" type="button">Tallenna osion aineisto</button>
+                                <button class="btn btn-secondary" id="audio-test-voice-btn" type="button">Kuuntele testinäyte</button>
+                                <button class="btn btn-secondary" id="audio-stop-voice-btn" type="button">Pysäytä</button>
+                            </div>
+                        </article>
+                    </div>
+
+                    <details class="card glass-panel audio-voice-settings">
+                        <summary>Äänitestin asetukset</summary>
+                        <p class="card-meta">Testi käyttää selaimen puhesynteesiä. Se ei vielä luo tai tallenna varsinaista äänitiedostoa.</p>
+                        <div class="audio-settings-grid">
+                            <div class="settings-row">
+                                <label for="audio-voice-select">Lukijaääni</label>
+                                <select id="audio-voice-select">
+                                    <option value="">Selaimen oletusääni</option>
+                                </select>
+                            </div>
+                            <div class="settings-row">
+                                <label for="audio-rate-select">Nopeus</label>
+                                <select id="audio-rate-select">
+                                    <option value="0.85">Rauhallinen</option>
+                                    <option value="1" selected>Normaali</option>
+                                    <option value="1.12">Nopea testi</option>
+                                </select>
+                            </div>
+                        </div>
+                    </details>
+                </section>
+
+                <section id="audio-glossary-panel" class="audio-panel hidden" role="tabpanel">
+                    <div class="card glass-panel audio-single-editor">
+                        <div class="audio-panel-heading">
+                            <div>
+                                <h3>Teoksen sanasto ja ääntämisohjeet</h3>
+                                <p class="card-meta">Koko teoksesta etsitään nimet, paikat, vieraskieliset sanat ja muut lukijalle tarkistettavat kohdat.</p>
+                            </div>
+                            <button class="btn btn-primary" id="audio-guide-btn" type="button">Luo koko teoksesta</button>
+                        </div>
+                        <textarea id="audio-pronunciation-guide" class="audio-large-textarea" placeholder="Ääntämisohjeet muodostuvat tähän Markdown-taulukkona."></textarea>
+                        <div class="audio-editor-actions">
                             <button class="btn btn-secondary" id="audio-save-guide-btn" type="button">Tallenna muokkaukset</button>
-                            <button class="btn btn-secondary" id="audio-reading-notes-btn" type="button" disabled>Merkitse lukuohjeet myöhemmin</button>
                         </div>
                     </div>
-                    <div class="card glass-panel" style="grid-column:1 / -1;">
-                        <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap;">
+                </section>
+
+                <section id="audio-credits-panel" class="audio-panel hidden" role="tabpanel">
+                    <div class="card glass-panel audio-single-editor">
+                        <div class="audio-panel-heading">
                             <div>
                                 <h3>Äänikirjan alku- ja loppusanat</h3>
-                                <p style="color:var(--text-secondary); margin:10px 0 14px; line-height:1.6;">Nämä tekstit kuuluvat vain äänikirjaversioon. Niitä ei lisätä painettuun kirjaan tai e-kirjaan.</p>
+                                <p class="card-meta">Nämä tekstit kuuluvat vain äänikirjaversioon, eivät painettuun kirjaan tai e-kirjaan.</p>
                             </div>
                             <button class="btn btn-secondary" id="audio-script-defaults-btn" type="button">Täytä ehdotus</button>
                         </div>
-                        <div class="grid-cards" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px;">
+                        <div class="audio-settings-grid">
                             <div class="settings-row">
-                                <label>Alkusanat</label>
-                                <textarea id="audio-opening-words" style="width:100%; min-height:130px; resize:vertical;" placeholder="Esim. Teoksen nimi. Kirjoittanut tekijän nimi."></textarea>
+                                <label for="audio-opening-words">Alkusanat</label>
+                                <textarea id="audio-opening-words" class="audio-credits-textarea" placeholder="Esimerkiksi teoksen nimi, tekijä ja lukija."></textarea>
                             </div>
                             <div class="settings-row">
-                                <label>Loppusanat</label>
-                                <textarea id="audio-closing-words" style="width:100%; min-height:130px; resize:vertical;" placeholder="Esim. Teos päättyy tähän."></textarea>
+                                <label for="audio-closing-words">Loppusanat</label>
+                                <textarea id="audio-closing-words" class="audio-credits-textarea" placeholder="Esimerkiksi teoksen päättyminen ja tuotantotiedot."></textarea>
                             </div>
                         </div>
-                        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
-                            <button class="btn btn-secondary" id="audio-save-script-btn" type="button">Tallenna alku ja loppusanat</button>
+                        <div class="audio-editor-actions">
+                            <button class="btn btn-primary" id="audio-save-script-btn" type="button">Tallenna alku ja loppu</button>
                         </div>
                     </div>
-                </div>
-                <div class="card glass-panel" style="margin-top:18px;">
-                    <h3>Seuraavaksi</h3>
-                    <div class="grid-cards" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px;">
-                        <div>
-                            <strong>1. Lukijaääni</strong>
-                            <p class="card-meta">Valitaan palvelu ja ääni ennen kokonaista audiotuotantoa.</p>
-                        </div>
-                        <div>
-                            <strong>2. Lukuohjeet</strong>
-                            <p class="card-meta">Painotukset, tauot, dialogi ja tunneohjeet rakennetaan myöhemmin.</p>
-                        </div>
-                        <div>
-                            <strong>3. Alku- ja loppusanat</strong>
-                            <p class="card-meta">Äänikirjaversioon voidaan lisätä teoksen esittely ja lopetus ilman printtimuutoksia.</p>
-                        </div>
-                        <div>
-                            <strong>4. Äänitiedostot</strong>
-                            <p class="card-meta">Luku- tai kappalekohtaiset äänitiedostot tallennetaan projektille.</p>
-                        </div>
-                    </div>
-                </div>
+                </section>
             </div>
 
             <!-- 11. VIEW: KÄÄNNÖKSET -->

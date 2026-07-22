@@ -8107,6 +8107,10 @@ Säännöt:
         setWorkflowStep('audio', 'done', 'Audio (Äänikirja) edellyttää äänen valintaa. Sanaston, ääntämisohjeet sekä alku- ja loppusanat voi valmistella Audio-osiossa.');
     }
 
+    let audioSelectedChapterIndex = null;
+    let audioLoadedChapterKey = '';
+    let audioLoadedProjectId = null;
+
     function setAudioStatus(message, isError = false) {
         const status = document.getElementById('audio-status');
         if (!status) return;
@@ -8129,6 +8133,96 @@ Säännöt:
 
     function audioClosingFromAnalysis() {
         return String(audioDataFromAnalysis().closing_words || '');
+    }
+
+    function audioChapterEntries() {
+        return (window.manuscriptData?.chapters || [])
+            .map((chapter, index) => ({ chapter, index }))
+            .filter(({ chapter }) => (chapter.paragraphs || []).some(paragraph => String(paragraph || '').trim()));
+    }
+
+    function audioChapterTitle(entry) {
+        if (!entry) return 'Valittu osio';
+        return String(
+            entry.chapter.toc_title
+            || entry.chapter.tocTitle
+            || entry.chapter.structure_title
+            || entry.chapter.title
+            || `Osio ${entry.index + 1}`
+        ).trim();
+    }
+
+    function audioChapterKey(entry) {
+        if (!entry) return '';
+        return `${entry.index}:${entry.chapter.id || `osio_${entry.index + 1}`}`;
+    }
+
+    function currentAudioChapterEntry() {
+        const entries = audioChapterEntries();
+        let entry = entries.find(item => item.index === Number(audioSelectedChapterIndex));
+        if (!entry) {
+            entry = entries[0] || null;
+            audioSelectedChapterIndex = entry ? entry.index : null;
+        }
+        return entry;
+    }
+
+    function audioTextForScope(entry, scope = document.getElementById('audio-scope-select')?.value || 'sample_1500') {
+        const paragraphs = (entry?.chapter?.paragraphs || [])
+            .map(paragraph => String(paragraph || '').trim())
+            .filter(Boolean);
+        const fullText = paragraphs.join('\n\n');
+        const limits = { sample_1500: 1500, sample_5000: 5000, chapter: 42000 };
+        const limit = limits[scope] || limits.sample_1500;
+        if (fullText.length <= limit) return { text: fullText, shortened: false };
+        const softMax = scope === 'chapter' ? limit : Math.floor(limit * 1.35);
+        const selected = [];
+        let size = 0;
+        for (const paragraph of paragraphs) {
+            const added = paragraph.length + (selected.length ? 2 : 0);
+            if (selected.length && size >= limit) break;
+            if (selected.length && size + added > softMax) break;
+            if (!selected.length && paragraph.length > softMax) {
+                selected.push(paragraph.slice(0, softMax).trim());
+                break;
+            }
+            selected.push(paragraph);
+            size += added;
+        }
+        return { text: selected.join('\n\n'), shortened: true };
+    }
+
+    function savedAudioChapter(entry) {
+        const chapters = audioDataFromAnalysis().chapters;
+        if (!chapters || typeof chapters !== 'object') return {};
+        return chapters[audioChapterKey(entry)] || {};
+    }
+
+    function formatAudioSaveTime(value) {
+        if (!value) return 'Ei vielä tallennettua aineistoa';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return 'Tallennettu';
+        return `Tallennettu ${date.toLocaleString('fi-FI', { dateStyle: 'short', timeStyle: 'short' })}`;
+    }
+
+    async function persistAudioData(audio, successMessage) {
+        if (!window.manuscriptData?.id) throw new Error('Valitse tallennettu käsikirjoitus ensin.');
+        const res = await apiFetch(`/api/projects/${window.manuscriptData.id}/metadata`, {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ analysis: { audio } })
+        });
+        const saved = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(saved?.detail || 'Audiotietojen tallennus epäonnistui.');
+        window.manuscriptData.analysis = saved?.analysis || {
+            ...(window.manuscriptData.analysis || {}),
+            audio
+        };
+        const projectIndex = availableProjects.findIndex(project => String(project.id) === String(window.manuscriptData.id));
+        if (projectIndex >= 0) availableProjects[projectIndex].analysis = window.manuscriptData.analysis;
+        markLocalManuscriptDraft(window.manuscriptData, false);
+        if (successMessage) setAudioStatus(successMessage);
+        return window.manuscriptData.analysis.audio || audio;
     }
 
     function defaultAudioOpeningWords() {
@@ -8160,11 +8254,62 @@ Säännöt:
             .filter(voice => /^fi|^sv|^en/i.test(voice.lang || ''))
             .concat(voices.filter(voice => !/^fi|^sv|^en/i.test(voice.lang || '')));
         select.innerHTML = '<option value="">Selaimen oletusääni</option>' + preferred
-            .map((voice, index) => `<option value="${index}">${escapeHtml(voice.name)} (${escapeHtml(voice.lang || 'kieli ei tiedossa')})</option>`)
+            .map(voice => `<option value="${escapeHtml(voice.voiceURI || voice.name)}">${escapeHtml(voice.name)} (${escapeHtml(voice.lang || 'kieli ei tiedossa')})</option>`)
             .join('');
         if (currentValue && Array.from(select.options).some(option => option.value === currentValue)) {
             select.value = currentValue;
         }
+    }
+
+    function showAudioPanel(panelId) {
+        document.querySelectorAll('.audio-panel').forEach(panel => panel.classList.toggle('hidden', panel.id !== panelId));
+        document.querySelectorAll('.audio-main-tab').forEach(tab => {
+            const active = tab.dataset.audioPanel === panelId;
+            tab.classList.toggle('active', active);
+            tab.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+    }
+
+    function showAudioOutput(outputId) {
+        document.querySelectorAll('.audio-output-content').forEach(panel => panel.classList.toggle('hidden', panel.id !== outputId));
+        document.querySelectorAll('.audio-output-tab').forEach(tab => {
+            const active = tab.dataset.audioOutput === outputId;
+            tab.classList.toggle('active', active);
+            tab.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+    }
+
+    function renderAudioSourcePreview() {
+        const entry = currentAudioChapterEntry();
+        const sourceTitle = document.getElementById('audio-source-title');
+        const sourcePreview = document.getElementById('audio-source-preview');
+        const sourceCount = document.getElementById('audio-source-count');
+        const scoped = audioTextForScope(entry);
+        if (sourceTitle) sourceTitle.textContent = audioChapterTitle(entry);
+        if (sourcePreview) sourcePreview.value = scoped.text;
+        if (sourceCount) sourceCount.textContent = `${scoped.text.length.toLocaleString('fi-FI')} merkkiä${scoped.shortened ? ' · rajattu' : ''}`;
+    }
+
+    function loadAudioChapterRecord(entry) {
+        const saved = savedAudioChapter(entry);
+        const scope = document.getElementById('audio-scope-select');
+        const mode = document.getElementById('audio-production-mode');
+        if (scope) scope.value = saved.scope || 'sample_1500';
+        if (mode) mode.value = saved.production_mode || 'single_narrator';
+        const values = {
+            'audio-chapter-script': saved.audio_script || '',
+            'audio-cast-list': saved.cast_list || '',
+            'audio-chapter-pronunciation': saved.pronunciation_guide || '',
+            'audio-production-notes': saved.production_notes || ''
+        };
+        Object.entries(values).forEach(([id, value]) => {
+            const field = document.getElementById(id);
+            if (field) field.value = value;
+        });
+        const saveTime = document.getElementById('audio-chapter-save-time');
+        if (saveTime) saveTime.textContent = formatAudioSaveTime(saved.updated_at);
+        audioLoadedChapterKey = audioChapterKey(entry);
+        renderAudioSourcePreview();
     }
 
     function renderAudioView(force = false) {
@@ -8185,15 +8330,117 @@ Säännöt:
             setAudioStatus('Valitse käsikirjoitus ensin.', true);
             return;
         }
+        const projectChanged = String(audioLoadedProjectId || '') !== String(window.manuscriptData.id || '');
+        if (projectChanged) {
+            audioSelectedChapterIndex = null;
+            audioLoadedChapterKey = '';
+            audioLoadedProjectId = window.manuscriptData.id || null;
+        }
+        const entries = audioChapterEntries();
+        const entry = currentAudioChapterEntry();
+        const chapterSelect = document.getElementById('audio-chapter-select');
+        if (chapterSelect) {
+            chapterSelect.innerHTML = entries
+                .map(item => `<option value="${item.index}">${escapeHtml(audioChapterTitle(item))}</option>`)
+                .join('');
+            if (entry) chapterSelect.value = String(entry.index);
+        }
+        const entryPosition = entries.findIndex(item => item.index === entry?.index);
+        const prev = document.getElementById('audio-chapter-prev');
+        const next = document.getElementById('audio-chapter-next');
+        if (prev) prev.disabled = entryPosition <= 0;
+        if (next) next.disabled = entryPosition < 0 || entryPosition >= entries.length - 1;
+        if (!entry) {
+            setAudioStatus('Käsikirjoituksessa ei ole audioksi valmisteltavaa tekstiä.', true);
+            renderAudioSourcePreview();
+            return;
+        }
         const savedGuide = audioGuideFromAnalysis();
         if (guide && (force || !guide.value.trim())) guide.value = savedGuide;
         const savedOpening = audioOpeningFromAnalysis();
         const savedClosing = audioClosingFromAnalysis();
         if (opening && (force || !opening.value.trim())) opening.value = savedOpening || defaultAudioOpeningWords();
         if (closing && (force || !closing.value.trim())) closing.value = savedClosing || defaultAudioClosingWords();
-        setAudioStatus(savedGuide
-            ? 'Tallennetut ääntämisohjeet ladattu. Voit muokata ja tallentaa ne.'
-            : 'Voit luoda sanaston ja ääntämisohjeet koko kirjasta.');
+        if (force || projectChanged || audioLoadedChapterKey !== audioChapterKey(entry)) loadAudioChapterRecord(entry);
+        else renderAudioSourcePreview();
+        const chapterSaved = savedAudioChapter(entry);
+        setAudioStatus(chapterSaved.audio_script
+            ? `${audioChapterTitle(entry)}: tallennettu tuotantoaineisto ladattu.`
+            : `${audioChapterTitle(entry)}: aloita lyhyellä testinäytteellä tai käsittele koko osio.`);
+    }
+
+    function moveAudioChapter(direction) {
+        const entries = audioChapterEntries();
+        const currentPosition = entries.findIndex(item => item.index === Number(audioSelectedChapterIndex));
+        const target = entries[currentPosition + direction];
+        if (!target) return;
+        audioSelectedChapterIndex = target.index;
+        audioLoadedChapterKey = '';
+        renderAudioView(true);
+    }
+
+    async function generateAudioChapterPackage() {
+        const entry = currentAudioChapterEntry();
+        if (!window.manuscriptData || !entry) {
+            setAudioStatus('Valitse käsikirjoitus ja käsiteltävä osio ensin.', true);
+            return;
+        }
+        if (!window.manuscriptData.id) {
+            await window.saveManuscriptToDB(window.manuscriptData);
+        }
+        if (!window.manuscriptData.id) {
+            setAudioStatus('Käsikirjoitusta ei saatu tallennettua ennen audiovalmistelua.', true);
+            return;
+        }
+        const button = document.getElementById('audio-generate-package-btn');
+        if (button) button.disabled = true;
+        let seconds = 0;
+        const title = audioChapterTitle(entry);
+        setAudioStatus(`${title}: tuotantoaineistoa valmistellaan (0 s)...`);
+        const timer = window.setInterval(() => {
+            seconds += 1;
+            setAudioStatus(`${title}: tuotantoaineistoa valmistellaan (${seconds} s)...`);
+        }, 1000);
+        try {
+            const res = await apiFetch('/api/audio/production-materials', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    project_id: window.manuscriptData.id,
+                    chapter_index: entry.index,
+                    scope: document.getElementById('audio-scope-select')?.value || 'sample_1500',
+                    production_mode: document.getElementById('audio-production-mode')?.value || 'single_narrator',
+                    instructions: document.getElementById('audio-extra-instructions')?.value || ''
+                })
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.detail || 'Tuotantoaineiston luonti epäonnistui.');
+            if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
+            const audio = { ...(window.manuscriptData.analysis.audio || {}) };
+            audio.chapters = { ...(audio.chapters || {}) };
+            const savedData = { ...data };
+            delete savedData.source_text;
+            audio.chapters[data.chapter_key] = {
+                ...savedData,
+                updated_at: new Date().toISOString()
+            };
+            audio.updated_at = new Date().toISOString();
+            window.manuscriptData.analysis.audio = audio;
+            audioLoadedChapterKey = '';
+            loadAudioChapterRecord(entry);
+            showAudioOutput('audio-script-output');
+            setAudioStatus(data.warnings
+                ? `${title}: aineisto luotu ${seconds} sekunnissa. ${data.warnings}`
+                : `${title}: tuotantoaineisto luotu ${seconds} sekunnissa. Lähde: ${data.generated_by}.`);
+            loadUsage();
+        } catch (err) {
+            setAudioStatus(err.message, true);
+            alert('Audiotuotantoaineiston luonti epäonnistui: ' + networkFailureMessage(err));
+            loadUsage();
+        } finally {
+            window.clearInterval(timer);
+            if (button) button.disabled = false;
+        }
     }
 
     async function generateAudioGuide() {
@@ -8246,14 +8493,16 @@ Säännöt:
             return;
         }
         const guide = document.getElementById('audio-pronunciation-guide')?.value || '';
-        if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
-        window.manuscriptData.analysis.audio = {
-            ...(window.manuscriptData.analysis.audio || {}),
+        const audio = {
+            ...audioDataFromAnalysis(),
             pronunciation_guide: guide,
             updated_at: new Date().toISOString()
         };
-        await window.saveManuscriptToDB(window.manuscriptData);
-        setAudioStatus('Ääntämisohjeiden muokkaukset tallennettu.');
+        try {
+            await persistAudioData(audio, 'Teoksen ääntämisohjeiden muokkaukset tallennettu.');
+        } catch (err) {
+            setAudioStatus(err.message, true);
+        }
     }
 
     async function saveAudioScriptEdits() {
@@ -8263,22 +8512,83 @@ Säännöt:
         }
         const opening = document.getElementById('audio-opening-words')?.value || '';
         const closing = document.getElementById('audio-closing-words')?.value || '';
-        if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
-        window.manuscriptData.analysis.audio = {
-            ...(window.manuscriptData.analysis.audio || {}),
+        const audio = {
+            ...audioDataFromAnalysis(),
             opening_words: opening,
             closing_words: closing,
             updated_at: new Date().toISOString()
         };
-        await window.saveManuscriptToDB(window.manuscriptData);
-        setAudioStatus('Äänikirjan alku- ja loppusanat tallennettu.');
+        try {
+            await persistAudioData(audio, 'Äänikirjan alku- ja loppusanat tallennettu.');
+        } catch (err) {
+            setAudioStatus(err.message, true);
+        }
+    }
+
+    async function saveAudioChapterEdits() {
+        const entry = currentAudioChapterEntry();
+        if (!window.manuscriptData || !entry) {
+            setAudioStatus('Valitse käsikirjoitus ja osio ensin.', true);
+            return;
+        }
+        const updatedAt = new Date().toISOString();
+        const scoped = audioTextForScope(entry);
+        const audio = { ...audioDataFromAnalysis() };
+        audio.chapters = { ...(audio.chapters || {}) };
+        audio.chapters[audioChapterKey(entry)] = {
+            ...savedAudioChapter(entry),
+            chapter_index: entry.index,
+            chapter_id: entry.chapter.id || `osio_${entry.index + 1}`,
+            chapter_title: audioChapterTitle(entry),
+            scope: document.getElementById('audio-scope-select')?.value || 'sample_1500',
+            production_mode: document.getElementById('audio-production-mode')?.value || 'single_narrator',
+            source_char_count: scoped.text.length,
+            source_truncated: scoped.shortened,
+            audio_script: document.getElementById('audio-chapter-script')?.value || '',
+            cast_list: document.getElementById('audio-cast-list')?.value || '',
+            pronunciation_guide: document.getElementById('audio-chapter-pronunciation')?.value || '',
+            production_notes: document.getElementById('audio-production-notes')?.value || '',
+            updated_at: updatedAt
+        };
+        audio.updated_at = updatedAt;
+        try {
+            await persistAudioData(audio, `${audioChapterTitle(entry)}: tuotantoaineisto tallennettu.`);
+            const saveTime = document.getElementById('audio-chapter-save-time');
+            if (saveTime) saveTime.textContent = formatAudioSaveTime(updatedAt);
+        } catch (err) {
+            setAudioStatus(err.message, true);
+        }
+    }
+
+    function downloadAudioChapterPackage() {
+        const entry = currentAudioChapterEntry();
+        if (!entry) {
+            setAudioStatus('Valitse ensin osio.', true);
+            return;
+        }
+        const sections = [
+            document.getElementById('audio-chapter-script')?.value || '',
+            `# Roolilista\n\n${document.getElementById('audio-cast-list')?.value || ''}`,
+            `# Ääntämisohjeet\n\n${document.getElementById('audio-chapter-pronunciation')?.value || ''}`,
+            `# Tuotantohuomiot\n\n${document.getElementById('audio-production-notes')?.value || ''}`
+        ];
+        if (!sections.some(section => section.trim())) {
+            setAudioStatus('Ladattavaa tuotantoaineistoa ei vielä ole.', true);
+            return;
+        }
+        const safeTitle = audioChapterTitle(entry).toLowerCase().replace(/[^a-z0-9åäö]+/gi, '-').replace(/^-|-$/g, '') || 'audio-osio';
+        const blob = new Blob([sections.join('\n\n---\n\n')], {type: 'text/plain;charset=utf-8'});
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${safeTitle}-tuotantoaineisto.txt`;
+        link.click();
+        URL.revokeObjectURL(link.href);
     }
 
     function firstAudioSampleText() {
-        const entry = bodyChapterEntries()[0];
+        const entry = currentAudioChapterEntry();
         if (!entry) return '';
-        const chapterText = (entry.chapter.paragraphs || []).filter(Boolean).join('\n\n').trim();
-        return chapterText.slice(0, 1200);
+        return audioTextForScope(entry).text.slice(0, 1200);
     }
 
     function testAudioVoice() {
@@ -8288,7 +8598,7 @@ Säännöt:
         }
         const text = firstAudioSampleText();
         if (!text) {
-            setAudioStatus('Ensimmäisestä luvusta ei löytynyt kuunneltavaa tekstiä.', true);
+            setAudioStatus('Valitusta osiosta ei löytynyt kuunneltavaa tekstiä.', true);
             return;
         }
         window.speechSynthesis.cancel();
@@ -8297,10 +8607,11 @@ Säännöt:
         utterance.rate = Number(document.getElementById('audio-rate-select')?.value || 1);
         const voices = window.speechSynthesis.getVoices();
         const selected = document.getElementById('audio-voice-select')?.value || '';
-        if (selected !== '' && voices[Number(selected)]) utterance.voice = voices[Number(selected)];
+        const selectedVoice = selected ? voices.find(voice => (voice.voiceURI || voice.name) === selected) : null;
+        if (selectedVoice) utterance.voice = selectedVoice;
         utterance.onend = () => setAudioStatus('Äänitesti päättyi.');
         utterance.onerror = () => setAudioStatus('Äänitesti ei onnistunut tällä selaimen äänellä.', true);
-        setAudioStatus('Toistetaan ensimmäisen luvun lyhyt näyte selaimen puhesynteesillä...');
+        setAudioStatus(`Toistetaan osiosta ${audioChapterTitle(currentAudioChapterEntry())} lyhyt näyte selaimen puhesynteesillä...`);
         window.speechSynthesis.speak(utterance);
     }
 
@@ -12928,6 +13239,13 @@ ${state.validation || 'Ei validointia.'}`;
 	    const productRefreshBtn = document.getElementById('product-refresh-btn');
 	    const productSaveBtn = document.getElementById('product-save-btn');
 	    const audioGuideBtn = document.getElementById('audio-guide-btn');
+    const audioGeneratePackageBtn = document.getElementById('audio-generate-package-btn');
+    const audioSaveChapterBtn = document.getElementById('audio-save-chapter-btn');
+    const audioDownloadPackageBtn = document.getElementById('audio-download-package-btn');
+    const audioChapterSelect = document.getElementById('audio-chapter-select');
+    const audioChapterPrev = document.getElementById('audio-chapter-prev');
+    const audioChapterNext = document.getElementById('audio-chapter-next');
+    const audioScopeSelect = document.getElementById('audio-scope-select');
     const audioSaveGuideBtn = document.getElementById('audio-save-guide-btn');
     const audioSaveScriptBtn = document.getElementById('audio-save-script-btn');
     const audioScriptDefaultsBtn = document.getElementById('audio-script-defaults-btn');
@@ -13140,7 +13458,24 @@ ${state.validation || 'Ei validointia.'}`;
 	    document.querySelectorAll('.product-field-row input, .product-field-row textarea').forEach(field => {
 	        field.addEventListener('input', () => markProductMissingFields());
 	    });
+    document.querySelectorAll('.audio-main-tab').forEach(tab => {
+        tab.addEventListener('click', () => showAudioPanel(tab.dataset.audioPanel || 'audio-chapter-panel'));
+    });
+    document.querySelectorAll('.audio-output-tab').forEach(tab => {
+        tab.addEventListener('click', () => showAudioOutput(tab.dataset.audioOutput || 'audio-script-output'));
+    });
 	    if (audioGuideBtn) audioGuideBtn.addEventListener('click', generateAudioGuide);
+    if (audioGeneratePackageBtn) audioGeneratePackageBtn.addEventListener('click', generateAudioChapterPackage);
+    if (audioSaveChapterBtn) audioSaveChapterBtn.addEventListener('click', saveAudioChapterEdits);
+    if (audioDownloadPackageBtn) audioDownloadPackageBtn.addEventListener('click', downloadAudioChapterPackage);
+    if (audioChapterSelect) audioChapterSelect.addEventListener('change', () => {
+        audioSelectedChapterIndex = Number(audioChapterSelect.value || 0);
+        audioLoadedChapterKey = '';
+        renderAudioView(true);
+    });
+    if (audioChapterPrev) audioChapterPrev.addEventListener('click', () => moveAudioChapter(-1));
+    if (audioChapterNext) audioChapterNext.addEventListener('click', () => moveAudioChapter(1));
+    if (audioScopeSelect) audioScopeSelect.addEventListener('change', renderAudioSourcePreview);
     if (audioSaveGuideBtn) audioSaveGuideBtn.addEventListener('click', saveAudioGuideEdits);
     if (audioSaveScriptBtn) audioSaveScriptBtn.addEventListener('click', saveAudioScriptEdits);
     if (audioScriptDefaultsBtn) audioScriptDefaultsBtn.addEventListener('click', () => {
