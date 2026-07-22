@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=48">
+    <link rel="stylesheet" href="styles.css?v=49">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -1918,34 +1918,52 @@
                 </div>
 
                 <!-- Some-kanavat -->
-                <h3 style="margin-bottom: 20px; color: var(--text-primary);">2. Räätälöidyt Kanavapostaukset</h3>
-                <div class="grid-cards" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));">
+                <div class="marketing-channel-heading">
+                    <div>
+                        <h3>2. Räätälöidyt kanavapostaukset</h3>
+                        <p>Jaa laitteella avaa puhelimen tai tietokoneen oman jakovalikon. Suora automaattijulkaisu edellyttää kanavatilin yhdistämistä.</p>
+                    </div>
+                </div>
+                <div class="grid-cards marketing-channel-grid">
                     <!-- Instagram -->
-                    <div class="card glass-panel" style="border-top: 4px solid #E1306C; display:flex; flex-direction:column;">
-                        <h3 style="margin-bottom: 12px; display:flex; align-items:center; gap:8px;">
-                            <span style="font-size: 20px;">📸</span> Instagram 
-                        </h3>
-                        <textarea id="marketing-instagram" style="flex:1; width:100%; padding:16px; background:rgba(0,0,0,0.2); border-radius:8px; border:1px solid var(--border-color); font-size:14px; color:var(--text-secondary); line-height:1.6; min-height:180px; resize:vertical;" placeholder="Instagram-teksti muodostuu tähän."></textarea>
-                        <button class="btn btn-secondary marketing-copy-btn" data-copy-target="marketing-instagram" style="margin-top: 16px; width:100%; border-color: #E1306C; color: #E1306C;">Kopioi teksti</button>
+                    <div class="card glass-panel marketing-channel-card marketing-channel-instagram">
+                        <h3>Instagram</h3>
+                        <textarea id="marketing-instagram" class="marketing-channel-text" placeholder="Instagram-teksti muodostuu tähän."></textarea>
+                        <div class="marketing-channel-actions">
+                            <button class="btn btn-secondary marketing-copy-btn" type="button" data-copy-target="marketing-instagram">Kopioi</button>
+                            <button class="btn btn-primary marketing-share-btn" type="button" data-share-target="marketing-instagram" data-share-channel="Instagram">Jaa laitteella</button>
+                        </div>
                     </div>
 
                     <!-- Facebook -->
-                    <div class="card glass-panel" style="border-top: 4px solid #1877F2; display:flex; flex-direction:column;">
-                        <h3 style="margin-bottom: 12px; display:flex; align-items:center; gap:8px;">
-                            <span style="font-size: 20px;">📘</span> Facebook 
-                        </h3>
-                        <textarea id="marketing-facebook" style="flex:1; width:100%; padding:16px; background:rgba(0,0,0,0.2); border-radius:8px; border:1px solid var(--border-color); font-size:14px; color:var(--text-secondary); line-height:1.6; min-height:180px; resize:vertical;" placeholder="Facebook-teksti muodostuu tähän."></textarea>
-                        <button class="btn btn-secondary marketing-copy-btn" data-copy-target="marketing-facebook" style="margin-top: 16px; width:100%; border-color: #1877F2; color: #1877F2;">Kopioi teksti</button>
+                    <div class="card glass-panel marketing-channel-card marketing-channel-facebook">
+                        <h3>Facebook</h3>
+                        <textarea id="marketing-facebook" class="marketing-channel-text" placeholder="Facebook-teksti muodostuu tähän."></textarea>
+                        <div class="marketing-channel-actions">
+                            <button class="btn btn-secondary marketing-copy-btn" type="button" data-copy-target="marketing-facebook">Kopioi</button>
+                            <button class="btn btn-primary marketing-share-btn" type="button" data-share-target="marketing-facebook" data-share-channel="Facebook">Jaa laitteella</button>
+                        </div>
                     </div>
 
-                    <!-- Lyhyt Video Käsikirjoitus (Tiktok/Reels) -->
-                    <div class="card glass-panel" style="border-top: 4px solid #00f2fe; display:flex; flex-direction:column;">
-                        <h3 style="margin-bottom: 12px; display:flex; align-items:center; gap:8px;">
-                            <span style="font-size: 20px;">📱</span> Video / Reels Script 
-                        </h3>
-                        <textarea id="marketing-video" style="flex:1; width:100%; padding:16px; background:rgba(0,0,0,0.2); border-radius:8px; border:1px dashed var(--ai-gradient-end); font-size:14px; color:var(--text-secondary); line-height:1.6; min-height:180px; resize:vertical;" placeholder="Video/Reels-käsikirjoitus muodostuu tähän."></textarea>
-                        <textarea id="marketing-hashtags" style="width:100%; margin-top:12px; padding:12px; background:rgba(0,0,0,0.2); border-radius:8px; border:1px solid var(--border-color); color:var(--text-secondary); min-height:70px; resize:vertical;" placeholder="#hashtagit"></textarea>
-                        <button class="btn btn-secondary marketing-copy-btn" data-copy-target="marketing-video" style="margin-top: 16px; width:100%; border-color: var(--ai-gradient-end); color: var(--ai-gradient-end);">Kopioi käsikirjoitus</button>
+                    <!-- TikTok -->
+                    <div class="card glass-panel marketing-channel-card marketing-channel-tiktok">
+                        <h3>TikTok</h3>
+                        <textarea id="marketing-tiktok" class="marketing-channel-text" placeholder="TikTok-julkaisun teksti muodostuu tähän."></textarea>
+                        <div class="marketing-channel-actions">
+                            <button class="btn btn-secondary marketing-copy-btn" type="button" data-copy-target="marketing-tiktok">Kopioi</button>
+                            <button class="btn btn-primary marketing-share-btn" type="button" data-share-target="marketing-tiktok" data-share-channel="TikTok">Jaa laitteella</button>
+                        </div>
+                    </div>
+
+                    <!-- Lyhytvideon käsikirjoitus -->
+                    <div class="card glass-panel marketing-channel-card marketing-channel-video">
+                        <h3>Lyhytvideon käsikirjoitus</h3>
+                        <textarea id="marketing-video" class="marketing-channel-text" placeholder="TikTok- tai Reels-käsikirjoitus muodostuu tähän."></textarea>
+                        <textarea id="marketing-hashtags" class="marketing-hashtags" placeholder="#hashtagit"></textarea>
+                        <div class="marketing-channel-actions">
+                            <button class="btn btn-secondary marketing-copy-btn" type="button" data-copy-target="marketing-video">Kopioi</button>
+                            <button class="btn btn-primary marketing-share-btn" type="button" data-share-target="marketing-video" data-share-extra="marketing-hashtags" data-share-channel="Lyhytvideo">Jaa laitteella</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2610,6 +2628,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=77"></script>
+<script src="app.js?v=78"></script>
 </body>
 </html>

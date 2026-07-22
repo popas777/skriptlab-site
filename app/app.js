@@ -6196,6 +6196,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         setMarketingFieldValue('marketing-long', longText, force);
         setMarketingFieldValue('marketing-instagram', analysis.instagram_post || '', force);
         setMarketingFieldValue('marketing-facebook', analysis.facebook_post || '', force);
+        setMarketingFieldValue('marketing-tiktok', analysis.tiktok_post || '', force);
         setMarketingFieldValue('marketing-video', analysis.video_script || '', force);
         setMarketingFieldValue('marketing-hashtags', analysis.hashtags || '', force);
         if (!window.manuscriptData) {
@@ -6242,6 +6243,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             setMarketingFieldValue('marketing-long', data.long_description, true);
             setMarketingFieldValue('marketing-instagram', data.instagram_post, true);
             setMarketingFieldValue('marketing-facebook', data.facebook_post, true);
+            setMarketingFieldValue('marketing-tiktok', data.tiktok_post, true);
             setMarketingFieldValue('marketing-video', data.video_script, true);
             setMarketingFieldValue('marketing-hashtags', data.hashtags, true);
             if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
@@ -6249,6 +6251,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             window.manuscriptData.analysis.marketing_long = data.long_description || '';
             window.manuscriptData.analysis.instagram_post = data.instagram_post || '';
             window.manuscriptData.analysis.facebook_post = data.facebook_post || '';
+            window.manuscriptData.analysis.tiktok_post = data.tiktok_post || '';
             window.manuscriptData.analysis.video_script = data.video_script || '';
             window.manuscriptData.analysis.hashtags = data.hashtags || '';
             await window.saveManuscriptToDB(window.manuscriptData);
@@ -6278,6 +6281,39 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             setMarketingStatus('Teksti kopioitu leikepöydälle.');
         } catch (err) {
             setMarketingStatus('Kopiointi epäonnistui. Voit valita tekstin ja kopioida sen käsin.', true);
+        }
+    }
+
+    function marketingShareText(targetId, extraTargetId = '') {
+        const mainText = document.getElementById(targetId)?.value?.trim() || '';
+        const extraText = extraTargetId ? document.getElementById(extraTargetId)?.value?.trim() || '' : '';
+        return [mainText, extraText].filter(Boolean).join('\n\n');
+    }
+
+    async function shareMarketingField(targetId, channel, extraTargetId = '') {
+        const text = marketingShareText(targetId, extraTargetId);
+        if (!text) {
+            setMarketingStatus('Ei jaettavaa tekstiä.', true);
+            return;
+        }
+        const title = `${window.manuscriptData?.title || 'SkriptLab'} - ${channel || 'markkinointiteksti'}`;
+        if (typeof navigator.share === 'function') {
+            try {
+                await navigator.share({ title, text });
+                setMarketingStatus(`${channel || 'Aineisto'} jaettu laitteen jakovalikolla.`);
+                return;
+            } catch (err) {
+                if (err?.name === 'AbortError') {
+                    setMarketingStatus('Jakaminen peruutettu.');
+                    return;
+                }
+            }
+        }
+        try {
+            await navigator.clipboard.writeText(text);
+            setMarketingStatus('Laitteen jakovalikko ei ole käytettävissä tässä selaimessa. Teksti kopioitiin leikepöydälle.');
+        } catch (err) {
+            setMarketingStatus('Jakaminen ei ole käytettävissä. Voit valita tekstin ja kopioida sen käsin.', true);
         }
     }
 
@@ -13488,6 +13524,13 @@ ${state.validation || 'Ei validointia.'}`;
     if (marketingGenerateBtn) marketingGenerateBtn.addEventListener('click', generateMarketingMaterials);
     document.querySelectorAll('.marketing-copy-btn').forEach(button => {
         button.addEventListener('click', () => copyMarketingField(button.dataset.copyTarget));
+    });
+    document.querySelectorAll('.marketing-share-btn').forEach(button => {
+        button.addEventListener('click', () => shareMarketingField(
+            button.dataset.shareTarget,
+            button.dataset.shareChannel,
+            button.dataset.shareExtra
+        ));
     });
     if (proofreadChapterSelect) {
         proofreadChapterSelect.addEventListener('change', () => {

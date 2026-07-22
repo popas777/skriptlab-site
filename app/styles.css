@@ -3725,6 +3725,94 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     flex-wrap: wrap;
 }
 
+/* Marketing channel posts */
+.marketing-channel-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+.marketing-channel-heading h3 {
+    color: var(--text-primary);
+    margin-bottom: 6px;
+}
+.marketing-channel-heading p {
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.5;
+}
+.marketing-channel-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+    align-items: stretch;
+}
+.marketing-channel-card {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    border-radius: 8px;
+}
+.marketing-channel-card h3 {
+    margin-bottom: 12px;
+}
+.marketing-channel-instagram { border-top: 4px solid #c13584; }
+.marketing-channel-facebook { border-top: 4px solid #1877f2; }
+.marketing-channel-tiktok { border-top: 4px solid #25f4ee; }
+.marketing-channel-video { border-top: 4px solid #10b981; }
+.marketing-channel-text,
+.marketing-hashtags {
+    width: 100%;
+    padding: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.2);
+    color: var(--text-primary);
+    font: 400 14px/1.6 Inter, sans-serif;
+    resize: vertical;
+}
+.marketing-channel-text {
+    flex: 1 1 auto;
+    min-height: 210px;
+}
+.marketing-hashtags {
+    min-height: 74px;
+    margin-top: 12px;
+    padding: 12px;
+}
+[data-theme="light"] .marketing-channel-text,
+[data-theme="light"] .marketing-hashtags {
+    background: rgba(9, 105, 218, 0.035);
+}
+.marketing-channel-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+    margin-top: 16px;
+}
+.marketing-channel-actions .btn {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 10px;
+}
+
+@media (max-width: 860px) {
+    .marketing-channel-grid {
+        grid-template-columns: 1fr;
+    }
+    .marketing-channel-text {
+        min-height: 240px;
+        font-size: 16px;
+    }
+}
+
+.app-wrapper.mobile-simulate .marketing-channel-grid {
+    grid-template-columns: 1fr;
+}
+.app-wrapper.mobile-simulate .marketing-channel-text {
+    min-height: 240px;
+    font-size: 16px;
+}
+
 /* Analysis pulse animation */
 @keyframes analysisPulse {
   0% { transform: translateX(-100%); }
