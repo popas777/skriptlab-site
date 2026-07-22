@@ -196,7 +196,7 @@ const pageTranslations = {
     { selector: ".grid .card:nth-child(1) p", fi: "Näe tekstin vahvuudet, ongelmakohdat, virheet ja seuraavat muokkausaskeleet.", en: "See the strengths, weak points, errors and next revision steps in your text." },
     { selector: ".grid .card:nth-child(2) h2", fi: "Toimittajille", en: "For editors" },
     { selector: ".grid .card:nth-child(2) p", fi: "Koosta analyysi, palauterunko, korjausehdotukset ja toimitussuunnitelma yhdestä käsikirjoituksesta.", en: "Create an analysis, feedback outline, correction suggestions and editing plan from one manuscript." },
-    { selector: ".grid .card:nth-child(3) h2", fi: "Graafisille suunnittelijoille", en: "For visual designers" },
+    { selector: ".grid .card:nth-child(3) h2", fi: "Taittajille", en: "For layout designers" },
     { selector: ".grid .card:nth-child(3) p", fi: "Luo kansi- ja kuvitushahmotelmia sekä taittovedos suunnittelun pohjaksi.", en: "Draft cover and illustration directions and a layout proof to support design work." },
     { selector: ".grid .card:nth-child(4) h2", fi: "Kääntäjille", en: "For translators" },
     { selector: ".grid .card:nth-child(4) p", fi: "Tee raakakäännöksiä, termistöjä ja tiivistelmiä käännöstyön tueksi.", en: "Prepare translation drafts, terminology and summaries to support translation work." },
