@@ -8754,7 +8754,7 @@ Säännöt:
     function firstAudioSampleText() {
         const entry = currentAudioChapterEntry();
         if (!entry) return '';
-        return audioTextForScope(entry).text.slice(0, 1200);
+        return audioTextForScope(entry).text.slice(0, 5000);
     }
 
     function audioPlayer() {
@@ -8798,7 +8798,7 @@ Säännöt:
             setAudioStatus('Valitse ensin ElevenLabs-lukijaääni.', true);
             return;
         }
-        const text = firstAudioSampleText().slice(0, 1500);
+        const text = firstAudioSampleText();
         if (!text) {
             setAudioStatus('Valitusta osiosta ei löytynyt kuunneltavaa tekstiä.', true);
             return;
