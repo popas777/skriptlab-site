@@ -693,14 +693,6 @@ a {
   outline-offset: 3px;
 }
 
-.card-index {
-  margin-bottom: 1.4rem;
-  color: var(--sienna);
-  font-family: "Cormorant Garamond", serif;
-  font-size: 1.15rem;
-  font-weight: 600;
-}
-
 .feature-card .card-link {
   margin-top: auto;
   padding-top: 1.5rem;
