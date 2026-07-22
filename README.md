@@ -6,6 +6,8 @@ Staattinen markkinointisivu osoitteelle `skriptlab.com`.
 
 - `index.html` - etusivun tuote/hero-näkymä
 - `kenelle.html`, `ominaisuudet.html`, `prosessi.html`, `luottamus.html`, `hinnat.html`, `yhteys.html` - erilliset sisältöosiot
+- `ominaisuudet/*/index.html` - ominaisuuksien kaksikieliset alasivut; sivukohtainen copy on `data-fi`- ja `data-en`-attribuuteissa
+  - Jokaisella alasivulla on piilotettu `feature-media-slot`. Poista `hidden` ja lisää siihen kuva tai video, kun esimerkkimedia on valmis.
 - `assets/styles.css` - visuaalinen tyyli ja responsiivisuus
 - `assets/main.js` - mobiilivalikko
 - `app/` - SkriptLab-sovellus osoitteessa `https://skriptlab.com/app/`

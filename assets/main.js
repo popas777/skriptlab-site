@@ -6,7 +6,7 @@ const pageSlug = (pathParts[pathParts.length - 1] || "index").replace(/\.html$/,
 
 const pageKey = window.location.pathname.includes("/legal/")
   ? `legal-${pageSlug}`
-  : {
+  : ({
       index: "home",
       kenelle: "audience",
       ominaisuudet: "features",
@@ -14,7 +14,7 @@ const pageKey = window.location.pathname.includes("/legal/")
       hinnat: "pricing",
       luottamus: "trust",
       yhteys: "contact"
-    }[pageSlug] || "home";
+    }[pageSlug] || (pathParts.includes("ominaisuudet") ? `feature-${pageSlug}` : "home"));
 
 const metaTranslations = {
   home: {
@@ -43,12 +43,12 @@ const metaTranslations = {
   },
   features: {
     fi: {
-      title: "Ominaisuudet - SkriptLab",
-      description: "SkriptLab tuottaa käsikirjoituksesta analyysin, toimitussuunnitelman, synopsiksen, metadatan ja muita jatkotyön aineistoja."
+      title: "Ominaisuudet - käsikirjoituksen analyysi, editointi ja viimeistely | SkriptLab",
+      description: "Tutustu SkriptLabin työkaluihin käsikirjoituksen analyysiin, rakenteeseen, editointiin, käännöksiin, oikolukuun, kuvitukseen ja taittoon."
     },
     en: {
-      title: "Features - SkriptLab",
-      description: "SkriptLab turns manuscripts into analyses, editing plans, synopses, metadata and other materials for the next stage of work."
+      title: "Features - manuscript analysis, editing and preparation | SkriptLab",
+      description: "Explore SkriptLab tools for manuscript analysis, structure, editing, translation, proofreading, cover planning and layout preparation."
     }
   },
   process: {
@@ -207,30 +207,29 @@ const pageTranslations = {
   ],
   features: [
     { selector: ".section-label", fi: "Ominaisuudet", en: "Features" },
-    { selector: ".section-title", fi: "Mitä työkalulla voi tehdä?", en: "What can the workspace do?" },
-    { selector: ".section-intro", fi: "SkriptLab tuottaa käsikirjoituksesta aineistoja, joita voi käyttää muokkauksessa, tarkistuksessa, suunnittelussa, käännöksessä ja tuotannossa. Voit kirjoittaa tai tuoda tekstin palveluun ja hoitaa työn ilman erillistä tekstieditoria tai taittotyökaluja.", en: "SkriptLab produces materials from a manuscript that can be used in revision, review, planning, translation and production. You can write or import the text into the service and continue the work without a separate text editor or layout tool." },
-    { selector: ".grid .card:nth-child(1) h2", fi: "Käsikirjoitusanalyysi", en: "Manuscript analysis" },
-    { selector: ".grid .card:nth-child(1) p", fi: "Rakenne, rytmi, henkilöt, teemat, toistot ja epäselvät kohdat.", en: "Structure, rhythm, characters, themes, repetition and unclear passages." },
-    { selector: ".grid .card:nth-child(2) h2", fi: "Kirjoittaminen", en: "Writing" },
-    { selector: ".grid .card:nth-child(2) p", fi: "Kirjoita, tuo ja jatka käsikirjoitusta samassa työtilassa ennen analyysiä ja toimitusta.", en: "Write, import and continue a manuscript in the same workspace before analysis and editing." },
-    { selector: ".grid .card:nth-child(3) h2", fi: "Toimitussuunnitelma", en: "Editing plan" },
-    { selector: ".grid .card:nth-child(3) p", fi: "Selkeät korjausehdotukset ja priorisoidut seuraavat tehtävät.", en: "Clear correction suggestions and prioritised next tasks." },
-    { selector: ".grid .card:nth-child(4) h2", fi: "Virheiden etsintä", en: "Issue detection" },
-    { selector: ".grid .card:nth-child(4) p", fi: "Kielen, jatkuvuuden, toiston ja epäselvien ilmausten tarkistus viimeistelyä varten.", en: "Checks for language, continuity, repetition and unclear phrasing before final review." },
-    { selector: ".grid .card:nth-child(5) h2", fi: "Synopsis ja metadata", en: "Synopsis and metadata" },
-    { selector: ".grid .card:nth-child(5) p", fi: "Tiivistelmät, kuvaukset, hakusanat, hahmolistat ja termistöt.", en: "Summaries, descriptions, keywords, character lists and terminology." },
-    { selector: ".grid .card:nth-child(6) h2", fi: "Kansi ja kuvitus", en: "Cover and illustration" },
-    { selector: ".grid .card:nth-child(6) p", fi: "Hahmotelmia visuaaliseksi suunnaksi, tunnelmaksi ja kuvamaailmaksi.", en: "Drafts for visual direction, mood and image world." },
-    { selector: ".grid .card:nth-child(7) h2", fi: "Taittovedos", en: "Layout proof" },
-    { selector: ".grid .card:nth-child(7) p", fi: "Ensimmäinen hahmotelma tekstin rakenteesta, kuvituksesta ja sivunäkymästä.", en: "An initial view of text structure, illustration placement and page layout." },
-    { selector: ".grid .card:nth-child(8) h2", fi: "Raakakäännökset", en: "Translation drafts" },
-    { selector: ".grid .card:nth-child(8) p", fi: "Käännöstyön tueksi tuotettavia luonnoksia, termejä ja kontekstia.", en: "Draft translations, terms and context to support translation work." },
-    { selector: ".grid .card:nth-child(9) h2", fi: "Äänikäsikirjoitus", en: "Audio script" },
-    { selector: ".grid .card:nth-child(9) p", fi: "Roolit, lukujako, ääntämisohjeet ja tuotantoon vietävä käsikirjoitus.", en: "Roles, reading sections, pronunciation notes and a script prepared for production." },
-    { selector: ".grid .card:nth-child(10) h2", fi: "Viimeinen oikoluku", en: "Final proofreading support" },
-    { selector: ".grid .card:nth-child(10) p", fi: "Tuki teoksen loppuviimeistelyyn ennen julkaisua, toimitusta tai muuta jatkokäyttöä.", en: "Support for the final review before publication, editorial handoff or another next step." },
-    { selector: ".grid .card:nth-child(11) h2", html: true, fi: "Kuuntelu <span class=\"coming-soon\">Tulossa</span>", en: "Listening <span class=\"coming-soon\">Coming soon</span>" },
-    { selector: ".grid .card:nth-child(11) p", fi: "Mahdollisuus kuunnella käsikirjoitusta työn alla ennen audiotuotantoa.", en: "A way to listen to the manuscript while it is still in progress, before audio production." }
+    { selector: ".section-title", fi: "Yksi työtila käsikirjoituksen eri vaiheisiin", en: "One workspace for every manuscript stage" },
+    { selector: ".section-intro", fi: "SkriptLab auttaa siirtymään luonnoksesta kohti viimeisteltyä käsikirjoitusta ja julkaisuaineistoja. Valitse alta työvaihe, josta haluat tietää tarkemmin.", en: "SkriptLab helps you move from a draft toward a refined manuscript and publishing materials. Choose a stage below to explore it in more detail." },
+    { selector: ".feature-card:nth-child(1) h2", fi: "Analyysi ja rakenne", en: "Analysis and structure" },
+    { selector: ".feature-card:nth-child(1) p", fi: "Tunnista kokonaisuuden vahvuudet, kehityskohdat ja nykyinen osiorakenne.", en: "Identify the work's strengths, development needs and existing section structure." },
+    { selector: ".feature-card:nth-child(1) .card-link", fi: "Tutustu käsikirjoitusanalyysiin", en: "Explore manuscript analysis" },
+    { selector: ".feature-card:nth-child(2) h2", fi: "Kirjoittaminen ja editointi", en: "Writing and editing" },
+    { selector: ".feature-card:nth-child(2) p", fi: "Työstä tekstiä osio kerrallaan ja hyödynnä kohdennettuja muutosehdotuksia.", en: "Work section by section and use focused revision suggestions." },
+    { selector: ".feature-card:nth-child(2) .card-link", fi: "Tutustu tekstin työstämiseen", en: "Explore writing and editing" },
+    { selector: ".feature-card:nth-child(3) h2", fi: "Käännökset", en: "Translations" },
+    { selector: ".feature-card:nth-child(3) p", fi: "Käännä pitkä teos hallittuina paloina ja tarkasta lähde sekä käännös rinnakkain.", en: "Translate a long work in controlled segments and compare source and translation side by side." },
+    { selector: ".feature-card:nth-child(3) .card-link", fi: "Tutustu käännöstyöhön", en: "Explore translation work" },
+    { selector: ".feature-card:nth-child(4) h2", fi: "Oikoluku ja viimeistely", en: "Proofreading and final review" },
+    { selector: ".feature-card:nth-child(4) p", fi: "Tarkista luvut yksi kerrallaan ja hyväksy vain tarpeelliset korjaukset.", en: "Review chapters one at a time and accept only the corrections you need." },
+    { selector: ".feature-card:nth-child(4) .card-link", fi: "Tutustu viimeistelyyn", en: "Explore final review" },
+    { selector: ".feature-card:nth-child(5) h2", fi: "Oheisaineistot", en: "Supporting materials" },
+    { selector: ".feature-card:nth-child(5) p", fi: "Valmistele nimiölehti, sisällysluettelo, lähteet, hakemistot ja muut kirjan osat.", en: "Prepare title pages, contents, references, indexes and other book sections." },
+    { selector: ".feature-card:nth-child(5) .card-link", fi: "Tutustu oheisaineistoihin", en: "Explore supporting materials" },
+    { selector: ".feature-card:nth-child(6) h2", fi: "Kansi ja kuvitus", en: "Cover and illustration" },
+    { selector: ".feature-card:nth-child(6) p", fi: "Suunnittele etu- ja takakansi sekä kuvamaailma käsikirjoituksen tietojen pohjalta.", en: "Plan front and back covers and a visual direction using manuscript context." },
+    { selector: ".feature-card:nth-child(6) .card-link", fi: "Tutustu visuaaliseen suunnitteluun", en: "Explore visual planning" },
+    { selector: ".feature-card:nth-child(7) h2", fi: "Taitto ja valmis kirja", en: "Layout and finished book" },
+    { selector: ".feature-card:nth-child(7) p", fi: "Tarkastele kokonaisuutta lukutilassa ja valmistele tiedostot seuraavaan tuotantovaiheeseen.", en: "Read the complete work and prepare files for the next production stage." },
+    { selector: ".feature-card:nth-child(7) .card-link", fi: "Tutustu kirjan valmisteluun", en: "Explore book preparation" }
   ],
   process: [
     { selector: ".section-label", fi: "Työnkulku", en: "Workflow" },
@@ -508,27 +507,46 @@ function applyEntry(entry, lang) {
   });
 }
 
-function applyMeta(lang) {
-  const meta = metaTranslations[pageKey]?.[lang];
-  if (!meta) return;
+function applyInlineTranslations(lang) {
+  document.querySelectorAll("[data-fi][data-en]").forEach((element) => {
+    const value = element.getAttribute(`data-${lang}`);
+    if (typeof value !== "string") return;
 
-  if (meta.title) {
-    document.title = meta.title;
+    const attribute = element.getAttribute("data-i18n-attr");
+    if (attribute) {
+      element.setAttribute(attribute, value);
+    } else if (element.hasAttribute("data-i18n-html")) {
+      element.innerHTML = value;
+    } else {
+      element.textContent = value;
+    }
+  });
+}
+
+function applyMeta(lang) {
+  const meta = metaTranslations[pageKey]?.[lang] || {};
+  const inlineTitle = document.body?.getAttribute(`data-title-${lang}`);
+  const inlineDescription = document.body?.getAttribute(`data-description-${lang}`);
+  const title = inlineTitle || meta.title;
+  const descriptionText = inlineDescription || meta.description;
+
+  if (title) {
+    document.title = title;
   }
 
   const description = document.querySelector("meta[name='description']");
-  if (description && meta.description) {
-    description.setAttribute("content", meta.description);
+  if (description && descriptionText) {
+    description.setAttribute("content", descriptionText);
   }
 
   const ogTitle = document.querySelector("meta[property='og:title']");
-  if (ogTitle && (meta.ogTitle || meta.title)) {
-    ogTitle.setAttribute("content", meta.ogTitle || meta.title);
+  if (ogTitle && (meta.ogTitle || title)) {
+    ogTitle.setAttribute("content", meta.ogTitle || title);
   }
 
   const ogDescription = document.querySelector("meta[property='og:description']");
-  if (ogDescription && (meta.ogDescription || meta.description)) {
-    ogDescription.setAttribute("content", meta.ogDescription || meta.description);
+  if (ogDescription && (meta.ogDescription || descriptionText)) {
+    ogDescription.setAttribute("content", meta.ogDescription || descriptionText);
   }
 }
 
@@ -559,6 +577,7 @@ function setLanguage(lang) {
 
   applyMeta(lang);
   [...commonTranslations, ...(pageTranslations[pageKey] || [])].forEach((entry) => applyEntry(entry, lang));
+  applyInlineTranslations(lang);
   applyNavigationLabels(lang);
   syncLanguageLinks(lang);
   updateLanguageButtons(lang);
