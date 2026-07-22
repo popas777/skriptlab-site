@@ -178,8 +178,18 @@ window.saveProjectStructureToDB = function(data) {
     return manuscriptSaveQueue;
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-    const currentUser = window.SkriptLabAuth.getUser();
+document.addEventListener('DOMContentLoaded', async () => {
+    let currentUser = window.SkriptLabAuth.getUser();
+    try {
+        const sessionResponse = await apiFetch('/api/auth/me');
+        if (sessionResponse.ok) {
+            const refreshedUser = await sessionResponse.json();
+            window.SkriptLabAuth.setSession(window.SkriptLabAuth.getToken(), refreshedUser);
+            currentUser = refreshedUser;
+        }
+    } catch (error) {
+        console.warn('Käyttäjän käyttöoikeuksia ei saatu päivitettyä.', error);
+    }
     let availableProjects = [];
     let translationModels = [];
     let latestTranslationText = '';
@@ -249,6 +259,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     let writerDeskAssistantDraftKind = '';
     let writerDeskStructureVisible = localStorage.getItem(WRITER_DESK_STRUCTURE_VISIBLE_KEY) === 'true';
     function defaultViewForUser() {
+        if (Array.isArray(currentUser?.allowed_modules)) return 'view-kirjani';
         if (currentUser?.role === 'oppimateriaali') return 'view-om-projekti';
         if (currentUser?.role === 'kirjailija') {
             return localStorage.getItem('skriptlab_manuscript') ? 'view-kirjoita' : 'view-kirjani';
@@ -277,6 +288,36 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-analyysi', 'view-rakenne', 'view-kehityseditointi', 'view-toimitus', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
     const translatorViews = new Set([...betaCoreViews, 'view-suomentaja']);
     const biographyViews = new Set(['view-kirjani', 'view-rakenne', 'view-kehityseditointi', 'view-kirjoita', 'view-ai-tyonkulku', 'view-elamakerta', 'view-toimitus', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-audio', 'view-kirja', 'view-julkaise']);
+    const accessModuleViews = {
+        manuscripts: ['view-kirjani'],
+        analysis: ['view-analyysi', 'view-rakenne'],
+        development_editing: ['view-kehityseditointi'],
+        write: ['view-kirjoita'],
+        editing: ['view-toimitus'],
+        proofread: ['view-oikoluku'],
+        support_materials: ['view-muut-toiminnot'],
+        cover_illustration: ['view-kuvitus'],
+        book_layout: ['view-kirja', 'view-taitto'],
+        publish: ['view-julkaise'],
+        ai_workflow: ['view-ai-tyonkulku'],
+        translations: ['view-suomentaja', 'view-kaannokset'],
+        biography: ['view-elamakerta'],
+        product_info: ['view-tuotetiedot'],
+        marketing: ['view-markkinointi'],
+        audio: ['view-audio'],
+        contracts: ['view-sopimukset'],
+        timeline: ['view-aikajana'],
+        versions: ['view-viimeistely'],
+        learning_materials: Array.from(learningMaterialViews)
+    };
+    function customAccessViews() {
+        if (!Array.isArray(currentUser?.allowed_modules)) return null;
+        const allowed = new Set(['view-kirjani']);
+        currentUser.allowed_modules.forEach(moduleKey => {
+            (accessModuleViews[moduleKey] || []).forEach(viewId => allowed.add(viewId));
+        });
+        return allowed;
+    }
     const roleLabels = {
         admin: 'Admin',
         test_user: 'Test user',
@@ -2803,6 +2844,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 	                headers: {'Content-Type': 'application/json'},
 	                body: JSON.stringify({
 	                    text: sourceText || '(tyhjä kappale)',
+	                    purpose: 'write',
 	                    temperature: ['develop_section', 'continue_section', 'next_step'].includes(action) ? 0.55 : 0.25,
 	                    prompt: writerAssistantPrompt(action, userPrompt, {
 	                        chapterTitle: chapter.title || `Luku ${writerDeskSelection.cIndex + 1}`,
@@ -3182,6 +3224,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function isViewAllowed(viewId) {
         if (canSeeAllModules) return true;
+        const groupViews = customAccessViews();
+        if (groupViews) return groupViews.has(viewId);
         if (currentUser && currentUser.role === 'kirjailija') return writerViews.has(viewId);
         if (currentUser && currentUser.role === 'kaantaja') return translatorViews.has(viewId);
         if (currentUser && currentUser.role === 'elamakerta') return biographyViews.has(viewId);
@@ -5185,6 +5229,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                     text: structureBrief,
+                    purpose: 'analysis',
                     temperature: 0.2,
                     prompt: buildStructureAiPrompt()
                 })
@@ -5319,7 +5364,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             apiFetch('/api/edit', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({text: sourceText, prompt: editPrompt, temperature: temperature})
+                body: JSON.stringify({text: sourceText, prompt: editPrompt, temperature: temperature, purpose: 'editing'})
             })
             .then(async res => {
                 if(!res.ok) {
@@ -5427,6 +5472,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({
                             text: sourceText,
+                            purpose: 'editing',
                             temperature: 0.2,
                             prompt: `Lisää tekstiin kursivointimerkinnät vain tarvittaviin kohtiin. Käytä kursivointiin yksittäisiä tähtiä näin: *kursivoitu teksti*. Älä käytä tuplatähtiä. Säilytä luvun otsikko ensimmäisenä kappaleena ja säilytä kappalejako. Älä lisää selityksiä.\n\nKursivointiperusteet:\n- ${rules.join('\n- ')}`
                         })
@@ -5483,6 +5529,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         text: sourceText,
+                        purpose: 'editing',
                         temperature: 0.2,
                         prompt: 'Jaa teksti uudelleen selkeiksi osiksi, luvuiksi ja kappaleiksi. Tunnista kirjan osat muodossa Osa 1 / Osa I ja jätä ne omiksi otsikoikseen. Palauta vain valmis käsikirjoitusteksti: osan otsikko omalle rivilleen, luvun otsikko omalle rivilleen, ja jätä tyhjä rivi sekä ennen että jälkeen jokaisen osa- tai lukuotsikon. Älä koskaan sijoita osa- tai lukuotsikkoa edellisen luvun viimeisen kappaleen loppuun. Kappaleet erotetaan tyhjällä rivillä. Älä lisää sisällysluetteloa, nimiölehteä, copysivua, sivunumeroita tai selityksiä.'
                     })
@@ -7897,6 +7944,7 @@ Säännöt:
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         text: sourceText,
+                        purpose: 'ai_workflow',
                         temperature: 0.25,
                         prompt: 'Editoi luku varovaisesti. Korjaa selvät kieli- ja rytmiongelmat, poista turhaa toistoa ja säilytä kirjailijan ääni. Säilytä kappalejako mahdollisimman hyvin. Palauta vain valmis luku.'
                     })
@@ -7913,6 +7961,7 @@ Säännöt:
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({
                             text: paragraph,
+                            purpose: 'ai_workflow',
                             temperature: 0.2,
                             prompt: 'Korjaa selvät kieli-, rytmi- ja toisto-ongelmat varovaisesti. Säilytä kirjailijan ääni. Palauta vain korjattu kappale.'
                         })

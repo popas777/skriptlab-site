@@ -121,6 +121,49 @@
             cursor: not-allowed;
             opacity: 0.62;
         }
+        .module-checkbox-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px 12px;
+        }
+        .module-checkbox-grid label {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 12px;
+            line-height: 1.35;
+        }
+        .module-checkbox-grid input {
+            width: auto;
+            margin-top: 2px;
+            padding: 0;
+        }
+        .access-group-item {
+            align-items: stretch;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .access-group-fields {
+            display: grid;
+            grid-template-columns: minmax(150px, 0.7fr) minmax(220px, 1.3fr);
+            gap: 10px;
+        }
+        .access-group-fields input,
+        .access-group-fields textarea,
+        .user-access-group-select {
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-color);
+            color: var(--text-primary);
+            font: inherit;
+        }
+        .access-group-fields textarea {
+            min-height: 58px;
+            resize: vertical;
+        }
         @media (max-width: 640px) {
             .model-registry-item {
                 align-items: flex-start;
@@ -129,6 +172,10 @@
             .model-row-actions {
                 width: 100%;
                 justify-content: flex-start;
+            }
+            .module-checkbox-grid,
+            .access-group-fields {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -239,6 +286,35 @@
                 </div>
 
                 <div class="admin-card glass-panel">
+                    <h3 style="margin-bottom: 12px; color: var(--text-primary);">Käyttöoikeusryhmät</h3>
+                    <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.5; margin-bottom: 20px;">
+                        Luo asiakas- tai pilottikohtaisia ryhmiä. Käsikirjoitukseni kuuluu aina mukaan, ja valitut moduulit tulevat sen lisäksi.
+                    </p>
+
+                    <div class="settings-row">
+                        <label>Ryhmän nimi</label>
+                        <input id="access-group-name" type="text" maxlength="120" placeholder="Esimerkiksi Kustantamon analyysipilotti">
+                    </div>
+                    <div class="settings-row">
+                        <label>Kuvaus</label>
+                        <textarea id="access-group-description" maxlength="500" placeholder="Kenelle ryhmä on tarkoitettu ja mitä sillä kokeillaan?"></textarea>
+                    </div>
+                    <div class="settings-row">
+                        <label>Sallitut moduulit</label>
+                        <div id="access-group-module-options" class="module-checkbox-grid"></div>
+                    </div>
+                    <button id="create-access-group-btn" class="btn btn-primary" type="button">Luo käyttöoikeusryhmä</button>
+                    <p id="access-group-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
+
+                    <div class="settings-row" style="margin-top:24px; margin-bottom:0;">
+                        <label>Luodut ryhmät</label>
+                        <div class="user-list" id="access-group-list">
+                            <div class="user-item"><div class="user-info"><h4>Ladataan ryhmiä...</h4></div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="admin-card glass-panel">
                     <h3 style="margin-bottom: 24px; color: var(--text-primary);">Kutsut & Käyttäjät</h3>
                     
                     <div class="settings-row">
@@ -257,6 +333,13 @@
                             <option value="org_admin">Org admin</option>
                             <option value="test_user">Test user</option>
                             <option value="admin">Admin</option>
+                        </select>
+                    </div>
+
+                    <div class="settings-row">
+                        <label>Käyttöoikeusryhmä</label>
+                        <select id="invite-access-group" style="padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-primary); font-family: inherit; outline: none;">
+                            <option value="">Roolin oletusoikeudet</option>
                         </select>
                     </div>
 
@@ -406,6 +489,7 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
         const refreshFeedbackBtn = document.getElementById('refresh-feedback-btn');
         const inviteEmail = document.getElementById('invite-email');
         const inviteRole = document.getElementById('invite-role');
+        const inviteAccessGroup = document.getElementById('invite-access-group');
         const inviteMaxUses = document.getElementById('invite-max-uses');
         const inviteDays = document.getElementById('invite-days');
         const inviteSendEmail = document.getElementById('invite-send-email');
@@ -418,6 +502,12 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
         const inviteMailtoLink = document.getElementById('invite-mailto-link');
         const inviteList = document.getElementById('invite-list');
         const adminUserList = document.getElementById('admin-user-list');
+        const accessGroupName = document.getElementById('access-group-name');
+        const accessGroupDescription = document.getElementById('access-group-description');
+        const accessGroupModuleOptions = document.getElementById('access-group-module-options');
+        const createAccessGroupBtn = document.getElementById('create-access-group-btn');
+        const accessGroupStatus = document.getElementById('access-group-status');
+        const accessGroupList = document.getElementById('access-group-list');
         const usageLimitPanel = document.getElementById('usage-limit-panel');
         const usageLimitTitle = document.getElementById('usage-limit-title');
         const usageLimitUsage = document.getElementById('usage-limit-usage');
@@ -433,6 +523,8 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
         const limitImageModels = document.getElementById('limit-image-models');
         let loadedModels = [];
         let loadedModelSettings = null;
+        let moduleCatalog = [];
+        let loadedAccessGroups = [];
         let selectedLimitUserId = null;
         let selectedLimitUserName = '';
         const userRoles = [
@@ -454,6 +546,86 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                 '"': '&quot;',
                 "'": '&#039;'
             }[char]));
+        }
+
+        function moduleCheckboxesHtml(selectedKeys = [], idPrefix = 'access-module') {
+            const selected = new Set(selectedKeys || []);
+            return moduleCatalog.map(item => `
+                <label>
+                    <input type="checkbox" value="${escapeHtml(item.key)}" ${selected.has(item.key) ? 'checked' : ''}>
+                    <span>${escapeHtml(item.label)}</span>
+                </label>
+            `).join('');
+        }
+
+        function selectedModuleKeys(container) {
+            return Array.from(container?.querySelectorAll('input[type="checkbox"]:checked') || [])
+                .map(input => input.value);
+        }
+
+        function activeAccessGroupOptions(selectedId = null) {
+            return loadedAccessGroups
+                .filter(group => group.is_active || Number(selectedId) === group.id)
+                .map(group => `<option value="${group.id}" ${Number(selectedId) === group.id ? 'selected' : ''}>${escapeHtml(group.name)}${group.is_active ? '' : ' (pois käytöstä)'}</option>`)
+                .join('');
+        }
+
+        function renderInviteAccessGroupOptions() {
+            if (!inviteAccessGroup) return;
+            const selected = inviteAccessGroup.value;
+            inviteAccessGroup.innerHTML = `<option value="">Roolin oletusoikeudet</option>${activeAccessGroupOptions(selected)}`;
+            const fullRole = ['admin', 'test_user'].includes(inviteRole?.value || '');
+            if (fullRole) inviteAccessGroup.value = '';
+            inviteAccessGroup.disabled = fullRole;
+        }
+
+        function renderAccessGroups() {
+            if (!accessGroupList) return;
+            if (!loadedAccessGroups.length) {
+                accessGroupList.innerHTML = '<div class="user-item"><div class="user-info"><h4>Ei käyttöoikeusryhmiä</h4><p>Luo ensimmäinen rajattu moduuliryhmä yllä.</p></div></div>';
+                return;
+            }
+            accessGroupList.innerHTML = loadedAccessGroups.map(group => `
+                <div class="user-item access-group-item" data-id="${group.id}">
+                    <div class="access-group-fields">
+                        <input class="access-group-row-name" type="text" maxlength="120" value="${escapeHtml(group.name)}" aria-label="Ryhmän nimi">
+                        <textarea class="access-group-row-description" maxlength="500" aria-label="Ryhmän kuvaus">${escapeHtml(group.description || '')}</textarea>
+                    </div>
+                    <div class="module-checkbox-grid access-group-row-modules">
+                        ${moduleCheckboxesHtml(group.module_keys, `access-group-${group.id}`)}
+                    </div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+                        <span style="color:var(--text-secondary); font-size:12px;">Käsikirjoitukseni + ${group.module_keys.length} moduulia · ${group.user_count} käyttäjää · ${group.invite_count} aktiivista kutsua</span>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                            <button class="btn btn-secondary save-access-group-btn" type="button" data-id="${group.id}" style="font-size:11px; padding:5px 10px;">Tallenna</button>
+                            <button class="btn btn-secondary toggle-access-group-btn" type="button" data-id="${group.id}" data-active="${group.is_active}" style="font-size:11px; padding:5px 10px;">${group.is_active ? 'Poista käytöstä' : 'Ota käyttöön'}</button>
+                            <button class="btn btn-secondary delete-access-group-btn" type="button" data-id="${group.id}" style="font-size:11px; padding:5px 10px;">Poista</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function loadAccessGroups() {
+            if (!accessGroupList) return;
+            try {
+                const [catalogRes, groupsRes] = await Promise.all([
+                    window.SkriptLabAuth.fetch('/api/admin/access-groups/catalog'),
+                    window.SkriptLabAuth.fetch('/api/admin/access-groups')
+                ]);
+                const catalogData = await catalogRes.json();
+                const groupsData = await groupsRes.json();
+                if (!catalogRes.ok) throw new Error(catalogData.detail || 'Moduuliluettelon lataus epäonnistui.');
+                if (!groupsRes.ok) throw new Error(groupsData.detail || 'Käyttöoikeusryhmien lataus epäonnistui.');
+                moduleCatalog = catalogData;
+                loadedAccessGroups = groupsData;
+                accessGroupModuleOptions.innerHTML = moduleCheckboxesHtml();
+                renderAccessGroups();
+                renderInviteAccessGroupOptions();
+                await loadUsers();
+            } catch (err) {
+                accessGroupStatus.textContent = err.message;
+            }
         }
 
         function formatDate(value) {
@@ -774,12 +946,13 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                 const status = invite.is_active ? 'Aktiivinen' : 'Suljettu';
                 const badgeStyle = invite.is_active ? 'background: rgba(16, 185, 129, 0.2); color: #fff;' : '';
                 const email = invite.email || 'Avoin kutsu';
+                const accessGroup = invite.access_group_name ? ` · ${escapeHtml(invite.access_group_name)}` : ' · roolin oletusoikeudet';
                 const deactivateButton = invite.is_active ? `<button class="btn btn-secondary deactivate-invite-btn" data-id="${invite.id}" style="font-size: 11px; padding: 4px 10px;">Sulje</button>` : '';
                 return `
                     <div class="user-item">
                         <div class="user-info">
                             <h4>${escapeHtml(email)}</h4>
-                            <p>${escapeHtml(invite.role)} · käytetty ${invite.used_count}/${invite.max_uses} · voimassa ${formatDate(invite.expires_at)}</p>
+                            <p>${escapeHtml(invite.role)}${accessGroup} · käytetty ${invite.used_count}/${invite.max_uses} · voimassa ${formatDate(invite.expires_at)}</p>
                         </div>
                         <div style="display:flex; align-items:center; gap:8px;">
                             <span class="badge" style="${badgeStyle}">${status}</span>
@@ -812,6 +985,10 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
                         <select class="user-role-select" data-id="${user.id}" style="padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; font-size: 12px;">
                             ${userRoles.map(([value, label]) => `<option value="${value}" ${user.role === value ? 'selected' : ''}>${label}</option>`).join('')}
+                        </select>
+                        <select class="user-access-group-select" data-id="${user.id}" ${['admin', 'test_user'].includes(user.role) ? 'disabled' : ''} aria-label="Käyttöoikeusryhmä">
+                            <option value="" ${user.access_group_id ? '' : 'selected'}>Roolin oletusoikeudet</option>
+                            ${activeAccessGroupOptions(user.access_group_id)}
                         </select>
                         <button class="btn btn-secondary toggle-user-active-btn" data-id="${user.id}" data-active="${user.is_active}" style="font-size: 11px; padding: 4px 10px;">${user.is_active ? 'Poista käytöstä' : 'Aktivoi'}</button>
                         <button class="btn btn-secondary user-limit-btn" data-id="${user.id}" data-name="${escapeHtml(user.display_name)}" style="font-size: 11px; padding: 4px 10px;">Rajat</button>
@@ -988,6 +1165,86 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
             }
         });
 
+        if (inviteRole) {
+            inviteRole.addEventListener('change', renderInviteAccessGroupOptions);
+        }
+
+        if (createAccessGroupBtn) {
+            createAccessGroupBtn.addEventListener('click', async () => {
+                createAccessGroupBtn.disabled = true;
+                accessGroupStatus.textContent = 'Luodaan käyttöoikeusryhmää...';
+                try {
+                    const payload = {
+                        name: accessGroupName.value.trim(),
+                        description: accessGroupDescription.value.trim(),
+                        module_keys: selectedModuleKeys(accessGroupModuleOptions)
+                    };
+                    if (payload.name.length < 2) throw new Error('Anna ryhmälle vähintään kahden merkin nimi.');
+                    const res = await window.SkriptLabAuth.fetch('/api/admin/access-groups', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.detail || 'Käyttöoikeusryhmän luonti epäonnistui.');
+                    accessGroupName.value = '';
+                    accessGroupDescription.value = '';
+                    accessGroupModuleOptions.querySelectorAll('input[type="checkbox"]').forEach(input => { input.checked = false; });
+                    await loadAccessGroups();
+                    accessGroupStatus.textContent = `Käyttöoikeusryhmä ${data.name} luotu.`;
+                } catch (err) {
+                    accessGroupStatus.textContent = err.message;
+                } finally {
+                    createAccessGroupBtn.disabled = false;
+                }
+            });
+        }
+
+        if (accessGroupList) {
+            accessGroupList.addEventListener('click', async (event) => {
+                const button = event.target.closest('button[data-id]');
+                if (!button) return;
+                const groupId = button.dataset.id;
+                const row = accessGroupList.querySelector(`.access-group-item[data-id="${groupId}"]`);
+                if (!row) return;
+                button.disabled = true;
+                try {
+                    if (button.classList.contains('delete-access-group-btn')) {
+                        const name = row.querySelector('.access-group-row-name')?.value || 'ryhmä';
+                        if (!confirm(`Poistetaanko käyttöoikeusryhmä ${name}?`)) return;
+                        const res = await window.SkriptLabAuth.fetch(`/api/admin/access-groups/${groupId}`, {method: 'DELETE'});
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.detail || 'Ryhmän poistaminen epäonnistui.');
+                        await loadAccessGroups();
+                        accessGroupStatus.textContent = 'Käyttöoikeusryhmä poistettu.';
+                        return;
+                    }
+
+                    const payload = button.classList.contains('toggle-access-group-btn')
+                        ? {is_active: button.dataset.active !== 'true'}
+                        : {
+                            name: row.querySelector('.access-group-row-name')?.value.trim() || '',
+                            description: row.querySelector('.access-group-row-description')?.value.trim() || '',
+                            module_keys: selectedModuleKeys(row.querySelector('.access-group-row-modules'))
+                        };
+                    const res = await window.SkriptLabAuth.fetch(`/api/admin/access-groups/${groupId}`, {
+                        method: 'PATCH',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.detail || 'Käyttöoikeusryhmän tallennus epäonnistui.');
+                    await loadAccessGroups();
+                    await loadInvites();
+                    accessGroupStatus.textContent = `Käyttöoikeusryhmä ${data.name} tallennettu.`;
+                } catch (err) {
+                    accessGroupStatus.textContent = err.message;
+                } finally {
+                    button.disabled = false;
+                }
+            });
+        }
+
         if (createInviteBtn) {
             createInviteBtn.addEventListener('click', async () => {
                 createInviteBtn.disabled = true;
@@ -1002,6 +1259,7 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                     const payload = {
                         email: targetEmail || null,
                         role: inviteRole.value,
+                        access_group_id: inviteAccessGroup?.value ? parseInt(inviteAccessGroup.value, 10) : null,
                         max_uses: parseInt(inviteMaxUses.value || '1', 10),
                         days_valid: parseInt(inviteDays.value || '30', 10),
                         send_email: Boolean(inviteSendEmail?.checked),
@@ -1089,6 +1347,27 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
         });
 
         adminUserList.addEventListener('change', async (event) => {
+            const accessSelect = event.target.closest('.user-access-group-select');
+            if (accessSelect) {
+                accessSelect.disabled = true;
+                inviteStatus.textContent = 'Päivitetään käyttöoikeusryhmää...';
+                try {
+                    const res = await window.SkriptLabAuth.fetch(`/api/admin/users/${accessSelect.dataset.id}`, {
+                        method: 'PATCH',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({access_group_id: accessSelect.value ? parseInt(accessSelect.value, 10) : null})
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.detail || 'Käyttöoikeusryhmän päivitys epäonnistui.');
+                    inviteStatus.textContent = `Käyttäjän ${data.email} käyttöoikeusryhmä päivitetty.`;
+                    await loadUsers();
+                } catch (err) {
+                    inviteStatus.textContent = err.message;
+                    await loadUsers();
+                }
+                return;
+            }
+
             const select = event.target.closest('.user-role-select');
             if (!select) return;
             select.disabled = true;
@@ -1187,6 +1466,7 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
         loadModelSettings();
         loadSystemStatus();
         loadFeedback();
+        loadAccessGroups();
         loadInvites();
         loadUsers();
     </script>
