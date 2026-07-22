@@ -270,7 +270,6 @@
       if (!suggested) return chapter;
       const title = structureTitle(suggested, index) || structureTitle(chapter, index);
       return Object.assign({}, chapter, {
-        title,
         toc_title: title,
         kind: suggested.kind || chapter.kind || "main",
         paragraphs: (chapter.paragraphs || []).slice(),

@@ -5198,7 +5198,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             const nextTitle = String(entry.title || structureDisplayTitle(chapter, index) || `Osio ${index + 1}`).trim();
             return {
                 ...chapter,
-                title: nextTitle,
                 toc_title: nextTitle,
                 paragraphs: Array.isArray(chapter.paragraphs) ? [...chapter.paragraphs] : []
             };
