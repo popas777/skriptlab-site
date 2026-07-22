@@ -3679,6 +3679,25 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 .audio-voice-settings .card-meta {
     margin-bottom: 14px;
 }
+.audio-voice-meta {
+    min-height: 22px;
+    margin-top: 12px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+}
+.audio-voice-actions {
+    margin-top: 12px;
+}
+.audio-eleven-player {
+    display: block;
+    width: 100%;
+    min-height: 42px;
+    margin-top: 12px;
+}
+.audio-eleven-player.hidden {
+    display: none;
+}
 .audio-credits-textarea {
     width: 100%;
     min-height: 190px;
@@ -3700,6 +3719,9 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     .audio-editor-actions .btn,
     .audio-panel-heading > .btn {
         flex: 1 1 150px;
+    }
+    .audio-voice-actions .btn {
+        flex: 1 1 100%;
     }
     .audio-panel-heading {
         flex-wrap: wrap;

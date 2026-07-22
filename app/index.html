@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=49">
+    <link rel="stylesheet" href="styles.css?v=50">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -2066,20 +2066,36 @@
                             </div>
                             <div class="audio-editor-actions">
                                 <button class="btn btn-primary" id="audio-save-chapter-btn" type="button">Tallenna osion aineisto</button>
-                                <button class="btn btn-secondary" id="audio-test-voice-btn" type="button">Kuuntele testinäyte</button>
+                                <button class="btn btn-secondary" id="audio-test-voice-btn" type="button">Lue testinäyte</button>
                                 <button class="btn btn-secondary" id="audio-stop-voice-btn" type="button">Pysäytä</button>
                             </div>
                         </article>
                     </div>
 
-                    <details class="card glass-panel audio-voice-settings">
-                        <summary>Äänitestin asetukset</summary>
-                        <p class="card-meta">Testi käyttää selaimen puhesynteesiä. Se ei vielä luo tai tallenna varsinaista äänitiedostoa.</p>
+                    <details class="card glass-panel audio-voice-settings" open>
+                        <summary>ElevenLabs-lukijaäänen testaus</summary>
+                        <p class="card-meta">Valmis esittely ei kuluta tekstikiintiötä. Oman testin luonnissa ElevenLabsille lähetetään enintään 1 500 merkkiä valitusta osiosta.</p>
                         <div class="audio-settings-grid">
                             <div class="settings-row">
                                 <label for="audio-voice-select">Lukijaääni</label>
                                 <select id="audio-voice-select">
-                                    <option value="">Selaimen oletusääni</option>
+                                    <option value="">Ladataan ElevenLabs-ääniä...</option>
+                                </select>
+                            </div>
+                            <div class="settings-row">
+                                <label for="audio-tts-model-select">Äänimalli</label>
+                                <select id="audio-tts-model-select">
+                                    <option value="eleven_multilingual_v2" selected>Multilingual v2 · vakaa äänikirjaääni</option>
+                                    <option value="eleven_v3">Eleven v3 · ilmeikkäämpi</option>
+                                    <option value="eleven_flash_v2_5">Flash v2.5 · nopea testi</option>
+                                </select>
+                            </div>
+                            <div class="settings-row">
+                                <label for="audio-delivery-select">Lukutapa</label>
+                                <select id="audio-delivery-select">
+                                    <option value="stable">Vakaa</option>
+                                    <option value="natural" selected>Luonteva</option>
+                                    <option value="expressive">Ilmeikäs</option>
                                 </select>
                             </div>
                             <div class="settings-row">
@@ -2087,10 +2103,16 @@
                                 <select id="audio-rate-select">
                                     <option value="0.85">Rauhallinen</option>
                                     <option value="1" selected>Normaali</option>
-                                    <option value="1.12">Nopea testi</option>
+                                    <option value="1.1">Nopea testi</option>
                                 </select>
                             </div>
                         </div>
+                        <p id="audio-voice-meta" class="audio-voice-meta">Äänivalikoimaa ladataan.</p>
+                        <div class="audio-editor-actions audio-voice-actions">
+                            <button class="btn btn-secondary" id="audio-refresh-voices-btn" type="button">Päivitä äänet</button>
+                            <button class="btn btn-secondary" id="audio-preview-voice-btn" type="button">Kuuntele äänen esittely</button>
+                        </div>
+                        <audio id="audio-eleven-player" class="audio-eleven-player hidden" controls preload="none"></audio>
                     </details>
                 </section>
 
@@ -2628,6 +2650,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-<script src="app.js?v=78"></script>
+<script src="app.js?v=79"></script>
 </body>
 </html>

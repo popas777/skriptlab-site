@@ -8146,6 +8146,9 @@ Säännöt:
     let audioSelectedChapterIndex = null;
     let audioLoadedChapterKey = '';
     let audioLoadedProjectId = null;
+    let elevenLabsVoices = [];
+    let elevenLabsVoicesLoaded = false;
+    let elevenLabsAudioObjectUrl = '';
 
     function setAudioStatus(message, isError = false) {
         const status = document.getElementById('audio-status');
@@ -8281,19 +8284,145 @@ Säännöt:
         if (closing && (force || !closing.value.trim())) closing.value = defaultAudioClosingWords();
     }
 
-    function populateAudioVoices() {
+    function audioVoiceMetaText(voice) {
+        if (!voice) return 'Valitse lukijaääni.';
+        const genderLabels = { female: 'naisääni', male: 'miesääni', neutral: 'neutraali ääni' };
+        const ageLabels = { young: 'nuori', 'middle-aged': 'keski-ikäinen', old: 'iäkäs' };
+        const details = [
+            voice.verified_finnish ? 'Suomeksi varmennettu' : 'Monikielinen ääni',
+            voice.source === 'library' ? 'Voice Library' : 'ElevenLabs-tilin ääni',
+            genderLabels[String(voice.gender || '').toLowerCase()] || voice.gender,
+            ageLabels[String(voice.age || '').toLowerCase()] || voice.age
+        ].filter(Boolean);
+        const description = String(voice.description || '').trim();
+        return `${details.join(' · ')}${description ? ` — ${description}` : ''}`;
+    }
+
+    function renderAudioVoiceMeta() {
         const select = document.getElementById('audio-voice-select');
-        if (!select || !window.speechSynthesis) return;
-        const currentValue = select.value;
-        const voices = window.speechSynthesis.getVoices();
-        const preferred = voices
-            .filter(voice => /^fi|^sv|^en/i.test(voice.lang || ''))
-            .concat(voices.filter(voice => !/^fi|^sv|^en/i.test(voice.lang || '')));
-        select.innerHTML = '<option value="">Selaimen oletusääni</option>' + preferred
-            .map(voice => `<option value="${escapeHtml(voice.voiceURI || voice.name)}">${escapeHtml(voice.name)} (${escapeHtml(voice.lang || 'kieli ei tiedossa')})</option>`)
-            .join('');
-        if (currentValue && Array.from(select.options).some(option => option.value === currentValue)) {
-            select.value = currentValue;
+        const meta = document.getElementById('audio-voice-meta');
+        if (!meta) return;
+        const voice = elevenLabsVoices.find(item => item.voice_id === select?.value);
+        meta.textContent = audioVoiceMetaText(voice);
+        const previewButton = document.getElementById('audio-preview-voice-btn');
+        if (previewButton) previewButton.disabled = !voice?.preview_url;
+    }
+
+    function applySavedAudioVoiceSettings() {
+        const saved = audioDataFromAnalysis().voice;
+        if (!saved || typeof saved !== 'object') return;
+        const voiceSelect = document.getElementById('audio-voice-select');
+        const modelSelect = document.getElementById('audio-tts-model-select');
+        const deliverySelect = document.getElementById('audio-delivery-select');
+        const rateSelect = document.getElementById('audio-rate-select');
+        if (voiceSelect && elevenLabsVoices.some(voice => voice.voice_id === saved.voice_id)) {
+            voiceSelect.value = saved.voice_id;
+        }
+        [
+            [modelSelect, saved.model_id],
+            [deliverySelect, saved.delivery],
+            [rateSelect, String(saved.speed || '')]
+        ].forEach(([select, value]) => {
+            if (select && value && Array.from(select.options).some(option => option.value === value)) {
+                select.value = value;
+            }
+        });
+        renderAudioVoiceMeta();
+    }
+
+    async function persistAudioVoiceSettings() {
+        const voiceSelect = document.getElementById('audio-voice-select');
+        const selectedVoice = elevenLabsVoices.find(voice => voice.voice_id === voiceSelect?.value);
+        if (!window.manuscriptData?.id || !selectedVoice) return;
+        const audio = {
+            ...audioDataFromAnalysis(),
+            voice: {
+                provider: 'elevenlabs',
+                voice_id: selectedVoice.voice_id,
+                voice_name: selectedVoice.name,
+                model_id: document.getElementById('audio-tts-model-select')?.value || 'eleven_multilingual_v2',
+                delivery: document.getElementById('audio-delivery-select')?.value || 'natural',
+                speed: Number(document.getElementById('audio-rate-select')?.value || 1),
+                updated_at: new Date().toISOString()
+            },
+            updated_at: new Date().toISOString()
+        };
+        window.manuscriptData.analysis = window.manuscriptData.analysis || {};
+        window.manuscriptData.analysis.audio = audio;
+        try {
+            await persistAudioData(audio, '');
+        } catch (err) {
+            console.warn('Audio voice settings could not be saved.', err);
+        }
+    }
+
+    async function loadElevenLabsVoices(force = false) {
+        const select = document.getElementById('audio-voice-select');
+        const meta = document.getElementById('audio-voice-meta');
+        const previewButton = document.getElementById('audio-preview-voice-btn');
+        const refreshButton = document.getElementById('audio-refresh-voices-btn');
+        if (!select || (elevenLabsVoicesLoaded && !force)) {
+            renderAudioVoiceMeta();
+            return;
+        }
+        const currentValue = select.value || audioDataFromAnalysis()?.voice?.voice_id || '';
+        select.disabled = true;
+        if (previewButton) previewButton.disabled = true;
+        if (refreshButton) refreshButton.disabled = true;
+        select.innerHTML = '<option value="">Ladataan ElevenLabs-ääniä...</option>';
+        if (meta) meta.textContent = 'Haetaan suomenkielisiä kerrontaääniä ElevenLabsista...';
+        try {
+            const res = await apiFetch('/api/audio/voices');
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.detail || 'ElevenLabs-äänten lataaminen epäonnistui.');
+            elevenLabsVoices = Array.isArray(data?.voices) ? data.voices : [];
+            elevenLabsVoicesLoaded = true;
+            select.innerHTML = '';
+            if (!data?.configured) {
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = 'ElevenLabs ei ole vielä käytössä';
+                select.appendChild(option);
+                if (meta) meta.textContent = data?.warnings?.[0] || 'Lisää ELEVENLABS_API_KEY backendin ympäristömuuttujiin.';
+                return;
+            }
+            if (!elevenLabsVoices.length) {
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = 'Ei käytettävissä olevia ääniä';
+                select.appendChild(option);
+                if (meta) meta.textContent = data?.warnings?.join(' ') || 'Lisää suomenkielinen ääni ElevenLabsin Voice Librarysta.';
+                return;
+            }
+            const finnishGroup = document.createElement('optgroup');
+            finnishGroup.label = 'Suomeksi varmennetut äänet';
+            const otherGroup = document.createElement('optgroup');
+            otherGroup.label = 'Muut tilin monikieliset äänet';
+            elevenLabsVoices.forEach(voice => {
+                const option = document.createElement('option');
+                option.value = voice.voice_id;
+                option.textContent = voice.name;
+                (voice.verified_finnish ? finnishGroup : otherGroup).appendChild(option);
+            });
+            if (finnishGroup.children.length) select.appendChild(finnishGroup);
+            if (otherGroup.children.length) select.appendChild(otherGroup);
+            if (currentValue && elevenLabsVoices.some(voice => voice.voice_id === currentValue)) {
+                select.value = currentValue;
+            } else {
+                select.value = elevenLabsVoices[0].voice_id;
+            }
+            applySavedAudioVoiceSettings();
+            renderAudioVoiceMeta();
+            if (data?.warnings?.length && meta) {
+                meta.textContent += ` ${data.warnings.join(' ')}`;
+            }
+        } catch (err) {
+            elevenLabsVoicesLoaded = false;
+            select.innerHTML = '<option value="">Äänten lataaminen epäonnistui</option>';
+            if (meta) meta.textContent = err.message || 'ElevenLabs-äänten lataaminen epäonnistui.';
+        } finally {
+            select.disabled = false;
+            if (refreshButton) refreshButton.disabled = false;
         }
     }
 
@@ -8358,7 +8487,7 @@ Säännöt:
                 ? `Käsikirjoitus: ${window.manuscriptData.title || 'Nimetön'}`
                 : 'Käsikirjoitus: [Ei aktiivista teosta]';
         }
-        populateAudioVoices();
+        loadElevenLabsVoices(false);
         if (!window.manuscriptData) {
             if (guide) guide.value = '';
             if (opening) opening.value = '';
@@ -8371,6 +8500,7 @@ Säännöt:
             audioSelectedChapterIndex = null;
             audioLoadedChapterKey = '';
             audioLoadedProjectId = window.manuscriptData.id || null;
+            applySavedAudioVoiceSettings();
         }
         const entries = audioChapterEntries();
         const entry = currentAudioChapterEntry();
@@ -8627,33 +8757,107 @@ Säännöt:
         return audioTextForScope(entry).text.slice(0, 1200);
     }
 
-    function testAudioVoice() {
-        if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
-            setAudioStatus('Selaimen puhesynteesi ei ole käytettävissä.', true);
+    function audioPlayer() {
+        return document.getElementById('audio-eleven-player');
+    }
+
+    function clearAudioObjectUrl() {
+        if (elevenLabsAudioObjectUrl) {
+            URL.revokeObjectURL(elevenLabsAudioObjectUrl);
+            elevenLabsAudioObjectUrl = '';
+        }
+    }
+
+    async function playSelectedVoicePreview() {
+        const select = document.getElementById('audio-voice-select');
+        const voice = elevenLabsVoices.find(item => item.voice_id === select?.value);
+        if (!voice?.preview_url) {
+            setAudioStatus('Tälle äänelle ei ole saatavilla valmista esittelynäytettä.', true);
             return;
         }
-        const text = firstAudioSampleText();
+        stopAudioVoice(false);
+        const player = audioPlayer();
+        if (!player) return;
+        player.src = voice.preview_url;
+        player.classList.remove('hidden');
+        setAudioStatus(`Toistetaan lukijaäänen ${voice.name} valmis esittelynäyte.`);
+        try {
+            await player.play();
+        } catch (err) {
+            setAudioStatus('Esittely on ladattu soittimeen. Käynnistä se soittimen painikkeesta.');
+        }
+    }
+
+    async function testAudioVoice() {
+        if (!window.manuscriptData?.id) {
+            setAudioStatus('Valitse tallennettu käsikirjoitus ensin.', true);
+            return;
+        }
+        const selectedVoiceId = document.getElementById('audio-voice-select')?.value || '';
+        if (!selectedVoiceId) {
+            setAudioStatus('Valitse ensin ElevenLabs-lukijaääni.', true);
+            return;
+        }
+        const text = firstAudioSampleText().slice(0, 1500);
         if (!text) {
             setAudioStatus('Valitusta osiosta ei löytynyt kuunneltavaa tekstiä.', true);
             return;
         }
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'fi-FI';
-        utterance.rate = Number(document.getElementById('audio-rate-select')?.value || 1);
-        const voices = window.speechSynthesis.getVoices();
-        const selected = document.getElementById('audio-voice-select')?.value || '';
-        const selectedVoice = selected ? voices.find(voice => (voice.voiceURI || voice.name) === selected) : null;
-        if (selectedVoice) utterance.voice = selectedVoice;
-        utterance.onend = () => setAudioStatus('Äänitesti päättyi.');
-        utterance.onerror = () => setAudioStatus('Äänitesti ei onnistunut tällä selaimen äänellä.', true);
-        setAudioStatus(`Toistetaan osiosta ${audioChapterTitle(currentAudioChapterEntry())} lyhyt näyte selaimen puhesynteesillä...`);
-        window.speechSynthesis.speak(utterance);
+        const button = document.getElementById('audio-test-voice-btn');
+        const selectedVoice = elevenLabsVoices.find(voice => voice.voice_id === selectedVoiceId);
+        stopAudioVoice(false);
+        if (button) button.disabled = true;
+        setAudioStatus(`Luodaan lukijaäänellä ${selectedVoice?.name || 'valittu ääni'} lyhyt testinäyte ElevenLabsissa...`);
+        try {
+            const res = await apiFetch('/api/audio/tts-preview', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    project_id: window.manuscriptData.id,
+                    voice_id: selectedVoiceId,
+                    text,
+                    model_id: document.getElementById('audio-tts-model-select')?.value || 'eleven_multilingual_v2',
+                    delivery: document.getElementById('audio-delivery-select')?.value || 'natural',
+                    speed: Number(document.getElementById('audio-rate-select')?.value || 1)
+                })
+            });
+            if (!res.ok) {
+                const data = await res.json().catch(() => null);
+                throw new Error(data?.detail || 'ElevenLabs-äänitestin luonti epäonnistui.');
+            }
+            const blob = await res.blob();
+            if (!blob.size || !String(blob.type || '').startsWith('audio/')) {
+                throw new Error('ElevenLabs ei palauttanut toistettavaa äänitiedostoa.');
+            }
+            const player = audioPlayer();
+            if (!player) throw new Error('Äänisoitinta ei löytynyt.');
+            clearAudioObjectUrl();
+            elevenLabsAudioObjectUrl = URL.createObjectURL(blob);
+            player.src = elevenLabsAudioObjectUrl;
+            player.classList.remove('hidden');
+            player.onended = () => setAudioStatus('ElevenLabs-testinäyte päättyi.');
+            await persistAudioVoiceSettings();
+            try {
+                await player.play();
+                setAudioStatus(`${audioChapterTitle(currentAudioChapterEntry())}: ElevenLabs-testinäytettä toistetaan.`);
+            } catch (err) {
+                setAudioStatus('Testinäyte on valmis. Käynnistä se soittimen painikkeesta.');
+            }
+        } catch (err) {
+            setAudioStatus(err.message || 'ElevenLabs-äänitesti epäonnistui.', true);
+        } finally {
+            if (button) button.disabled = false;
+        }
     }
 
-    function stopAudioVoice() {
+    function stopAudioVoice(showStatus = true) {
         if (window.speechSynthesis) window.speechSynthesis.cancel();
-        setAudioStatus('Äänitesti pysäytetty.');
+        const player = audioPlayer();
+        if (player) {
+            player.pause();
+            player.currentTime = 0;
+        }
+        if (showStatus) setAudioStatus('Äänitesti pysäytetty.');
     }
 
     async function runAiWorkflow() {
@@ -13287,6 +13491,9 @@ ${state.validation || 'Ei validointia.'}`;
     const audioScriptDefaultsBtn = document.getElementById('audio-script-defaults-btn');
     const audioTestVoiceBtn = document.getElementById('audio-test-voice-btn');
     const audioStopVoiceBtn = document.getElementById('audio-stop-voice-btn');
+    const audioVoiceSelect = document.getElementById('audio-voice-select');
+    const audioRefreshVoicesBtn = document.getElementById('audio-refresh-voices-btn');
+    const audioPreviewVoiceBtn = document.getElementById('audio-preview-voice-btn');
     const marketingGenerateBtn = document.getElementById('marketing-generate-btn');
     const bioLoadBtn = document.getElementById('bio-load-btn');
     const bioSaveBtn = document.getElementById('bio-save-btn');
@@ -13519,8 +13726,13 @@ ${state.validation || 'Ei validointia.'}`;
         setAudioStatus('Alku- ja loppusanojen ehdotus täytetty. Tarkista teksti ja tallenna.');
     });
     if (audioTestVoiceBtn) audioTestVoiceBtn.addEventListener('click', testAudioVoice);
-    if (audioStopVoiceBtn) audioStopVoiceBtn.addEventListener('click', stopAudioVoice);
-    if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = populateAudioVoices;
+    if (audioStopVoiceBtn) audioStopVoiceBtn.addEventListener('click', () => stopAudioVoice());
+    if (audioVoiceSelect) audioVoiceSelect.addEventListener('change', () => {
+        stopAudioVoice(false);
+        renderAudioVoiceMeta();
+    });
+    if (audioRefreshVoicesBtn) audioRefreshVoicesBtn.addEventListener('click', () => loadElevenLabsVoices(true));
+    if (audioPreviewVoiceBtn) audioPreviewVoiceBtn.addEventListener('click', playSelectedVoicePreview);
     if (marketingGenerateBtn) marketingGenerateBtn.addEventListener('click', generateMarketingMaterials);
     document.querySelectorAll('.marketing-copy-btn').forEach(button => {
         button.addEventListener('click', () => copyMarketingField(button.dataset.copyTarget));
