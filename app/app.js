@@ -202,6 +202,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     let selectedFinnishTranslationPartIndex = 0;
     let finnishTranslationAiCheckAllRunning = false;
     let selectedFinnishTranslationAiCheckIndexes = new Set();
+    let translationWorkspaceFiles = [];
+    let selectedTranslationWorkspaceFilePath = '';
+    let loadedTranslationWorkspaceTranslationId = null;
     let syncingTranslationScroll = false;
     let translationTimerInterval = null;
     let finnishTranslationTimerInterval = null;
@@ -10114,6 +10117,9 @@ Säännöt:
         document.querySelectorAll('.suomentaja-tab[data-suomentaja-panel]').forEach(tab => {
             tab.classList.toggle('active', tab.dataset.suomentajaPanel === panelId);
         });
+        if (panelId === 'suomentaja-files-panel') {
+            loadTranslationWorkspaceFiles();
+        }
     }
 
     function updateTranslationProjectSelect() {
@@ -10719,7 +10725,11 @@ Säännöt:
         if (!project?.id) {
             currentFinnishTranslationHistory = [];
             selectedFinnishTranslation = null;
+            translationWorkspaceFiles = [];
+            loadedTranslationWorkspaceTranslationId = null;
+            selectedTranslationWorkspaceFilePath = '';
             populateFinnishTranslationReviewSelect();
+            populateTranslationWorkspaceTranslationSelect();
             renderSelectedFinnishTranslationForReview();
             renderFinnishTranslationParts();
             renderFinnishTranslationAiCheck();
@@ -10741,6 +10751,7 @@ Säännöt:
             renderSelectedFinnishTranslationForReview();
             renderFinnishTranslationParts();
             renderFinnishTranslationAiCheck();
+            populateTranslationWorkspaceTranslationSelect();
             if (!currentFinnishTranslationHistory.length) {
                 history.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Ei tallennettuja käännöksiä.</div>';
                 return;
@@ -10751,7 +10762,7 @@ Säännöt:
                     const selected = currentFinnishTranslationHistory.find(item => String(item.id) === String(button.dataset.finnishTranslationId));
                     if (!selected) return;
                     selectFinnishTranslationForReview(selected.id);
-                    showFinnishTranslationPanel('suomentaja-parts-panel');
+                    showFinnishTranslationPanel('suomentaja-ai-check-panel');
                 });
             });
             history.querySelectorAll('[data-finnish-translation-export-id]').forEach(button => {
@@ -10768,6 +10779,200 @@ Säännöt:
             });
         } catch (err) {
             history.innerHTML = `<div style="color:#ffb4b4; font-size:13px;">${escapeHtml(err.message)}</div>`;
+        }
+    }
+
+    function translationWorkspaceVersionLabel(item) {
+        if (!item) return 'Käännös';
+        const date = item.created_at ? new Date(item.created_at).toLocaleString('fi-FI') : '';
+        const language = item.target_language_label || item.target_language || 'Käännös';
+        return `${language} · ${item.style_label || item.style || 'käännös'}${date ? ` · ${date}` : ''}`;
+    }
+
+    function populateTranslationWorkspaceTranslationSelect() {
+        const select = document.getElementById('translation-workspace-file-translation-select');
+        if (!select) return;
+        const previous = selectedFinnishTranslation?.id || select.value || '';
+        select.innerHTML = '';
+        if (!currentFinnishTranslationHistory.length) {
+            select.innerHTML = '<option value="">Ei tallennettuja käännöksiä</option>';
+            return;
+        }
+        currentFinnishTranslationHistory.forEach(item => {
+            const option = document.createElement('option');
+            option.value = String(item.id);
+            option.textContent = translationWorkspaceVersionLabel(item);
+            select.appendChild(option);
+        });
+        if (previous && currentFinnishTranslationHistory.some(item => String(item.id) === String(previous))) {
+            select.value = String(previous);
+        } else {
+            select.value = String(currentFinnishTranslationHistory[0].id);
+        }
+    }
+
+    function translationWorkspaceCategoryLabel(category) {
+        return {
+            project: 'Projekti',
+            source: 'Lähde',
+            analysis: 'Analyysi ja ohjeet',
+            decisions: 'Päätökset',
+            state: 'Tila',
+            output: 'Tulostiedostot',
+            segments: 'Segmentit'
+        }[category] || category || 'Muut tiedostot';
+    }
+
+    function renderTranslationWorkspaceFiles() {
+        const list = document.getElementById('translation-workspace-file-list');
+        const search = String(document.getElementById('translation-workspace-file-search')?.value || '').trim().toLowerCase();
+        if (!list) return;
+        const files = translationWorkspaceFiles.filter(file => {
+            if (!search) return true;
+            return `${file.path} ${file.label} ${file.group}`.toLowerCase().includes(search);
+        });
+        if (!files.length) {
+            list.innerHTML = `<p class="card-meta">${translationWorkspaceFiles.length ? 'Hakua vastaavia tiedostoja ei löytynyt.' : 'Ei tiedostoja.'}</p>`;
+            return;
+        }
+
+        const groups = new Map();
+        files.forEach(file => {
+            const key = file.category === 'segments' ? file.group : file.category;
+            if (!groups.has(key)) {
+                groups.set(key, {
+                    key,
+                    category: file.category,
+                    label: file.category === 'segments'
+                        ? file.group
+                        : translationWorkspaceCategoryLabel(file.category),
+                    files: []
+                });
+            }
+            groups.get(key).files.push(file);
+        });
+        let groupIndex = 0;
+        list.innerHTML = Array.from(groups.values()).map(group => {
+            const containsSelected = group.files.some(file => file.path === selectedTranslationWorkspaceFilePath);
+            const shouldOpen = containsSelected || groupIndex++ === 0;
+            return `
+                <details class="translation-workspace-file-group" ${shouldOpen ? 'open' : ''}>
+                    <summary>${escapeHtml(group.label)} <span class="card-meta">(${group.files.length})</span></summary>
+                    <div class="translation-workspace-file-buttons">
+                        ${group.files.map(file => `
+                            <button
+                                class="translation-workspace-file-button ${file.path === selectedTranslationWorkspaceFilePath ? 'active' : ''}"
+                                type="button"
+                                data-translation-workspace-file-path="${escapeHtml(file.path)}"
+                                title="${escapeHtml(file.path)}"
+                            >${escapeHtml(file.label)}</button>
+                        `).join('')}
+                    </div>
+                </details>
+            `;
+        }).join('');
+        list.querySelectorAll('[data-translation-workspace-file-path]').forEach(button => {
+            button.addEventListener('click', () => openTranslationWorkspaceFile(button.dataset.translationWorkspaceFilePath));
+        });
+    }
+
+    async function openTranslationWorkspaceFile(path) {
+        const translationId = selectedFinnishTranslation?.id;
+        const content = document.getElementById('translation-workspace-file-content');
+        const pathLabel = document.getElementById('translation-workspace-file-path');
+        const status = document.getElementById('translation-workspace-files-status');
+        const downloadButton = document.getElementById('translation-workspace-file-download-btn');
+        if (!translationId || !path || !content) return;
+        selectedTranslationWorkspaceFilePath = path;
+        renderTranslationWorkspaceFiles();
+        if (pathLabel) pathLabel.textContent = path;
+        if (downloadButton) downloadButton.disabled = true;
+        content.value = 'Ladataan tiedostoa...';
+        if (status) status.textContent = `Avataan ${path}.`;
+        try {
+            const query = new URLSearchParams({ path });
+            const res = await apiFetch(`/api/translations/${translationId}/workspace-files/content?${query}`);
+            if (!res.ok) throw new Error(await apiErrorMessage(res, 'Työtiedoston lataus epäonnistui.'));
+            content.value = await res.text();
+            if (downloadButton) downloadButton.disabled = false;
+            if (status) status.textContent = `${path} · ${formatNumber(content.value.length)} merkkiä`;
+        } catch (err) {
+            content.value = '';
+            if (status) status.textContent = err.message;
+        }
+    }
+
+    async function loadTranslationWorkspaceFiles(force = false) {
+        const status = document.getElementById('translation-workspace-files-status');
+        const content = document.getElementById('translation-workspace-file-content');
+        populateTranslationWorkspaceTranslationSelect();
+        const select = document.getElementById('translation-workspace-file-translation-select');
+        const selectedId = select?.value || selectedFinnishTranslation?.id || '';
+        const selected = currentFinnishTranslationHistory.find(item => String(item.id) === String(selectedId));
+        if (!selected) {
+            translationWorkspaceFiles = [];
+            loadedTranslationWorkspaceTranslationId = null;
+            selectedTranslationWorkspaceFilePath = '';
+            if (status) status.textContent = 'Luo tai valitse ensin tallennettu käännös.';
+            if (content) content.value = 'Ei valittua käännöstä.';
+            renderTranslationWorkspaceFiles();
+            return;
+        }
+        if (!selectedFinnishTranslation || String(selectedFinnishTranslation.id) !== String(selected.id)) {
+            selectFinnishTranslationForReview(selected.id);
+        }
+        if (!force && String(loadedTranslationWorkspaceTranslationId) === String(selected.id) && translationWorkspaceFiles.length) {
+            renderTranslationWorkspaceFiles();
+            return;
+        }
+        if (status) status.textContent = 'Muodostetaan työtilan tiedostoluetteloa...';
+        if (content) content.value = 'Valitse tiedosto vasemmalta.';
+        try {
+            const res = await apiFetch(`/api/translations/${selected.id}/workspace-files`);
+            if (!res.ok) throw new Error(await apiErrorMessage(res, 'Työtiedostojen lataus epäonnistui.'));
+            translationWorkspaceFiles = await res.json();
+            loadedTranslationWorkspaceTranslationId = selected.id;
+            if (!translationWorkspaceFiles.some(file => file.path === selectedTranslationWorkspaceFilePath)) {
+                selectedTranslationWorkspaceFilePath = translationWorkspaceFiles.find(file => file.path === 'project.json')?.path
+                    || translationWorkspaceFiles[0]?.path
+                    || '';
+            }
+            renderTranslationWorkspaceFiles();
+            if (status) {
+                status.textContent = `${translationWorkspaceVersionLabel(selected)} · ${translationWorkspaceFiles.length} tiedostoa`;
+            }
+            if (selectedTranslationWorkspaceFilePath) {
+                await openTranslationWorkspaceFile(selectedTranslationWorkspaceFilePath);
+            }
+        } catch (err) {
+            translationWorkspaceFiles = [];
+            loadedTranslationWorkspaceTranslationId = null;
+            renderTranslationWorkspaceFiles();
+            if (status) status.textContent = err.message;
+        }
+    }
+
+    async function downloadTranslationWorkspaceFile() {
+        const translationId = selectedFinnishTranslation?.id;
+        const path = selectedTranslationWorkspaceFilePath;
+        const status = document.getElementById('translation-workspace-files-status');
+        if (!translationId || !path) return;
+        try {
+            const query = new URLSearchParams({ path, download: 'true' });
+            const res = await apiFetch(`/api/translations/${translationId}/workspace-files/content?${query}`);
+            if (!res.ok) throw new Error(await apiErrorMessage(res, 'Työtiedoston lataus epäonnistui.'));
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = path.split('/').pop() || 'translation-file.txt';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+            if (status) status.textContent = `${path} ladattu.`;
+        } catch (err) {
+            if (status) status.textContent = err.message;
         }
     }
 
@@ -10811,6 +11016,7 @@ Säännöt:
             checked_at: new Date().toISOString()
         };
         selectedFinnishTranslation.chunk_details = chunks;
+        loadedTranslationWorkspaceTranslationId = null;
         const itemIndex = currentFinnishTranslationHistory.findIndex(historyItem => String(historyItem.id) === String(selectedFinnishTranslation.id));
         if (itemIndex >= 0) currentFinnishTranslationHistory[itemIndex] = selectedFinnishTranslation;
     }
@@ -11309,7 +11515,10 @@ Säännöt:
         if (acceptAllBtn) acceptAllBtn.disabled = finnishTranslationAiCheckAllRunning || !checkedIndexes.length;
         if (modelSelect && translationModels.length) {
             const currentValue = translationPartModelValue(selected, selectedFinnishTranslation);
-            if (currentValue && translationModels.some(model => `${model.provider}:${model.model_name}` === currentValue)) {
+            const selectedValueIsAvailable = translationModels.some(
+                model => `${model.provider}:${model.model_name}` === modelSelect.value
+            );
+            if (!selectedValueIsAvailable && currentValue && translationModels.some(model => `${model.provider}:${model.model_name}` === currentValue)) {
                 modelSelect.value = currentValue;
             }
         }
@@ -11361,12 +11570,21 @@ Säännöt:
         const runAllBtn = document.getElementById('finnish-translation-ai-check-run-all-btn');
         const acceptBtn = document.getElementById('finnish-translation-ai-check-accept-btn');
         const modelEl = document.getElementById('finnish-translation-ai-check-model');
+        const selectedModel = modelEl?.value || null;
+        const repeatReviewed = document.getElementById('finnish-translation-ai-check-repeat')?.checked === true;
         if (!item || !chunks.length) {
             alert('Valitse ensin käännös, jolla on palakohtainen loki.');
             return;
         }
         if (!translationModels.length) {
             alert('Tekstimalleja ei ole ladattu.');
+            return;
+        }
+        const indexes = chunks
+            .map((chunk, index) => (repeatReviewed || !finnishTranslationAiCheckedText(chunk)) ? index : null)
+            .filter(index => index !== null);
+        if (!indexes.length) {
+            if (status) status.textContent = 'Koko käännös on jo tarkastettu. Valitse Tarkasta aiemmat uudelleen, jos haluat uuden kierroksen.';
             return;
         }
 
@@ -11378,19 +11596,19 @@ Säännöt:
         let completed = 0;
         const failures = [];
         try {
-            for (let index = 0; index < chunks.length; index += 1) {
+            for (const index of indexes) {
                 const chunk = chunks[index];
                 selectedFinnishTranslationPartIndex = index;
                 renderFinnishTranslationAiCheck();
                 if (status) {
-                    status.textContent = `Tarkastetaan osaa ${index + 1}/${chunks.length}. Valmiina ${completed}/${chunks.length}.`;
+                    status.textContent = `Tarkastetaan osaa ${index + 1}/${chunks.length}. Valmiina ${completed}/${indexes.length}.`;
                 }
                 try {
                     const res = await apiFetch(`/api/translations/${item.id}/chunks/${index}/check`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({
-                            model: modelEl?.value || null,
+                            model: selectedModel,
                             current_translation: chunk.translation || '',
                             save: true
                         })
@@ -11414,11 +11632,11 @@ Säännöt:
 
         if (status) {
             status.textContent = failures.length
-                ? `AI-tarkastus valmis osittain. Onnistui ${completed}/${chunks.length}. Epäonnistui: ${failures.slice(0, 4).join(' ')}${failures.length > 4 ? ' ...' : ''}`
-                : `AI-tarkastus valmis kaikille osille (${completed}/${chunks.length}).`;
+                ? `AI-tarkastus valmis osittain. Onnistui ${completed}/${indexes.length}. Epäonnistui: ${failures.slice(0, 4).join(' ')}${failures.length > 4 ? ' ...' : ''}`
+                : `AI-tarkastus valmis (${completed}/${indexes.length} käsiteltävää osaa).`;
         }
         if (failures.length) {
-            alert(`AI-tarkastus valmistui osittain. Onnistui ${completed}/${chunks.length}.\n\n${failures.slice(0, 8).join('\n')}${failures.length > 8 ? '\n...' : ''}`);
+            alert(`AI-tarkastus valmistui osittain. Onnistui ${completed}/${indexes.length}.\n\n${failures.slice(0, 8).join('\n')}${failures.length > 8 ? '\n...' : ''}`);
         }
     }
 
@@ -11494,6 +11712,7 @@ Säännöt:
                     if (!res.ok) throw new Error(data.detail || 'Käännöspalan korvaus epäonnistui.');
                     selectedFinnishTranslation = data;
                     latestFinnishTranslationText = data.translated_text || '';
+                    loadedTranslationWorkspaceTranslationId = null;
                     const itemIndex = currentFinnishTranslationHistory.findIndex(historyItem => String(historyItem.id) === String(data.id));
                     if (itemIndex >= 0) currentFinnishTranslationHistory[itemIndex] = data;
                     completed += 1;
@@ -11582,6 +11801,7 @@ Säännöt:
             if (isFinnish) {
                 selectedFinnishTranslation = data;
                 latestFinnishTranslationText = data.translated_text || '';
+                loadedTranslationWorkspaceTranslationId = null;
                 const itemIndex = currentFinnishTranslationHistory.findIndex(historyItem => String(historyItem.id) === String(data.id));
                 if (itemIndex >= 0) currentFinnishTranslationHistory[itemIndex] = data;
                 populateFinnishTranslationReviewSelect();
@@ -11639,6 +11859,7 @@ Säännöt:
             if (isFinnish) {
                 selectedFinnishTranslation = data;
                 latestFinnishTranslationText = data.translated_text || '';
+                loadedTranslationWorkspaceTranslationId = null;
                 const itemIndex = currentFinnishTranslationHistory.findIndex(historyItem => String(historyItem.id) === String(data.id));
                 if (itemIndex >= 0) currentFinnishTranslationHistory[itemIndex] = data;
                 populateFinnishTranslationReviewSelect();
@@ -11679,11 +11900,18 @@ Säännöt:
     function selectFinnishTranslationForReview(translationId) {
         const selected = currentFinnishTranslationHistory.find(item => String(item.id) === String(translationId));
         if (!selected) return;
+        const changed = !selectedFinnishTranslation || String(selectedFinnishTranslation.id) !== String(selected.id);
         selectedFinnishTranslation = selected;
         selectedFinnishTranslationPartIndex = 0;
         selectedFinnishTranslationAiCheckIndexes = new Set();
+        if (changed) {
+            translationWorkspaceFiles = [];
+            selectedTranslationWorkspaceFilePath = '';
+            loadedTranslationWorkspaceTranslationId = null;
+        }
         latestFinnishTranslationText = selected.translated_text || '';
         populateFinnishTranslationReviewSelect();
+        populateTranslationWorkspaceTranslationSelect();
         renderSelectedFinnishTranslationForReview();
         renderFinnishTranslationParts();
         renderFinnishTranslationAiCheck();
@@ -11839,7 +12067,7 @@ Säännöt:
             }
             await renderFinnishTranslationHistory();
             selectFinnishTranslationForReview(data.id);
-            showFinnishTranslationPanel('suomentaja-parts-panel');
+            showFinnishTranslationPanel('suomentaja-ai-check-panel');
             loadUsage();
         } catch (err) {
             if (status) status.textContent = err.message;
@@ -13369,6 +13597,7 @@ ${state.validation || 'Ei validointia.'}`;
             if (!res.ok) throw new Error(data.detail || 'Käännöksen tallennus epäonnistui.');
             latestFinnishTranslationText = data.translated_text || '';
             selectedFinnishTranslation = data;
+            loadedTranslationWorkspaceTranslationId = null;
             const index = currentFinnishTranslationHistory.findIndex(item => String(item.id) === String(data.id));
             if (index >= 0) currentFinnishTranslationHistory[index] = data;
             populateFinnishTranslationReviewSelect();
@@ -13457,6 +13686,10 @@ ${state.validation || 'Ei validointia.'}`;
     const finnishTranslationReviewDownloadBtn = document.getElementById('finnish-translation-review-download-btn');
     const finnishTranslationReviewOriginal = document.getElementById('finnish-translation-review-original');
     const finnishTranslationReviewText = document.getElementById('finnish-translation-review-text');
+    const translationWorkspaceTranslationSelect = document.getElementById('translation-workspace-file-translation-select');
+    const translationWorkspaceRefreshBtn = document.getElementById('translation-workspace-files-refresh-btn');
+    const translationWorkspaceSearch = document.getElementById('translation-workspace-file-search');
+    const translationWorkspaceDownloadBtn = document.getElementById('translation-workspace-file-download-btn');
     const miscProjectSelect = document.getElementById('misc-project-select');
     const miscToolSelect = document.getElementById('misc-tool-select');
     const miscRunBtn = document.getElementById('misc-run-btn');
@@ -13602,6 +13835,22 @@ ${state.validation || 'Ei validointia.'}`;
     }
     if (finnishTranslationReviewSaveBtn) finnishTranslationReviewSaveBtn.addEventListener('click', saveReviewedFinnishTranslation);
     if (finnishTranslationReviewDownloadBtn) finnishTranslationReviewDownloadBtn.addEventListener('click', downloadFinnishTranslation);
+    if (translationWorkspaceTranslationSelect) {
+        translationWorkspaceTranslationSelect.addEventListener('change', () => {
+            const selectedId = translationWorkspaceTranslationSelect.value;
+            if (selectedId) selectFinnishTranslationForReview(selectedId);
+            loadTranslationWorkspaceFiles(true);
+        });
+    }
+    if (translationWorkspaceRefreshBtn) {
+        translationWorkspaceRefreshBtn.addEventListener('click', () => loadTranslationWorkspaceFiles(true));
+    }
+    if (translationWorkspaceSearch) {
+        translationWorkspaceSearch.addEventListener('input', renderTranslationWorkspaceFiles);
+    }
+    if (translationWorkspaceDownloadBtn) {
+        translationWorkspaceDownloadBtn.addEventListener('click', downloadTranslationWorkspaceFile);
+    }
     document.getElementById('finnish-translation-part-rerun-btn')?.addEventListener('click', () => rerunTranslationPart('finnish-translation'));
     document.getElementById('finnish-translation-part-save-btn')?.addEventListener('click', () => saveTranslationPartCorrection('finnish-translation'));
     document.getElementById('finnish-translation-ai-check-run-btn')?.addEventListener('click', runFinnishTranslationAiCheck);

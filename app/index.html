@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=50">
+    <link rel="stylesheet" href="styles.css?v=51">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -80,7 +80,7 @@
                     <li data-view="view-kirja">Valmis kirja & taitto</li>
                     <li data-view="view-julkaise">Julkaise</li>
                     <li data-view="view-ai-tyonkulku">AI-työnkulku</li>
-                    <li data-view="view-suomentaja">Käännökset</li>
+                    <li data-view="view-suomentaja">Käännöstyötila</li>
                     <li data-view="view-elamakerta">Elämäkerta</li>
                     <li data-view="view-tuotetiedot">Tuotetiedot</li>
                     <li data-view="view-markkinointi">Markkinointi</li>
@@ -2323,20 +2323,21 @@
             <div id="view-suomentaja" class="view-section hidden">
                 <div class="header">
                     <div class="header-info">
-                        <h2>Käännökset</h2>
-                        <p id="finnish-translation-current-project">Valitse käsikirjoitus ja käännösasetukset.</p>
+                        <h2>Käännöstyötila</h2>
+                        <p id="finnish-translation-current-project">Käännä koko teos tai tarkasta tallennettu käännös alkutekstiä vasten.</p>
                     </div>
                 </div>
-                <div class="translation-tabs">
-                    <button class="translation-tab suomentaja-tab active" data-suomentaja-panel="suomentaja-create-panel">Luo käännös</button>
-                    <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-prompt-panel">Käännösprompti</button>
-                    <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-parts-panel">Tarkasta käännöspaloittain</button>
-                    <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-ai-check-panel">AI-tarkastus</button>
+                <div class="translation-tabs translation-workspace-tabs">
+                    <button class="translation-tab suomentaja-tab active" data-suomentaja-panel="suomentaja-create-panel">Käännä koko teos</button>
+                    <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-ai-check-panel">Tarkasta käännös</button>
+                    <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-files-panel">Apu- ja päätöstiedostot</button>
+                    <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-prompt-panel">Käännösohje</button>
+                    <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-parts-panel">Palat ja kutsut</button>
                 </div>
                 <div id="suomentaja-create-panel" class="suomentaja-panel">
                     <div class="grid-cards" style="grid-template-columns: minmax(280px, 440px) minmax(0, 1fr); align-items:start;">
                         <div class="card glass-panel">
-                            <h3>Käännettävä teos</h3>
+                                <h3>Koko teoksen käännös</h3>
                             <div class="settings-row">
                                 <label>Käsikirjoitus</label>
                                 <select id="finnish-translation-project-select"></select>
@@ -2531,13 +2532,17 @@
                     <div class="card glass-panel">
                         <div class="translation-review-header">
                             <div>
-                                <h3>AI-tarkastus paloittain</h3>
-                                <p id="finnish-translation-ai-check-status">Valitse käännös ja tarkista yksittäinen pala alkutekstiä vasten.</p>
+                                <h3>Käännöksen AI-tarkastus</h3>
+                                <p id="finnish-translation-ai-check-status">Valitse tallennettu käännös ja tarkasta se alkutekstiä vasten pala kerrallaan.</p>
                             </div>
                             <div class="translation-review-actions">
                                 <select id="finnish-translation-ai-check-model"></select>
+                                <label class="translation-review-toggle">
+                                    <input id="finnish-translation-ai-check-repeat" type="checkbox">
+                                    <span>Tarkasta aiemmat uudelleen</span>
+                                </label>
                                 <button id="finnish-translation-ai-check-run-btn" class="btn btn-secondary" type="button">Tarkasta AI:lla</button>
-                                <button id="finnish-translation-ai-check-run-all-btn" class="btn btn-secondary" type="button">Tarkasta kaikki AI:lla</button>
+                                <button id="finnish-translation-ai-check-run-all-btn" class="btn btn-primary" type="button">Tarkasta koko käännös</button>
                                 <button id="finnish-translation-ai-check-accept-btn" class="btn btn-primary" type="button">Korvaa tällä</button>
                                 <button id="finnish-translation-ai-check-accept-selected-btn" class="btn btn-secondary" type="button">Korvaa valitut</button>
                                 <button id="finnish-translation-ai-check-accept-all-btn" class="btn btn-secondary" type="button">Korvaa kaikki tarkastetut</button>
@@ -2564,6 +2569,43 @@
                                 <h4>Huomiot</h4>
                                 <textarea id="finnish-translation-ai-check-notes" class="translation-review-text translation-ai-check-text">Aja AI-tarkastus.</textarea>
                             </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="suomentaja-files-panel" class="suomentaja-panel hidden">
+                    <div class="card glass-panel translation-workspace-files-card">
+                        <div class="translation-review-header translation-workspace-files-header">
+                            <div>
+                                <h3>Apu- ja päätöstiedostot</h3>
+                                <p id="translation-workspace-files-status">Valitse tallennettu käännös.</p>
+                            </div>
+                            <div class="translation-review-actions">
+                                <select id="translation-workspace-file-translation-select" aria-label="Tiedostojen käännösversio"></select>
+                                <button id="translation-workspace-files-refresh-btn" class="btn btn-secondary" type="button">Päivitä tiedostot</button>
+                            </div>
+                        </div>
+                        <div class="translation-workspace-file-toolbar">
+                            <label class="settings-row" for="translation-workspace-file-search">
+                                <span>Hae tiedostoa</span>
+                                <input id="translation-workspace-file-search" type="search" placeholder="Esim. style_guide tai segment_0004">
+                            </label>
+                            <div class="translation-workspace-current-file">
+                                <span>Valittu tiedosto</span>
+                                <strong id="translation-workspace-file-path">Ei valintaa</strong>
+                            </div>
+                            <button id="translation-workspace-file-download-btn" class="btn btn-secondary" type="button" disabled>Lataa tiedosto</button>
+                        </div>
+                        <div class="translation-workspace-file-grid">
+                            <aside id="translation-workspace-file-list" class="translation-workspace-file-list" aria-label="Käännöstyötilan tiedostot">
+                                <p class="card-meta">Ei tiedostoja.</p>
+                            </aside>
+                            <textarea
+                                id="translation-workspace-file-content"
+                                class="translation-workspace-file-content"
+                                readonly
+                                spellcheck="false"
+                                aria-label="Valitun työtiedoston sisältö"
+                            >Valitse tiedosto vasemmalta.</textarea>
                         </div>
                     </div>
                 </div>
@@ -2650,6 +2692,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-<script src="app.js?v=80"></script>
+<script src="app.js?v=81"></script>
 </body>
 </html>
