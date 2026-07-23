@@ -205,6 +205,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let translationWorkspaceFiles = [];
     let selectedTranslationWorkspaceFilePath = '';
     let loadedTranslationWorkspaceTranslationId = null;
+    let translationUiMode = 'assistant';
     let syncingTranslationScroll = false;
     let translationTimerInterval = null;
     let finnishTranslationTimerInterval = null;
@@ -287,9 +288,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         'view-om-kokonaisuus',
         'view-om-vienti'
     ]);
-    const writerViews = new Set(['view-kirjani', 'view-kirjoita', 'view-analyysi', 'view-rakenne', 'view-kehityseditointi', 'view-toimitus', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-suomentaja', 'view-elamakerta']);
+    const writerViews = new Set(['view-kirjani', 'view-kirjoita', 'view-analyysi', 'view-rakenne', 'view-kehityseditointi', 'view-toimitus', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-kaannokset', 'view-elamakerta']);
     const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-analyysi', 'view-rakenne', 'view-kehityseditointi', 'view-toimitus', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
-    const translatorViews = new Set([...betaCoreViews, 'view-suomentaja']);
+    const translatorViews = new Set([...betaCoreViews, 'view-kaannokset', 'view-kaannostyotila']);
     const biographyViews = new Set(['view-kirjani', 'view-rakenne', 'view-kehityseditointi', 'view-kirjoita', 'view-ai-tyonkulku', 'view-elamakerta', 'view-toimitus', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-audio', 'view-kirja', 'view-julkaise']);
     const accessModuleViews = {
         manuscripts: ['view-kirjani'],
@@ -303,7 +304,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         book_layout: ['view-kirja', 'view-taitto'],
         publish: ['view-julkaise'],
         ai_workflow: ['view-ai-tyonkulku'],
-        translations: ['view-suomentaja', 'view-kaannokset'],
+        translations: ['view-kaannokset'],
+        translation_workspace: ['view-kaannostyotila'],
         biography: ['view-elamakerta'],
         product_info: ['view-tuotetiedot'],
         marketing: ['view-markkinointi'],
@@ -3221,7 +3223,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function navViewFor(viewId) {
         if (viewId === 'view-rakenne') return 'view-analyysi';
         if (viewId === 'view-taitto') return 'view-kirja';
-        if (viewId === 'view-kaannokset') return 'view-suomentaja';
+        if (viewId === 'view-suomentaja') {
+            return translationUiMode === 'workspace' ? 'view-kaannostyotila' : 'view-kaannokset';
+        }
         return viewId;
     }
 
@@ -3259,23 +3263,27 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function openModule(viewId) {
         const requestedViewId = viewId;
+        let activeNavViewId = viewId;
         if (viewId === 'view-taitto') {
             viewId = 'view-kirja';
+            activeNavViewId = viewId;
         }
-        if (viewId === 'view-kaannokset') {
+        if (['view-kaannokset', 'view-kaannostyotila'].includes(viewId) && isViewAllowed(viewId)) {
+            setTranslationUiMode(viewId === 'view-kaannostyotila' ? 'workspace' : 'assistant');
             viewId = 'view-suomentaja';
         }
-        if (!isViewAllowed(viewId)) {
+        if (viewId !== 'view-suomentaja' && !isViewAllowed(viewId)) {
             viewId = defaultViewForUser();
+            activeNavViewId = viewId;
         }
-        currentViewId = viewId;
+        currentViewId = activeNavViewId;
 
         views.forEach(v => v.classList.add('hidden'));
         const targetView = document.getElementById(viewId);
         if(targetView) targetView.classList.remove('hidden');
 
         navItems.forEach(item => {
-            if(item.getAttribute('data-view') === navViewFor(viewId)) {
+            if(item.getAttribute('data-view') === navViewFor(currentViewId)) {
                 item.classList.add('active');
             } else {
                 item.classList.remove('active');
@@ -3343,10 +3351,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             }
             if (nextViewId === 'view-kaannokset') {
                 loadTranslationModels();
-                updateTranslationProjectSelect();
-                updateTranslationEstimate();
+                updateFinnishTranslationProjectSelect();
+                updateFinnishTranslationEstimate();
             }
-            if (nextViewId === 'view-suomentaja') {
+            if (nextViewId === 'view-kaannostyotila') {
                 loadTranslationModels();
                 updateFinnishTranslationProjectSelect();
                 updateFinnishTranslationEstimate();
@@ -10111,6 +10119,9 @@ Säännöt:
     }
 
     function showFinnishTranslationPanel(panelId) {
+        if (panelId === 'suomentaja-files-panel' && translationUiMode !== 'workspace') {
+            panelId = 'suomentaja-create-panel';
+        }
         document.querySelectorAll('.suomentaja-panel').forEach(panel => {
             panel.classList.toggle('hidden', panel.id !== panelId);
         });
@@ -10120,6 +10131,66 @@ Säännöt:
         if (panelId === 'suomentaja-files-panel') {
             loadTranslationWorkspaceFiles();
         }
+    }
+
+    function setTranslationUiMode(mode) {
+        translationUiMode = mode === 'workspace' ? 'workspace' : 'assistant';
+        const workspaceMode = translationUiMode === 'workspace';
+        const title = document.getElementById('finnish-translation-view-title');
+        const createTitle = document.getElementById('finnish-translation-create-title');
+        const currentProjectText = document.getElementById('finnish-translation-current-project');
+        const tabs = document.querySelector('#view-suomentaja .translation-tabs');
+        const repeatToggle = document.querySelector('.translation-review-toggle');
+        const aiCheckTitle = document.querySelector('#suomentaja-ai-check-panel h3');
+        const runAllButton = document.getElementById('finnish-translation-ai-check-run-all-btn');
+        const tabConfig = workspaceMode
+            ? [
+                ['suomentaja-create-panel', 'Käännä koko teos'],
+                ['suomentaja-ai-check-panel', 'Tarkasta käännös'],
+                ['suomentaja-files-panel', 'Apu- ja päätöstiedostot'],
+                ['suomentaja-prompt-panel', 'Käännösohje'],
+                ['suomentaja-parts-panel', 'Palat ja kutsut']
+            ]
+            : [
+                ['suomentaja-create-panel', 'Luo käännös'],
+                ['suomentaja-prompt-panel', 'Käännösprompti'],
+                ['suomentaja-parts-panel', 'Tarkasta käännöspaloittain'],
+                ['suomentaja-ai-check-panel', 'AI-tarkastus']
+            ];
+
+        if (title) title.textContent = workspaceMode ? 'Käännöstyötila' : 'Käännökset';
+        if (createTitle) createTitle.textContent = workspaceMode ? 'Koko teoksen käännös' : 'Käännettävä teos';
+        if (currentProjectText && !window.manuscriptData?.id) {
+            currentProjectText.textContent = workspaceMode
+                ? 'Käännä koko teos tai tarkasta tallennettu käännös alkutekstiä vasten.'
+                : 'Valitse käsikirjoitus ja käännösasetukset.';
+        }
+        if (aiCheckTitle) aiCheckTitle.textContent = workspaceMode ? 'Käännöksen AI-tarkastus' : 'AI-tarkastus paloittain';
+        if (repeatToggle) repeatToggle.hidden = !workspaceMode;
+        if (runAllButton) {
+            runAllButton.textContent = workspaceMode ? 'Tarkasta koko käännös' : 'Tarkasta kaikki AI:lla';
+            runAllButton.classList.toggle('btn-primary', workspaceMode);
+            runAllButton.classList.toggle('btn-secondary', !workspaceMode);
+        }
+        if (tabs) {
+            const buttons = new Map(
+                Array.from(tabs.querySelectorAll('.suomentaja-tab')).map(button => [
+                    button.dataset.suomentajaPanel,
+                    button
+                ])
+            );
+            buttons.forEach(button => {
+                button.hidden = !tabConfig.some(([panelId]) => panelId === button.dataset.suomentajaPanel);
+            });
+            tabConfig.forEach(([panelId, label]) => {
+                const button = buttons.get(panelId);
+                if (!button) return;
+                button.textContent = label;
+                button.hidden = false;
+                tabs.appendChild(button);
+            });
+        }
+        showFinnishTranslationPanel('suomentaja-create-panel');
     }
 
     function updateTranslationProjectSelect() {

@@ -80,7 +80,8 @@
                     <li data-view="view-kirja">Valmis kirja & taitto</li>
                     <li data-view="view-julkaise">Julkaise</li>
                     <li data-view="view-ai-tyonkulku">AI-työnkulku</li>
-                    <li data-view="view-suomentaja">Käännöstyötila</li>
+                    <li data-view="view-kaannokset">Käännökset</li>
+                    <li data-view="view-kaannostyotila">Käännöstyötila</li>
                     <li data-view="view-elamakerta">Elämäkerta</li>
                     <li data-view="view-tuotetiedot">Tuotetiedot</li>
                     <li data-view="view-markkinointi">Markkinointi</li>
@@ -2323,7 +2324,7 @@
             <div id="view-suomentaja" class="view-section hidden">
                 <div class="header">
                     <div class="header-info">
-                        <h2>Käännöstyötila</h2>
+                        <h2 id="finnish-translation-view-title">Käännöstyötila</h2>
                         <p id="finnish-translation-current-project">Käännä koko teos tai tarkasta tallennettu käännös alkutekstiä vasten.</p>
                     </div>
                 </div>
@@ -2337,7 +2338,7 @@
                 <div id="suomentaja-create-panel" class="suomentaja-panel">
                     <div class="grid-cards" style="grid-template-columns: minmax(280px, 440px) minmax(0, 1fr); align-items:start;">
                         <div class="card glass-panel">
-                                <h3>Koko teoksen käännös</h3>
+                            <h3 id="finnish-translation-create-title">Koko teoksen käännös</h3>
                             <div class="settings-row">
                                 <label>Käsikirjoitus</label>
                                 <select id="finnish-translation-project-select"></select>
@@ -2692,6 +2693,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-<script src="app.js?v=81"></script>
+<script src="app.js?v=82"></script>
 </body>
 </html>
