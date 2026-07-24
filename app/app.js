@@ -10496,7 +10496,9 @@ Säännöt:
             'translation-workspace-review-next-btn',
             'translation-workspace-review-current-btn',
             'translation-workspace-review-save-btn',
-            'translation-workspace-review-accept-btn'
+            'translation-workspace-review-accept-btn',
+            'translation-workspace-review-download-btn',
+            'translation-workspace-review-bilingual-btn'
         ].map(id => document.getElementById(id)).filter(Boolean);
         populateTranslationWorkspaceReviewSelect();
         if (!item || !chunks.length) {
@@ -10541,9 +10543,13 @@ Säännöt:
         const prev = document.getElementById('translation-workspace-review-prev-btn');
         const next = document.getElementById('translation-workspace-review-next-btn');
         const accept = document.getElementById('translation-workspace-review-accept-btn');
+        const download = document.getElementById('translation-workspace-review-download-btn');
+        const bilingual = document.getElementById('translation-workspace-review-bilingual-btn');
         if (prev) prev.disabled = translationWorkspaceReviewRunning || selectedFinnishTranslationPartIndex === 0;
         if (next) next.disabled = translationWorkspaceReviewRunning || selectedFinnishTranslationPartIndex >= chunks.length - 1;
         if (accept) accept.disabled = translationWorkspaceReviewRunning || !String(aiCheck.checked_translation || '').trim();
+        if (download) download.disabled = translationWorkspaceReviewRunning || reviewedCount === 0;
+        if (bilingual) bilingual.disabled = translationWorkspaceReviewRunning || reviewedCount === 0;
         if (status && !options.preserveStatus) {
             status.textContent = `${translationWorkspaceVersionLabel(item)} · tarkastettu ${reviewedCount}/${chunks.length} segmenttiä.`;
         }
@@ -11582,6 +11588,44 @@ Säännöt:
         }
     }
 
+    async function downloadReviewedTranslationExport(format = 'reviewed', workspace = false) {
+        const item = selectedFinnishTranslation;
+        const status = document.getElementById(
+            workspace ? 'translation-workspace-review-status' : 'finnish-translation-ai-check-status'
+        );
+        if (!item?.id) {
+            alert('Valitse ensin tarkastettu käännös.');
+            return;
+        }
+        if (status) status.textContent = format === 'bilingual'
+            ? 'Muodostetaan tarkastettua bilingual-tiedostoa...'
+            : 'Muodostetaan tarkastettua kirjaa...';
+        try {
+            const query = new URLSearchParams({ format });
+            const res = await apiFetch(`/api/translations/${item.id}/review-export?${query}`);
+            if (!res.ok) throw new Error(await apiErrorMessage(res, 'Tarkastetun käännöksen lataus epäonnistui.'));
+            const blob = await res.blob();
+            const disposition = res.headers.get('content-disposition') || '';
+            const fileNameMatch = disposition.match(/filename="?([^";]+)"?/i);
+            const fallbackName = format === 'bilingual'
+                ? 'tarkastettu-bilingual.md'
+                : 'tarkastettu-kaannos.md';
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileNameMatch?.[1] || fallbackName;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+            if (status) status.textContent = format === 'bilingual'
+                ? 'Tarkastettu bilingual-tiedosto ladattu.'
+                : 'Tarkastettu kirja ladattu.';
+        } catch (err) {
+            if (status) status.textContent = err.message;
+        }
+    }
+
     function populateTranslationReviewSelect() {
         const select = document.getElementById('translation-review-select');
         if (!select) return;
@@ -12026,6 +12070,8 @@ Säännöt:
         const acceptBtn = document.getElementById('finnish-translation-ai-check-accept-btn');
         const acceptSelectedBtn = document.getElementById('finnish-translation-ai-check-accept-selected-btn');
         const acceptAllBtn = document.getElementById('finnish-translation-ai-check-accept-all-btn');
+        const downloadBtn = document.getElementById('finnish-translation-ai-check-download-btn');
+        const bilingualBtn = document.getElementById('finnish-translation-ai-check-bilingual-btn');
         const modelSelect = document.getElementById('finnish-translation-ai-check-model');
         const checkedEl = document.getElementById('finnish-translation-ai-check-checked');
         if (!list || !status) return;
@@ -12043,6 +12089,8 @@ Säännöt:
             if (acceptBtn) acceptBtn.disabled = true;
             if (acceptSelectedBtn) acceptSelectedBtn.disabled = true;
             if (acceptAllBtn) acceptAllBtn.disabled = true;
+            if (downloadBtn) downloadBtn.disabled = true;
+            if (bilingualBtn) bilingualBtn.disabled = true;
             return;
         }
         if (!chunks.length) {
@@ -12057,6 +12105,8 @@ Säännöt:
             if (acceptBtn) acceptBtn.disabled = true;
             if (acceptSelectedBtn) acceptSelectedBtn.disabled = true;
             if (acceptAllBtn) acceptAllBtn.disabled = true;
+            if (downloadBtn) downloadBtn.disabled = true;
+            if (bilingualBtn) bilingualBtn.disabled = true;
             return;
         }
 
@@ -12119,6 +12169,8 @@ Säännöt:
         if (acceptBtn) acceptBtn.disabled = finnishTranslationAiCheckAllRunning || !String(checkedEl?.value || '').trim();
         if (acceptSelectedBtn) acceptSelectedBtn.disabled = finnishTranslationAiCheckAllRunning || !selectedFinnishTranslationAiCheckIndexes.size;
         if (acceptAllBtn) acceptAllBtn.disabled = finnishTranslationAiCheckAllRunning || !checkedIndexes.length;
+        if (downloadBtn) downloadBtn.disabled = finnishTranslationAiCheckAllRunning || !checkedIndexes.length;
+        if (bilingualBtn) bilingualBtn.disabled = finnishTranslationAiCheckAllRunning || !checkedIndexes.length;
         if (modelSelect && translationModels.length) {
             const currentValue = translationPartModelValue(selected, selectedFinnishTranslation);
             const selectedValueIsAvailable = translationModels.some(
@@ -14515,6 +14567,8 @@ ${state.validation || 'Ei validointia.'}`;
     document.getElementById('translation-workspace-review-all-btn')?.addEventListener('click', checkAllTranslationWorkspaceSegments);
     document.getElementById('translation-workspace-review-save-btn')?.addEventListener('click', () => saveTranslationWorkspaceCurrent(false));
     document.getElementById('translation-workspace-review-accept-btn')?.addEventListener('click', () => saveTranslationWorkspaceCurrent(true));
+    document.getElementById('translation-workspace-review-download-btn')?.addEventListener('click', () => downloadReviewedTranslationExport('reviewed', true));
+    document.getElementById('translation-workspace-review-bilingual-btn')?.addEventListener('click', () => downloadReviewedTranslationExport('bilingual', true));
     document.getElementById('finnish-translation-part-rerun-btn')?.addEventListener('click', () => rerunTranslationPart('finnish-translation'));
     document.getElementById('finnish-translation-part-save-btn')?.addEventListener('click', () => saveTranslationPartCorrection('finnish-translation'));
     document.getElementById('finnish-translation-ai-check-run-btn')?.addEventListener('click', runFinnishTranslationAiCheck);
@@ -14522,6 +14576,8 @@ ${state.validation || 'Ei validointia.'}`;
     document.getElementById('finnish-translation-ai-check-accept-btn')?.addEventListener('click', acceptFinnishTranslationAiCheck);
     document.getElementById('finnish-translation-ai-check-accept-selected-btn')?.addEventListener('click', () => replaceFinnishTranslationAiCheckChunks('selected'));
     document.getElementById('finnish-translation-ai-check-accept-all-btn')?.addEventListener('click', () => replaceFinnishTranslationAiCheckChunks('all'));
+    document.getElementById('finnish-translation-ai-check-download-btn')?.addEventListener('click', () => downloadReviewedTranslationExport('reviewed'));
+    document.getElementById('finnish-translation-ai-check-bilingual-btn')?.addEventListener('click', () => downloadReviewedTranslationExport('bilingual'));
     document.getElementById('finnish-translation-ai-check-checked')?.addEventListener('input', event => {
         const acceptBtn = document.getElementById('finnish-translation-ai-check-accept-btn');
         if (acceptBtn) acceptBtn.disabled = !String(event.target.value || '').trim();
