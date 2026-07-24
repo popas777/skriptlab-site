@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=51">
+    <link rel="stylesheet" href="styles.css?v=52">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -2324,21 +2324,20 @@
             <div id="view-suomentaja" class="view-section hidden">
                 <div class="header">
                     <div class="header-info">
-                        <h2 id="finnish-translation-view-title">Käännöstyötila</h2>
-                        <p id="finnish-translation-current-project">Käännä koko teos tai tarkasta tallennettu käännös alkutekstiä vasten.</p>
+                        <h2 id="finnish-translation-view-title">Käännökset</h2>
+                        <p id="finnish-translation-current-project">Valitse käsikirjoitus ja käännösasetukset.</p>
                     </div>
                 </div>
-                <div class="translation-tabs translation-workspace-tabs">
-                    <button class="translation-tab suomentaja-tab active" data-suomentaja-panel="suomentaja-create-panel">Käännä koko teos</button>
-                    <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-ai-check-panel">Tarkasta käännös</button>
-                    <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-files-panel">Apu- ja päätöstiedostot</button>
-                    <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-prompt-panel">Käännösohje</button>
-                    <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-parts-panel">Palat ja kutsut</button>
+                <div class="translation-tabs">
+                    <button class="translation-tab suomentaja-tab active" data-suomentaja-panel="suomentaja-create-panel">Luo käännös</button>
+                    <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-prompt-panel">Käännösprompti</button>
+                    <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-parts-panel">Tarkasta käännöspaloittain</button>
+                    <button class="translation-tab suomentaja-tab" data-suomentaja-panel="suomentaja-ai-check-panel">AI-tarkastus</button>
                 </div>
                 <div id="suomentaja-create-panel" class="suomentaja-panel">
                     <div class="grid-cards" style="grid-template-columns: minmax(280px, 440px) minmax(0, 1fr); align-items:start;">
                         <div class="card glass-panel">
-                            <h3 id="finnish-translation-create-title">Koko teoksen käännös</h3>
+                            <h3 id="finnish-translation-create-title">Käännettävä teos</h3>
                             <div class="settings-row">
                                 <label>Käsikirjoitus</label>
                                 <select id="finnish-translation-project-select"></select>
@@ -2533,7 +2532,7 @@
                     <div class="card glass-panel">
                         <div class="translation-review-header">
                             <div>
-                                <h3>Käännöksen AI-tarkastus</h3>
+                                <h3>AI-tarkastus paloittain</h3>
                                 <p id="finnish-translation-ai-check-status">Valitse tallennettu käännös ja tarkasta se alkutekstiä vasten pala kerrallaan.</p>
                             </div>
                             <div class="translation-review-actions">
@@ -2543,7 +2542,7 @@
                                     <span>Tarkasta aiemmat uudelleen</span>
                                 </label>
                                 <button id="finnish-translation-ai-check-run-btn" class="btn btn-secondary" type="button">Tarkasta AI:lla</button>
-                                <button id="finnish-translation-ai-check-run-all-btn" class="btn btn-primary" type="button">Tarkasta koko käännös</button>
+                                <button id="finnish-translation-ai-check-run-all-btn" class="btn btn-secondary" type="button">Tarkasta kaikki AI:lla</button>
                                 <button id="finnish-translation-ai-check-accept-btn" class="btn btn-primary" type="button">Korvaa tällä</button>
                                 <button id="finnish-translation-ai-check-accept-selected-btn" class="btn btn-secondary" type="button">Korvaa valitut</button>
                                 <button id="finnish-translation-ai-check-accept-all-btn" class="btn btn-secondary" type="button">Korvaa kaikki tarkastetut</button>
@@ -2573,7 +2572,255 @@
                         </div>
                     </div>
                 </div>
-                <div id="suomentaja-files-panel" class="suomentaja-panel hidden">
+            </div>
+
+            <!-- 11.3 VIEW: KÄÄNNÖSTYÖTILA -->
+            <div id="view-kaannostyotila" class="view-section hidden">
+                <div class="header translation-workspace-header">
+                    <div class="header-info">
+                        <h2>Käännöstyötila</h2>
+                        <p>Käännä ja tarkasta kokonainen teos hallittuna projektina.</p>
+                    </div>
+                    <div class="translation-workspace-project-picker">
+                        <label for="translation-workspace-project-select">Projekti</label>
+                        <select id="translation-workspace-project-select"></select>
+                    </div>
+                </div>
+
+                <nav class="translation-workspace-stages" aria-label="Käännöstyötilan vaiheet">
+                    <button class="translation-workspace-stage active" data-workspace-panel="translation-workspace-translate-panel" type="button">
+                        <span>1</span>
+                        <strong>Käännös</strong>
+                        <small>Käännä koko teos</small>
+                    </button>
+                    <button class="translation-workspace-stage" data-workspace-panel="translation-workspace-review-panel" type="button">
+                        <span>2</span>
+                        <strong>Tarkastus</strong>
+                        <small>Vertaa ja korjaa</small>
+                    </button>
+                    <button class="translation-workspace-stage" data-workspace-panel="translation-workspace-files-panel" type="button">
+                        <span>3</span>
+                        <strong>Tiedostot</strong>
+                        <small>Apu- ja päätöstiedostot</small>
+                    </button>
+                </nav>
+
+                <section id="translation-workspace-translate-panel" class="translation-workspace-panel">
+                    <div class="translation-workspace-summary">
+                        <div>
+                            <span>Valittu teos</span>
+                            <strong id="translation-workspace-project-title">Ei valittua projektia</strong>
+                        </div>
+                        <div>
+                            <span>Käännössuunta</span>
+                            <strong id="translation-workspace-direction">Automaattinen → suomi</strong>
+                        </div>
+                        <div>
+                            <span>Projektin tila</span>
+                            <strong id="translation-workspace-project-status">Valitse projekti</strong>
+                        </div>
+                    </div>
+                    <div class="translation-workspace-main-grid">
+                        <div class="card glass-panel translation-workspace-settings">
+                            <h3>Koko teoksen käännös</h3>
+                            <p class="card-meta">Teos jaetaan hallittuihin segmentteihin. Tulokset tallennetaan projektiin sitä mukaa, kun työ valmistuu.</p>
+                            <div class="translation-workspace-settings-grid">
+                                <div class="settings-row">
+                                    <label for="translation-workspace-source-kind">Lähde</label>
+                                    <select id="translation-workspace-source-kind">
+                                        <option value="manuscript">Käsikirjoitus</option>
+                                        <option value="book">Valmis kirja</option>
+                                    </select>
+                                </div>
+                                <div class="settings-row">
+                                    <label for="translation-workspace-source-language">Lähtökieli</label>
+                                    <select id="translation-workspace-source-language">
+                                        <option value="auto" selected>Tunnista automaattisesti</option>
+                                        <option value="fi">Suomi</option>
+                                        <option value="sv">Ruotsi</option>
+                                        <option value="en">Englanti</option>
+                                        <option value="ru">Venäjä</option>
+                                        <option value="et">Viro</option>
+                                        <option value="de">Saksa</option>
+                                        <option value="fr">Ranska</option>
+                                        <option value="it">Italia</option>
+                                        <option value="es">Espanja</option>
+                                    </select>
+                                </div>
+                                <div class="settings-row">
+                                    <label for="translation-workspace-target-language">Kohdekieli</label>
+                                    <select id="translation-workspace-target-language">
+                                        <option value="fi" selected>Suomi</option>
+                                        <option value="sv">Ruotsi</option>
+                                        <option value="en">Englanti</option>
+                                        <option value="ru">Venäjä</option>
+                                        <option value="et">Viro</option>
+                                        <option value="de">Saksa</option>
+                                        <option value="fr">Ranska</option>
+                                        <option value="it">Italia</option>
+                                        <option value="es">Espanja</option>
+                                    </select>
+                                </div>
+                                <div class="settings-row">
+                                    <label for="translation-workspace-style">Käännöstapa</label>
+                                    <select id="translation-workspace-style">
+                                        <option value="faithful" selected>Originaalille uskollinen</option>
+                                        <option value="modern">Moderni ja sujuva</option>
+                                        <option value="literary">Kaunokirjallinen</option>
+                                        <option value="fi_author_modern">Kirjailijan tyyli, nykysuomi</option>
+                                        <option value="fi_preserve_structure">Pidä alkuperäinen lauserakenne</option>
+                                    </select>
+                                </div>
+                                <div class="settings-row">
+                                    <label for="translation-workspace-model">Kielimalli</label>
+                                    <select id="translation-workspace-model"></select>
+                                </div>
+                                <div class="settings-row">
+                                    <label for="translation-workspace-chunk-words">Segmentin tavoitekoko</label>
+                                    <select id="translation-workspace-chunk-words">
+                                        <option value="500">500 sanaa</option>
+                                        <option value="750">750 sanaa</option>
+                                        <option value="1000">1 000 sanaa</option>
+                                        <option value="1500">1 500 sanaa</option>
+                                        <option value="2000" selected>2 000 sanaa</option>
+                                        <option value="3000">3 000 sanaa</option>
+                                        <option value="4000">4 000 sanaa</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <p id="translation-workspace-estimate" class="translation-workspace-message">Valitse projekti, niin muodostan työmääräarvion.</p>
+                            <div class="translation-workspace-actions">
+                                <button id="translation-workspace-estimate-btn" class="btn btn-secondary" type="button">Päivitä arvio</button>
+                                <button id="translation-workspace-start-btn" class="btn btn-primary" type="button">Käännä koko teos</button>
+                            </div>
+                        </div>
+                        <div class="card glass-panel translation-workspace-run-card">
+                            <div class="translation-workspace-run-heading">
+                                <div>
+                                    <span class="translation-workspace-eyebrow">Käännösajo</span>
+                                    <h3 id="translation-workspace-run-title">Valmis aloittamaan</h3>
+                                </div>
+                                <span id="translation-workspace-run-percent" class="translation-workspace-percent">0 %</span>
+                            </div>
+                            <div class="translation-workspace-progress" aria-hidden="true">
+                                <span id="translation-workspace-progress-bar"></span>
+                            </div>
+                            <p id="translation-workspace-run-status">Käännös ei ole käynnissä.</p>
+                            <div id="translation-workspace-translation-history" class="translation-workspace-version-list"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="translation-workspace-review-panel" class="translation-workspace-panel hidden">
+                    <details class="card glass-panel translation-workspace-import" open>
+                        <summary>Tuo rinnakkainen käsikirjoitus tarkastettavaksi</summary>
+                        <p class="card-meta">Valitse paikallisen kääntäjän <strong>bilingual_manuscript.md</strong>. Voit liittää sen tyhjään projektiin tai antaa tuonnin luoda uuden projektin.</p>
+                        <form id="translation-workspace-import-form">
+                            <div class="translation-workspace-import-grid">
+                                <div class="settings-row">
+                                    <label for="translation-workspace-import-project">Kohdeprojekti</label>
+                                    <select id="translation-workspace-import-project">
+                                        <option value="">Luo uusi projekti</option>
+                                    </select>
+                                </div>
+                                <div class="settings-row">
+                                    <label for="translation-workspace-import-title">Projektin nimi</label>
+                                    <input id="translation-workspace-import-title" type="text" placeholder="Päätellään tiedostosta, jos tyhjä">
+                                </div>
+                                <div class="settings-row">
+                                    <label for="translation-workspace-import-author">Tekijä</label>
+                                    <input id="translation-workspace-import-author" type="text" placeholder="Valinnainen">
+                                </div>
+                                <div class="settings-row">
+                                    <label for="translation-workspace-import-source-language">Lähtökieli</label>
+                                    <select id="translation-workspace-import-source-language">
+                                        <option value="auto" selected>Tunnista myöhemmin</option>
+                                        <option value="fi">Suomi</option>
+                                        <option value="sv">Ruotsi</option>
+                                        <option value="en">Englanti</option>
+                                        <option value="ru">Venäjä</option>
+                                        <option value="et">Viro</option>
+                                        <option value="de">Saksa</option>
+                                        <option value="fr">Ranska</option>
+                                        <option value="it">Italia</option>
+                                        <option value="es">Espanja</option>
+                                    </select>
+                                </div>
+                                <div class="settings-row">
+                                    <label for="translation-workspace-import-target-language">Kohdekieli</label>
+                                    <select id="translation-workspace-import-target-language">
+                                        <option value="fi" selected>Suomi</option>
+                                        <option value="sv">Ruotsi</option>
+                                        <option value="en">Englanti</option>
+                                        <option value="de">Saksa</option>
+                                        <option value="fr">Ranska</option>
+                                        <option value="it">Italia</option>
+                                        <option value="es">Espanja</option>
+                                    </select>
+                                </div>
+                                <div class="settings-row translation-workspace-file-input">
+                                    <label for="translation-workspace-import-file">Markdown-tiedosto</label>
+                                    <input id="translation-workspace-import-file" type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" required>
+                                </div>
+                            </div>
+                            <div class="translation-workspace-actions">
+                                <button id="translation-workspace-import-btn" class="btn btn-primary" type="submit">Tuo tarkastukseen</button>
+                                <span id="translation-workspace-import-status" class="card-meta">Tuonti ei käynnistä mallikutsua.</span>
+                            </div>
+                        </form>
+                    </details>
+
+                    <div class="card glass-panel translation-workspace-review-desk">
+                        <div class="translation-workspace-review-toolbar">
+                            <div class="settings-row">
+                                <label for="translation-workspace-review-select">Tarkastettava käännös</label>
+                                <select id="translation-workspace-review-select"></select>
+                            </div>
+                            <div class="settings-row">
+                                <label for="translation-workspace-review-model">Tarkastusmalli</label>
+                                <select id="translation-workspace-review-model"></select>
+                            </div>
+                            <label class="translation-review-toggle">
+                                <input id="translation-workspace-review-repeat" type="checkbox">
+                                <span>Tarkasta aiemmat uudelleen</span>
+                            </label>
+                            <button id="translation-workspace-review-all-btn" class="btn btn-primary" type="button">Tarkasta koko käännös</button>
+                        </div>
+                        <p id="translation-workspace-review-status" class="translation-workspace-message">Valitse käännös tai tuo rinnakkaiskäsikirjoitus.</p>
+                        <div class="translation-workspace-review-layout">
+                            <aside class="translation-workspace-segments">
+                                <h3>Segmentit</h3>
+                                <div id="translation-workspace-review-segment-list"></div>
+                            </aside>
+                            <div class="translation-workspace-review-content">
+                                <div class="translation-workspace-segment-toolbar">
+                                    <button id="translation-workspace-review-prev-btn" class="btn btn-secondary" type="button">Edellinen</button>
+                                    <strong id="translation-workspace-review-position">Ei segmenttiä</strong>
+                                    <button id="translation-workspace-review-next-btn" class="btn btn-secondary" type="button">Seuraava</button>
+                                    <button id="translation-workspace-review-current-btn" class="btn btn-secondary" type="button">Tarkasta tämä</button>
+                                    <button id="translation-workspace-review-save-btn" class="btn btn-secondary" type="button">Tallenna käännös</button>
+                                    <button id="translation-workspace-review-accept-btn" class="btn btn-primary" type="button">Hyväksy tarkastettu</button>
+                                </div>
+                                <div class="translation-workspace-review-columns">
+                                    <label>Alkuteksti
+                                        <textarea id="translation-workspace-review-source" readonly></textarea>
+                                    </label>
+                                    <label>Nykyinen käännös
+                                        <textarea id="translation-workspace-review-current"></textarea>
+                                    </label>
+                                    <label>Tarkastettu käännös
+                                        <textarea id="translation-workspace-review-checked"></textarea>
+                                    </label>
+                                </div>
+                                <label class="translation-workspace-notes">Tarkastuksen huomiot
+                                    <textarea id="translation-workspace-review-notes" readonly></textarea>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="translation-workspace-files-panel" class="translation-workspace-panel hidden">
                     <div class="card glass-panel translation-workspace-files-card">
                         <div class="translation-review-header translation-workspace-files-header">
                             <div>
@@ -2609,7 +2856,7 @@
                             >Valitse tiedosto vasemmalta.</textarea>
                         </div>
                     </div>
-                </div>
+                </section>
             </div>
 
             <!-- 11.5 VIEW: OHEISAINEISTOT -->
@@ -2693,6 +2940,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-<script src="app.js?v=82"></script>
+<script src="app.js?v=83"></script>
 </body>
 </html>

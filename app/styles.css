@@ -3960,6 +3960,404 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     font-size: 16px;
 }
 
+/* Translation workspace */
+.translation-workspace-header {
+    align-items: end;
+    gap: 24px;
+}
+.translation-workspace-project-picker {
+    display: grid;
+    grid-template-columns: auto minmax(220px, 360px);
+    gap: 10px;
+    align-items: center;
+}
+.translation-workspace-project-picker label {
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 700;
+}
+.translation-workspace-stages {
+    display: grid;
+    flex: 0 0 auto;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1px;
+    overflow: hidden;
+    margin-bottom: 18px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--border-color);
+}
+.translation-workspace-stage {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    column-gap: 10px;
+    min-width: 0;
+    border: 0;
+    background: var(--sidebar-bg);
+    color: var(--text-secondary);
+    padding: 13px 16px;
+    text-align: left;
+    cursor: pointer;
+}
+.translation-workspace-stage > span {
+    grid-row: 1 / 3;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    font-weight: 700;
+}
+.translation-workspace-stage strong {
+    overflow: hidden;
+    color: inherit;
+    font-size: 14px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.translation-workspace-stage small {
+    overflow: hidden;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.translation-workspace-stage.active {
+    background: rgba(16, 185, 129, 0.12);
+    color: var(--text-primary);
+}
+.translation-workspace-stage.active > span {
+    border-color: var(--ai-gradient-start);
+    background: var(--ai-gradient-start);
+    color: #ffffff;
+}
+.translation-workspace-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    margin-bottom: 18px;
+    padding: 0 4px;
+}
+.translation-workspace-summary > div {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+    border-left: 2px solid var(--border-color);
+    padding-left: 12px;
+}
+.translation-workspace-summary span,
+.translation-workspace-eyebrow {
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+.translation-workspace-summary strong {
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 14px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.translation-workspace-main-grid {
+    display: grid;
+    grid-template-columns: minmax(360px, 0.95fr) minmax(360px, 1.05fr);
+    gap: 18px;
+    align-items: start;
+}
+.translation-workspace-settings h3,
+.translation-workspace-run-card h3 {
+    margin: 0 0 8px;
+}
+.translation-workspace-settings-grid,
+.translation-workspace-import-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px 14px;
+    margin-top: 18px;
+}
+.translation-workspace-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+}
+.translation-workspace-message {
+    min-height: 22px;
+    margin-top: 14px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+}
+.translation-workspace-run-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: start;
+}
+.translation-workspace-percent {
+    color: var(--ai-gradient-start);
+    font-size: 26px;
+    font-weight: 700;
+}
+.translation-workspace-progress {
+    height: 8px;
+    overflow: hidden;
+    margin: 16px 0 10px;
+    border-radius: 4px;
+    background: rgba(139, 148, 158, 0.18);
+}
+.translation-workspace-progress span {
+    display: block;
+    width: 0;
+    height: 100%;
+    background: var(--ai-gradient-start);
+    transition: width 0.25s ease;
+}
+.translation-workspace-run-card > p {
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+}
+.translation-workspace-version-list {
+    display: grid;
+    gap: 8px;
+    max-height: 440px;
+    overflow: auto;
+    margin-top: 18px;
+}
+.translation-workspace-version {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    border-top: 1px solid var(--border-color);
+    padding: 12px 2px 4px;
+}
+.translation-workspace-version strong,
+.translation-workspace-version small {
+    display: block;
+}
+.translation-workspace-version small {
+    margin-top: 3px;
+    color: var(--text-secondary);
+}
+.translation-workspace-import {
+    margin-bottom: 18px;
+}
+.translation-workspace-import > summary {
+    cursor: pointer;
+    color: var(--text-primary);
+    font-size: 16px;
+    font-weight: 700;
+}
+.translation-workspace-import[open] > summary {
+    margin-bottom: 8px;
+}
+.translation-workspace-file-input {
+    grid-column: 1 / -1;
+}
+.translation-workspace-review-toolbar {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) minmax(200px, 0.8fr) auto auto;
+    gap: 12px;
+    align-items: end;
+}
+.translation-workspace-review-toolbar .settings-row {
+    margin: 0;
+}
+.translation-workspace-review-layout {
+    display: grid;
+    grid-template-columns: minmax(180px, 230px) minmax(0, 1fr);
+    gap: 14px;
+    min-height: 580px;
+    margin-top: 14px;
+}
+.translation-workspace-segments {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    min-width: 0;
+}
+.translation-workspace-segments h3 {
+    margin: 0 0 8px;
+    font-size: 14px;
+}
+#translation-workspace-review-segment-list {
+    display: grid;
+    align-content: start;
+    gap: 6px;
+    max-height: 660px;
+    overflow: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px;
+}
+.translation-workspace-segment {
+    width: 100%;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    padding: 9px 10px;
+    text-align: left;
+    cursor: pointer;
+}
+.translation-workspace-segment:hover,
+.translation-workspace-segment.active {
+    border-color: var(--border-color);
+    background: rgba(121, 192, 255, 0.1);
+    color: var(--text-primary);
+}
+.translation-workspace-segment.checked::after {
+    content: "Tarkastettu";
+    display: block;
+    margin-top: 3px;
+    color: var(--ai-gradient-start);
+    font-size: 10px;
+}
+.translation-workspace-review-content {
+    min-width: 0;
+}
+.translation-workspace-segment-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+.translation-workspace-segment-toolbar strong {
+    min-width: 110px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-align: center;
+}
+.translation-workspace-review-columns {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+.translation-workspace-review-columns label,
+.translation-workspace-notes {
+    display: grid;
+    gap: 7px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 700;
+}
+.translation-workspace-review-columns textarea,
+.translation-workspace-notes textarea {
+    width: 100%;
+    min-height: 470px;
+    resize: vertical;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.15);
+    color: var(--text-primary);
+    padding: 13px;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 1.65;
+}
+.translation-workspace-notes {
+    margin-top: 12px;
+}
+.translation-workspace-notes textarea {
+    min-height: 120px;
+    font-family: Inter, sans-serif;
+    font-size: 13px;
+}
+[data-theme="light"] .translation-workspace-review-columns textarea,
+[data-theme="light"] .translation-workspace-notes textarea {
+    background: rgba(9, 105, 218, 0.03);
+}
+
+@media (max-width: 980px) {
+    .translation-workspace-header {
+        display: grid;
+        align-items: stretch;
+    }
+    .translation-workspace-project-picker {
+        grid-template-columns: 1fr;
+    }
+    .translation-workspace-main-grid,
+    .translation-workspace-review-layout {
+        grid-template-columns: 1fr;
+    }
+    .translation-workspace-review-toolbar {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    #translation-workspace-review-segment-list {
+        display: flex;
+        max-height: none;
+        overflow-x: auto;
+    }
+    .translation-workspace-segment {
+        flex: 0 0 130px;
+    }
+}
+
+@media (max-width: 680px) {
+    .translation-workspace-stages {
+        position: sticky;
+        top: 0;
+        z-index: 4;
+    }
+    .translation-workspace-stage {
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr);
+        column-gap: 5px;
+        padding: 10px 8px;
+    }
+    .translation-workspace-stage > span {
+        width: 26px;
+        height: 26px;
+    }
+    .translation-workspace-stage small {
+        display: none;
+    }
+    .translation-workspace-stage strong {
+        overflow: visible;
+        font-size: 12px;
+        white-space: normal;
+    }
+    .translation-workspace-summary,
+    .translation-workspace-settings-grid,
+    .translation-workspace-import-grid,
+    .translation-workspace-review-toolbar,
+    .translation-workspace-review-columns {
+        grid-template-columns: 1fr;
+    }
+    .translation-workspace-summary {
+        gap: 10px;
+    }
+    .translation-workspace-review-columns textarea {
+        min-height: 50dvh;
+        font-size: 16px;
+    }
+    .translation-workspace-actions .btn,
+    .translation-workspace-segment-toolbar .btn,
+    .translation-workspace-review-toolbar .btn {
+        flex: 1 1 140px;
+    }
+    .translation-workspace-file-input {
+        grid-column: auto;
+    }
+}
+
+.app-wrapper.mobile-simulate .translation-workspace-main-grid,
+.app-wrapper.mobile-simulate .translation-workspace-review-layout,
+.app-wrapper.mobile-simulate .translation-workspace-summary,
+.app-wrapper.mobile-simulate .translation-workspace-settings-grid,
+.app-wrapper.mobile-simulate .translation-workspace-import-grid,
+.app-wrapper.mobile-simulate .translation-workspace-review-toolbar,
+.app-wrapper.mobile-simulate .translation-workspace-review-columns {
+    grid-template-columns: 1fr;
+}
+
 /* Analysis pulse animation */
 @keyframes analysisPulse {
   0% { transform: translateX(-100%); }
