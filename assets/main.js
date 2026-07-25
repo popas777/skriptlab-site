@@ -64,11 +64,11 @@ const metaTranslations = {
   pricing: {
     fi: {
       title: "Hinnoittelu - SkriptLab",
-      description: "SkriptLabin hinnoittelu alkaa demosta, pilotista tai kertatyöstä. Pyydä tarjous käsikirjoituksen oikolukuun, virhelistaukseen tai raakakäännökseen."
+      description: "SkriptLabin hinnoittelu alkaa demosta, pilotista tai kertatyöstä. Pyydä tarjous käsikirjoituksen oikolukuun, virhelistaukseen tai raaka- ja tarkastettuihin käännöksiin."
     },
     en: {
       title: "Pricing - SkriptLab",
-      description: "Start with a demo, pilot or one-off project. Ask for a quote for manuscript review, proofreading support or a translation draft."
+      description: "Start with a demo, pilot or one-off project. Ask for a quote for manuscript review, proofreading support, translation drafts or source-checked translations."
     }
   },
   trust: {
@@ -199,7 +199,7 @@ const pageTranslations = {
     { selector: ".grid .card:nth-child(3) h2", fi: "Taittajille", en: "For layout designers" },
     { selector: ".grid .card:nth-child(3) p", fi: "Luo kansi- ja kuvitushahmotelmia sekä taittovedos suunnittelun pohjaksi.", en: "Draft cover and illustration directions and a layout proof to support design work." },
     { selector: ".grid .card:nth-child(4) h2", fi: "Kääntäjille", en: "For translators" },
-    { selector: ".grid .card:nth-child(4) p", fi: "Tee raakakäännöksiä, termistöjä ja tiivistelmiä käännöstyön tueksi.", en: "Prepare translation drafts, terminology and summaries to support translation work." },
+    { selector: ".grid .card:nth-child(4) p", fi: "Tee raakakäännöksiä jatkotyön pohjaksi tai tarkastettuja käännöksiä lähdetekstiin vertaamalla. Hyödynnä lisäksi termistöjä ja tiivistelmiä.", en: "Prepare translation drafts for further work or source-checked translations. Use glossaries and summaries to support the process." },
     { selector: ".grid .card:nth-child(5) h2", fi: "Audiotuottajille", en: "For audio producers" },
     { selector: ".grid .card:nth-child(5) p", fi: "Muodosta äänikäsikirjoitus, roolilistat ja ääntämisohjeet tuotantoa varten.", en: "Prepare an audio script, role lists and pronunciation notes for production." },
     { selector: ".grid .card:nth-child(6) h2", fi: "Sisältötiimeille", en: "For content teams" },
@@ -261,10 +261,10 @@ const pageTranslations = {
     { selector: ".price-card:nth-child(1) li:nth-child(4)", fi: "Versiokohtaiset havainnot", en: "Version-specific observations" },
     { selector: ".price-card:nth-child(2) h2", fi: "Kääntäjä", en: "Translator" },
     { selector: ".price-card:nth-child(2) p", fi: "Käännöstyön ja monikielisen tuotannon tueksi.", en: "For translation work and multilingual production." },
-    { selector: ".price-card:nth-child(2) li:nth-child(1)", fi: "Raakakäännökset", en: "Translation drafts" },
-    { selector: ".price-card:nth-child(2) li:nth-child(2)", fi: "Sanastot ja termistöt", en: "Glossaries and terminology" },
-    { selector: ".price-card:nth-child(2) li:nth-child(3)", fi: "Monikielinen tuotanto", en: "Multilingual production" },
-    { selector: ".price-card:nth-child(2) li:nth-child(4)", fi: "Kontekstin ja tyylin hahmotus", en: "Context and style mapping" },
+    { selector: ".price-card:nth-child(2) li:nth-child(1)", fi: "Raakakäännökset jatkotyöhön", en: "Translation drafts for further work" },
+    { selector: ".price-card:nth-child(2) li:nth-child(2)", fi: "Tarkastetut käännökset", en: "Source-checked translations" },
+    { selector: ".price-card:nth-child(2) li:nth-child(3)", fi: "Sanastot ja termistöt", en: "Glossaries and terminology" },
+    { selector: ".price-card:nth-child(2) li:nth-child(4)", fi: "Kontekstin ja tyylin yhdenmukaisuus", en: "Context and style consistency" },
     { selector: ".price-card:nth-child(3) h2", fi: "Tiimi", en: "Team" },
     { selector: ".price-card:nth-child(3) p", fi: "Toimitus- ja sisältötiimeille.", en: "For editorial and content teams." },
     { selector: ".price-card:nth-child(3) li:nth-child(1)", fi: "Useat käyttäjät", en: "Multiple users" },
@@ -284,10 +284,10 @@ const pageTranslations = {
     { selector: ".quote-card:nth-child(1) p", fi: "Käsikirjoituksen viimeinen tarkistus, virheiden merkintä ja selkeä lista korjattavista kohdista.", en: "A final manuscript review, marked issues and a clear list of points to correct." },
     { selector: ".quote-card:nth-child(1) strong", fi: "Esimerkki: 50-100 €", en: "Example: €50-100" },
     { selector: ".quote-card:nth-child(1) span", fi: "Hinta vaihtelee teoksen pituuden mukaan.", en: "The price varies by manuscript length." },
-    { selector: ".quote-card:nth-child(2) h3", fi: "Raakakäännöksen tekeminen", en: "Creating a translation draft" },
-    { selector: ".quote-card:nth-child(2) p", fi: "Koko teoksen raakakäännös käännöstyön, toimituksen tai jatkoarvioinnin pohjaksi.", en: "A full-work translation draft as a basis for translation, editing or further evaluation." },
-    { selector: ".quote-card:nth-child(2) strong", fi: "Esimerkki: 1-2 € / liuska", en: "Example: €1-2 / page" },
-    { selector: ".quote-card:nth-child(2) span", fi: "300-sivuisen teoksen hinta on tyypillisesti muutamia satoja euroja.", en: "A 300-page work typically costs a few hundred euros." },
+    { selector: ".quote-card:nth-child(2) h3", fi: "Raaka- ja tarkastetut käännökset", en: "Translation drafts and source-checked translations" },
+    { selector: ".quote-card:nth-child(2) p", fi: "Koko teoksen raakakäännös jatkotyön pohjaksi tai tarkastettu käännös, jossa lähdetekstiä ja käännöstä verrataan pala kerrallaan.", en: "A full-work translation draft for further work, or a source-checked translation reviewed segment by segment against the original." },
+    { selector: ".quote-card:nth-child(2) strong", fi: "Raakakäännös: 1-2 € / liuska", en: "Translation draft: €1-2 / page" },
+    { selector: ".quote-card:nth-child(2) span", fi: "Tarkastetun käännöksen hinta sovitaan erikseen teoksen pituuden ja tarkastustason mukaan.", en: "Source-checked translations are quoted separately based on length and the required level of review." },
     { selector: ".one-off-pricing .btn-primary", fi: "Kysy tarjous", en: "Ask for a quote" },
     { selector: ".one-off-pricing .btn-primary", attr: "href", fi: "yhteys.html", en: "yhteys.html" }
   ],
