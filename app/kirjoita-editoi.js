@@ -175,17 +175,27 @@
   }
 
   function paragraphHtml(paragraph) {
-    const text = String(paragraph || "");
+    let text = String(paragraph || "");
+    let indentLevel = 0;
+    const indent = text.match(/^(>+)\s+([\s\S]*)$/);
+    if (indent) {
+      indentLevel = indent[1].length;
+      text = indent[2];
+    }
     const heading = text.match(/^(#{1,4})\s+([\s\S]*)$/);
+    let html;
     if (heading) {
       const level = heading[1].length;
-      return "<h" + level + ">" + inlineMarkdownToHtml(heading[2]) + "</h" + level + ">";
+      html = "<h" + level + ">" + inlineMarkdownToHtml(heading[2]) + "</h" + level + ">";
+    } else {
+      const unordered = text.match(/^[-•]\s+([\s\S]*)$/);
+      const ordered = text.match(/^\d+[.)]\s+([\s\S]*)$/);
+      if (unordered) html = "<ul><li>" + inlineMarkdownToHtml(unordered[1]) + "</li></ul>";
+      else if (ordered) html = "<ol><li>" + inlineMarkdownToHtml(ordered[1]) + "</li></ol>";
+      else html = "<p>" + (inlineMarkdownToHtml(text) || "<br>") + "</p>";
     }
-    const unordered = text.match(/^[-•]\s+([\s\S]*)$/);
-    if (unordered) return "<ul><li>" + inlineMarkdownToHtml(unordered[1]) + "</li></ul>";
-    const ordered = text.match(/^\d+[.)]\s+([\s\S]*)$/);
-    if (ordered) return "<ol><li>" + inlineMarkdownToHtml(ordered[1]) + "</li></ol>";
-    return "<p>" + (inlineMarkdownToHtml(text) || "<br>") + "</p>";
+    for (let level = 0; level < indentLevel; level += 1) html = "<blockquote>" + html + "</blockquote>";
+    return html;
   }
 
   function inlineNodeToMarkdown(node) {
@@ -201,28 +211,38 @@
     return content;
   }
 
+  function serializeEditorNode(node, indentLevel, paragraphs) {
+    const prefix = indentLevel ? ">".repeat(indentLevel) + " " : "";
+    if (node.nodeType === Node.TEXT_NODE) {
+      splitParagraphs(node.nodeValue).forEach((value) => paragraphs.push(prefix + value));
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    const tag = node.tagName.toLowerCase();
+    if (tag === "blockquote") {
+      Array.from(node.childNodes).forEach((child) => serializeEditorNode(child, indentLevel + 1, paragraphs));
+      return;
+    }
+    if (tag === "ul" || tag === "ol") {
+      Array.from(node.children).forEach((item, index) => {
+        const listPrefix = tag === "ul" ? "- " : (index + 1) + ". ";
+        const value = inlineNodeToMarkdown(item).trim();
+        if (value) paragraphs.push(prefix + listPrefix + value);
+      });
+      return;
+    }
+    const value = inlineNodeToMarkdown(node).trim();
+    if (!value) return;
+    const heading = tag.match(/^h([1-4])$/);
+    const block = heading ? "#".repeat(Number(heading[1])) + " " + value : value;
+    paragraphs.push(prefix + block);
+  }
+
   function editorParagraphs() {
     const editor = $("manuscript-editor");
     const paragraphs = [];
     Array.from(editor.childNodes).forEach((node) => {
-      if (node.nodeType === Node.TEXT_NODE) {
-        splitParagraphs(node.nodeValue).forEach((value) => paragraphs.push(value));
-        return;
-      }
-      if (node.nodeType !== Node.ELEMENT_NODE) return;
-      const tag = node.tagName.toLowerCase();
-      if (tag === "ul" || tag === "ol") {
-        Array.from(node.children).forEach((item, index) => {
-          const prefix = tag === "ul" ? "- " : (index + 1) + ". ";
-          const value = inlineNodeToMarkdown(item).trim();
-          if (value) paragraphs.push(prefix + value);
-        });
-        return;
-      }
-      const value = inlineNodeToMarkdown(node).trim();
-      if (!value) return;
-      const heading = tag.match(/^h([1-4])$/);
-      paragraphs.push(heading ? "#".repeat(Number(heading[1])) + " " + value : value);
+      serializeEditorNode(node, 0, paragraphs);
     });
     if (!paragraphs.length) {
       splitParagraphs(editor.innerText).forEach((value) => paragraphs.push(value));
@@ -245,7 +265,11 @@
   }
 
   function updateHeaderCounter() {
-    const value = state.selectedText || chapterText(currentChapter());
+    const editor = $("manuscript-editor");
+    const editorValue = editor && editor.getAttribute("contenteditable") === "true"
+      ? editor.innerText
+      : chapterText(currentChapter());
+    const value = state.selectedText || editorValue;
     const suffix = state.selectedText ? " valittuna" : " osiossa";
     $("selection-counter").textContent = wordCount(value) + " sanaa" + suffix;
   }
@@ -255,6 +279,7 @@
     const hasChapter = Boolean(chapter);
     $("manuscript-editor").setAttribute("contenteditable", String(hasChapter));
     $("chapter-title-input").disabled = !hasChapter;
+    $("insert-chapter-break").disabled = !state.project;
     if (!chapter) {
       $("chapter-title-input").value = "";
       $("chapter-kind").textContent = "";
@@ -361,6 +386,68 @@
     renderEditor();
     renderSuggestion();
     $("document-scroll").scrollTop = 0;
+  }
+
+  function nextChapterTitle() {
+    const chapters = state.project && Array.isArray(state.project.chapters) ? state.project.chapters : [];
+    let highest = 0;
+    chapters.forEach((chapter) => {
+      const title = String(chapter.toc_title || chapter.title || "");
+      const match = title.match(/(?:luku|chapter)\s+(\d+)/i);
+      if (match) highest = Math.max(highest, Number(match[1]));
+    });
+    return "Luku " + (highest + 1);
+  }
+
+  async function insertChapterBreak() {
+    if (!state.project || state.saving) return;
+    await saveNow(false);
+    if (state.dirty) {
+      toast("Nykyistä osiota ei saatu tallennettua. Uutta lukua ei lisätty.");
+      return;
+    }
+    const chapters = Array.isArray(state.project.chapters) ? state.project.chapters : [];
+    const previousChapters = chapters.slice();
+    const insertIndex = Math.min(state.chapterIndex + 1, chapters.length);
+    const title = nextChapterTitle();
+    const newChapter = {
+      id: "luku_" + Date.now().toString(36),
+      title,
+      toc_title: title,
+      kind: "main",
+      paragraphs: []
+    };
+    chapters.splice(insertIndex, 0, newChapter);
+    $("insert-chapter-break").disabled = true;
+    $("save-status").textContent = "Lisätään lukua…";
+    try {
+      const response = await api("/projects/" + state.project.id + "/structure", jsonOptions("PATCH", {
+        chapters: chapters.map((chapter, index) => ({
+          id: chapter.id || "osio_" + (index + 1),
+          title: chapter.title || chapter.toc_title || "Osio " + (index + 1),
+          toc_title: chapter.toc_title || chapter.title || "Osio " + (index + 1),
+          kind: chapter.kind || "main"
+        }))
+      }));
+      rememberProject(response);
+      const createdIndex = response.chapters.findIndex((chapter) => chapter.id === newChapter.id);
+      state.chapterIndex = createdIndex >= 0 ? createdIndex : Math.min(insertIndex, response.chapters.length - 1);
+      localStorage.setItem("skriptlab_write_editor_chapter_" + response.id, String(state.chapterIndex));
+      state.dirty = false;
+      renderEditor();
+      renderSuggestion();
+      $("document-scroll").scrollTop = 0;
+      $("chapter-title-input").focus();
+      $("save-status").textContent = "Tallennettu";
+      toast("Uusi luku lisätty.");
+    } catch (error) {
+      state.project.chapters = previousChapters;
+      renderEditor();
+      $("save-status").textContent = "Lisäys epäonnistui";
+      toast(error.message);
+    } finally {
+      $("insert-chapter-break").disabled = !state.project;
+    }
   }
 
   function restoreEditorRange() {
@@ -486,6 +573,9 @@
     const characters = noteItems([
       findAnalysisValue(["characters", "hahmot", "person_map", "henkilot"], analysis, 0)
     ]);
+    const relationships = noteItems([
+      findAnalysisValue(["relationships", "relations", "suhteet", "henkilosuhteet"], analysis, 0)
+    ]);
     const places = noteItems([
       findAnalysisValue(["places", "paikat", "locations"], analysis, 0)
     ]);
@@ -498,6 +588,7 @@
     ]);
     renderNoteGroup("note-overview", "overview-count", overview);
     renderNoteGroup("note-characters", "characters-count", characters);
+    renderNoteGroup("note-relationships", "relationships-count", relationships);
     renderNoteGroup("note-places", "places-count", places);
     renderNoteGroup("note-events", "events-count", events);
     renderNoteGroup("note-style", "style-count", style);
@@ -1011,8 +1102,12 @@
       event.target.title = chapter ? (chapter.toc_title || chapter.title || "Nimetön osio") : "";
     });
     $("chapter-slider").addEventListener("change", (event) => gotoChapter(Number(event.target.value)));
+    $("insert-chapter-break").addEventListener("click", insertChapterBreak);
 
-    $("manuscript-editor").addEventListener("input", markDirty);
+    $("manuscript-editor").addEventListener("input", () => {
+      markDirty();
+      updateHeaderCounter();
+    });
     $("manuscript-editor").addEventListener("keyup", captureSelection);
     $("manuscript-editor").addEventListener("mouseup", captureSelection);
     $("chapter-title-input").addEventListener("input", markDirty);

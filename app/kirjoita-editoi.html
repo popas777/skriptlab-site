@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f4f2ed">
   <title>Kirjoita ja editoi - SkriptLab</title>
-  <link rel="stylesheet" href="kirjoita-editoi.css?v=1">
+  <link rel="stylesheet" href="kirjoita-editoi.css?v=2">
 </head>
 <body data-mobile-panel="editor">
   <main class="write-editor-app" aria-label="Kirjoita ja editoi">
@@ -44,6 +44,10 @@
             <div class="note-content" id="note-characters"></div>
           </details>
           <details class="note-group">
+            <summary><span>Henkilösuhteet</span><span class="note-count" id="relationships-count">0</span></summary>
+            <div class="note-content" id="note-relationships"></div>
+          </details>
+          <details class="note-group">
             <summary><span>Paikat</span><span class="note-count" id="places-count">0</span></summary>
             <div class="note-content" id="note-places"></div>
           </details>
@@ -73,12 +77,17 @@
             <option value="h4">Otsikko 4</option>
           </select>
           <span class="toolbar-divider"></span>
+          <button class="format-btn" id="insert-chapter-break" type="button" aria-label="Osanvaihto, lisää uusi luku" title="Osanvaihto: lisää uusi luku">＋</button>
+          <span class="toolbar-divider"></span>
           <button class="format-btn format-bold" type="button" data-command="bold" aria-label="Lihavoi" title="Lihavoi">B</button>
           <button class="format-btn format-italic" type="button" data-command="italic" aria-label="Kursivoi" title="Kursivoi">I</button>
           <button class="format-btn format-underline" type="button" data-command="underline" aria-label="Alleviivaa" title="Alleviivaa">U</button>
           <span class="toolbar-divider"></span>
           <button class="format-btn" type="button" data-command="insertUnorderedList" aria-label="Luettelomerkit" title="Luettelomerkit">•≡</button>
           <button class="format-btn" type="button" data-command="insertOrderedList" aria-label="Numeroitu luettelo" title="Numeroitu luettelo">1≡</button>
+          <span class="toolbar-divider"></span>
+          <button class="format-btn" type="button" data-command="outdent" aria-label="Pienennä sisennystä" title="Pienennä sisennystä">⇤</button>
+          <button class="format-btn" type="button" data-command="indent" aria-label="Sisennä" title="Sisennä">⇥</button>
           <span class="toolbar-divider"></span>
           <button class="format-btn" type="button" data-command="undo" aria-label="Kumoa" title="Kumoa">↶</button>
           <button class="format-btn" type="button" data-command="redo" aria-label="Tee uudelleen" title="Tee uudelleen">↷</button>
@@ -198,6 +207,6 @@
   <div class="toast" id="toast" hidden role="status" aria-live="polite"></div>
 
   <script src="config.js?v=1"></script>
-  <script src="kirjoita-editoi.js?v=1"></script>
+  <script src="kirjoita-editoi.js?v=2"></script>
 </body>
 </html>

@@ -406,6 +406,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const analysisMetadataFields = [
         { key: 'analysis_status', label: 'Analyysin tila' },
         { key: 'analysis_warnings', label: 'Käsittelyhuomautukset' },
+        { key: 'characters', label: 'Henkilöhahmot' },
+        { key: 'relationships', label: 'Henkilösuhteet' },
+        { key: 'places', label: 'Paikat' },
+        { key: 'key_events', label: 'Avaintapahtumat' },
         { key: 'audience', label: 'Kohderyhmä' },
         { key: 'genre', label: 'Genre' },
         { key: 'library_class', label: 'Kirjastoluokka' },
@@ -7490,6 +7494,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             ['Toimituksellinen arvio', analysis.editorial_assessment],
             ['Lukutason analyysi', analysis.chapter_analysis || analysis.structure || analysis.rakenne],
             ['Hahmot', analysis.characters],
+            ['Henkilösuhteet', analysis.relationships || analysis.relations || analysis.suhteet],
+            ['Paikat', analysis.places || analysis.paikat],
+            ['Avaintapahtumat', analysis.key_events || analysis.events || analysis.avaintapahtumat],
             ['Teemat', analysis.themes],
             ['Sanasto', analysis.glossary],
             ['Genre ja metadata', analysis.genre || analysis.metadata || analysis.product_info]
@@ -13166,7 +13173,7 @@ Säännöt:
         const params = new URLSearchParams();
         const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
         if (projectId) params.set('project', projectId);
-        params.set('v', '1');
+        params.set('v', '2');
         params.set('t', String(Date.now()));
         frame.src = `kirjoita-editoi.html?${params.toString()}`;
     }
