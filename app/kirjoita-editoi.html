@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f4f2ed">
+  <title>Kirjoita ja editoi - SkriptLab</title>
+  <link rel="stylesheet" href="kirjoita-editoi.css?v=1">
+</head>
+<body data-mobile-panel="editor">
+  <main class="write-editor-app" aria-label="Kirjoita ja editoi">
+    <header class="workspace-header">
+      <div class="header-cluster">
+        <button class="icon-btn" id="notes-toggle" type="button" aria-label="Näytä tai piilota muistiinpanot" title="Muistiinpanot">☷</button>
+        <div class="project-heading">
+          <span>Kirjoita ja editoi</span>
+          <strong id="project-title">Valitse käsikirjoitus</strong>
+        </div>
+      </div>
+      <div class="header-status">
+        <span id="selection-counter">0 sanaa</span>
+        <span id="save-status" role="status" aria-live="polite">Ei tallennettavaa</span>
+        <button class="icon-btn" id="save-btn" type="button" aria-label="Tallenna" title="Tallenna">✓</button>
+        <button class="icon-btn" id="assistant-toggle" type="button" aria-label="Näytä tai piilota avustaja" title="Avustaja">◫</button>
+      </div>
+    </header>
+
+    <div class="workspace-shell" id="workspace-shell">
+      <aside class="notes-pane" id="notes-pane" aria-label="Käsikirjoituksen muistiinpanot">
+        <div class="pane-header">
+          <div>
+            <span class="pane-kicker">Kirjamuisti</span>
+            <h2>Muistiinpanot</h2>
+          </div>
+          <button class="icon-btn pane-close" id="notes-close" type="button" aria-label="Sulje muistiinpanot">×</button>
+        </div>
+        <div class="notes-scroll">
+          <details class="note-group" open>
+            <summary><span>Yleiskuva</span><span class="note-count" id="overview-count">0</span></summary>
+            <div class="note-content" id="note-overview"></div>
+          </details>
+          <details class="note-group">
+            <summary><span>Henkilöhahmot</span><span class="note-count" id="characters-count">0</span></summary>
+            <div class="note-content" id="note-characters"></div>
+          </details>
+          <details class="note-group">
+            <summary><span>Paikat</span><span class="note-count" id="places-count">0</span></summary>
+            <div class="note-content" id="note-places"></div>
+          </details>
+          <details class="note-group">
+            <summary><span>Avaintapahtumat</span><span class="note-count" id="events-count">0</span></summary>
+            <div class="note-content" id="note-events"></div>
+          </details>
+          <details class="note-group">
+            <summary><span>Tyyli ja sanasto</span><span class="note-count" id="style-count">0</span></summary>
+            <div class="note-content" id="note-style"></div>
+          </details>
+          <details class="note-group manual-note-group">
+            <summary><span>Omat muistiinpanot</span></summary>
+            <textarea id="manual-notes" placeholder="Kirjaa muistiin teosta koskevia päätöksiä."></textarea>
+            <span class="mini-status" id="manual-notes-status"></span>
+          </details>
+        </div>
+      </aside>
+
+      <section class="document-pane" id="document-pane" aria-label="Tekstieditori">
+        <div class="format-toolbar" role="toolbar" aria-label="Tekstin muotoilu">
+          <select id="block-format" aria-label="Tekstilaji" title="Tekstilaji">
+            <option value="p">Leipäteksti</option>
+            <option value="h1">Otsikko 1</option>
+            <option value="h2">Otsikko 2</option>
+            <option value="h3">Otsikko 3</option>
+            <option value="h4">Otsikko 4</option>
+          </select>
+          <span class="toolbar-divider"></span>
+          <button class="format-btn format-bold" type="button" data-command="bold" aria-label="Lihavoi" title="Lihavoi">B</button>
+          <button class="format-btn format-italic" type="button" data-command="italic" aria-label="Kursivoi" title="Kursivoi">I</button>
+          <button class="format-btn format-underline" type="button" data-command="underline" aria-label="Alleviivaa" title="Alleviivaa">U</button>
+          <span class="toolbar-divider"></span>
+          <button class="format-btn" type="button" data-command="insertUnorderedList" aria-label="Luettelomerkit" title="Luettelomerkit">•≡</button>
+          <button class="format-btn" type="button" data-command="insertOrderedList" aria-label="Numeroitu luettelo" title="Numeroitu luettelo">1≡</button>
+          <span class="toolbar-divider"></span>
+          <button class="format-btn" type="button" data-command="undo" aria-label="Kumoa" title="Kumoa">↶</button>
+          <button class="format-btn" type="button" data-command="redo" aria-label="Tee uudelleen" title="Tee uudelleen">↷</button>
+        </div>
+
+        <div class="chapter-rail" id="chapter-rail">
+          <button type="button" id="chapter-prev" aria-label="Edellinen osio" title="Edellinen osio">‹</button>
+          <input id="chapter-slider" type="range" min="0" max="0" value="0" aria-label="Siirry osioon">
+          <button type="button" id="chapter-next" aria-label="Seuraava osio" title="Seuraava osio">›</button>
+          <output id="chapter-position">0/0</output>
+        </div>
+
+        <div class="document-scroll" id="document-scroll">
+          <article class="paper" id="paper">
+            <div class="chapter-heading-row">
+              <input id="chapter-title-input" type="text" aria-label="Osion nimi" placeholder="Nimetön osio">
+              <span id="chapter-kind">Pääteksti</span>
+            </div>
+            <div
+              id="manuscript-editor"
+              class="manuscript-editor"
+              contenteditable="true"
+              role="textbox"
+              aria-multiline="true"
+              data-placeholder="Aloita kirjoittaminen…"
+              spellcheck="true"
+            ></div>
+          </article>
+        </div>
+      </section>
+
+      <aside class="assistant-pane" id="assistant-pane" aria-label="Kirjoitusavustaja">
+        <div class="assistant-tabs" role="tablist" aria-label="Avustajan tila">
+          <button class="assistant-tab is-active" type="button" data-assistant-tab="chat" role="tab" aria-selected="true">Keskustelu</button>
+          <button class="assistant-tab" type="button" data-assistant-tab="tasks" role="tab" aria-selected="false">Tehtävät</button>
+          <button class="icon-btn pane-close" id="assistant-close" type="button" aria-label="Sulje avustaja">×</button>
+        </div>
+
+        <section class="assistant-panel" id="chat-panel" data-panel="chat">
+          <div class="selected-context" id="selected-context" hidden>
+            <div><strong>Valittu teksti</strong><button type="button" id="clear-selection">×</button></div>
+            <p id="selected-context-text"></p>
+          </div>
+          <div class="chat-thread" id="chat-thread" aria-live="polite"></div>
+          <form class="chat-composer" id="chat-form">
+            <textarea id="chat-input" rows="3" placeholder="Kysy käsikirjoituksesta…"></textarea>
+            <button class="send-btn" type="submit" aria-label="Lähetä" title="Lähetä">↑</button>
+          </form>
+          <span class="mini-status" id="chat-status"></span>
+        </section>
+
+        <section class="assistant-panel" id="tasks-panel" data-panel="tasks" hidden>
+          <div class="scope-control" role="group" aria-label="Tehtävän laajuus">
+            <button type="button" data-task-scope="selection">Valinta</button>
+            <button class="is-active" type="button" data-task-scope="chapter">Osio</button>
+            <button type="button" data-task-scope="book">Koko kirja</button>
+          </div>
+
+          <div class="task-list" id="built-in-tasks">
+            <button class="task-card" type="button" data-task="proofread"><strong>Oikolue</strong><span>Korjaa selvät kieli- ja kirjoitusvirheet.</span></button>
+            <button class="task-card" type="button" data-task="cliches"><strong>Vähennä kliseitä</strong><span>Uudista selvät kliseet kirjailijan ääni säilyttäen.</span></button>
+            <button class="task-card" type="button" data-task="transitions"><strong>Paranna siirtymiä</strong><span>Sujuvoita kappaleiden ja kohtausten välit.</span></button>
+            <button class="task-card" type="button" data-task="tighten"><strong>Tiivistä ilmaisua</strong><span>Poista tarpeeton toisto ja löysyys.</span></button>
+            <button class="task-card" type="button" data-task="consistency"><strong>Yhtenäistä tyyli</strong><span>Tasaa rekisteriä, termejä ja kerronnan linjaa.</span></button>
+          </div>
+
+          <div class="task-progress" id="task-progress" hidden>
+            <div><strong id="task-progress-title">Käsitellään</strong><span id="task-progress-count">0/0</span></div>
+            <progress id="task-progress-bar" max="1" value="0"></progress>
+            <span class="mini-status" id="task-progress-note"></span>
+          </div>
+
+          <section class="suggestion-panel" id="suggestion-panel" hidden>
+            <div class="suggestion-header">
+              <div><span class="pane-kicker">Ehdotus</span><strong id="suggestion-title"></strong></div>
+              <div class="suggestion-nav" id="suggestion-nav" hidden>
+                <button type="button" id="suggestion-prev" aria-label="Edellinen ehdotus">‹</button>
+                <span id="suggestion-index">1/1</span>
+                <button type="button" id="suggestion-next" aria-label="Seuraava ehdotus">›</button>
+              </div>
+            </div>
+            <textarea id="suggestion-text" aria-label="Muokkausehdotus"></textarea>
+            <div class="suggestion-actions">
+              <button class="secondary-btn" id="reject-suggestion" type="button">Hylkää</button>
+              <button class="secondary-btn" id="accept-all-suggestions" type="button" hidden>Hyväksy kaikki</button>
+              <button class="primary-btn" id="accept-suggestion" type="button">Hyväksy</button>
+            </div>
+            <span class="mini-status" id="suggestion-status"></span>
+          </section>
+
+          <div class="saved-prompts">
+            <div class="section-heading"><h3>Omat tehtävät</h3><button class="icon-btn" id="new-prompt-toggle" type="button" aria-label="Uusi oma tehtävä" title="Uusi tehtävä">+</button></div>
+            <div id="saved-prompt-list"></div>
+            <form class="prompt-form" id="prompt-form" hidden>
+              <input id="prompt-title" type="text" maxlength="120" placeholder="Tehtävän nimi">
+              <textarea id="prompt-text" rows="5" maxlength="8000" placeholder="Ohje mallille"></textarea>
+              <div>
+                <button class="secondary-btn" id="prompt-cancel" type="button">Peruuta</button>
+                <button class="primary-btn" type="submit">Tallenna</button>
+              </div>
+            </form>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <nav class="mobile-panel-nav" aria-label="Työtilan näkymät">
+      <button type="button" data-mobile-target="notes">Muistiinpanot</button>
+      <button class="is-active" type="button" data-mobile-target="editor">Teksti</button>
+      <button type="button" data-mobile-target="assistant">Avustaja</button>
+    </nav>
+  </main>
+
+  <div class="loading-layer" id="loading-layer" hidden aria-live="polite">
+    <span></span><p id="loading-text">Avataan käsikirjoitusta…</p>
+  </div>
+  <div class="toast" id="toast" hidden role="status" aria-live="polite"></div>
+
+  <script src="config.js?v=1"></script>
+  <script src="kirjoita-editoi.js?v=1"></script>
+</body>
+</html>

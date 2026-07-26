@@ -72,6 +72,7 @@
                     <li class="active" data-view="view-kirjani">Käsikirjoitukseni</li>
                     <li data-view="view-analyysi">Analyysi ja rakenne</li>
                     <li data-view="view-kehityseditointi">Rakenne- ja kehityseditointi</li>
+                    <li data-view="view-kirjoita-editoi">Kirjoita ja editoi</li>
                     <li data-view="view-kirjoita">Kirjoita</li>
                     <li data-view="view-toimitus">Editointi</li>
                     <li data-view="view-oikoluku">Oikoluku ja viimeistely</li>
@@ -466,6 +467,17 @@
                         <textarea id="development-plan" class="development-textarea medium" placeholder="Korjaussuunnitelma poimitaan palautteesta tai sitä voi muokata käsin."></textarea>
                     </section>
                 </div>
+            </div>
+
+            <!-- 1.19 VIEW: KIRJOITA JA EDITOI -->
+            <div id="view-kirjoita-editoi" class="view-section hidden">
+                <iframe
+                    id="kirjoita-editoi-frame"
+                    class="tyosto-frame"
+                    title="Kirjoita ja editoi"
+                    src="kirjoita-editoi.html?v=1"
+                    loading="lazy"
+                ></iframe>
             </div>
 
             <!-- 1.2 VIEW: KIRJOITA -->
@@ -2944,6 +2956,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-<script src="app.js?v=84"></script>
+<script src="app.js?v=85"></script>
 </body>
 </html>

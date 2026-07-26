@@ -289,14 +289,15 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         'view-om-kokonaisuus',
         'view-om-vienti'
     ]);
-    const writerViews = new Set(['view-kirjani', 'view-kirjoita', 'view-analyysi', 'view-rakenne', 'view-kehityseditointi', 'view-toimitus', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-kaannokset', 'view-elamakerta']);
-    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita', 'view-analyysi', 'view-rakenne', 'view-kehityseditointi', 'view-toimitus', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
+    const writerViews = new Set(['view-kirjani', 'view-kirjoita-editoi', 'view-kirjoita', 'view-analyysi', 'view-rakenne', 'view-kehityseditointi', 'view-toimitus', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-kaannokset', 'view-elamakerta']);
+    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita-editoi', 'view-kirjoita', 'view-analyysi', 'view-rakenne', 'view-kehityseditointi', 'view-toimitus', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset', 'view-kaannostyotila']);
-    const biographyViews = new Set(['view-kirjani', 'view-rakenne', 'view-kehityseditointi', 'view-kirjoita', 'view-ai-tyonkulku', 'view-elamakerta', 'view-toimitus', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-audio', 'view-kirja', 'view-julkaise']);
+    const biographyViews = new Set(['view-kirjani', 'view-rakenne', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-kirjoita', 'view-ai-tyonkulku', 'view-elamakerta', 'view-toimitus', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-audio', 'view-kirja', 'view-julkaise']);
     const accessModuleViews = {
         manuscripts: ['view-kirjani'],
         analysis: ['view-analyysi', 'view-rakenne'],
         development_editing: ['view-kehityseditointi'],
+        write_edit: ['view-kirjoita-editoi'],
         write: ['view-kirjoita'],
         editing: ['view-toimitus'],
         proofread: ['view-oikoluku'],
@@ -3296,6 +3297,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         if (['view-kirjoita', 'view-toimitus'].includes(viewId)) {
             refreshTyostoFrame(viewId);
+        }
+        if (viewId === 'view-kirjoita-editoi') {
+            refreshWriteEditorFrame();
         }
         if (viewId === 'view-muut-toiminnot') {
             refreshTuotantoFrame(viewId, requestedViewId);
@@ -9370,6 +9374,9 @@ Säännöt:
         if (!options.skipTyostoFrameRefresh && ['view-kirjoita', 'view-toimitus'].includes(currentViewId)) {
             refreshTyostoFrame(currentViewId);
         }
+        if (!options.skipWriteEditorFrameRefresh && currentViewId === 'view-kirjoita-editoi') {
+            refreshWriteEditorFrame();
+        }
         if (!options.skipTuotantoFrameRefresh && ['view-kirja', 'view-muut-toiminnot'].includes(currentViewId)) {
             refreshTuotantoFrame(currentViewId);
         }
@@ -9747,7 +9754,8 @@ Säännöt:
             try {
                 await activateProject(target, {
                     skipManuskriptiFrameRefresh: true,
-                    skipTyostoFrameRefresh: true
+                    skipTyostoFrameRefresh: true,
+                    skipWriteEditorFrameRefresh: true
                 });
             } catch (err) {
                 console.warn('Käsikirjoituksen aktivointi epäonnistui:', err);
@@ -13150,6 +13158,17 @@ Säännöt:
         params.set('v', '1');
         params.set('t', String(Date.now()));
         frame.src = `tyosto.html?${params.toString()}`;
+    }
+
+    function refreshWriteEditorFrame() {
+        const frame = document.getElementById('kirjoita-editoi-frame');
+        if (!frame) return;
+        const params = new URLSearchParams();
+        const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
+        if (projectId) params.set('project', projectId);
+        params.set('v', '1');
+        params.set('t', String(Date.now()));
+        frame.src = `kirjoita-editoi.html?${params.toString()}`;
     }
 
     function tuotantoFrameTab(viewId, requestedViewId = null) {
