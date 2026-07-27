@@ -57,6 +57,30 @@
             margin-top: 10px;
             margin-bottom: 16px;
         }
+        .login-mode-switch {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            padding: 5px;
+            margin-bottom: 22px;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            background: rgba(0,0,0,0.16);
+        }
+        .login-mode-btn {
+            padding: 9px 12px;
+            border: 0;
+            border-radius: 7px;
+            background: transparent;
+            color: var(--text-secondary);
+            font: 600 13px 'Inter', sans-serif;
+            cursor: pointer;
+        }
+        .login-mode-btn.active {
+            background: rgba(121, 192, 255, 0.16);
+            color: var(--text-primary);
+            box-shadow: inset 0 0 0 1px rgba(121, 192, 255, 0.28);
+        }
         .login-divider {
             margin: 24px 0;
             color: var(--text-secondary);
@@ -80,6 +104,11 @@
         <div class="login-box glass-panel">
             <h1 class="logo">SkriptLab<span class="accent">.</span></h1>
             <p style="color: var(--text-secondary); margin-bottom: 30px; font-size: 15px;">Kirjailijan moderni työkalupakki</p>
+
+            <div class="login-mode-switch" role="group" aria-label="Kirjautumistapa">
+                <button type="button" class="login-mode-btn active" data-login-mode="password" aria-pressed="true">Salasana</button>
+                <button type="button" class="login-mode-btn" data-login-mode="invite" aria-pressed="false">Kutsukoodi</button>
+            </div>
             
             <form id="login-form">
                 <div class="input-group">
@@ -87,8 +116,8 @@
                     <input type="text" inputmode="email" id="email" placeholder="nimi@example.com" required>
                 </div>
                 <div class="input-group">
-                    <label>Salasana tai kutsukoodi</label>
-                    <input type="password" id="invite-code" autocomplete="current-password" placeholder="Kirjoita salasana tai saamasi kutsukoodi" required>
+                    <label id="credential-label" for="credential">Salasana</label>
+                    <input type="password" id="credential" autocomplete="current-password" placeholder="Kirjoita salasana" required>
                 </div>
                 
                 <button type="submit" class="btn btn-primary login-btn" id="login-submit">Kirjaudu sisään</button>
@@ -109,39 +138,51 @@
             window.location.replace(existingUser.role === 'admin' ? 'admin.html' : 'index.html');
         }
 
+        let loginMode = 'password';
+        const credentialInput = document.getElementById('credential');
+        const credentialLabel = document.getElementById('credential-label');
+
+        document.querySelectorAll('[data-login-mode]').forEach((button) => {
+            button.addEventListener('click', () => {
+                loginMode = button.dataset.loginMode;
+                document.querySelectorAll('[data-login-mode]').forEach((item) => {
+                    const active = item === button;
+                    item.classList.toggle('active', active);
+                    item.setAttribute('aria-pressed', String(active));
+                });
+                const inviteMode = loginMode === 'invite';
+                credentialLabel.textContent = inviteMode ? 'Kutsukoodi' : 'Salasana';
+                credentialInput.placeholder = inviteMode ? 'Kirjoita saamasi kutsukoodi' : 'Kirjoita salasana';
+                credentialInput.autocomplete = inviteMode ? 'one-time-code' : 'current-password';
+                document.getElementById('login-status').textContent = '';
+                credentialInput.focus();
+            });
+        });
+
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const status = document.getElementById('login-status');
             const submit = document.getElementById('login-submit');
             const email = document.getElementById('email').value.trim().toLowerCase();
-            const inviteCode = document.getElementById('invite-code').value.trim();
+            const credential = credentialInput.value.trim();
 
             status.textContent = 'Kirjaudutaan sisään...';
             submit.disabled = true;
 
             try {
-                let res = await fetch(apiUrl('/api/auth/login'), {
+                const passwordMode = loginMode === 'password';
+                const res = await fetch(apiUrl(passwordMode ? '/api/auth/login' : '/api/auth/accept-invite'), {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        email,
-                        password: inviteCode
-                    })
+                    body: JSON.stringify(passwordMode
+                        ? {email, password: credential}
+                        : {email, invite_code: credential})
                 });
-                let data = await res.json().catch(() => ({}));
+                const data = await res.json().catch(() => ({}));
                 if (!res.ok) {
-                    res = await fetch(apiUrl('/api/auth/accept-invite'), {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({
-                            email,
-                            invite_code: inviteCode
-                        })
-                    });
-                    data = await res.json().catch(() => ({}));
-                }
-                if (!res.ok) {
-                    throw new Error('Sähköposti, salasana tai kutsukoodi ei kelpaa.');
+                    throw new Error(passwordMode
+                        ? 'Sähköposti tai salasana ei kelpaa.'
+                        : 'Sähköposti tai kutsukoodi ei kelpaa.');
                 }
 
                 window.SkriptLabAuth.setSession(data.access_token, data.user);
