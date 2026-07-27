@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab - Kirjaudu</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=60">
     <style>
         .login-wrapper {
             display: flex;
@@ -87,8 +87,8 @@
                     <input type="text" inputmode="email" id="email" placeholder="nimi@example.com" required>
                 </div>
                 <div class="input-group">
-                    <label>Kutsukoodi</label>
-                    <input type="text" id="invite-code" placeholder="Liitä saamasi kutsukoodi" required>
+                    <label>Salasana tai kutsukoodi</label>
+                    <input type="password" id="invite-code" autocomplete="current-password" placeholder="Kirjoita salasana tai saamasi kutsukoodi" required>
                 </div>
                 
                 <button type="submit" class="btn btn-primary login-btn" id="login-submit">Kirjaudu sisään</button>
@@ -116,21 +116,32 @@
             const email = document.getElementById('email').value.trim().toLowerCase();
             const inviteCode = document.getElementById('invite-code').value.trim();
 
-            status.textContent = 'Tarkistetaan kutsua...';
+            status.textContent = 'Kirjaudutaan sisään...';
             submit.disabled = true;
 
             try {
-                const res = await fetch(apiUrl('/api/auth/accept-invite'), {
+                let res = await fetch(apiUrl('/api/auth/login'), {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         email,
-                        invite_code: inviteCode
+                        password: inviteCode
                     })
                 });
-                const data = await res.json();
+                let data = await res.json().catch(() => ({}));
                 if (!res.ok) {
-                    throw new Error(data.detail || 'Kirjautuminen epäonnistui.');
+                    res = await fetch(apiUrl('/api/auth/accept-invite'), {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            email,
+                            invite_code: inviteCode
+                        })
+                    });
+                    data = await res.json().catch(() => ({}));
+                }
+                if (!res.ok) {
+                    throw new Error('Sähköposti, salasana tai kutsukoodi ei kelpaa.');
                 }
 
                 window.SkriptLabAuth.setSession(data.access_token, data.user);

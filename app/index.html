@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=57">
+    <link rel="stylesheet" href="styles.css?v=60">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -80,6 +80,7 @@
                     <li data-view="view-kuvitus">Kansi ja kuvitus</li>
                     <li data-view="view-kirja">Valmis kirja & taitto</li>
                     <li data-view="view-julkaisupaketti">Julkaisupaketti</li>
+                    <li data-view="view-monikielinen-julkaisu">Monikielinen julkaisu</li>
                     <li data-view="view-julkaise">Julkaise</li>
                     <li data-view="view-ai-tyonkulku">AI-työnkulku</li>
                     <li data-view="view-kaannokset">Käännökset</li>
@@ -159,6 +160,27 @@
 
             <!-- 1. VIEW: KIRJANI -->
             <div id="view-kirjani" class="view-section">
+                <section class="publisher-demo-banner hidden" id="publisher-demo-banner" aria-label="Kustantamodemon eteneminen">
+                    <div class="publisher-demo-copy">
+                        <span class="publisher-demo-kicker">Kustantamodemo · valmis esityspolku</span>
+                        <h2>Käsikirjoituksesta julkaisuksi</h2>
+                        <p>
+                            Middlemarchin ensimmäinen kirja on tuotu tarkastettuna suomennoksena. Etene vasemmalta oikealle ja näytä, kuinka sama teos viimeistellään, paketoidaan, lokalisoidaan ja viedään kampanjaksi.
+                        </p>
+                        <div class="publisher-demo-facts" aria-label="Demokirjan valmiustiedot">
+                            <span>13 tekstiosaa</span>
+                            <span>839/839 kappaletta tarkastettu</span>
+                            <span>0 avointa kohtaa</span>
+                        </div>
+                    </div>
+                    <div class="publisher-demo-path">
+                        <button type="button" data-demo-view="view-kirjoita-editoi"><span>01</span><strong>Teos</strong><small>Tarkastettu teksti</small></button>
+                        <button type="button" data-demo-view="view-kehityseditointi"><span>02</span><strong>Editointi</strong><small>Rakenne ja laatu</small></button>
+                        <button type="button" data-demo-view="view-julkaisupaketti"><span>03</span><strong>Paketointi</strong><small>PDF · EPUB · DOCX</small></button>
+                        <button type="button" data-demo-view="view-monikielinen-julkaisu"><span>04</span><strong>Kieliversiot</strong><small>Uusi markkina</small></button>
+                        <button type="button" data-demo-view="view-markkinointi"><span>05</span><strong>Kampanja</strong><small>Valmis aineistopaketti</small></button>
+                    </div>
+                </section>
                 <iframe
                     id="manuskripti-frame-kirjani"
                     class="manuskripti-frame"
@@ -1390,7 +1412,100 @@
                 </section>
             </div>
 
-            <!-- 1.7 VIEW: JULKAISE -->
+            <!-- 1.7 VIEW: MONIKIELINEN JULKAISU -->
+            <div id="view-monikielinen-julkaisu" class="view-section hidden">
+                <div class="multilingual-publication-hero">
+                    <div class="multilingual-publication-hero-copy">
+                        <span class="multilingual-publication-eyebrow">Julkaisupaketti → kieliversiot</span>
+                        <h2>Yksi kirja.<br><span>Useita markkinoita.</span></h2>
+                        <p id="multilingual-publication-current-project">Valitse käsikirjoitus, josta kieliversiot muodostetaan.</p>
+                        <div class="multilingual-publication-stats" aria-label="Monikielisen julkaisun yhteenveto">
+                            <div><strong id="multilingual-publication-version">V0</strong><span>lähdepaketti</span></div>
+                            <div><strong id="multilingual-publication-edition-count">0</strong><span>kieliversiota</span></div>
+                            <div><strong id="multilingual-publication-market-count">5</strong><span>markkinaa</span></div>
+                        </div>
+                    </div>
+                    <div class="multilingual-publication-orbit" aria-hidden="true">
+                        <span class="multilingual-publication-globe">SL</span>
+                        <span class="multilingual-publication-orbit-dot orbit-dot-one">SV</span>
+                        <span class="multilingual-publication-orbit-dot orbit-dot-two">EN</span>
+                        <span class="multilingual-publication-orbit-dot orbit-dot-three">DE</span>
+                    </div>
+                </div>
+
+                <section class="multilingual-publication-flow" aria-label="Kieliversion julkaisupolku">
+                    <article class="multilingual-publication-flow-step" id="multilingual-flow-source">
+                        <span>01</span>
+                        <div><strong>Lukittu lähde</strong><small id="multilingual-flow-source-detail">Tarkistetaan julkaisupakettia…</small></div>
+                    </article>
+                    <i aria-hidden="true">→</i>
+                    <article class="multilingual-publication-flow-step" id="multilingual-flow-translation">
+                        <span>02</span>
+                        <div><strong>Käännös</strong><small>Käsikirjoitus ja tyyli</small></div>
+                    </article>
+                    <i aria-hidden="true">→</i>
+                    <article class="multilingual-publication-flow-step" id="multilingual-flow-localization">
+                        <span>03</span>
+                        <div><strong>Lokalisaatio</strong><small>Kieli, metadata ja kansi</small></div>
+                    </article>
+                    <i aria-hidden="true">→</i>
+                    <article class="multilingual-publication-flow-step" id="multilingual-flow-package">
+                        <span>04</span>
+                        <div><strong>Kieliversion paketti</strong><small>PDF, EPUB, DOCX ja painokansi</small></div>
+                    </article>
+                </section>
+
+                <section class="multilingual-publication-section">
+                    <div class="multilingual-publication-section-heading">
+                        <div>
+                            <span class="publication-package-step">01</span>
+                            <div><h3>Valitse seuraava markkina</h3><p>Valinta esitäyttää käännössuunnan ja näyttää kieliversion tuotantopolun.</p></div>
+                        </div>
+                        <button class="btn btn-secondary" id="multilingual-open-package-btn" type="button">Avaa lähdepaketti</button>
+                    </div>
+                    <div id="multilingual-language-grid" class="multilingual-language-grid"></div>
+                </section>
+
+                <div class="multilingual-publication-workspace">
+                    <section class="multilingual-edition-card">
+                        <div class="multilingual-edition-heading">
+                            <div>
+                                <span class="multilingual-edition-kicker" id="multilingual-edition-kicker">RUOTSI · POHJOISMAAT</span>
+                                <h3 id="multilingual-edition-title">Ruotsinkielinen painos</h3>
+                                <p id="multilingual-edition-summary">Valmis lähdepaketti siirtyy käännökseen samoine rakenne-, tyyli- ja sanastotietoineen.</p>
+                            </div>
+                            <span class="multilingual-edition-status" id="multilingual-edition-status">VALMIS ALOITETTAVAKSI</span>
+                        </div>
+                        <div class="multilingual-edition-progress" aria-label="Kieliversion eteneminen">
+                            <span id="multilingual-edition-progress-bar"></span>
+                        </div>
+                        <div id="multilingual-edition-stages" class="multilingual-edition-stages"></div>
+                        <div class="multilingual-edition-actions">
+                            <button class="btn btn-primary" id="multilingual-primary-action-btn" type="button">Aloita käännös</button>
+                            <button class="btn btn-secondary" id="multilingual-expert-action-btn" type="button">Avaa käännöstyökalut</button>
+                        </div>
+                        <p class="multilingual-edition-note" id="multilingual-edition-note">Käännös tallentuu versiona ja voidaan tarkastuksen jälkeen viedä omaksi kirjaprojektikseen.</p>
+                    </section>
+
+                    <aside class="multilingual-release-card">
+                        <span class="multilingual-release-label">KIELIVERSIOON PERIYTYY</span>
+                        <h3>Julkaisukelpoinen kokonaisuus</h3>
+                        <div class="multilingual-release-list">
+                            <div><span>01</span><p><strong>Käsikirjoitus ja rakenne</strong><small>Luvut, kappaleet ja oheisaineistot</small></p></div>
+                            <div><span>02</span><p><strong>Tyyli ja termistö</strong><small>Analyysi ohjaa äänen ja sanaston säilyttämistä</small></p></div>
+                            <div><span>03</span><p><strong>Tuotantopohja</strong><small>Taitto, kansimitat ja formaatit tehdään uudelle painokselle</small></p></div>
+                        </div>
+                        <div class="multilingual-release-proof">
+                            <strong id="multilingual-release-proof-title">Jäljitettävä lähtöaineisto</strong>
+                            <p id="multilingual-release-proof-detail">Muodosta ensin Julkaisupaketti, jotta kieliversio voidaan sitoa näkyvään lähdeversioon.</p>
+                        </div>
+                    </aside>
+                </div>
+
+                <p id="multilingual-publication-status" class="multilingual-publication-status" role="status">Ladataan kieliversioiden tilannetta…</p>
+            </div>
+
+            <!-- 1.8 VIEW: JULKAISE -->
             <div id="view-julkaise" class="view-section hidden">
                 <div class="header">
                     <div class="header-info">
@@ -2220,80 +2335,180 @@
 
             <!-- 8. VIEW: MARKKINOINTI -->
             <div id="view-markkinointi" class="view-section hidden">
-                <div class="header">
-                    <div class="header-info">
-                        <h2>Markkinointimateriaalit</h2>
+                <div class="marketing-studio-hero">
+                    <div class="marketing-studio-hero-copy">
+                        <span class="marketing-studio-eyebrow">KAMPANJASTUDIO · KIRJASTA ILMIÖKSI</span>
+                        <h2>Yksi idea.<br><span>Kokonainen lanseeraus.</span></h2>
                         <p id="marketing-current-project">Käsikirjoitus: [Ei aktiivista teosta]</p>
-                    </div>
-                    <div class="header-actions">
-                        <button class="btn btn-secondary" onclick="alert('Ladataan markkinointipakettia zip-muodossa...');">Lataa markkinointipaketti (ZIP)</button>
-                        <button class="btn btn-primary" id="marketing-generate-btn">Luo markkinointiaineistot AI:lla</button>
-                    </div>
-                </div>
-                <p id="marketing-status" style="color:var(--text-secondary); margin:-8px 0 22px; font-size:13px;">Tee ensin analyysi, jotta aineistot voidaan muodostaa teoksen metatiedoista.</p>
-
-                <!-- Peruskuvaukset -->
-                <h3 style="margin-bottom: 20px; color: var(--text-primary);">1. Myyntitekstit & Kuvaukset</h3>
-                <div class="grid-cards" style="margin-bottom: 40px; grid-template-columns: 1fr 1fr;">
-                    <div class="card glass-panel" style="display: flex; flex-direction: column;">
-                        <h4 style="color: var(--ai-gradient-start); margin-bottom:12px;">Hissipuhe / Lyhyt kuvaus</h4>
-                        <textarea id="marketing-short" style="width: 100%; flex: 1; min-height: 100px; padding: 16px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; resize: vertical; line-height: 1.6; outline:none;" placeholder="Lyhyt kuvaus muodostuu analyysin pohjalta."></textarea>
-                    </div>
-                    <div class="card glass-panel" style="display: flex; flex-direction: column;">
-                        <h4 style="color: var(--ai-gradient-start); margin-bottom:12px;">Verkkokaupan kuvaus (Long)</h4>
-                        <textarea id="marketing-long" style="width: 100%; flex: 1; min-height: 100px; padding: 16px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; resize: vertical; line-height: 1.6; outline:none;" placeholder="Pidempi verkkokauppa- tai esittelyteksti muodostuu tähän."></textarea>
-                    </div>
-                </div>
-
-                <!-- Some-kanavat -->
-                <div class="marketing-channel-heading">
-                    <div>
-                        <h3>2. Räätälöidyt kanavapostaukset</h3>
-                        <p>Jaa laitteella avaa puhelimen tai tietokoneen oman jakovalikon. Suora automaattijulkaisu edellyttää kanavatilin yhdistämistä.</p>
-                    </div>
-                </div>
-                <div class="grid-cards marketing-channel-grid">
-                    <!-- Instagram -->
-                    <div class="card glass-panel marketing-channel-card marketing-channel-instagram">
-                        <h3>Instagram</h3>
-                        <textarea id="marketing-instagram" class="marketing-channel-text" placeholder="Instagram-teksti muodostuu tähän."></textarea>
-                        <div class="marketing-channel-actions">
-                            <button class="btn btn-secondary marketing-copy-btn" type="button" data-copy-target="marketing-instagram">Kopioi</button>
-                            <button class="btn btn-primary marketing-share-btn" type="button" data-share-target="marketing-instagram" data-share-channel="Instagram">Jaa laitteella</button>
+                        <div class="marketing-studio-tags">
+                            <span id="marketing-genre-badge">Genre odottaa analyysiä</span>
+                            <span id="marketing-audience-badge">Kohderyhmä odottaa analyysiä</span>
+                        </div>
+                        <div class="marketing-studio-actions">
+                            <button class="btn btn-primary" id="marketing-generate-btn" type="button">Luo kampanjapaketti AI:lla</button>
+                            <button class="btn btn-secondary" id="marketing-open-product-info-btn" type="button">Tarkista tuotetiedot</button>
                         </div>
                     </div>
-
-                    <!-- Facebook -->
-                    <div class="card glass-panel marketing-channel-card marketing-channel-facebook">
-                        <h3>Facebook</h3>
-                        <textarea id="marketing-facebook" class="marketing-channel-text" placeholder="Facebook-teksti muodostuu tähän."></textarea>
-                        <div class="marketing-channel-actions">
-                            <button class="btn btn-secondary marketing-copy-btn" type="button" data-copy-target="marketing-facebook">Kopioi</button>
-                            <button class="btn btn-primary marketing-share-btn" type="button" data-share-target="marketing-facebook" data-share-channel="Facebook">Jaa laitteella</button>
+                    <div class="marketing-hero-visual" id="marketing-hero-visual">
+                        <div class="marketing-hero-cover" id="marketing-hero-cover">
+                            <span id="marketing-hero-cover-placeholder">KANSI</span>
                         </div>
-                    </div>
-
-                    <!-- TikTok -->
-                    <div class="card glass-panel marketing-channel-card marketing-channel-tiktok">
-                        <h3>TikTok</h3>
-                        <textarea id="marketing-tiktok" class="marketing-channel-text" placeholder="TikTok-julkaisun teksti muodostuu tähän."></textarea>
-                        <div class="marketing-channel-actions">
-                            <button class="btn btn-secondary marketing-copy-btn" type="button" data-copy-target="marketing-tiktok">Kopioi</button>
-                            <button class="btn btn-primary marketing-share-btn" type="button" data-share-target="marketing-tiktok" data-share-channel="TikTok">Jaa laitteella</button>
-                        </div>
-                    </div>
-
-                    <!-- Lyhytvideon käsikirjoitus -->
-                    <div class="card glass-panel marketing-channel-card marketing-channel-video">
-                        <h3>Lyhytvideon käsikirjoitus</h3>
-                        <textarea id="marketing-video" class="marketing-channel-text" placeholder="TikTok- tai Reels-käsikirjoitus muodostuu tähän."></textarea>
-                        <textarea id="marketing-hashtags" class="marketing-hashtags" placeholder="#hashtagit"></textarea>
-                        <div class="marketing-channel-actions">
-                            <button class="btn btn-secondary marketing-copy-btn" type="button" data-copy-target="marketing-video">Kopioi</button>
-                            <button class="btn btn-primary marketing-share-btn" type="button" data-share-target="marketing-video" data-share-extra="marketing-hashtags" data-share-channel="Lyhytvideo">Jaa laitteella</button>
+                        <div class="marketing-hero-message">
+                            <span>KAMPANJAN PÄÄVIESTI</span>
+                            <strong id="marketing-hero-tagline">Kirjan oma ääni jokaisessa kanavassa.</strong>
                         </div>
                     </div>
                 </div>
+                <p id="marketing-status" class="marketing-studio-status" role="status">Tee ensin analyysi, jotta kampanja voidaan muodostaa teoksen metatiedoista.</p>
+
+                <section class="marketing-studio-section">
+                    <div class="marketing-studio-section-heading">
+                        <div><span class="marketing-studio-step">01</span><div><h3>Kampanjan suunta</h3><p>Määritä tavoite ja luova punainen lanka ennen kanavakohtaisia aineistoja.</p></div></div>
+                        <div class="marketing-studio-readiness"><strong id="marketing-readiness-count">0/4</strong><span>kampanjan ydinosaa valmiina</span></div>
+                    </div>
+                    <div class="marketing-brief-grid">
+                        <div class="marketing-brief-controls">
+                            <label>Kampanjan tavoite
+                                <select id="marketing-campaign-goal">
+                                    <option value="launch">Uutuuden lanseeraus</option>
+                                    <option value="preorder">Ennakkotilausten kasvattaminen</option>
+                                    <option value="awareness">Tunnettuuden rakentaminen</option>
+                                    <option value="backlist">Takaisin löydettäväksi</option>
+                                </select>
+                            </label>
+                            <label>Kampanjan painotus
+                                <input id="marketing-campaign-focus" type="text" placeholder="Esim. kirjailijan ääni, ajankohtainen teema tai vahva tunnelma">
+                            </label>
+                            <label>Sävy
+                                <select id="marketing-campaign-tone">
+                                    <option value="cinematic">Elokuvallinen ja uteliaisuutta herättävä</option>
+                                    <option value="literary">Kirjallinen ja arvokas</option>
+                                    <option value="direct">Suora ja helposti lähestyttävä</option>
+                                    <option value="expert">Asiantunteva ja luottamusta rakentava</option>
+                                </select>
+                            </label>
+                        </div>
+                        <div class="marketing-concept-card">
+                            <label>Kampanjakonsepti<textarea id="marketing-campaign-concept" placeholder="Luova idea ja kampanjan punainen lanka muodostuvat tähän."></textarea></label>
+                            <label>Tagline<input id="marketing-tagline" type="text" placeholder="Lyhyt kampanjan pääviesti"></label>
+                            <label>Kolme ydinviestiä<textarea id="marketing-key-messages" placeholder="Ydinviestit omille riveilleen"></textarea></label>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="marketing-studio-section">
+                    <div class="marketing-studio-section-heading">
+                        <div><span class="marketing-studio-step">02</span><div><h3>Kampanja herää eloon</h3><p>Esikatselut käyttävät valittua oikeaa kansikuvaa ja kampanjan pääviestiä.</p></div></div>
+                        <label class="marketing-cover-picker">Kampanjakansi<select id="marketing-cover-select"><option value="">Ei kansikuvaa</option></select></label>
+                    </div>
+                    <div class="marketing-preview-grid">
+                        <article class="marketing-preview-card marketing-preview-square">
+                            <div class="marketing-preview-brand">SKRIPTLAB BOOKS</div>
+                            <div class="marketing-preview-cover" id="marketing-preview-instagram-cover"><span>KANSI</span></div>
+                            <strong id="marketing-preview-instagram-tagline">Kirjan oma ääni jokaisessa kanavassa.</strong>
+                            <small>INSTAGRAM · KANSIPALJASTUS</small>
+                        </article>
+                        <article class="marketing-preview-card marketing-preview-story">
+                            <div class="marketing-preview-story-glow"></div>
+                            <span>UUSI TEOS</span>
+                            <div class="marketing-preview-cover" id="marketing-preview-story-cover"><span>KANSI</span></div>
+                            <strong id="marketing-preview-story-tagline">Lue ensimmäisten joukossa.</strong>
+                            <button type="button">TUTUSTU TEOKSEEN</button>
+                        </article>
+                        <article class="marketing-preview-card marketing-preview-media">
+                            <span>MEDIA & UUTISKIRJE</span>
+                            <h4 id="marketing-preview-email-subject">Tutustu uuteen teokseen</h4>
+                            <p id="marketing-preview-press-pitch">Mediapitch muodostuu analyysin ja kampanjakonseptin perusteella.</p>
+                            <div class="marketing-preview-media-footer"><span>PRESS KIT</span><span>→</span></div>
+                        </article>
+                        <article class="marketing-preview-card marketing-preview-video">
+                            <span class="marketing-video-duration">00:15</span>
+                            <div class="marketing-video-play">▶</div>
+                            <strong>Reels / TikTok</strong>
+                            <p id="marketing-preview-video-hook">Koukku, tunnelma ja toimintakehotus yhdessä käsikirjoituksessa.</p>
+                            <small>9:16 · VIDEO SCRIPT</small>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="marketing-studio-section">
+                    <div class="marketing-studio-section-heading">
+                        <div><span class="marketing-studio-step">03</span><div><h3>Myynti- ja kanavatekstit</h3><p>Kaikki aineistot ovat muokattavia, kopioitavia ja jaettavia.</p></div></div>
+                    </div>
+                    <div class="marketing-sales-grid">
+                        <article class="marketing-copy-card">
+                            <div><span>HISSIPUHE</span><button class="marketing-copy-icon marketing-copy-btn" type="button" data-copy-target="marketing-short">Kopioi</button></div>
+                            <textarea id="marketing-short" placeholder="Lyhyt kuvaus muodostuu analyysin pohjalta."></textarea>
+                        </article>
+                        <article class="marketing-copy-card">
+                            <div><span>VERKKOKAUPAN KUVAUS</span><button class="marketing-copy-icon marketing-copy-btn" type="button" data-copy-target="marketing-long">Kopioi</button></div>
+                            <textarea id="marketing-long" placeholder="Pidempi verkkokauppa- tai esittelyteksti muodostuu tähän."></textarea>
+                        </article>
+                    </div>
+                    <div class="marketing-channel-grid">
+                        <article class="marketing-channel-card marketing-channel-instagram">
+                            <div class="marketing-channel-card-heading"><span>IG</span><div><h3>Instagram</h3><small>Kansipaljastus ja feed</small></div></div>
+                            <textarea id="marketing-instagram" class="marketing-channel-text" placeholder="Instagram-teksti muodostuu tähän."></textarea>
+                            <div class="marketing-channel-actions">
+                                <button class="btn btn-secondary marketing-copy-btn" type="button" data-copy-target="marketing-instagram">Kopioi</button>
+                                <button class="btn btn-primary marketing-share-btn" type="button" data-share-target="marketing-instagram" data-share-channel="Instagram">Jaa</button>
+                            </div>
+                        </article>
+                        <article class="marketing-channel-card marketing-channel-facebook">
+                            <div class="marketing-channel-card-heading"><span>FB</span><div><h3>Facebook</h3><small>Yhteisö ja keskustelu</small></div></div>
+                            <textarea id="marketing-facebook" class="marketing-channel-text" placeholder="Facebook-teksti muodostuu tähän."></textarea>
+                            <div class="marketing-channel-actions">
+                                <button class="btn btn-secondary marketing-copy-btn" type="button" data-copy-target="marketing-facebook">Kopioi</button>
+                                <button class="btn btn-primary marketing-share-btn" type="button" data-share-target="marketing-facebook" data-share-channel="Facebook">Jaa</button>
+                            </div>
+                        </article>
+                        <article class="marketing-channel-card marketing-channel-tiktok">
+                            <div class="marketing-channel-card-heading"><span>TT</span><div><h3>TikTok</h3><small>BookTok-koukku</small></div></div>
+                            <textarea id="marketing-tiktok" class="marketing-channel-text" placeholder="TikTok-julkaisun teksti muodostuu tähän."></textarea>
+                            <div class="marketing-channel-actions">
+                                <button class="btn btn-secondary marketing-copy-btn" type="button" data-copy-target="marketing-tiktok">Kopioi</button>
+                                <button class="btn btn-primary marketing-share-btn" type="button" data-share-target="marketing-tiktok" data-share-channel="TikTok">Jaa</button>
+                            </div>
+                        </article>
+                        <article class="marketing-channel-card marketing-channel-video">
+                            <div class="marketing-channel-card-heading"><span>▶</span><div><h3>Lyhytvideo</h3><small>15–30 sekunnin käsikirjoitus</small></div></div>
+                            <textarea id="marketing-video" class="marketing-channel-text" placeholder="TikTok- tai Reels-käsikirjoitus muodostuu tähän."></textarea>
+                            <textarea id="marketing-hashtags" class="marketing-hashtags" placeholder="#hashtagit"></textarea>
+                            <div class="marketing-channel-actions">
+                                <button class="btn btn-secondary marketing-copy-btn" type="button" data-copy-target="marketing-video">Kopioi</button>
+                                <button class="btn btn-primary marketing-share-btn" type="button" data-share-target="marketing-video" data-share-extra="marketing-hashtags" data-share-channel="Lyhytvideo">Jaa</button>
+                            </div>
+                        </article>
+                    </div>
+                    <div class="marketing-media-copy-grid">
+                        <article class="marketing-copy-card"><div><span>UUTISKIRJEEN OTSIKKO</span><button class="marketing-copy-icon marketing-copy-btn" type="button" data-copy-target="marketing-email-subject">Kopioi</button></div><input id="marketing-email-subject" type="text" placeholder="Uutiskirjeen otsikko"></article>
+                        <article class="marketing-copy-card"><div><span>MEDIAPITCH</span><button class="marketing-copy-icon marketing-copy-btn" type="button" data-copy-target="marketing-press-pitch">Kopioi</button></div><textarea id="marketing-press-pitch" placeholder="Tiivis pitch medialle ja vaikuttajille"></textarea></article>
+                    </div>
+                </section>
+
+                <section class="marketing-studio-section">
+                    <div class="marketing-studio-section-heading">
+                        <div><span class="marketing-studio-step">04</span><div><h3>Lanseerauksen rytmi</h3><p>Neljä selkeää vaihetta pitää kampanjan tarinan yhtenäisenä.</p></div></div>
+                    </div>
+                    <div class="marketing-timeline">
+                        <article><span>–3</span><div><strong>Teaser</strong><small>Tunnelma ja ensimmäinen ydinviesti</small></div></article>
+                        <article><span>–2</span><div><strong>Kansipaljastus</strong><small>Kansi, tagline ja tekijän näkökulma</small></div></article>
+                        <article class="active"><span>0</span><div><strong>Julkaisuviikko</strong><small>Video, kanavapostaukset ja mediapitch</small></div></article>
+                        <article><span>+1</span><div><strong>Jälkihoito</strong><small>Lukijakysymys, nostot ja muistutus</small></div></article>
+                    </div>
+                    <textarea id="marketing-content-calendar" class="marketing-calendar-editor" placeholder="AI:n muodostama tarkempi sisältökalenteri"></textarea>
+                </section>
+
+                <section class="marketing-package-card">
+                    <div class="marketing-package-icon">ZIP</div>
+                    <div class="marketing-package-copy">
+                        <span>TOIMITUSVALMIS KAMPANJAPAKETTI</span>
+                        <h3>Kaikki aineistot yhdellä latauksella</h3>
+                        <p>Brief, myyntitekstit, somekanavat, videokäsikirjoitus, mediapitch, sisältökalenteri ja valittu kansikuva.</p>
+                        <div class="marketing-package-files"><span>BRIEF</span><span>SOME</span><span>VIDEO</span><span>MEDIA</span><span>KANSI</span></div>
+                    </div>
+                    <button class="btn btn-primary" id="marketing-download-package-btn" type="button">Muodosta ja lataa ZIP</button>
+                </section>
             </div>
 
             <!-- 9. VIEW: TAITTO -->
@@ -3260,6 +3475,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-<script src="app.js?v=101"></script>
+    <script src="app.js?v=105"></script>
 </body>
 </html>

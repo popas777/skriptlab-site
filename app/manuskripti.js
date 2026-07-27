@@ -33,6 +33,22 @@
   const params = new URLSearchParams(window.location.search);
   const requestedStep = params.get("step") || "";
   const requestedProjectId = params.get("project") || "";
+  let authUser = null;
+  try {
+    authUser = JSON.parse(localStorage.getItem("skriptlab_auth_user") || "null");
+  } catch (error) {
+    authUser = null;
+  }
+  const publisherDemoMode = authUser?.access_group_name === "Kustantamodemo";
+  document.body.classList.toggle("publisher-demo-mode", publisherDemoMode);
+  if (publisherDemoMode) {
+    const libraryActions = document.querySelector(".library-actions");
+    const libraryHint = libraryActions?.nextElementSibling;
+    if (libraryActions) libraryActions.hidden = true;
+    if (libraryHint?.classList.contains("hint")) libraryHint.hidden = true;
+    const libraryLead = document.querySelector(".home-lead");
+    if (libraryLead) libraryLead.textContent = "Tarkastettu demokirja ja sen kustannustoimituksen työvaiheet.";
+  }
   let pendingInitialStep = ["kasikirjoitus", "analyysi", "rakenne"].includes(requestedStep) ? requestedStep : "";
 
   const ANALYSIS_SECTIONS = [
@@ -547,11 +563,13 @@
   }
 
   function canDeleteProject(item) {
+    if (publisherDemoMode) return false;
     const level = item.access_level || "";
     return !level || level === "owner" || level === "admin";
   }
 
   function canRenameProject(item) {
+    if (publisherDemoMode) return false;
     const level = item.access_level || "";
     return !level || level === "owner" || level === "admin" || level === "shared_edit";
   }

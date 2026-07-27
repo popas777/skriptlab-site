@@ -190,6 +190,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (error) {
         console.warn('Käyttäjän käyttöoikeuksia ei saatu päivitettyä.', error);
     }
+    const publisherDemoMode = currentUser?.access_group_name === 'Kustantamodemo';
+    document.body.classList.toggle('publisher-demo-mode', publisherDemoMode);
+    document.getElementById('publisher-demo-banner')?.classList.toggle('hidden', !publisherDemoMode);
     let availableProjects = [];
     let translationModels = [];
     let latestTranslationText = '';
@@ -219,6 +222,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 	    let currentMiscAssets = [];
 	    let currentLayoutAssets = [];
     let currentCoverImages = [];
+    let marketingContextCovers = [];
     let selectedCoverReference = null;
 	let latestCoverLayout = null;
 	let coverLayoutDefaultsProjectId = null;
@@ -309,8 +313,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         'view-om-kokonaisuus',
         'view-om-vienti'
     ]);
-    const writerViews = new Set(['view-kirjani', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-analyysi', 'view-rakenne', 'view-kehityseditointi', 'view-ai-tyonkulku', 'view-viimeistely', 'view-kirja', 'view-julkaisupaketti', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-kaannokset', 'view-elamakerta']);
-    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-analyysi', 'view-rakenne', 'view-kehityseditointi', 'view-ai-tyonkulku', 'view-viimeistely', 'view-kirja', 'view-julkaisupaketti', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
+    const writerViews = new Set(['view-kirjani', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-analyysi', 'view-rakenne', 'view-kehityseditointi', 'view-ai-tyonkulku', 'view-viimeistely', 'view-kirja', 'view-julkaisupaketti', 'view-monikielinen-julkaisu', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-kaannokset', 'view-elamakerta']);
+    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-analyysi', 'view-rakenne', 'view-kehityseditointi', 'view-ai-tyonkulku', 'view-viimeistely', 'view-kirja', 'view-julkaisupaketti', 'view-monikielinen-julkaisu', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset', 'view-kaannostyotila']);
     const biographyViews = new Set(['view-kirjani', 'view-rakenne', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-ai-tyonkulku', 'view-viimeistely', 'view-elamakerta', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-audio', 'view-kirja', 'view-julkaisupaketti', 'view-julkaise']);
     const accessModuleViews = {
@@ -328,6 +332,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         publish: ['view-julkaise'],
         ai_workflow: ['view-ai-tyonkulku'],
         translations: ['view-kaannokset'],
+        multilingual_publication: ['view-monikielinen-julkaisu'],
         translation_workspace: ['view-kaannostyotila'],
         biography: ['view-elamakerta'],
         product_info: ['view-tuotetiedot'],
@@ -513,7 +518,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (userName) userName.textContent = currentUser.display_name || currentUser.email || 'Käyttäjä';
         if (userEmail) userEmail.textContent = currentUser.email || '';
         if (roleBadge) {
-            roleBadge.textContent = `Käyttäjäryhmä: ${roleLabels[currentUser.role] || currentUser.role}`;
+            roleBadge.textContent = `Käyttäjäryhmä: ${currentUser.access_group_name || roleLabels[currentUser.role] || currentUser.role}`;
         }
     }
 
@@ -1987,6 +1992,16 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     let currentPublicationPackageAsset = null;
     let currentPublicationPackageCovers = [];
+    let multilingualPublicationReadiness = null;
+    let multilingualPublicationTranslations = [];
+    let selectedMultilingualLanguage = 'sv';
+    const multilingualMarkets = [
+        { code: 'sv', name: 'Ruotsi', genitive: 'ruotsin', edition: 'Ruotsinkielinen painos', region: 'Pohjoismaat', reach: 'Ruotsi · Suomi', recommendation: 'Suositus' },
+        { code: 'en', name: 'Englanti', genitive: 'englannin', edition: 'Englanninkielinen painos', region: 'Kansainvälinen', reach: 'Globaali · KDP', recommendation: 'Laajin yleisö' },
+        { code: 'de', name: 'Saksa', genitive: 'saksan', edition: 'Saksankielinen painos', region: 'DACH', reach: 'Saksa · Itävalta · Sveitsi', recommendation: '' },
+        { code: 'et', name: 'Viro', genitive: 'viron', edition: 'Vironkielinen painos', region: 'Baltia', reach: 'Viro · Suomi', recommendation: '' },
+        { code: 'fr', name: 'Ranska', genitive: 'ranskan', edition: 'Ranskankielinen painos', region: 'Frankofonia', reach: 'Ranska · Belgia · Kanada', recommendation: '' }
+    ];
 
     function setPublicationPackageStatus(message, isError = false) {
         const status = document.getElementById('publication-package-status');
@@ -2185,6 +2200,280 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         } finally {
             if (button) button.disabled = false;
         }
+    }
+
+    function multilingualSetStatus(message, isError = false) {
+        const status = document.getElementById('multilingual-publication-status');
+        if (!status) return;
+        status.textContent = message;
+        status.style.color = isError ? '#ffb4b4' : 'var(--text-secondary)';
+    }
+
+    function latestMultilingualTranslation(language) {
+        return multilingualPublicationTranslations.find(item => item.target_language === language) || null;
+    }
+
+    function multilingualTranslationIsReady(item) {
+        return Boolean(item && ['completed', 'reviewed'].includes(item.status) && String(item.translated_text || '').trim());
+    }
+
+    function multilingualTranslationState(item) {
+        if (!item) return { label: 'Ei aloitettu', className: '', progress: 0 };
+        if (item.status === 'reviewed') return { label: 'Tarkastettu', className: 'is-reviewed', progress: 2 };
+        if (item.status === 'completed') return { label: 'Käännös valmis', className: 'has-translation', progress: 1 };
+        if (item.status === 'partial') return { label: 'Tarkistettava', className: 'has-translation', progress: 1 };
+        return { label: translationStatusLabel(item.status), className: 'has-translation', progress: 1 };
+    }
+
+    function multilingualSelectedMarket() {
+        return multilingualMarkets.find(item => item.code === selectedMultilingualLanguage) || multilingualMarkets[0];
+    }
+
+    function renderMultilingualFlow(item) {
+        const source = document.getElementById('multilingual-flow-source');
+        const translation = document.getElementById('multilingual-flow-translation');
+        const localization = document.getElementById('multilingual-flow-localization');
+        const packageStep = document.getElementById('multilingual-flow-package');
+        const sourceDetail = document.getElementById('multilingual-flow-source-detail');
+        [source, translation, localization, packageStep].forEach(step => step?.classList.remove('is-ready', 'is-active'));
+
+        const packageVersion = publicationPackageVersionNumber(multilingualPublicationReadiness?.latest_version)
+            || publicationPackageVersionNumber(multilingualPublicationReadiness?.latest_package);
+        if (multilingualPublicationReadiness?.latest_package) {
+            source?.classList.add('is-ready');
+            if (sourceDetail) sourceDetail.textContent = packageVersion ? `Julkaisupaketti V${packageVersion}` : 'Julkaisupaketti valmis';
+        } else {
+            source?.classList.add('is-active');
+            if (sourceDetail) sourceDetail.textContent = 'Muodosta lähdepaketti';
+        }
+
+        if (!item) {
+            if (multilingualPublicationReadiness?.latest_package) translation?.classList.add('is-active');
+            return;
+        }
+        if (multilingualTranslationIsReady(item)) translation?.classList.add('is-ready');
+        else translation?.classList.add('is-active');
+
+        if (item.status === 'reviewed') {
+            localization?.classList.add('is-active');
+        } else if (multilingualTranslationIsReady(item)) {
+            localization?.classList.add('is-active');
+        }
+    }
+
+    function renderMultilingualLanguageCards() {
+        const grid = document.getElementById('multilingual-language-grid');
+        if (!grid) return;
+        grid.innerHTML = multilingualMarkets.map(market => {
+            const translation = latestMultilingualTranslation(market.code);
+            const state = multilingualTranslationState(translation);
+            return `
+                <button class="multilingual-language-card ${state.className} ${market.code === selectedMultilingualLanguage ? 'active' : ''}"
+                    data-multilingual-language="${market.code}" data-code="${market.code}" type="button">
+                    <span class="multilingual-language-card-top">
+                        <span class="multilingual-language-code">${market.code.toUpperCase()}</span>
+                        <span class="multilingual-language-state">${escapeHtml(state.label)}</span>
+                    </span>
+                    <span class="multilingual-language-card-bottom">
+                        <span><strong>${escapeHtml(market.name)}</strong><small>${escapeHtml(market.reach)}</small></span>
+                        ${market.recommendation ? `<span class="multilingual-language-recommendation">${escapeHtml(market.recommendation)}</span>` : ''}
+                    </span>
+                </button>
+            `;
+        }).join('');
+        grid.querySelectorAll('[data-multilingual-language]').forEach(button => {
+            button.addEventListener('click', () => {
+                selectedMultilingualLanguage = button.dataset.multilingualLanguage || 'sv';
+                renderMultilingualPublication();
+            });
+        });
+    }
+
+    function renderMultilingualEdition() {
+        const market = multilingualSelectedMarket();
+        const item = latestMultilingualTranslation(market.code);
+        const state = multilingualTranslationState(item);
+        const hasSourcePackage = Boolean(multilingualPublicationReadiness?.latest_package);
+        const sourceReady = hasSourcePackage ? 1 : 0;
+        const translationReady = multilingualTranslationIsReady(item) ? 1 : 0;
+        const reviewReady = item?.status === 'reviewed' ? 1 : 0;
+        const completeSteps = sourceReady + translationReady + reviewReady;
+        const progressPercent = completeSteps * 20;
+
+        const kicker = document.getElementById('multilingual-edition-kicker');
+        const title = document.getElementById('multilingual-edition-title');
+        const summary = document.getElementById('multilingual-edition-summary');
+        const status = document.getElementById('multilingual-edition-status');
+        const progress = document.getElementById('multilingual-edition-progress-bar');
+        const stages = document.getElementById('multilingual-edition-stages');
+        const primary = document.getElementById('multilingual-primary-action-btn');
+        const note = document.getElementById('multilingual-edition-note');
+
+        if (kicker) kicker.textContent = `${market.name.toLocaleUpperCase('fi-FI')} · ${market.region.toLocaleUpperCase('fi-FI')}`;
+        if (title) title.textContent = market.edition;
+        if (progress) progress.style.width = `${progressPercent}%`;
+        if (status) {
+            status.className = `multilingual-edition-status${item?.status === 'reviewed' ? ' is-reviewed' : ''}`;
+            status.textContent = item?.status === 'reviewed'
+                ? 'VALMIS KIELIVERSIOKSI'
+                : multilingualTranslationIsReady(item)
+                    ? 'VALMIS TARKASTUKSEEN'
+                    : item
+                        ? 'KÄÄNNÖS KÄYNNISSÄ'
+                        : 'VALMIS ALOITETTAVAKSI';
+        }
+        if (summary) {
+            summary.textContent = item?.status === 'reviewed'
+                ? `Tarkastettu ${market.genitive} käännös voidaan nyt viedä omaksi kirjaprojektiksi ja viimeistellä markkinakohtaiseksi julkaisuksi.`
+                : multilingualTranslationIsReady(item)
+                    ? `Käännös on valmis. Seuraavaksi tarkistetaan kieli, termistö ja kirjailijan äänen säilyminen ennen lokalisaatiota.`
+                    : item
+                        ? `Tallennettu käännös sisältää ${Number(item.chunks_count || 0).toLocaleString('fi-FI')} käsiteltävää osaa. Avaa työkalut ja viimeistele puuttuvat kohdat.`
+                        : `Valmis lähde siirtyy ${market.genitive} käännökseen samoine rakenne-, tyyli- ja sanastotietoineen.`;
+        }
+
+        const stageData = [
+            { number: '01', title: 'Lähdepaketti', detail: hasSourcePackage ? 'Lukittu versio' : 'Muodostamatta', state: hasSourcePackage ? 'is-ready' : 'is-active' },
+            { number: '02', title: 'Käännös', detail: translationReady ? 'Teksti valmis' : item ? 'Kesken' : 'Odottaa', state: translationReady ? 'is-ready' : hasSourcePackage ? 'is-active' : '' },
+            { number: '03', title: 'Kielentarkastus', detail: reviewReady ? 'Hyväksytty' : translationReady ? 'Seuraavaksi' : 'Odottaa', state: reviewReady ? 'is-ready' : translationReady ? 'is-active' : '' },
+            { number: '04', title: 'Lokalisaatio', detail: reviewReady ? 'Metadata ja kansi' : 'Odottaa', state: reviewReady ? 'is-active' : '' },
+            { number: '05', title: 'Julkaisupaketti', detail: 'Oma ZIP-paketti', state: '' }
+        ];
+        if (stages) {
+            stages.innerHTML = stageData.map(stage => `
+                <article class="multilingual-edition-stage ${stage.state}">
+                    <span>${stage.state === 'is-ready' ? '✓' : stage.number}</span>
+                    <strong>${escapeHtml(stage.title)}</strong>
+                    <small>${escapeHtml(stage.detail)}</small>
+                </article>
+            `).join('');
+        }
+
+        if (primary) {
+            primary.disabled = false;
+            if (item?.status === 'reviewed') {
+                primary.textContent = 'Luo oma kieliversio';
+                primary.dataset.multilingualAction = 'export';
+            } else if (multilingualTranslationIsReady(item)) {
+                primary.textContent = 'Tarkasta käännös';
+                primary.dataset.multilingualAction = 'review';
+            } else if (item) {
+                primary.textContent = 'Jatka käännöstä';
+                primary.dataset.multilingualAction = 'continue';
+            } else {
+                primary.textContent = 'Aloita käännös';
+                primary.dataset.multilingualAction = 'start';
+            }
+        }
+        if (note) {
+            note.textContent = item?.status === 'reviewed'
+                ? 'Uusi kieliversio luodaan omaksi kirjaprojektikseen. Sen metadata, kansitekstit ja julkaisupaketti viimeistellään erikseen.'
+                : 'Käännös tallentuu versiona ja voidaan tarkastuksen jälkeen viedä omaksi kirjaprojektikseen.';
+        }
+        renderMultilingualFlow(item);
+    }
+
+    function renderMultilingualPublication() {
+        const project = window.manuscriptData;
+        const current = document.getElementById('multilingual-publication-current-project');
+        const version = document.getElementById('multilingual-publication-version');
+        const editionCount = document.getElementById('multilingual-publication-edition-count');
+        const proofTitle = document.getElementById('multilingual-release-proof-title');
+        const proofDetail = document.getElementById('multilingual-release-proof-detail');
+        const versionNumber = publicationPackageVersionNumber(multilingualPublicationReadiness?.latest_version)
+            || publicationPackageVersionNumber(multilingualPublicationReadiness?.latest_package);
+        const readyEditions = multilingualMarkets.filter(market => multilingualTranslationIsReady(latestMultilingualTranslation(market.code))).length;
+
+        if (current) current.textContent = project
+            ? `Lähdeteos: ${project.title || 'Nimetön'}${project.author ? ` · ${project.author}` : ''}`
+            : 'Valitse käsikirjoitus, josta kieliversiot muodostetaan.';
+        if (version) version.textContent = versionNumber ? `V${versionNumber}` : 'V0';
+        if (editionCount) editionCount.textContent = String(readyEditions);
+        if (proofTitle) proofTitle.textContent = versionNumber ? `Lähdeversio V${versionNumber} lukittu` : 'Jäljitettävä lähtöaineisto';
+        if (proofDetail) {
+            proofDetail.textContent = versionNumber
+                ? `Kaikki kieliversiot voidaan jäljittää teoksen ${project?.title || 'lähdeteoksen'} versioon V${versionNumber}.`
+                : 'Muodosta ensin Julkaisupaketti, jotta kieliversio voidaan sitoa näkyvään lähdeversioon.';
+        }
+        renderMultilingualLanguageCards();
+        renderMultilingualEdition();
+    }
+
+    async function loadMultilingualPublication() {
+        multilingualPublicationReadiness = null;
+        multilingualPublicationTranslations = [];
+        if (!window.manuscriptData?.id) {
+            renderMultilingualPublication();
+            multilingualSetStatus('Valitse ensin käsikirjoitus.', true);
+            return;
+        }
+        multilingualSetStatus('Tarkistetaan lähdepaketti ja tallennetut kieliversiot…');
+        const projectId = window.manuscriptData.id;
+        const fetchData = async path => {
+            const response = await apiFetch(path);
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'Tietojen lataus epäonnistui.');
+            return data;
+        };
+        const [readinessResult, translationsResult] = await Promise.allSettled([
+            fetchData(`/api/projects/${projectId}/publication-package/readiness`),
+            fetchData(`/api/projects/${projectId}/translations`)
+        ]);
+        if (readinessResult.status === 'fulfilled') multilingualPublicationReadiness = readinessResult.value;
+        if (translationsResult.status === 'fulfilled') {
+            multilingualPublicationTranslations = (translationsResult.value || [])
+                .filter(item => item.target_language && item.target_language !== 'fi');
+        }
+        renderMultilingualPublication();
+        if (readinessResult.status === 'rejected' && translationsResult.status === 'rejected') {
+            multilingualSetStatus(readinessResult.reason?.message || translationsResult.reason?.message || 'Tietojen lataus epäonnistui.', true);
+        } else if (!multilingualPublicationReadiness?.latest_package) {
+            multilingualSetStatus('Käännöksen voi aloittaa, mutta muodosta Julkaisupaketti, jotta kieliversio sidotaan näkyvään lähdeversioon.');
+        } else {
+            const versionNumber = publicationPackageVersionNumber(multilingualPublicationReadiness.latest_version)
+                || publicationPackageVersionNumber(multilingualPublicationReadiness.latest_package);
+            multilingualSetStatus(`Lähdepaketti${versionNumber ? ` V${versionNumber}` : ''} ja ${multilingualPublicationTranslations.length} tallennettua käännösversiota ladattu.`);
+        }
+    }
+
+    async function openMultilingualTranslation(language, panel = 'create') {
+        openModule('view-kaannokset');
+        await loadTranslationModels();
+        const sourceSelect = document.getElementById('finnish-translation-source-select');
+        const sourceLanguageSelect = document.getElementById('finnish-translation-source-language-select');
+        const targetSelect = document.getElementById('finnish-translation-target-language-select');
+        if (sourceSelect) sourceSelect.value = 'book';
+        if (sourceLanguageSelect) sourceLanguageSelect.value = 'fi';
+        if (targetSelect) targetSelect.value = language;
+        updateFinnishTranslationProjectSelect({ preferActive: true });
+        updateUnifiedTranslationLabels();
+        await updateFinnishTranslationEstimate();
+
+        if (panel !== 'create') {
+            await renderFinnishTranslationHistory();
+            const targetTranslation = currentFinnishTranslationHistory.find(item => item.target_language === language);
+            if (targetTranslation) {
+                selectedFinnishTranslation = targetTranslation;
+                populateFinnishTranslationReviewSelect();
+                renderSelectedFinnishTranslationForReview();
+                renderFinnishTranslationParts();
+                renderFinnishTranslationAiCheck();
+            }
+        }
+        showFinnishTranslationPanel(panel === 'review' ? 'suomentaja-ai-check-panel' : panel === 'continue' ? 'suomentaja-parts-panel' : 'suomentaja-create-panel');
+    }
+
+    async function exportMultilingualEdition() {
+        const market = multilingualSelectedMarket();
+        const translation = latestMultilingualTranslation(market.code);
+        if (!multilingualTranslationIsReady(translation)) {
+            multilingualSetStatus('Viimeistele käännös ennen kieliversion luomista.', true);
+            return;
+        }
+        const project = await exportTranslationAsProject(translation.id);
+        if (!project) return;
+        openModule('view-julkaisupaketti');
+        await loadPublicationPackageReadiness();
     }
 
     function renderPublishView() {
@@ -3700,6 +3989,30 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     // --- 2. SPA Navigation Logic ---
     const navItems = document.querySelectorAll('#nav-menu li[data-view]');
     const views = document.querySelectorAll('.view-section');
+    if (publisherDemoMode) {
+        const demoNavConfig = [
+            ['view-kirjani', 'Yleiskuva'],
+            ['view-analyysi', 'Analyysi ja rakenne'],
+            ['view-kehityseditointi', 'Toimituksellinen editointi'],
+            ['view-kirjoita-editoi', 'Työpöytäeditori'],
+            ['view-oikoluku', 'Oikoluku ja viimeistely'],
+            ['view-muut-toiminnot', 'Oheisaineistot'],
+            ['view-tuotetiedot', 'Tuotetiedot'],
+            ['view-kuvitus', 'Kansi ja kuvitus'],
+            ['view-kirja', 'Valmis kirja ja taitto'],
+            ['view-julkaisupaketti', 'Julkaisupaketti'],
+            ['view-monikielinen-julkaisu', 'Monikielinen julkaisu'],
+            ['view-markkinointi', 'Kampanjastudio'],
+            ['view-viimeistely', 'Versiohistoria']
+        ];
+        const navMenu = document.getElementById('nav-menu');
+        demoNavConfig.forEach(([viewId, label], index) => {
+            const item = document.querySelector(`#nav-menu li[data-view="${viewId}"]`);
+            if (!item) return;
+            item.innerHTML = `<span class="demo-nav-step">${String(index).padStart(2, '0')}</span><span>${label}</span>`;
+            navMenu?.appendChild(item);
+        });
+    }
 
     function canonicalViewId(viewId) {
         if (viewId === 'view-kirjoita' || viewId === 'view-toimitus') return 'view-mobiilieditori';
@@ -3801,6 +4114,13 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (viewId === 'view-julkaisupaketti') {
             loadPublicationPackageReadiness();
         }
+        if (viewId === 'view-monikielinen-julkaisu') {
+            loadMultilingualPublication();
+        }
+        if (viewId === 'view-markkinointi') {
+            renderMarketingMaterialsFromAnalysis(false);
+            loadMarketingContext();
+        }
     }
 
     function persistPendingModuleEdits(nextViewId) {
@@ -3840,9 +4160,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             if (nextViewId === 'view-oikoluku') {
                 renderProofreadView();
             }
-            if (nextViewId === 'view-markkinointi') {
-                renderMarketingMaterialsFromAnalysis(false);
-            }
             if (nextViewId === 'view-kaannokset') {
                 loadTranslationModels();
                 updateFinnishTranslationProjectSelect();
@@ -3867,9 +4184,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             if (nextViewId === 'view-tuotetiedot') {
                 renderProductInfo();
             }
-            if (nextViewId === 'view-markkinointi') {
-                renderMarketingMaterialsFromAnalysis(false);
-            }
             if (nextViewId === 'view-audio') {
                 renderAudioView();
             }
@@ -3892,6 +4206,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 document.getElementById('top-book-name').textContent = 'Käsikirjoitus: Valitse projekti...';
             }
         });
+    });
+    document.querySelectorAll('[data-demo-view]').forEach(button => {
+        button.addEventListener('click', () => openModule(button.dataset.demoView));
     });
     openModule(currentViewId);
     
@@ -6894,6 +7211,105 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
     }
 
+    function marketingAnalysisText(analysis, keys, fallback = '') {
+        for (const key of keys) {
+            const value = analysis?.[key];
+            if (typeof value === 'string' && value.trim()) return value.trim();
+        }
+        return fallback;
+    }
+
+    function selectedMarketingCover() {
+        const selectedId = document.getElementById('marketing-cover-select')?.value || '';
+        return marketingContextCovers.find(item => String(item.id) === String(selectedId)) || null;
+    }
+
+    function renderMarketingCoverTarget(element, cover) {
+        if (!element) return;
+        element.innerHTML = cover?.data_url
+            ? `<img src="${cover.data_url}" alt="${escapeHtml(cover.title || 'Kampanjakansi')}">`
+            : '<span>KANSI</span>';
+    }
+
+    function marketingFieldValue(id, fallback = '') {
+        return document.getElementById(id)?.value?.trim() || fallback;
+    }
+
+    function renderMarketingStudioVisuals() {
+        const cover = selectedMarketingCover();
+        renderMarketingCoverTarget(document.getElementById('marketing-hero-cover'), cover);
+        renderMarketingCoverTarget(document.getElementById('marketing-preview-instagram-cover'), cover);
+        renderMarketingCoverTarget(document.getElementById('marketing-preview-story-cover'), cover);
+
+        const title = window.manuscriptData?.title || 'Teos';
+        const tagline = marketingFieldValue('marketing-tagline', `${title} — tarina, joka jää mieleen.`);
+        const emailSubject = marketingFieldValue('marketing-email-subject', `Tutustu teokseen ${title}`);
+        const pressPitch = marketingFieldValue('marketing-press-pitch', 'Mediapitch muodostuu analyysin ja kampanjakonseptin perusteella.');
+        const video = marketingFieldValue('marketing-video', 'Koukku, tunnelma ja toimintakehotus yhdessä käsikirjoituksessa.');
+        const setText = (id, value) => {
+            const element = document.getElementById(id);
+            if (element) element.textContent = value;
+        };
+        setText('marketing-hero-tagline', tagline);
+        setText('marketing-preview-instagram-tagline', tagline);
+        setText('marketing-preview-story-tagline', tagline);
+        setText('marketing-preview-email-subject', emailSubject);
+        setText('marketing-preview-press-pitch', pressPitch);
+        setText('marketing-preview-video-hook', video.split('\n').find(Boolean) || video);
+
+        const readiness = [
+            marketingFieldValue('marketing-campaign-concept'),
+            marketingFieldValue('marketing-tagline'),
+            marketingFieldValue('marketing-short'),
+            [
+                marketingFieldValue('marketing-instagram'),
+                marketingFieldValue('marketing-facebook'),
+                marketingFieldValue('marketing-tiktok'),
+                marketingFieldValue('marketing-video')
+            ].some(Boolean) ? 'channels' : ''
+        ].filter(Boolean).length;
+        setText('marketing-readiness-count', `${readiness}/4`);
+    }
+
+    function populateMarketingCovers(covers = []) {
+        marketingContextCovers = Array.isArray(covers) ? covers : [];
+        const select = document.getElementById('marketing-cover-select');
+        if (!select) return;
+        const previous = select.value;
+        select.innerHTML = [
+            '<option value="">Ei kansikuvaa</option>',
+            ...marketingContextCovers.map((cover, index) => (
+                `<option value="${cover.id}">${escapeHtml(cover.title || `Kansi ${index + 1}`)}</option>`
+            ))
+        ].join('');
+        if (marketingContextCovers.some(item => String(item.id) === String(previous))) {
+            select.value = previous;
+        } else if (marketingContextCovers.length) {
+            select.value = String(marketingContextCovers[0].id);
+        }
+        renderMarketingStudioVisuals();
+    }
+
+    async function loadMarketingContext() {
+        if (!window.manuscriptData?.id) {
+            populateMarketingCovers([]);
+            return;
+        }
+        try {
+            const response = await apiFetch(`/api/projects/${window.manuscriptData.id}/marketing/context`);
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'Kampanjan kansien lataus epäonnistui.');
+            populateMarketingCovers(data?.covers || []);
+            const genre = document.getElementById('marketing-genre-badge');
+            const audience = document.getElementById('marketing-audience-badge');
+            if (genre) genre.textContent = data?.genre || 'Genre odottaa analyysiä';
+            if (audience) audience.textContent = data?.audience || 'Kohderyhmä odottaa analyysiä';
+        } catch (error) {
+            populateMarketingCovers([]);
+            setMarketingStatus(error.message, true);
+        }
+    }
+
     function renderMarketingMaterialsFromAnalysis(force = false) {
         const current = document.getElementById('marketing-current-project');
         if (current) {
@@ -6903,8 +7319,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         const analysis = window.manuscriptData?.analysis || {};
         const title = window.manuscriptData?.title || 'Teos';
+        const productInfo = analysis.product_info && typeof analysis.product_info === 'object' ? analysis.product_info : {};
         const shortText = analysis.marketing_short || analysis.backcover || analysis.synopsis || '';
         const longText = analysis.marketing_long || analysis.backcover || analysis.synopsis || '';
+        setMarketingFieldValue('marketing-campaign-concept', analysis.campaign_concept || '', force);
+        setMarketingFieldValue('marketing-tagline', analysis.marketing_tagline || '', force);
+        setMarketingFieldValue('marketing-key-messages', analysis.marketing_key_messages || analysis.sales_points || productInfo.sales_points || '', force);
         setMarketingFieldValue('marketing-short', shortText, force);
         setMarketingFieldValue('marketing-long', longText, force);
         setMarketingFieldValue('marketing-instagram', analysis.instagram_post || '', force);
@@ -6912,6 +7332,15 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         setMarketingFieldValue('marketing-tiktok', analysis.tiktok_post || '', force);
         setMarketingFieldValue('marketing-video', analysis.video_script || '', force);
         setMarketingFieldValue('marketing-hashtags', analysis.hashtags || '', force);
+        setMarketingFieldValue('marketing-email-subject', analysis.marketing_email_subject || '', force);
+        setMarketingFieldValue('marketing-press-pitch', analysis.marketing_press_pitch || '', force);
+        setMarketingFieldValue('marketing-content-calendar', analysis.marketing_content_calendar || '', force);
+        setMarketingFieldValue('marketing-campaign-focus', analysis.marketing_campaign_focus || '', force);
+        const genreBadge = document.getElementById('marketing-genre-badge');
+        const audienceBadge = document.getElementById('marketing-audience-badge');
+        if (genreBadge) genreBadge.textContent = marketingAnalysisText(analysis, ['genre'], productInfo.genre || 'Genre odottaa analyysiä');
+        if (audienceBadge) audienceBadge.textContent = marketingAnalysisText(analysis, ['audience', 'target_audience'], productInfo.audience || 'Kohderyhmä odottaa analyysiä');
+        renderMarketingStudioVisuals();
         if (!window.manuscriptData) {
             setMarketingStatus('Valitse käsikirjoitus ensin.', true);
         } else if (!hasSavedAnalysis(analysis)) {
@@ -6942,16 +7371,29 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
 
         const button = document.getElementById('marketing-generate-btn');
-        if (button) button.disabled = true;
-        setMarketingStatus('Luodaan markkinointiaineistoja analyysin ja käsikirjoitustietojen pohjalta...');
+        if (button) {
+            button.disabled = true;
+            button.textContent = 'Rakennetaan kampanjaa…';
+        }
+        const goalSelect = document.getElementById('marketing-campaign-goal');
+        const toneSelect = document.getElementById('marketing-campaign-tone');
+        const campaignGoal = [
+            goalSelect?.selectedOptions?.[0]?.textContent || '',
+            marketingFieldValue('marketing-campaign-focus') ? `Painotus: ${marketingFieldValue('marketing-campaign-focus')}` : '',
+            toneSelect?.selectedOptions?.[0]?.textContent ? `Sävy: ${toneSelect.selectedOptions[0].textContent}` : ''
+        ].filter(Boolean).join('. ');
+        setMarketingStatus('Rakennetaan kampanjakonseptia, kanavatekstejä ja lanseerauksen rytmiä…');
         try {
             const res = await apiFetch('/api/marketing/materials', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ project_id: window.manuscriptData.id })
+                body: JSON.stringify({ project_id: window.manuscriptData.id, campaign_goal: campaignGoal })
             });
             const data = await res.json().catch(() => null);
             if (!res.ok) throw new Error(data?.detail || 'Markkinointiaineistojen luonti epäonnistui.');
+            setMarketingFieldValue('marketing-campaign-concept', data.campaign_concept, true);
+            setMarketingFieldValue('marketing-tagline', data.tagline, true);
+            setMarketingFieldValue('marketing-key-messages', data.key_messages, true);
             setMarketingFieldValue('marketing-short', data.short_description, true);
             setMarketingFieldValue('marketing-long', data.long_description, true);
             setMarketingFieldValue('marketing-instagram', data.instagram_post, true);
@@ -6959,7 +7401,13 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             setMarketingFieldValue('marketing-tiktok', data.tiktok_post, true);
             setMarketingFieldValue('marketing-video', data.video_script, true);
             setMarketingFieldValue('marketing-hashtags', data.hashtags, true);
+            setMarketingFieldValue('marketing-email-subject', data.email_subject, true);
+            setMarketingFieldValue('marketing-press-pitch', data.press_pitch, true);
+            setMarketingFieldValue('marketing-content-calendar', data.content_calendar, true);
             if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
+            window.manuscriptData.analysis.campaign_concept = data.campaign_concept || '';
+            window.manuscriptData.analysis.marketing_tagline = data.tagline || '';
+            window.manuscriptData.analysis.marketing_key_messages = data.key_messages || '';
             window.manuscriptData.analysis.marketing_short = data.short_description || '';
             window.manuscriptData.analysis.marketing_long = data.long_description || '';
             window.manuscriptData.analysis.instagram_post = data.instagram_post || '';
@@ -6967,9 +7415,14 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             window.manuscriptData.analysis.tiktok_post = data.tiktok_post || '';
             window.manuscriptData.analysis.video_script = data.video_script || '';
             window.manuscriptData.analysis.hashtags = data.hashtags || '';
+            window.manuscriptData.analysis.marketing_email_subject = data.email_subject || '';
+            window.manuscriptData.analysis.marketing_press_pitch = data.press_pitch || '';
+            window.manuscriptData.analysis.marketing_content_calendar = data.content_calendar || '';
+            window.manuscriptData.analysis.marketing_campaign_focus = marketingFieldValue('marketing-campaign-focus');
             await window.saveManuscriptToDB(window.manuscriptData);
             renderProductInfo(false);
-            setMarketingStatus(data.warnings ? `${data.warnings} Lähde: ${data.generated_by}.` : `Markkinointiaineistot luotu. Lähde: ${data.generated_by}.`);
+            renderMarketingStudioVisuals();
+            setMarketingStatus(data.warnings ? `${data.warnings} Lähde: ${data.generated_by}.` : `Kampanjapaketti valmis muokattavaksi. Lähde: ${data.generated_by}.`);
             loadUsage();
             return data;
         } catch (err) {
@@ -6978,7 +7431,77 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             loadUsage();
             return null;
         } finally {
-            if (button) button.disabled = false;
+            if (button) {
+                button.disabled = false;
+                button.textContent = 'Luo kampanjapaketti AI:lla';
+            }
+        }
+    }
+
+    function marketingPackagePayload() {
+        const goal = document.getElementById('marketing-campaign-goal')?.selectedOptions?.[0]?.textContent || '';
+        const focus = marketingFieldValue('marketing-campaign-focus');
+        const tone = document.getElementById('marketing-campaign-tone')?.selectedOptions?.[0]?.textContent || '';
+        const coverValue = document.getElementById('marketing-cover-select')?.value || '';
+        return {
+            project_id: window.manuscriptData?.id || null,
+            cover_asset_id: coverValue ? Number(coverValue) : null,
+            campaign_goal: [goal, focus ? `Painotus: ${focus}` : '', tone ? `Sävy: ${tone}` : ''].filter(Boolean).join('. '),
+            campaign_concept: marketingFieldValue('marketing-campaign-concept'),
+            tagline: marketingFieldValue('marketing-tagline'),
+            key_messages: marketingFieldValue('marketing-key-messages'),
+            short_description: marketingFieldValue('marketing-short'),
+            long_description: marketingFieldValue('marketing-long'),
+            instagram_post: marketingFieldValue('marketing-instagram'),
+            facebook_post: marketingFieldValue('marketing-facebook'),
+            tiktok_post: marketingFieldValue('marketing-tiktok'),
+            video_script: marketingFieldValue('marketing-video'),
+            hashtags: marketingFieldValue('marketing-hashtags'),
+            email_subject: marketingFieldValue('marketing-email-subject'),
+            press_pitch: marketingFieldValue('marketing-press-pitch'),
+            content_calendar: marketingFieldValue('marketing-content-calendar')
+        };
+    }
+
+    async function downloadMarketingPackage() {
+        const button = document.getElementById('marketing-download-package-btn');
+        if (!window.manuscriptData?.id) {
+            setMarketingStatus('Valitse käsikirjoitus ensin.', true);
+            return;
+        }
+        const payload = marketingPackagePayload();
+        if (!payload.campaign_concept && !payload.short_description && !payload.instagram_post) {
+            setMarketingStatus('Luo tai kirjoita kampanja-aineistot ennen ZIP-paketin muodostamista.', true);
+            return;
+        }
+        if (button) {
+            button.disabled = true;
+            button.textContent = 'Muodostetaan ZIP…';
+        }
+        setMarketingStatus('Kootaan brief, kanavatekstit, media-aineisto, kalenteri ja kansi ZIP-pakettiin…');
+        try {
+            const response = await apiFetch('/api/marketing/package', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'Markkinointipaketin muodostaminen epäonnistui.');
+            if (!data?.package?.data_url) throw new Error('Markkinointipaketin lataustiedostoa ei saatu.');
+            const link = document.createElement('a');
+            link.href = data.package.data_url;
+            link.download = data.filename || 'markkinointipaketti.zip';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setMarketingStatus(`Markkinointipaketti valmis: ${Number(data.files?.length || 0)} tiedostoa.`);
+        } catch (error) {
+            setMarketingStatus(error.message, true);
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.textContent = 'Muodosta ja lataa ZIP';
+            }
         }
     }
 
@@ -10337,6 +10860,7 @@ Säännöt:
     }
 
     async function loadElevenLabsVoices(force = false) {
+        if (!isViewAllowed('view-audio')) return;
         const select = document.getElementById('audio-voice-select');
         const meta = document.getElementById('audio-voice-meta');
         const previewButton = document.getElementById('audio-preview-voice-btn');
@@ -10458,6 +10982,7 @@ Säännöt:
     }
 
     function renderAudioView(force = false) {
+        if (!isViewAllowed('view-audio')) return;
         const current = document.getElementById('audio-current-project');
         const guide = document.getElementById('audio-pronunciation-guide');
         const opening = document.getElementById('audio-opening-words');
@@ -11021,12 +11546,25 @@ Säännöt:
     document.getElementById('publication-package-cover-select')?.addEventListener('change', renderPublicationPackageCover);
     document.getElementById('publication-package-open-cover-btn')?.addEventListener('click', () => openModule('view-kuvitus'));
     document.getElementById('publication-package-translate-btn')?.addEventListener('click', () => {
-        openModule('view-kaannokset');
-        const sourceSelect = document.getElementById('finnish-translation-source-select');
-        const targetSelect = document.getElementById('finnish-translation-target-language-select');
-        if (sourceSelect) sourceSelect.value = 'book';
-        if (targetSelect && targetSelect.value === 'fi') targetSelect.value = 'en';
-        updateFinnishTranslationEstimate();
+        openModule('view-monikielinen-julkaisu');
+    });
+    document.getElementById('multilingual-open-package-btn')?.addEventListener('click', () => openModule('view-julkaisupaketti'));
+    document.getElementById('multilingual-primary-action-btn')?.addEventListener('click', async event => {
+        const action = event.currentTarget.dataset.multilingualAction || 'start';
+        if (action === 'export') {
+            await exportMultilingualEdition();
+            return;
+        }
+        await openMultilingualTranslation(selectedMultilingualLanguage, action === 'review' ? 'review' : action === 'continue' ? 'continue' : 'create');
+    });
+    document.getElementById('multilingual-expert-action-btn')?.addEventListener('click', async () => {
+        const translation = latestMultilingualTranslation(selectedMultilingualLanguage);
+        const panel = translation?.status === 'reviewed' || multilingualTranslationIsReady(translation)
+            ? 'review'
+            : translation
+                ? 'continue'
+                : 'create';
+        await openMultilingualTranslation(selectedMultilingualLanguage, panel);
     });
     [bookFontSelect, bookFontSizeSelect, bookWidthSelect].forEach(select => {
         if (select) select.addEventListener('change', applyBookReaderSettings);
@@ -11520,6 +12058,11 @@ Säännöt:
         updateMiscProjectSelect();
         loadMiscAssetsForActiveProject(true);
         if (currentViewId === 'view-kuvitus') loadCoverImages();
+        if (currentViewId === 'view-monikielinen-julkaisu') loadMultilingualPublication();
+        if (currentViewId === 'view-markkinointi') {
+            renderMarketingMaterialsFromAnalysis(true);
+            loadMarketingContext();
+        }
     }
 
     function emptyProjectMessage() {
@@ -11540,6 +12083,7 @@ Säännöt:
     }
 
     function canManageProject(data) {
+        if (publisherDemoMode) return false;
         return ['admin', 'owner'].includes(projectAccessLevel(data));
     }
 
@@ -13374,9 +13918,11 @@ Säännöt:
             await loadProjects();
             if (status) status.textContent = `Uusi käsikirjoitus luotu: ${project.title || 'Nimetön'}.`;
             alert(`Uusi käsikirjoitus luotu: ${project.title || 'Nimetön'}`);
+            return project;
         } catch (err) {
             if (status) status.textContent = err.message;
             alert(`${genitiveLabel} vienti epäonnistui: ${err.message}`);
+            return null;
         }
     }
 
@@ -16536,6 +17082,9 @@ ${state.validation || 'Ei validointia.'}`;
     const audioRefreshVoicesBtn = document.getElementById('audio-refresh-voices-btn');
     const audioPreviewVoiceBtn = document.getElementById('audio-preview-voice-btn');
     const marketingGenerateBtn = document.getElementById('marketing-generate-btn');
+    const marketingDownloadPackageBtn = document.getElementById('marketing-download-package-btn');
+    const marketingCoverSelect = document.getElementById('marketing-cover-select');
+    const marketingOpenProductInfoBtn = document.getElementById('marketing-open-product-info-btn');
     const bioLoadBtn = document.getElementById('bio-load-btn');
     const bioSaveBtn = document.getElementById('bio-save-btn');
     const bioAddMaterialBtn = document.getElementById('bio-add-material-btn');
@@ -16848,6 +17397,20 @@ ${state.validation || 'Ei validointia.'}`;
     if (audioRefreshVoicesBtn) audioRefreshVoicesBtn.addEventListener('click', () => loadElevenLabsVoices(true));
     if (audioPreviewVoiceBtn) audioPreviewVoiceBtn.addEventListener('click', playSelectedVoicePreview);
     if (marketingGenerateBtn) marketingGenerateBtn.addEventListener('click', generateMarketingMaterials);
+    if (marketingDownloadPackageBtn) marketingDownloadPackageBtn.addEventListener('click', downloadMarketingPackage);
+    if (marketingCoverSelect) marketingCoverSelect.addEventListener('change', renderMarketingStudioVisuals);
+    if (marketingOpenProductInfoBtn) marketingOpenProductInfoBtn.addEventListener('click', () => openModule('view-tuotetiedot'));
+    [
+        'marketing-campaign-concept',
+        'marketing-tagline',
+        'marketing-short',
+        'marketing-instagram',
+        'marketing-facebook',
+        'marketing-tiktok',
+        'marketing-video',
+        'marketing-email-subject',
+        'marketing-press-pitch'
+    ].forEach(id => document.getElementById(id)?.addEventListener('input', renderMarketingStudioVisuals));
     document.querySelectorAll('.marketing-copy-btn').forEach(button => {
         button.addEventListener('click', () => copyMarketingField(button.dataset.copyTarget));
     });
