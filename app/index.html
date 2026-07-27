@@ -533,6 +533,10 @@
                             <p id="knowledge-status" class="knowledge-status" role="status" aria-live="polite"></p>
                         </div>
                     </div>
+                    <div id="knowledge-extraction-progress" class="knowledge-extraction-progress hidden" role="progressbar" aria-label="Projektimuistin poiminnan eteneminen" aria-valuemin="0" aria-valuenow="0" aria-valuemax="1">
+                        <div class="knowledge-extraction-progress-track"><span id="knowledge-extraction-progress-bar"></span></div>
+                        <p id="knowledge-extraction-progress-text">0/0 osaa käsitelty</p>
+                    </div>
 
                     <div class="knowledge-filter-row" role="group" aria-label="Suodata projektimuistia">
                         <button class="knowledge-filter-btn is-active" type="button" data-knowledge-filter="all">Kaikki <span data-knowledge-count="all">0</span></button>
@@ -1837,18 +1841,23 @@
             <!-- 5.2 VIEW: OIKOLUKU -->
             <div id="view-oikoluku" class="view-section hidden">
                 <div class="proofread-modern">
-                    <header class="proofread-step-header">
-                        <div class="grow">
-                            <p class="eyebrow">Oikoluku ja viimeistely</p>
+                    <header class="production-workspace-hero proofread-step-header">
+                        <div class="production-workspace-hero-copy grow">
+                            <p class="production-workspace-eyebrow">KIELENHUOLTO · 01–03</p>
                             <h2 id="proofread-project-title">Ei aktiivista teosta</h2>
+                            <p>Vie käsikirjoitus ehdotuksista painovalmiiksi hallitussa kolmivaiheisessa työnkulussa.</p>
                         </div>
-                        <p class="hint" id="proofread-status-text" role="status" aria-live="polite"></p>
+                        <div class="production-workspace-hero-status">
+                            <span>TYÖTILA</span>
+                            <strong>Oikoluku → tarkistus → viimeistely</strong>
+                            <p class="hint" id="proofread-status-text" role="status" aria-live="polite"></p>
+                        </div>
                     </header>
 
                     <div class="mode-switch proofread-mode-switch" role="tablist" aria-label="Työvaiheet">
-                        <button id="tab-oikoluku" class="proofread-tab is-active" data-proofread-panel="oikoluku" role="tab" type="button">Oikoluku</button>
-                        <button id="tab-tarkistus" class="proofread-tab" data-proofread-panel="tarkistus" role="tab" type="button">Tarkistus</button>
-                        <button id="tab-viimeistely" class="proofread-tab" data-proofread-panel="viimeistely" role="tab" type="button">Viimeistely</button>
+                        <button id="tab-oikoluku" class="proofread-tab is-active" data-proofread-panel="oikoluku" role="tab" type="button"><span>01</span> Oikoluku</button>
+                        <button id="tab-tarkistus" class="proofread-tab" data-proofread-panel="tarkistus" role="tab" type="button"><span>02</span> Tarkistus</button>
+                        <button id="tab-viimeistely" class="proofread-tab" data-proofread-panel="viimeistely" role="tab" type="button"><span>03</span> Viimeistely</button>
                     </div>
 
                     <section id="panel-oikoluku" class="proofread-panel">
@@ -1962,15 +1971,21 @@
 
             <!-- 6. VIEW: KUVITUS -->
             <div id="view-kuvitus" class="view-section hidden">
-                <div class="header">
-                    <div class="header-info">
-	                        <h2>Kansi ja kuvitus</h2>
+                <header class="production-workspace-hero cover-workspace-hero">
+                    <div class="production-workspace-hero-copy">
+                        <p class="production-workspace-eyebrow">KANSI-STUDIO · KUVASTA PAINOAINEISTOKSI</p>
+	                    <h2>Kansi ja kuvitus</h2>
                         <p id="illustration-current-project">Käsikirjoitus: [Ei aktiivista teosta]</p>
                     </div>
-                </div>
+                    <div class="production-workspace-hero-status">
+                        <span>PAINOVALMIUS</span>
+                        <strong>Etukansi · selkä · takakansi</strong>
+                        <p>Leikkuuvarat ja 300 DPI -tiedostot samassa työtilassa.</p>
+                    </div>
+                </header>
 
-                <div class="illustration-section" style="margin-bottom: 40px;">
-                    <h3 style="margin-bottom: 20px; color: var(--text-primary);">Kansikuva</h3>
+                <div class="illustration-section cover-workspace-section" style="margin-bottom: 40px;">
+                    <div class="production-section-heading"><span>01</span><div><h3>Kansikuva</h3><p>Luo tai tuo visuaalinen perusta ja viimeistele kannen tekstit.</p></div></div>
                     <div class="card glass-panel illustration-cover-grid" style="display:grid; grid-template-columns:minmax(0, 1fr) minmax(280px, 380px); gap:24px; align-items:start;">
                         <div>
                             <label style="font-size:13px; color:var(--text-secondary); display:block; margin-bottom:8px;">Kuvamalli</label>
@@ -2043,8 +2058,8 @@
                         </div>
                     </div>
 
-                    <div style="margin-top:24px;">
-                        <h3 style="margin-bottom: 14px; color: var(--text-primary);">Tallennetut kannet</h3>
+                    <div class="cover-gallery-section" style="margin-top:24px;">
+                        <div class="production-section-heading"><span>02</span><div><h3>Tallennetut kannet</h3><p>Valitse etukansi, josta koko kansiaukeama muodostetaan.</p></div></div>
                         <div id="cover-gallery" class="grid-cards" style="grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));"></div>
                         <p id="cover-empty-state" style="color:var(--text-secondary);">Ei vielä tallennettuja kansikuvia tai takakansia.</p>
                     </div>
@@ -2052,7 +2067,7 @@
                     <section class="cover-layout-studio" aria-labelledby="cover-layout-heading">
                         <div class="cover-layout-heading-row">
                             <div>
-                                <span class="cover-layout-kicker">PAINOKANSI · 300 DPI</span>
+                                <span class="cover-layout-kicker">03 · PAINOKANSI · 300 DPI</span>
                                 <h3 id="cover-layout-heading">Muodosta oikea kansiaukeama</h3>
                                 <p>Etukannesta syntyy yhtenäinen takakansi, sivumäärän mukaan mitoitettu selkä ja painoon mitoitettu PDF.</p>
                             </div>
@@ -2167,17 +2182,24 @@
 
             <!-- 7. VIEW: TUOTETIEDOT -->
             <div id="view-tuotetiedot" class="view-section hidden">
-                <div class="header">
-                    <div class="header-info">
+                <header class="production-workspace-hero product-workspace-hero">
+                    <div class="production-workspace-hero-copy">
+                        <p class="production-workspace-eyebrow">METADATA · JULKAISUVALMIUS</p>
                         <h2>Tuotetiedot</h2>
                         <p id="product-current-project">Käsikirjoitus: [Ei aktiivista teosta]</p>
+                        <div class="production-workspace-stats">
+                            <div><strong id="product-completed-count">0</strong><span>täytettyä kenttää</span></div>
+                            <div><strong id="product-missing-count">—</strong><span>täydennettävää</span></div>
+                            <div><strong>ONIX</strong><span>julkaisumetadata</span></div>
+                        </div>
                     </div>
-	                    <div class="header-actions">
+	                <div class="production-workspace-hero-status product-hero-actions">
+	                    <span>TYÖKALUT</span>
 	                        <button class="btn btn-secondary" id="product-refresh-btn" type="button">Lataa tallennetut</button>
 	                        <button class="btn btn-secondary" id="product-save-btn" type="button">Tallenna</button>
 	                        <button class="btn btn-primary" id="product-generate-btn" type="button">Generoi AI:lla</button>
 	                    </div>
-	                </div>
+	            </header>
 	                <p id="product-status" class="product-status-text">Tee ensin analyysi, jotta tuotetiedot voidaan muodostaa teoksen metatiedoista. Puuttuvat käsin täydennettävät kentät merkitään keltaisella.</p>
 
 	                <div class="product-grid">

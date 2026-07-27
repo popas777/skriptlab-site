@@ -299,6 +299,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     let continuityIssues = [];
     let knowledgeReviewProjectId = null;
     let knowledgeReviewSaveTimer = null;
+    let knowledgeExtractionProgress = null;
     let pendingWriteEditorChapterId = null;
     let developmentSceneSuggestions = [];
     let developmentSuggestionsProjectId = null;
@@ -7032,10 +7033,16 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function markProductMissingFields(info = collectProductFields()) {
         const missing = new Set(productMissingFieldKeys(info));
+        let completed = 0;
         document.querySelectorAll('.product-field-row').forEach(row => {
             const key = row.dataset.productKey;
             row.classList.toggle('product-missing', Boolean(key && missing.has(key)));
+            if (key && String(info?.[key] || '').trim()) completed += 1;
         });
+        const completedCount = document.getElementById('product-completed-count');
+        const missingCount = document.getElementById('product-missing-count');
+        if (completedCount) completedCount.textContent = String(completed);
+        if (missingCount) missingCount.textContent = String(missing.size);
         return missing.size;
     }
 
@@ -8988,6 +8995,17 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         renderKnowledgeList();
         renderKnowledgeSuggestions();
         renderContinuityIssues();
+        if (knowledgeExtractionProgress?.total) {
+            updateKnowledgeExtractionProgress(
+                knowledgeExtractionProgress.completed_keys?.length || 0,
+                knowledgeExtractionProgress.total,
+                knowledgeExtractionProgress.status === 'partial'
+                    ? `${knowledgeExtractionProgress.completed_keys?.length || 0}/${knowledgeExtractionProgress.total} osaa valmiina · ajoa voi jatkaa`
+                    : ''
+            );
+        } else {
+            updateKnowledgeExtractionProgress(0, 0);
+        }
         document.querySelectorAll('#development-knowledge-workspace input, #development-knowledge-workspace select, #development-knowledge-workspace textarea').forEach(field => {
             if (field.id !== 'knowledge-search') field.disabled = !editable;
         });
@@ -8997,7 +9015,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const continuityButton = document.getElementById('knowledge-continuity-btn');
         const suggestionSelectAll = document.getElementById('knowledge-suggestions-select-all');
         const suggestionClear = document.getElementById('knowledge-suggestions-clear');
-        if (extractButton) extractButton.disabled = !editable || !(project?.chapters || []).length;
+        if (extractButton) {
+            extractButton.disabled = !editable || !(project?.chapters || []).length;
+            extractButton.textContent = knowledgeExtractionProgress?.status === 'partial'
+                ? 'Jatka poimintaa'
+                : (knowledgeExtractionProgress?.status === 'completed' ? 'Päivitä projektimuisti' : 'Poimi käsikirjoituksesta');
+        }
         if (continuityButton) continuityButton.disabled = !editable || !projectKnowledgeItems.length;
         if (suggestionSelectAll) suggestionSelectAll.disabled = !editable;
         if (suggestionClear) suggestionClear.disabled = !editable;
@@ -9250,6 +9273,16 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             confidence: String(issue?.confidence || ''),
             status: issue?.status === 'resolved' ? 'resolved' : 'open'
         }));
+        const savedProgress = dev.knowledge_extraction_progress;
+        knowledgeExtractionProgress = savedProgress && typeof savedProgress === 'object'
+            ? {
+                status: ['running', 'partial', 'completed'].includes(savedProgress.status) ? savedProgress.status : 'partial',
+                completed_keys: Array.isArray(savedProgress.completed_keys) ? savedProgress.completed_keys.map(String) : [],
+                failed_keys: Array.isArray(savedProgress.failed_keys) ? savedProgress.failed_keys.map(String) : [],
+                total: Math.max(0, Number(savedProgress.total || 0)),
+                updated_at: String(savedProgress.updated_at || '')
+            }
+            : null;
         knowledgeReviewProjectId = projectId;
     }
 
@@ -9258,6 +9291,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const dev = developmentData();
         dev.knowledge_suggestions = knowledgeSuggestions;
         dev.continuity_issues = continuityIssues;
+        dev.knowledge_extraction_progress = knowledgeExtractionProgress;
         dev.updated_at = new Date().toISOString();
         await window.saveManuscriptToDB(window.manuscriptData);
     }
@@ -9388,7 +9422,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         return chunks;
     }
 
-    function knowledgeManuscriptChunks(maxChunkChars = 34000, maxChunks = 24) {
+    function knowledgeManuscriptChunks(maxChunkChars = 12000, maxChunks = 48) {
         const pieces = [];
         bodyChapterEntries().forEach(({ chapter, index }, order) => {
             const title = structureDisplayTitle(chapter, index) || `Osio ${order + 1}`;
@@ -9421,6 +9455,30 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             chunks,
             omittedPieces: Math.max(0, pieces.length - includedPieces)
         };
+    }
+
+    function knowledgeChunkKey(text, index) {
+        let hash = 2166136261;
+        const value = `${index}|${String(text || '')}`;
+        for (let cursor = 0; cursor < value.length; cursor += 1) {
+            hash ^= value.charCodeAt(cursor);
+            hash = Math.imul(hash, 16777619);
+        }
+        return `chunk-${index}-${(hash >>> 0).toString(16)}`;
+    }
+
+    function updateKnowledgeExtractionProgress(current, total, label = '') {
+        const progress = document.getElementById('knowledge-extraction-progress');
+        const bar = document.getElementById('knowledge-extraction-progress-bar');
+        const text = document.getElementById('knowledge-extraction-progress-text');
+        if (!progress || !bar || !text) return;
+        const safeTotal = Math.max(1, Number(total || 0));
+        const safeCurrent = Math.max(0, Math.min(Number(current || 0), safeTotal));
+        progress.classList.toggle('hidden', !total);
+        bar.style.width = `${Math.round((safeCurrent / safeTotal) * 100)}%`;
+        progress.setAttribute('aria-valuenow', String(safeCurrent));
+        progress.setAttribute('aria-valuemax', String(safeTotal));
+        text.textContent = label || `${safeCurrent}/${safeTotal} osaa käsitelty`;
     }
 
     function compactKnowledgeIndex(maxChars = 12000) {
@@ -9492,7 +9550,7 @@ Käytä kenttiä tyypeittäin:
 - fact: category, value, scope
 
 Säännöt:
-- Enintään 40 ehdotusta.
+- Enintään 12 tärkeintä ehdotusta tästä tekstiosasta.
 - Älä keksi puuttuvia ominaisuuksia. Jätä kenttä tyhjäksi.
 - Liitä jokaiseen ehdotukseen tarkin mahdollinen CHAPTER-tunniste.
 - Yhdistä saman henkilön tai paikan toistuvat maininnat yhdeksi ehdotukseksi.
@@ -9510,9 +9568,29 @@ Säännöt:
         try {
             const manuscript = knowledgeManuscriptChunks();
             if (!manuscript.chunks.length) throw new Error('Käsikirjoituksesta ei löytynyt poimittavaa tekstiä.');
-            let suggestions = [];
-            for (let index = 0; index < manuscript.chunks.length; index += 1) {
-                setKnowledgeStatus(`Poimitaan projektitietoja · osa ${index + 1}/${manuscript.chunks.length}…`);
+            const chunks = manuscript.chunks.map((text, index) => ({
+                text,
+                index,
+                key: knowledgeChunkKey(text, index)
+            }));
+            const canResume = knowledgeExtractionProgress
+                && ['running', 'partial'].includes(knowledgeExtractionProgress.status)
+                && Number(knowledgeExtractionProgress.total || 0) === chunks.length;
+            const completedKeys = new Set(canResume ? knowledgeExtractionProgress.completed_keys : []);
+            const pendingChunks = chunks.filter(chunk => !completedKeys.has(chunk.key));
+            const failures = [];
+            knowledgeExtractionProgress = {
+                status: 'running',
+                completed_keys: Array.from(completedKeys),
+                failed_keys: [],
+                total: chunks.length,
+                updated_at: new Date().toISOString()
+            };
+            updateKnowledgeExtractionProgress(completedKeys.size, chunks.length,
+                canResume && completedKeys.size ? `Jatketaan kohdasta ${completedKeys.size + 1}/${chunks.length}` : `0/${chunks.length} osaa käsitelty`);
+            await saveKnowledgeReviewState();
+
+            const processChunk = async chunk => {
                 const response = await apiFetch('/api/edit', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -9522,26 +9600,59 @@ Säännöt:
                         prompt: buildKnowledgeExtractionPrompt(),
                         text: [
                             `PROJEKTI: ${window.manuscriptData.title || 'Nimetön'}`,
-                            index === 0 ? `AIEMPI ANALYYSI:\n${compactDevelopmentText(developmentAnalysisBrief(), 7000) || 'Ei aiempaa analyysiä.'}` : '',
-                            `JO PROJEKTIMUISTISSA:\n${compactKnowledgeIndex(7000) || 'Ei merkintöjä.'}`,
-                            `KÄSIKIRJOITUS OSIOITTAIN:\n${manuscript.chunks[index]}`
+                            chunk.index === 0 ? `AIEMPI ANALYYSI:\n${compactDevelopmentText(developmentAnalysisBrief(), 4500) || 'Ei aiempaa analyysiä.'}` : '',
+                            `JO PROJEKTIMUISTISSA:\n${compactKnowledgeIndex(4500) || 'Ei merkintöjä.'}`,
+                            `KÄSIKIRJOITUS OSIOITTAIN:\n${chunk.text}`
                         ].filter(Boolean).join('\n\n')
                     })
                 });
                 const payload = await response.json().catch(() => null);
-                if (!response.ok) throw new Error(payload?.detail || `Projektitietojen poiminta epäonnistui osassa ${index + 1}.`);
+                if (!response.ok) throw new Error(payload?.detail || `Projektitietojen poiminta epäonnistui osassa ${chunk.index + 1}.`);
                 const parsed = parseAiJsonObject(payload?.edited_text);
-                suggestions = mergeKnowledgeSuggestionLists(suggestions, sanitizeKnowledgeSuggestions(parsed?.suggestions));
+                return sanitizeKnowledgeSuggestions(parsed?.suggestions);
+            };
+
+            for (let start = 0; start < pendingChunks.length; start += 2) {
+                const batch = pendingChunks.slice(start, start + 2);
+                const nextNumber = completedKeys.size + 1;
+                setKnowledgeStatus(`Poimitaan projektitietoja · osat ${nextNumber}–${Math.min(nextNumber + batch.length - 1, chunks.length)}/${chunks.length}… Valmiit osat tallennetaan heti.`);
+                const results = await Promise.allSettled(batch.map(processChunk));
+                results.forEach((result, resultIndex) => {
+                    const chunk = batch[resultIndex];
+                    if (result.status === 'fulfilled') {
+                        knowledgeSuggestions = mergeKnowledgeSuggestionLists(knowledgeSuggestions, result.value);
+                        completedKeys.add(chunk.key);
+                    } else {
+                        failures.push({ key: chunk.key, index: chunk.index, message: networkFailureMessage(result.reason) });
+                    }
+                });
+                knowledgeExtractionProgress = {
+                    status: failures.length ? 'partial' : 'running',
+                    completed_keys: Array.from(completedKeys),
+                    failed_keys: failures.map(item => item.key),
+                    total: chunks.length,
+                    updated_at: new Date().toISOString()
+                };
+                await saveKnowledgeReviewState();
+                renderKnowledgeSuggestions();
+                updateKnowledgeExtractionProgress(completedKeys.size, chunks.length);
             }
-            if (!suggestions.length) throw new Error('Poiminta ei palauttanut tarkistettavia tietoja.');
-            knowledgeSuggestions = suggestions;
+
+            knowledgeExtractionProgress.status = failures.length || manuscript.omittedPieces ? 'partial' : 'completed';
+            knowledgeExtractionProgress.failed_keys = failures.map(item => item.key);
+            knowledgeExtractionProgress.updated_at = new Date().toISOString();
             await saveKnowledgeReviewState();
+            if (!knowledgeSuggestions.length && failures.length) throw new Error(failures[0].message);
+            if (!knowledgeSuggestions.length) throw new Error('Poiminta ei palauttanut tarkistettavia tietoja.');
             renderKnowledgeSuggestions();
             document.getElementById('knowledge-suggestions-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            setKnowledgeStatus(`${suggestions.length} ehdotusta poimittu hyväksyntäjonoon.${manuscript.omittedPieces ? ` Erittäin pitkästä käsikirjoituksesta jäi ${manuscript.omittedPieces} tekstipalaa seuraavaan ajoon.` : ''}`);
+            const retryNote = failures.length ? ` ${failures.length} osaa jäi kesken; paina Jatka poimintaa yrittääksesi ne uudelleen.` : '';
+            setKnowledgeStatus(`${knowledgeSuggestions.length} ehdotusta poimittu hyväksyntäjonoon.${retryNote}${manuscript.omittedPieces ? ` Erittäin pitkästä käsikirjoituksesta jäi ${manuscript.omittedPieces} tekstipalaa seuraavaan ajoon.` : ''}`, Boolean(failures.length));
+            if (button) button.textContent = failures.length ? 'Jatka poimintaa' : 'Päivitä projektimuisti';
             loadUsage();
         } catch (error) {
             setKnowledgeStatus(networkFailureMessage(error), true);
+            if (button) button.textContent = 'Jatka poimintaa';
             loadUsage();
         } finally {
             if (button) button.disabled = !canEditProject(window.manuscriptData || {});
@@ -11702,6 +11813,10 @@ Säännöt:
     });
     document.getElementById('knowledge-suggestions-clear')?.addEventListener('click', () => {
         knowledgeSuggestions = [];
+        knowledgeExtractionProgress = null;
+        updateKnowledgeExtractionProgress(0, 0);
+        const extractButton = document.getElementById('knowledge-extract-btn');
+        if (extractButton) extractButton.textContent = 'Poimi käsikirjoituksesta';
         renderKnowledgeSuggestions();
         saveKnowledgeReviewState().catch(() => setKnowledgeStatus('Hyväksyntäjonon tyhjennys ei tallentunut.', true));
         setKnowledgeStatus('Hyväksyntäjono tyhjennettiin.');
