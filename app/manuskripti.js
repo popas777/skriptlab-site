@@ -953,8 +953,6 @@
         status: projectStageStatus(translationDone, translations.length > 0), moduleView: "view-monikielinen-julkaisu" },
       { id: "markkinointi", num: 11, name: "Kampanjastudio", desc: "Konsepti, kanavatekstit ja kampanjapaketti",
         status: projectStageStatus(marketing.done, marketing.started), moduleView: "view-markkinointi" },
-      { id: "versiot", num: 12, name: "Versiohistoria", desc: "Palautuspisteet ja palautettavat versiot",
-        status: projectStageStatus(projectStageAssets.versionCount > 0, false), moduleView: "view-viimeistely" },
     ];
   }
 

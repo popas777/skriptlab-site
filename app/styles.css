@@ -8417,8 +8417,9 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 }
 
 #view-tuotetiedot .product-status-text {
-    margin-top: 0;
-    margin-bottom: 18px;
+    box-sizing: border-box;
+    width: min(100%, 640px);
+    margin: 0 auto 18px;
     padding: 12px 14px;
     border: 1px solid rgba(217, 142, 43, .42);
     border-radius: 10px;
@@ -8485,10 +8486,27 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     color: #8a5a14;
 }
 
+#view-tuotetiedot .product-field-row.product-missing {
+    margin-right: -8px;
+    margin-left: -8px;
+    padding: 10px 8px;
+    border-left: 4px solid #d98e2b;
+    border-radius: 10px;
+    background: #fff4d8;
+}
+
+#view-tuotetiedot .product-field-row.product-missing label::after {
+    content: " · pakollinen, puuttuu";
+    color: #9a5f08;
+    font-weight: 750;
+}
+
 #view-tuotetiedot .product-field-row.product-missing input,
-#view-tuotetiedot .product-field-row.product-missing textarea {
-    border-color: rgba(217, 142, 43, .62);
+#view-tuotetiedot .product-field-row.product-missing textarea,
+#view-tuotetiedot .product-field-row.product-missing select {
+    border-color: #d98e2b;
     background: #fffaf0;
+    box-shadow: 0 0 0 3px rgba(217, 142, 43, .12);
 }
 
 /* Analysis and support materials already use this shell inside their frames. */

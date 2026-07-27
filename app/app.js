@@ -7103,7 +7103,17 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         let completed = 0;
         document.querySelectorAll('.product-field-row').forEach(row => {
             const key = row.dataset.productKey;
-            row.classList.toggle('product-missing', Boolean(key && missing.has(key)));
+            const isRequired = Boolean(key && productRequiredFieldKeys.has(key));
+            const isMissing = Boolean(isRequired && missing.has(key));
+            const field = row.querySelector('input, textarea, select');
+            row.classList.toggle('product-required', isRequired);
+            row.classList.toggle('product-missing', isMissing);
+            if (field) {
+                if (isRequired) field.setAttribute('aria-required', 'true');
+                else field.removeAttribute('aria-required');
+                if (isMissing) field.setAttribute('aria-invalid', 'true');
+                else field.removeAttribute('aria-invalid');
+            }
             if (key && String(info?.[key] || '').trim()) completed += 1;
         });
         const completedCount = document.getElementById('product-completed-count');
@@ -16444,7 +16454,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (step) params.set('step', step);
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '8');
+        params.set('v', '9');
         const reloaded = updateEmbeddedModuleFrame(frame, 'manuskripti.html', params);
         if (!reloaded && frame.contentWindow) {
             frame.contentWindow.postMessage({ type: 'skriptlab:refresh-workflow-status' }, window.location.origin);
@@ -17994,8 +18004,9 @@ ${state.validation || 'Ei validointia.'}`;
 	    if (productGenerateBtn) productGenerateBtn.addEventListener('click', generateProductInfo);
 	    if (productRefreshBtn) productRefreshBtn.addEventListener('click', () => renderProductInfo(true));
 	    if (productSaveBtn) productSaveBtn.addEventListener('click', saveProductInfo);
-	    document.querySelectorAll('.product-field-row input, .product-field-row textarea').forEach(field => {
+	    document.querySelectorAll('.product-field-row input, .product-field-row textarea, .product-field-row select').forEach(field => {
 	        field.addEventListener('input', () => markProductMissingFields());
+	        field.addEventListener('change', () => markProductMissingFields());
 	    });
     document.querySelectorAll('.audio-main-tab').forEach(tab => {
         tab.addEventListener('click', () => showAudioPanel(tab.dataset.audioPanel || 'audio-chapter-panel'));
