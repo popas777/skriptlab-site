@@ -62,9 +62,20 @@
     toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
   }
 
-  function working(show, label) {
-    $("working").hidden = !show;
+  function working(show, label, passive) {
+    const el = $("working");
+    el.hidden = !show;
+    el.classList.toggle("is-passive", Boolean(show && passive));
     if (label) $("working-label").textContent = label;
+  }
+
+  function cachedProjectTitle(id) {
+    try {
+      const cached = JSON.parse(localStorage.getItem("skriptlab_manuscript") || "null");
+      return cached && String(cached.id || "") === String(id || "") ? String(cached.title || "") : "";
+    } catch (error) {
+      return "";
+    }
   }
 
   function decodeDataUrl(dataUrl) {
@@ -252,14 +263,14 @@
 
   /* ------------------------------------------------------------ välilehdet */
 
-  function switchTab(next) {
+  function switchTab(next, refresh = true) {
     tab = next;
     for (const name of ["aineistot", "kirja", "taitto"]) {
       $("tab-" + name).classList.toggle("is-active", name === tab);
       $("panel-" + name).hidden = name !== tab;
     }
-    if (tab === "kirja") refreshBook();
-    if (tab === "taitto") refreshLayoutAssets();
+    if (refresh && tab === "kirja") refreshBook();
+    if (refresh && tab === "taitto") refreshLayoutAssets();
   }
 
   /* ------------------------------------------------------------ aineistot */
@@ -610,9 +621,13 @@
     bindEvents();
     renderToolChips();
     renderSizeChips();
+    projectTitle = cachedProjectTitle(projectId) || "Käsikirjoitus";
+    $("project-title").textContent = projectTitle;
+    $("status-text").textContent = "Ladataan tietoja…";
+    switchTab(tab, false);
+    working(true, "Ladataan tietoja…", true);
     try {
       if (projectId == null) throw new Error("projectId puuttuu");
-      working(true, "Avataan projektia…");
       const project = await api("/projects/" + projectId);
       projectTitle = project.title || "Käsikirjoitus";
     } catch (error) {
@@ -621,12 +636,13 @@
       projectTitle = demo.project.title;
       $("status-text").textContent = "Demotila";
       toast("Demotila: backendiä ei ole yhdistetty.");
-    } finally {
-      working(false);
     }
     $("project-title").textContent = projectTitle;
+    $("status-text").textContent = "Ladataan aineistoja…";
     await refreshAssets();
     switchTab(tab);
+    if (!demoMode) $("status-text").textContent = "";
+    working(false);
   }
 
   document.addEventListener("DOMContentLoaded", boot);

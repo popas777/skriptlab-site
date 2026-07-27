@@ -81,8 +81,10 @@
     toastTimer = window.setTimeout(() => { element.hidden = true; }, 3800);
   }
 
-  function setLoading(show, text) {
-    $("loading-layer").hidden = !show;
+  function setLoading(show, text, passive) {
+    const layer = $("loading-layer");
+    layer.hidden = !show;
+    layer.classList.toggle("is-passive", Boolean(show && passive));
     if (text) $("loading-text").textContent = text;
   }
 
@@ -140,6 +142,17 @@
   function projectId() {
     const params = new URLSearchParams(window.location.search);
     return params.get("project") || localStorage.getItem(ACTIVE_PROJECT_KEY) || "";
+  }
+
+  function cachedProject(id) {
+    try {
+      const cached = JSON.parse(localStorage.getItem("skriptlab_manuscript") || "null");
+      return cached && String(cached.id || "") === String(id || "") && Array.isArray(cached.chapters)
+        ? cached
+        : null;
+    } catch (error) {
+      return null;
+    }
   }
 
   function requestedChapterId() {
@@ -1347,6 +1360,20 @@
     });
   }
 
+  function activateLoadedProject(project, knowledgeItems) {
+    state.knowledgeItems = Array.isArray(knowledgeItems) ? knowledgeItems : [];
+    rememberProject(project, false);
+    const requestedIndex = project.chapters.findIndex(chapter => String(chapter.id || "") === requestedChapterId());
+    const savedIndex = requestedIndex >= 0
+      ? requestedIndex
+      : Number(localStorage.getItem("skriptlab_write_editor_chapter_" + project.id) || 0);
+    state.chapterIndex = Math.min(Math.max(0, savedIndex), Math.max(0, project.chapters.length - 1));
+    localStorage.setItem("skriptlab_write_editor_chapter_" + project.id, String(state.chapterIndex));
+    $("project-title").textContent = project.title || "Nimetön käsikirjoitus";
+    renderEditor();
+    renderNotes();
+  }
+
   async function boot() {
     bindEvents();
     if (localStorage.getItem(NOTES_OPEN_KEY) === "false") $("workspace-shell").classList.add("notes-collapsed");
@@ -1359,28 +1386,27 @@
       renderNotes();
       return;
     }
-    setLoading(true, "Avataan käsikirjoitusta…");
+    const cached = cachedProject(id);
+    if (cached) activateLoadedProject(cached, []);
+    $("save-status").textContent = "Ladataan tietoja…";
+    setLoading(true, "Ladataan tietoja…", true);
     try {
       const workspace = await api("/projects/" + encodeURIComponent(id) + "/workspace");
-      const project = workspace.project;
-      state.knowledgeItems = Array.isArray(workspace.knowledge_items) ? workspace.knowledge_items : [];
-      rememberProject(project, false);
-      const requestedIndex = project.chapters.findIndex(chapter => String(chapter.id || "") === requestedChapterId());
-      const savedIndex = requestedIndex >= 0
-        ? requestedIndex
-        : Number(localStorage.getItem("skriptlab_write_editor_chapter_" + project.id) || 0);
-      state.chapterIndex = Math.min(Math.max(0, savedIndex), Math.max(0, project.chapters.length - 1));
-      localStorage.setItem("skriptlab_write_editor_chapter_" + project.id, String(state.chapterIndex));
-      $("project-title").textContent = project.title || "Nimetön käsikirjoitus";
+      activateLoadedProject(workspace.project, workspace.knowledge_items);
       $("save-status").textContent = "Tallennettu";
-      renderEditor();
-      renderNotes();
       loadChatHistory();
-      await loadSavedPrompts();
+      loadSavedPrompts();
     } catch (error) {
-      $("project-title").textContent = "Käsikirjoitusta ei voitu avata";
-      $("save-status").textContent = "Virhe";
-      toast(error.message);
+      if (cached) {
+        $("save-status").textContent = "Viimeksi ladattu versio";
+        toast("Tietojen päivitys epäonnistui. Näytetään viimeksi ladattu versio.");
+      } else {
+        $("project-title").textContent = "Käsikirjoitusta ei voitu avata";
+        $("save-status").textContent = "Virhe";
+        renderEditor();
+        renderNotes();
+        toast(error.message);
+      }
     } finally {
       setLoading(false);
     }

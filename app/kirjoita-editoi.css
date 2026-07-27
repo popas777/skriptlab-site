@@ -940,6 +940,32 @@ button:disabled {
   font-size: 13px;
 }
 
+.loading-layer.is-passive {
+  inset: 14px 18px auto auto;
+  display: flex;
+  place-content: initial;
+  align-items: center;
+  justify-items: initial;
+  gap: 9px;
+  padding: 9px 13px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 8px 22px rgba(45, 40, 32, 0.12);
+  pointer-events: none;
+}
+
+.loading-layer.is-passive span {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+}
+
+.loading-layer.is-passive p {
+  color: var(--ink);
+  font-weight: 650;
+}
+
 .toast {
   position: fixed;
   z-index: 60;

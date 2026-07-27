@@ -93,11 +93,12 @@
     toastTimer = setTimeout(() => { el.hidden = true; }, 3000);
   }
 
-  function working(show, label) {
+  function working(show, label, passive) {
     const el = $("working");
     const labelEl = $("working-label");
     if (!el) return;
     el.hidden = !show;
+    el.classList.toggle("is-passive", Boolean(show && passive));
     el.setAttribute("aria-busy", show ? "true" : "false");
     if (label && labelEl) labelEl.textContent = label;
   }
@@ -107,6 +108,17 @@
       return localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || "";
     } catch (error) {
       return "";
+    }
+  }
+
+  function cachedProject(id) {
+    try {
+      const cached = JSON.parse(localStorage.getItem("skriptlab_manuscript") || "null");
+      return cached && String(cached.id || "") === String(id || "") && Array.isArray(cached.chapters)
+        ? cached
+        : null;
+    } catch (error) {
+      return null;
     }
   }
 
@@ -536,30 +548,43 @@
   }
 
   async function openProject(id) {
+    const initialStep = pendingInitialStep;
+    const cached = cachedProject(id);
+    if (initialStep) showScreen(initialStep);
+    else showScreen("project");
+    if (cached) {
+      project = cached;
+      renderProject();
+      if (initialStep) renderStepView(initialStep);
+    }
+    working(true, "Ladataan tietoja…", true);
+    const assetsPromise = apiListProjectStageAssets(id);
     try {
-      working(true, "Avataan käsikirjoitusta…");
-      const [loadedProject, loadedAssets] = await Promise.all([
-        apiGetProject(id),
-        apiListProjectStageAssets(id),
-      ]);
+      const loadedProject = await apiGetProject(id);
       project = loadedProject;
-      projectStageAssets = loadedAssets;
       rememberActiveProject(project);
       proposal = null;
       renderProject();
-      if (pendingInitialStep) {
-        const step = pendingInitialStep;
-        pendingInitialStep = "";
-        renderStepView(step);
-        showScreen(step);
+      if (initialStep) {
+        renderStepView(initialStep);
+        showScreen(initialStep);
       } else {
         showScreen("project");
       }
     } catch (error) {
-      toast(error.message);
+      toast(cached ? "Tietojen päivitys epäonnistui. Näytetään viimeksi ladattu versio." : error.message);
     } finally {
+      if (initialStep) pendingInitialStep = "";
       working(false);
     }
+    assetsPromise.then((loadedAssets) => {
+      if (!project || String(project.id || "") !== String(id || "")) return;
+      projectStageAssets = loadedAssets;
+      renderProject();
+      if (initialStep) renderStepView(initialStep);
+    }).catch(() => {
+      /* Oheisaineistot eivät estä käsikirjoituksen avaamista. */
+    });
   }
 
   function canDeleteProject(item) {
@@ -1254,9 +1279,14 @@
       async loadState() {
         working(false);
         try {
-          await renderLibrary();
           const projectId = requestedProjectId || localStorage.getItem("skriptlab_active_project_id") || "";
-          if (projectId && (pendingInitialStep || requestedProjectId)) await openProject(projectId);
+          const libraryPromise = renderLibrary();
+          if (projectId && (pendingInitialStep || requestedProjectId)) {
+            await openProject(projectId);
+            await libraryPromise;
+          } else {
+            await libraryPromise;
+          }
         } catch (error) {
           toast(error.message || "Moduulin lataus epäonnistui.");
         } finally {

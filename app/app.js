@@ -16304,6 +16304,51 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         return '';
     }
 
+    function embeddedProjectRevision() {
+        let data = window.manuscriptData;
+        if (!data?.id || !Array.isArray(data.chapters)) {
+            try {
+                const cached = JSON.parse(localStorage.getItem('skriptlab_manuscript') || 'null');
+                if (cached?.id && Array.isArray(cached.chapters)) data = cached;
+            } catch (error) {
+                data = window.manuscriptData;
+            }
+        }
+        if (!data?.id) return 'none';
+        let paragraphCount = 0;
+        let characterCount = 0;
+        let fingerprint = 2166136261;
+        const mix = (value) => {
+            const text = String(value || '');
+            characterCount += text.length;
+            const sampleStep = Math.max(1, Math.floor(text.length / 24));
+            for (let index = 0; index < text.length; index += sampleStep) {
+                fingerprint ^= text.charCodeAt(index);
+                fingerprint = Math.imul(fingerprint, 16777619);
+            }
+        };
+        (data.chapters || []).forEach(chapter => {
+            mix(chapter?.title);
+            mix(chapter?.toc_title);
+            const paragraphs = Array.isArray(chapter?.paragraphs) ? chapter.paragraphs : [];
+            paragraphCount += paragraphs.length;
+            paragraphs.forEach(mix);
+        });
+        return [data.id, data.updated_at || '', data.chapters?.length || 0, paragraphCount, characterCount, fingerprint >>> 0].join('-');
+    }
+
+    function updateEmbeddedModuleFrame(frame, page, params) {
+        if (!frame) return false;
+        const stableQuery = params.toString();
+        const sourceKey = `${page}?${stableQuery}`;
+        if (frame.dataset.moduleSourceKey === sourceKey) return false;
+        frame.dataset.moduleSourceKey = sourceKey;
+        const requestParams = new URLSearchParams(stableQuery);
+        requestParams.set('t', String(Date.now()));
+        frame.src = `${page}?${requestParams.toString()}`;
+        return true;
+    }
+
     function refreshManuskriptiFrame(viewId = currentViewId) {
         const frameId = {
             'view-kirjani': 'manuskripti-frame-kirjani',
@@ -16318,9 +16363,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
         if (step) params.set('step', step);
         if (projectId) params.set('project', projectId);
-        params.set('v', '6');
-        params.set('t', String(Date.now()));
-        frame.src = `manuskripti.html?${params.toString()}`;
+        params.set('r', embeddedProjectRevision());
+        params.set('v', '7');
+        updateEmbeddedModuleFrame(frame, 'manuskripti.html', params);
     }
 
     function refreshMobileEditorFrame() {
@@ -16330,9 +16375,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
         params.set('mode', 'kirjoita');
         if (projectId) params.set('project', projectId);
-        params.set('v', '5');
-        params.set('t', String(Date.now()));
-        frame.src = `tyosto.html?${params.toString()}`;
+        params.set('r', embeddedProjectRevision());
+        params.set('v', '6');
+        updateEmbeddedModuleFrame(frame, 'tyosto.html', params);
     }
 
     function refreshWriteEditorFrame() {
@@ -16342,9 +16387,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
         if (projectId) params.set('project', projectId);
         if (pendingWriteEditorChapterId) params.set('chapter', pendingWriteEditorChapterId);
-        params.set('v', '6');
-        params.set('t', String(Date.now()));
-        frame.src = `kirjoita-editoi.html?${params.toString()}`;
+        params.set('r', embeddedProjectRevision());
+        params.set('v', '7');
+        updateEmbeddedModuleFrame(frame, 'kirjoita-editoi.html', params);
         pendingWriteEditorChapterId = null;
     }
 
@@ -16370,9 +16415,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (nextTab !== 'aineistot') tuotantoActiveTab = nextTab;
         params.set('tab', nextTab);
         if (projectId) params.set('project', projectId);
-        params.set('v', '1');
-        params.set('t', String(Date.now()));
-        frame.src = `tuotanto.html?${params.toString()}`;
+        params.set('r', embeddedProjectRevision());
+        params.set('v', '2');
+        updateEmbeddedModuleFrame(frame, 'tuotanto.html', params);
     }
 
     function refreshElamakertaFrame() {

@@ -61,11 +61,12 @@
     toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
   }
 
-  function working(show, label) {
+  function working(show, label, passive) {
     const el = $("working");
     const labelEl = $("working-label");
     if (!el) return;
     el.hidden = !show;
+    el.classList.toggle("is-passive", Boolean(show && passive));
     el.setAttribute("aria-busy", show ? "true" : "false");
     if (label && labelEl) labelEl.textContent = label;
   }
@@ -77,6 +78,17 @@
       return localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || "";
     } catch (error) {
       return "";
+    }
+  }
+
+  function cachedProject(id) {
+    try {
+      const cached = JSON.parse(localStorage.getItem("skriptlab_manuscript") || "null");
+      return cached && String(cached.id || "") === String(id || "") && Array.isArray(cached.chapters)
+        ? cached
+        : null;
+    } catch (error) {
+      return null;
     }
   }
 
@@ -1080,23 +1092,39 @@
 
   async function boot() {
     bindEvents();
+    const projectId = CONFIG.projectId || activeProjectId();
+    const cached = projectId ? cachedProject(projectId) : null;
+    let loadedFresh = false;
+    if (cached) {
+      setProject(cached, { notify: false });
+      $("project-title").textContent = project.title || "Käsikirjoitus";
+      clampSelection();
+      renderActivePanel();
+    }
+    setSaveStatus("Ladataan tietoja…");
+    working(true, "Ladataan tietoja…", true);
     try {
-      const projectId = CONFIG.projectId || activeProjectId();
       if (!projectId) throw new Error("projectId puuttuu");
-      working(true, "Avataan käsikirjoitusta…");
       const workspace = await apiGetWorkspace(projectId);
       projectKnowledgeItems = Array.isArray(workspace.knowledge_items) ? workspace.knowledge_items : [];
       setProject(workspace.project, { notify: false });
+      loadedFresh = true;
     } catch (error) {
-      demoMode = true;
-      projectKnowledgeItems = [];
-      setProject(await apiGetProject(0), { notify: false });
-      toast("Demotila: backendiä ei ole yhdistetty.");
-      setSaveStatus("Demotila");
+      if (cached) {
+        toast("Tietojen päivitys epäonnistui. Näytetään viimeksi ladattu versio.");
+        setSaveStatus("Viimeksi ladattu versio");
+      } else {
+        demoMode = true;
+        projectKnowledgeItems = [];
+        setProject(await apiGetProject(0), { notify: false });
+        toast("Demotila: backendiä ei ole yhdistetty.");
+        setSaveStatus("Demotila");
+      }
     } finally {
       working(false);
     }
     $("project-title").textContent = project.title || "Käsikirjoitus";
+    if (loadedFresh) setSaveStatus("Tallennettu");
     clampSelection();
     if (initialMode === "editoi") switchMode("editoi");
     else renderActivePanel();
