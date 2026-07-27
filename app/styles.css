@@ -7931,3 +7931,440 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
         padding: 24px;
     }
 }
+
+/* Editorial paper workspaces
+   Mirrors the manuscript analysis and support-material modules: paper, ink,
+   bilberry and cloudberry, with a calm 640 px reading column. */
+.editorial-paper-workspace {
+    --bg-color: #fbf9f4;
+    --panel-bg: #ffffff;
+    --text-primary: #29241d;
+    --text-secondary: rgba(41, 36, 29, .7);
+    --accent-color: #43406e;
+    --ai-gradient-start: #43406e;
+    --ai-gradient-end: #d98e2b;
+    --border-color: #e4decf;
+    width: 100%;
+    max-width: none;
+    min-height: calc(100vh - 108px);
+    margin: 0;
+    padding: 40px 20px 36px;
+    border-radius: 16px;
+    background: #fbf9f4;
+    color: #29241d;
+    box-shadow: 0 18px 55px rgba(41, 36, 29, .13);
+}
+
+.editorial-paper-workspace > .header,
+.editorial-paper-workspace > .development-simple-workspace,
+.editorial-paper-workspace > .production-workspace-hero,
+.editorial-paper-workspace > .product-status-text,
+.editorial-paper-workspace > .product-grid {
+    width: min(100%, 640px);
+    margin-right: auto;
+    margin-left: auto;
+}
+
+.editorial-paper-workspace .eyebrow,
+.editorial-paper-workspace .production-workspace-eyebrow {
+    color: #43406e;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .12em;
+}
+
+.editorial-paper-workspace > .header {
+    align-items: flex-start;
+    margin-bottom: 18px;
+    padding: 8px 0 4px;
+}
+
+.editorial-paper-workspace > .header h2,
+.editorial-paper-workspace .production-workspace-hero h2,
+.editorial-paper-workspace .development-simple-heading h3,
+.editorial-paper-workspace .product-section-card h3,
+.editorial-paper-workspace .development-result-block h3,
+.editorial-paper-workspace .knowledge-list-heading h3 {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 600;
+    color: #29241d;
+}
+
+.editorial-paper-workspace > .header h2,
+.editorial-paper-workspace .production-workspace-hero h2 {
+    margin: 0;
+    font-size: 26px;
+    line-height: 1.1;
+    letter-spacing: -.01em;
+}
+
+.editorial-paper-workspace > .header .header-info > p:not(.eyebrow) {
+    max-width: 540px;
+    margin-top: 7px;
+    color: rgba(41, 36, 29, .7);
+    font-size: 15px;
+    line-height: 1.55;
+}
+
+.editorial-paper-workspace .btn {
+    min-height: 44px;
+    border-radius: 10px;
+    font-weight: 650;
+}
+
+.editorial-paper-workspace .btn-primary {
+    border: 1px solid #43406e;
+    background: #43406e;
+    color: #fff;
+}
+
+.editorial-paper-workspace .btn-primary:hover {
+    background: #34315a;
+    box-shadow: none;
+}
+
+.editorial-paper-workspace .btn-secondary {
+    border: 1px solid #e4decf;
+    background: #fff;
+    color: #29241d;
+}
+
+.editorial-paper-workspace .btn-secondary:hover {
+    border-color: rgba(67, 64, 110, .36);
+    background: #eceaf4;
+}
+
+/* Development editing */
+#view-kehityseditointi .development-simple-workspace {
+    gap: 22px;
+    max-width: 640px;
+}
+
+#view-kehityseditointi .development-simple-card {
+    padding: 20px;
+    border: 1px solid #e4decf;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(41, 36, 29, .05), 0 6px 20px rgba(41, 36, 29, .06);
+    backdrop-filter: none;
+}
+
+#view-kehityseditointi .development-simple-card::before {
+    display: none;
+}
+
+#view-kehityseditointi .development-simple-heading {
+    gap: 14px;
+}
+
+#view-kehityseditointi .development-simple-heading > div {
+    column-gap: 10px;
+}
+
+#view-kehityseditointi .development-simple-heading h3 {
+    margin-top: 0;
+    font-size: 22px;
+}
+
+#view-kehityseditointi .development-step-number {
+    width: 40px;
+    height: 40px;
+    border: 1px solid rgba(67, 64, 110, .24);
+    border-radius: 12px;
+    background: #eceaf4;
+    color: #43406e;
+    font-size: 14px;
+}
+
+#view-kehityseditointi .development-simple-lead {
+    margin: 16px 0 20px;
+    color: rgba(41, 36, 29, .7);
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+#view-kehityseditointi .development-simple-prompt > span {
+    color: #29241d;
+}
+
+#view-kehityseditointi .development-simple-prompt small,
+#view-kehityseditointi .development-memory-summary,
+#view-kehityseditointi .development-summary-item span,
+#view-kehityseditointi .knowledge-card-content,
+#view-kehityseditointi .knowledge-card-details {
+    color: rgba(41, 36, 29, .62);
+}
+
+#view-kehityseditointi .development-simple-prompt textarea,
+#view-kehityseditointi .development-textarea,
+#view-kehityseditointi .knowledge-list-heading input {
+    border: 1px solid #e4decf;
+    border-radius: 10px;
+    background: #fffdf9;
+    color: #29241d;
+}
+
+#view-kehityseditointi .development-simple-prompt textarea:focus,
+#view-kehityseditointi .development-textarea:focus,
+#view-kehityseditointi .knowledge-list-heading input:focus {
+    border-color: #43406e;
+    outline: 3px solid rgba(67, 64, 110, .12);
+}
+
+#view-kehityseditointi .development-summary-list {
+    margin-top: 18px;
+}
+
+#view-kehityseditointi .development-summary-item,
+#view-kehityseditointi .knowledge-card {
+    border: 1px solid #e4decf;
+    border-radius: 10px;
+    background: #fbf9f4;
+}
+
+#view-kehityseditointi .development-summary-item strong,
+#view-kehityseditointi .knowledge-card-title h4,
+#view-kehityseditointi .knowledge-card-details strong {
+    color: #29241d;
+}
+
+#view-kehityseditointi .development-result-block,
+#view-kehityseditointi .development-memory-heading,
+#view-kehityseditointi .knowledge-card-body {
+    border-color: #e4decf;
+}
+
+#view-kehityseditointi .development-result-block > h3,
+#view-kehityseditointi .development-result-block .panel-header h3,
+#view-kehityseditointi .knowledge-list-heading h3 {
+    font-size: 17px;
+}
+
+#view-kehityseditointi .development-textarea {
+    min-height: 360px;
+}
+
+#view-kehityseditointi .development-textarea.medium {
+    min-height: 220px;
+}
+
+#view-kehityseditointi .development-stop-action {
+    border-color: rgba(163, 59, 46, .32);
+    background: rgba(163, 59, 46, .06);
+    color: #a33b2e;
+}
+
+#view-kehityseditointi .knowledge-extraction-progress {
+    border-color: rgba(67, 64, 110, .2);
+    background: #eceaf4;
+}
+
+#view-kehityseditointi .knowledge-extraction-progress-track {
+    background: rgba(67, 64, 110, .12);
+}
+
+#view-kehityseditointi .knowledge-extraction-progress-track span {
+    background: linear-gradient(90deg, #43406e, #d98e2b);
+}
+
+#view-kehityseditointi .knowledge-type-icon,
+#view-kehityseditointi .knowledge-status-chip.is-verified {
+    background: #eceaf4;
+    color: #43406e;
+}
+
+#view-kehityseditointi .knowledge-type-chip,
+#view-kehityseditointi .knowledge-status-chip {
+    background: #f1ede3;
+    color: rgba(41, 36, 29, .7);
+}
+
+#view-kehityseditointi .knowledge-tags span {
+    background: #eceaf4;
+    color: #43406e;
+}
+
+/* Product metadata */
+#view-tuotetiedot {
+    counter-reset: product-sections;
+}
+
+#view-tuotetiedot .production-workspace-hero {
+    display: block;
+    overflow: visible;
+    margin-bottom: 18px;
+    padding: 8px 0 4px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+#view-tuotetiedot .production-workspace-hero::after {
+    display: none;
+}
+
+#view-tuotetiedot .production-workspace-hero-copy > p:not(.production-workspace-eyebrow) {
+    max-width: 540px;
+    margin-top: 8px;
+    color: rgba(41, 36, 29, .7);
+    font-size: 15px;
+}
+
+#view-tuotetiedot .production-workspace-stats {
+    gap: 8px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+#view-tuotetiedot .production-workspace-stats div {
+    min-width: 122px;
+    padding: 11px 13px;
+    border: 1px solid #e4decf;
+    border-radius: 10px;
+    background: #fff;
+}
+
+#view-tuotetiedot .production-workspace-stats strong {
+    color: #43406e;
+    font-size: 20px;
+}
+
+#view-tuotetiedot .production-workspace-stats span {
+    color: rgba(41, 36, 29, .52);
+}
+
+#view-tuotetiedot .production-workspace-hero-status {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    min-height: 0;
+    margin-top: 16px;
+    padding: 12px;
+    border: 1px solid #e4decf;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(41, 36, 29, .05), 0 6px 20px rgba(41, 36, 29, .06);
+    backdrop-filter: none;
+}
+
+#view-tuotetiedot .production-workspace-hero-status > span {
+    grid-column: 1 / -1;
+    color: #43406e;
+}
+
+#view-tuotetiedot .product-status-text {
+    margin-top: 0;
+    margin-bottom: 18px;
+    padding: 12px 14px;
+    border: 1px solid rgba(217, 142, 43, .42);
+    border-radius: 10px;
+    background: #f8ecd8;
+    color: rgba(41, 36, 29, .75);
+    font-size: 13px;
+}
+
+#view-tuotetiedot .product-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+#view-tuotetiedot .product-section-card,
+#view-tuotetiedot .product-section-wide {
+    grid-column: auto;
+    padding: 18px;
+    border: 1px solid #e4decf;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(41, 36, 29, .05), 0 6px 20px rgba(41, 36, 29, .06);
+}
+
+#view-tuotetiedot .product-section-card h3 {
+    margin-bottom: 16px;
+    font-size: 18px;
+}
+
+#view-tuotetiedot .product-section-card h3::before {
+    border-color: rgba(67, 64, 110, .24);
+    background: #eceaf4;
+    color: #43406e;
+}
+
+#view-tuotetiedot .settings-row {
+    margin-top: 16px;
+}
+
+#view-tuotetiedot .settings-row label {
+    color: rgba(41, 36, 29, .7);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+#view-tuotetiedot .settings-row select,
+#view-tuotetiedot .settings-row input,
+#view-tuotetiedot .settings-row textarea {
+    min-height: 48px;
+    padding: 13px 14px;
+    border: 1px solid #e4decf;
+    border-radius: 10px;
+    background: #fffdf9;
+    color: #29241d;
+}
+
+#view-tuotetiedot .settings-row select:focus,
+#view-tuotetiedot .settings-row input:focus,
+#view-tuotetiedot .settings-row textarea:focus {
+    border-color: #43406e;
+    outline: 3px solid rgba(67, 64, 110, .12);
+}
+
+#view-tuotetiedot .product-field-row.product-missing label {
+    color: #8a5a14;
+}
+
+#view-tuotetiedot .product-field-row.product-missing input,
+#view-tuotetiedot .product-field-row.product-missing textarea {
+    border-color: rgba(217, 142, 43, .62);
+    background: #fffaf0;
+}
+
+/* Analysis and support materials already use this shell inside their frames. */
+#view-analyysi .manuskripti-frame,
+#view-muut-toiminnot .tuotanto-frame {
+    background: #fbf9f4;
+    box-shadow: 0 18px 55px rgba(41, 36, 29, .13);
+}
+
+@media (max-width: 700px) {
+    .editorial-paper-workspace {
+        min-height: 100%;
+        padding: 24px 16px 28px;
+        border-radius: 12px;
+    }
+
+    .editorial-paper-workspace > .header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    #view-kehityseditointi .development-simple-card,
+    #view-tuotetiedot .product-section-card {
+        padding: 16px;
+    }
+
+    #view-kehityseditointi .development-simple-heading {
+        flex-direction: column;
+    }
+
+    #view-kehityseditointi .knowledge-status {
+        max-width: none;
+        text-align: left;
+    }
+
+    #view-tuotetiedot .production-workspace-hero-status {
+        grid-template-columns: 1fr;
+    }
+
+    #view-tuotetiedot .production-workspace-hero-status > span {
+        grid-column: auto;
+    }
+}
