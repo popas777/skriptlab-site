@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=52">
+    <link rel="stylesheet" href="styles.css?v=57">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -52,6 +52,7 @@
             </button>
             <div class="context-info">
                 <span class="manuscript-badge" id="top-book-name">Käsikirjoitus: Valitse projekti</span>
+                <button class="top-version-badge" id="top-version-btn" type="button" title="Avaa versiohistoria" disabled>V0 · Versiot</button>
             </div>
         </div>
         <div class="top-bar-right">
@@ -73,12 +74,12 @@
                     <li data-view="view-analyysi">Analyysi ja rakenne</li>
                     <li data-view="view-kehityseditointi">Rakenne- ja kehityseditointi</li>
                     <li data-view="view-kirjoita-editoi">Kirjoita ja editoi</li>
-                    <li data-view="view-kirjoita">Kirjoita</li>
-                    <li data-view="view-toimitus">Editointi</li>
+                    <li data-view="view-mobiilieditori">Mobiili-editori</li>
                     <li data-view="view-oikoluku">Oikoluku ja viimeistely</li>
                     <li data-view="view-muut-toiminnot">Oheisaineistot</li>
                     <li data-view="view-kuvitus">Kansi ja kuvitus</li>
                     <li data-view="view-kirja">Valmis kirja & taitto</li>
+                    <li data-view="view-julkaisupaketti">Julkaisupaketti</li>
                     <li data-view="view-julkaise">Julkaise</li>
                     <li data-view="view-ai-tyonkulku">AI-työnkulku</li>
                     <li data-view="view-kaannokset">Käännökset</li>
@@ -375,12 +376,18 @@
                     </div>
                     <div class="header-actions">
                         <button class="btn btn-secondary" id="development-refresh-btn" type="button">Päivitä</button>
-                        <button class="btn btn-secondary" id="development-save-btn" type="button">Tallenna muutokset</button>
-                        <button class="btn btn-primary" id="development-blueprint-btn" type="button">Luo rakennemalli</button>
-                        <button class="btn btn-primary" id="development-feedback-btn" type="button">Luo kehityspalaute</button>
+                        <button class="btn btn-secondary development-report-action" id="development-save-btn" type="button">Tallenna muutokset</button>
+                        <button class="btn btn-primary development-report-action" id="development-blueprint-btn" type="button">Luo rakennemalli</button>
+                        <button class="btn btn-primary development-report-action" id="development-feedback-btn" type="button">Luo kehityspalaute</button>
                     </div>
                 </div>
 
+                <div class="development-workspace-tabs" role="tablist" aria-label="Rakenne- ja kehityseditoinnin työtilat">
+                    <button class="development-workspace-tab is-active" type="button" role="tab" aria-selected="true" data-development-workspace="report">Kehityspalaute</button>
+                    <button class="development-workspace-tab" type="button" role="tab" aria-selected="false" data-development-workspace="knowledge">Projektimuisti</button>
+                </div>
+
+                <div id="development-report-workspace">
                 <div class="development-grid">
                     <section class="card glass-panel development-settings">
                         <h3>Kirjailijan brief</h3>
@@ -445,6 +452,9 @@
                         <h3>Rakennemalli / apuaineistopaketti</h3>
                         <p class="card-meta">Agentti 1 mallintaa käsikirjoituksen. Tarkista tulkinnat ennen kehityspalautetta.</p>
                         <textarea id="development-blueprint" class="development-textarea" placeholder="Rakennemalli näkyy tässä."></textarea>
+                        <div class="development-action-row">
+                            <button class="btn btn-secondary" id="development-scene-suggestions-btn" type="button">Poimi kohtauskorttiehdotukset</button>
+                        </div>
                     </section>
                     <section class="card glass-panel">
                         <h3>Käyttäjän korjaukset rakennemalliin</h3>
@@ -467,6 +477,150 @@
                         <textarea id="development-plan" class="development-textarea medium" placeholder="Korjaussuunnitelma poimitaan palautteesta tai sitä voi muokata käsin."></textarea>
                     </section>
                 </div>
+
+                <section class="card glass-panel scene-suggestions-panel hidden" id="scene-suggestions-panel">
+                    <div class="scene-suggestions-heading">
+                        <div>
+                            <p class="eyebrow">Rakennemallista projektimuistiin</p>
+                            <h3>Kohtauskorttiehdotukset</h3>
+                            <p class="card-meta">Tarkista otsikko, osiosidos ja sisältö. Hyväksytyt ehdotukset tallennetaan projektimuistiin tarkistettavina kohtauskortteina.</p>
+                        </div>
+                        <p id="scene-suggestions-status" class="save-timestamp" role="status" aria-live="polite"></p>
+                    </div>
+                    <div class="scene-suggestions-actions">
+                        <button class="btn btn-secondary" id="scene-suggestions-select-all" type="button">Valitse kaikki</button>
+                        <button class="btn btn-secondary" id="scene-suggestions-clear" type="button">Tyhjennä ehdotukset</button>
+                        <button class="btn btn-primary" id="scene-suggestions-accept" type="button">Hyväksy valitut projektimuistiin</button>
+                    </div>
+                    <div id="scene-suggestions-list" class="scene-suggestions-list"></div>
+                </section>
+                </div>
+
+                <div id="development-knowledge-workspace" class="hidden">
+                    <div class="knowledge-overview glass-panel">
+                        <div>
+                            <p class="eyebrow">Yhteinen projektitieto</p>
+                            <h3>Projektimuisti</h3>
+                            <p id="knowledge-workspace-summary">Kohtaukset, henkilöt, paikat, aikajana ja faktat yhdessä paikassa.</p>
+                        </div>
+                        <div class="knowledge-overview-actions">
+                            <div class="knowledge-ai-actions">
+                                <button id="knowledge-extract-btn" class="btn btn-secondary" type="button">Poimi käsikirjoituksesta</button>
+                                <button id="knowledge-continuity-btn" class="btn btn-secondary" type="button">Tarkista jatkuvuus</button>
+                            </div>
+                            <p id="knowledge-status" class="knowledge-status" role="status" aria-live="polite"></p>
+                        </div>
+                    </div>
+
+                    <div class="knowledge-filter-row" role="group" aria-label="Suodata projektimuistia">
+                        <button class="knowledge-filter-btn is-active" type="button" data-knowledge-filter="all">Kaikki <span data-knowledge-count="all">0</span></button>
+                        <button class="knowledge-filter-btn" type="button" data-knowledge-filter="scene">Kohtaukset <span data-knowledge-count="scene">0</span></button>
+                        <button class="knowledge-filter-btn" type="button" data-knowledge-filter="character">Henkilöt <span data-knowledge-count="character">0</span></button>
+                        <button class="knowledge-filter-btn" type="button" data-knowledge-filter="location">Paikat <span data-knowledge-count="location">0</span></button>
+                        <button class="knowledge-filter-btn" type="button" data-knowledge-filter="timeline">Aikajana <span data-knowledge-count="timeline">0</span></button>
+                        <button class="knowledge-filter-btn" type="button" data-knowledge-filter="fact">Faktat <span data-knowledge-count="fact">0</span></button>
+                        <button class="knowledge-filter-btn" type="button" data-knowledge-filter="concept">Käsitteet <span data-knowledge-count="concept">0</span></button>
+                        <button class="knowledge-filter-btn" type="button" data-knowledge-filter="source">Lähteet <span data-knowledge-count="source">0</span></button>
+                    </div>
+
+                    <section id="knowledge-suggestions-panel" class="card glass-panel knowledge-review-panel hidden">
+                        <div class="knowledge-review-heading">
+                            <div>
+                                <p class="eyebrow">AI:n poiminnat</p>
+                                <h3>Hyväksyntäjono</h3>
+                                <p class="card-meta">Muokkaa ehdotuksia ja hyväksy vain tiedot, jotka haluat projektimuistiin. Mitään ei hyväksytä automaattisesti.</p>
+                            </div>
+                            <p id="knowledge-suggestions-status" class="save-timestamp" role="status" aria-live="polite"></p>
+                        </div>
+                        <div class="knowledge-review-actions">
+                            <button id="knowledge-suggestions-select-all" class="btn btn-secondary" type="button">Valitse kaikki</button>
+                            <button id="knowledge-suggestions-clear" class="btn btn-secondary" type="button">Tyhjennä jono</button>
+                            <button id="knowledge-suggestions-accept" class="btn btn-primary" type="button">Valitse hyväksyttävät ehdotukset</button>
+                        </div>
+                        <div id="knowledge-suggestions-list" class="knowledge-suggestions-list"></div>
+                    </section>
+
+                    <section id="continuity-panel" class="card glass-panel continuity-panel hidden">
+                        <div class="knowledge-review-heading">
+                            <div>
+                                <p class="eyebrow">Käsikirjoitus vastaan projektimuisti</p>
+                                <h3>Jatkuvuushavainnot</h3>
+                                <p class="card-meta">Havainnot ovat tarkistuspyyntöjä. Sovellus ei muuta käsikirjoitusta niiden perusteella.</p>
+                            </div>
+                            <p id="continuity-status" class="save-timestamp" role="status" aria-live="polite"></p>
+                        </div>
+                        <div id="continuity-list" class="continuity-list"></div>
+                    </section>
+
+                    <div class="knowledge-layout">
+                        <section class="card glass-panel knowledge-form-card">
+                            <div class="panel-header">
+                                <div>
+                                    <p class="eyebrow">Uusi tieto</p>
+                                    <h3 id="knowledge-form-title">Lisää projektimuistiin</h3>
+                                </div>
+                                <button id="knowledge-cancel-btn" class="btn btn-secondary hidden" type="button">Peru muokkaus</button>
+                            </div>
+                            <div class="knowledge-form-grid">
+                                <div class="settings-row">
+                                    <label for="knowledge-item-type">Tyyppi</label>
+                                    <select id="knowledge-item-type">
+                                        <option value="scene">Kohtaus</option>
+                                        <option value="character">Henkilö</option>
+                                        <option value="location">Paikka</option>
+                                        <option value="timeline">Aikajana</option>
+                                        <option value="fact">Fakta</option>
+                                        <option value="concept">Teema tai käsite</option>
+                                        <option value="source">Lähde</option>
+                                    </select>
+                                </div>
+                                <div class="settings-row knowledge-title-field">
+                                    <label for="knowledge-title">Otsikko</label>
+                                    <input id="knowledge-title" type="text" maxlength="240" placeholder="Nimeä merkintä selkeästi">
+                                </div>
+                                <div class="settings-row">
+                                    <label for="knowledge-chapter">Liittyvä käsikirjoituksen osio</label>
+                                    <select id="knowledge-chapter"><option value="">Koko teos / ei sidosta</option></select>
+                                </div>
+                                <div class="settings-row">
+                                    <label for="knowledge-item-status">Varmuus</label>
+                                    <select id="knowledge-item-status">
+                                        <option value="draft">Luonnos</option>
+                                        <option value="needs_review">Tarkistettava</option>
+                                        <option value="verified">Vahvistettu</option>
+                                    </select>
+                                </div>
+                                <div id="knowledge-detail-fields" class="knowledge-detail-fields"></div>
+                                <div class="settings-row knowledge-wide-field">
+                                    <label for="knowledge-source-url">Lähdeosoite tai viite</label>
+                                    <input id="knowledge-source-url" type="text" maxlength="4000" placeholder="URL, arkistotunnus, teos tai muu tarkka viite">
+                                </div>
+                                <div class="settings-row knowledge-wide-field">
+                                    <label for="knowledge-tags">Tunnisteet</label>
+                                    <input id="knowledge-tags" type="text" placeholder="Esim. kirje, satama, 1990-luku">
+                                </div>
+                                <div class="settings-row knowledge-wide-field">
+                                    <label id="knowledge-content-label" for="knowledge-content">Kuvaus ja muistiinpanot</label>
+                                    <textarea id="knowledge-content" rows="8" maxlength="100000" placeholder="Kirjaa vain projektin kannalta olennainen, varmennettu tai tarkistettava tieto."></textarea>
+                                </div>
+                            </div>
+                            <button id="knowledge-save-btn" class="btn btn-primary" type="button">Lisää projektimuistiin</button>
+                        </section>
+
+                        <section class="card glass-panel knowledge-list-card">
+                            <div class="knowledge-list-heading">
+                                <div>
+                                    <p class="eyebrow">Kortit</p>
+                                    <h3>Projektin tietokortit</h3>
+                                </div>
+                                <input id="knowledge-search" type="search" placeholder="Hae projektimuistista" aria-label="Hae projektimuistista">
+                            </div>
+                            <div id="knowledge-list" class="knowledge-list">
+                                <div class="knowledge-empty">Projektimuistissa ei ole vielä merkintöjä.</div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
             </div>
 
             <!-- 1.19 VIEW: KIRJOITA JA EDITOI -->
@@ -475,18 +629,18 @@
                     id="kirjoita-editoi-frame"
                     class="tyosto-frame"
                     title="Kirjoita ja editoi"
-                    src="kirjoita-editoi.html?v=2"
+                    src="kirjoita-editoi.html?v=6"
                     loading="lazy"
                 ></iframe>
             </div>
 
-            <!-- 1.2 VIEW: KIRJOITA -->
-            <div id="view-kirjoita" class="view-section hidden">
+            <!-- 1.2 VIEW: MOBIILI-EDITORI -->
+            <div id="view-mobiilieditori" class="view-section hidden">
                 <iframe
-                    id="tyosto-frame-kirjoita"
+                    id="mobiili-editori-frame"
                     class="tyosto-frame"
-                    title="Kirjoita"
-                    src="tyosto.html?mode=kirjoita&v=1"
+                    title="Mobiili-editori"
+                    src="tyosto.html?mode=kirjoita&v=5"
                     loading="lazy"
                 ></iframe>
             </div>
@@ -1123,7 +1277,120 @@
                 </div>
             </div>
 
-            <!-- 1.6 VIEW: JULKAISE -->
+            <!-- 1.6 VIEW: JULKAISUPAKETTI -->
+            <div id="view-julkaisupaketti" class="view-section hidden">
+                <div class="publication-package-hero">
+                    <div class="publication-package-hero-copy">
+                        <span class="publication-package-eyebrow">Yksi lukittu lähde · kaikki toimitusformaatit</span>
+                        <h2>Julkaisupaketti</h2>
+                        <p id="publication-package-current-project">Käsikirjoitus: [Ei aktiivista teosta]</p>
+                        <div class="publication-package-stats" aria-label="Julkaisupaketin yhteenveto">
+                            <div><strong id="publication-package-word-count">0</strong><span>sanaa</span></div>
+                            <div><strong id="publication-package-version">V0</strong><span>uusin versio</span></div>
+                            <div><strong>3</strong><span>julkaisuformaattia</span></div>
+                        </div>
+                    </div>
+                    <div class="publication-package-hero-action">
+                        <span class="publication-package-lock">Lähdeversio lukitaan automaattisesti</span>
+                        <button class="btn btn-primary publication-package-build-btn" id="publication-package-build-btn" type="button">Muodosta julkaisupaketti</button>
+                        <p id="publication-package-status" role="status">Tarkistetaan paketin valmius…</p>
+                    </div>
+                </div>
+
+                <section class="publication-package-section">
+                    <div class="publication-package-section-heading">
+                        <div>
+                            <span class="publication-package-step">01</span>
+                            <h3>Valmiustarkistus</h3>
+                        </div>
+                        <p>Huomiot eivät estä sisäisen tarkistuspaketin muodostamista. Estävät kohdat korjataan ennen pakettia.</p>
+                    </div>
+                    <div id="publication-package-checks" class="publication-package-check-grid"></div>
+                </section>
+
+                <div class="publication-package-workspace">
+                    <section class="card glass-panel publication-package-cover-card">
+                        <div class="publication-package-card-heading">
+                            <span class="publication-package-step">02</span>
+                            <div>
+                                <h3>Valitse toimitettava kansi</h3>
+                                <p>Valinta koskee tätä pakettia. Alkuperäiset kansiversiot säilyvät galleriassa.</p>
+                            </div>
+                        </div>
+                        <div id="publication-package-cover-preview" class="publication-package-cover-preview">
+                            <span>Ei valittua kantta</span>
+                        </div>
+                        <label class="publication-package-select-label" for="publication-package-cover-select">Kansiversio</label>
+                        <select id="publication-package-cover-select">
+                            <option value="">Ei kansikuvaa paketissa</option>
+                        </select>
+                        <button class="btn btn-secondary" id="publication-package-open-cover-btn" type="button">Avaa Kansi ja kuvitus</button>
+                    </section>
+
+                    <section class="card glass-panel publication-package-contents-card">
+                        <div class="publication-package-card-heading">
+                            <span class="publication-package-step">03</span>
+                            <div>
+                                <h3>Paketin sisältö</h3>
+                                <p>Kaikki tiedostot muodostetaan samalla kertaa samasta versionumerosta.</p>
+                            </div>
+                        </div>
+                        <div class="publication-package-format-stack">
+                            <div class="publication-package-format publication-package-format-pdf">
+                                <span class="publication-package-file-icon">PDF</span>
+                                <div><strong>Visuaalinen tarkistusvedos</strong><small>Lukemiseen ja hyväksyntäkierrokselle</small></div>
+                                <span class="publication-package-format-state">Mukana</span>
+                            </div>
+                            <div class="publication-package-format publication-package-format-epub">
+                                <span class="publication-package-file-icon">EPUB</span>
+                                <div><strong>E-kirjaluonnos</strong><small>Sisällysluettelo ja luvut valmiina</small></div>
+                                <span class="publication-package-format-state">Mukana</span>
+                            </div>
+                            <div class="publication-package-format publication-package-format-docx">
+                                <span class="publication-package-file-icon">DOCX</span>
+                                <div><strong>Muokattava käsikirjoitus</strong><small>Toimituksen jatkotyöskentelyyn</small></div>
+                                <span class="publication-package-format-state">Mukana</span>
+                            </div>
+                            <div class="publication-package-format publication-package-format-meta">
+                                <span class="publication-package-file-icon">META</span>
+                                <div><strong>Tuotetiedot ja manifesti</strong><small>Lähdeversio, metadata ja tarkistushuomiot</small></div>
+                                <span class="publication-package-format-state">Mukana</span>
+                            </div>
+                            <div class="publication-package-format publication-package-format-cover hidden" id="publication-package-print-cover-format">
+                                <span class="publication-package-file-icon">COVER</span>
+                                <div><strong>Painokansi-PDF</strong><small>Takakansi, selkä, etukansi ja leikkuuvarat 300 DPI</small></div>
+                                <span class="publication-package-format-state">Mukana</span>
+                            </div>
+                        </div>
+                        <div class="publication-package-layout-controls">
+                            <label for="publication-package-layout-size">Kirjan koko</label>
+                            <select id="publication-package-layout-size">
+                                <option value="A5">A5 · yleiskirja</option>
+                                <option value="B5">B5 · suuri tietokirja</option>
+                                <option value="G5">G5 · fantasia ja scifi</option>
+                                <option value="Pokkari">Pokkari</option>
+                            </select>
+                        </div>
+                    </section>
+                </div>
+
+                <section id="publication-package-result" class="publication-package-result hidden">
+                    <div class="publication-package-result-badge">PAKETTI VALMIS</div>
+                    <div class="publication-package-result-copy">
+                        <span id="publication-package-result-version">V0</span>
+                        <div>
+                            <h3 id="publication-package-result-title">Julkaisupaketti</h3>
+                            <p id="publication-package-result-detail">PDF, EPUB, DOCX, kansi ja tuotetiedot samassa ZIP-paketissa.</p>
+                        </div>
+                    </div>
+                    <div class="publication-package-result-actions">
+                        <button class="btn btn-secondary" id="publication-package-download-btn" type="button">Lataa ZIP</button>
+                        <button class="btn btn-primary" id="publication-package-translate-btn" type="button">Jatka monikieliseen julkaisuun</button>
+                    </div>
+                </section>
+            </div>
+
+            <!-- 1.7 VIEW: JULKAISE -->
             <div id="view-julkaise" class="view-section hidden">
                 <div class="header">
                     <div class="header-info">
@@ -1400,106 +1667,55 @@
 
 
 
-            <!-- 5.5 VIEW: VERSIOT (ent. Viimeistely) -->
+            <!-- 5.5 VIEW: VERSIOHISTORIA -->
             <div id="view-viimeistely" class="view-section hidden">
-                <div class="header">
-                    <div class="header-info">
-                        <h2>Versiot ja Tuotostiedostot</h2>
-                        <p>Käsikirjoitus: [Ei aktiivista teosta] (AI-avusteinen automaattioikoluku)</p>
-                    </div>
-                    <div class="header-actions">
-                        <button class="btn btn-primary" onclick="startLongTask('Generoidaan Tyyliversioita', 'Luetaan käsikirjoitusta ja vektorimuistia. Ajetaan AI-rinnakkaisversiointia...', 120);">✨ Aja Tyyligenerointi</button>
-                    </div>
-                </div>
-
-                <div class="grid-cards" style="grid-template-columns: 1fr 1fr;">
-                    <!-- Asetukset -->
-                    <div class="card glass-panel" style="display:flex; flex-direction:column;">
-                        <h3 style="margin-bottom:20px; color:var(--text-primary);">Ajo-asetukset</h3>
-                        <p style="color:var(--text-secondary); margin-bottom:16px; font-size:13px;">Valitse, mitkä tyyliversiot haluat tekoälyn laskevan rinnakkain koko tekstistä. Jokainen versio tallennetaan omaan tiedostoonsa vertailua varten.</p>
-                        
-                        <label style="display:flex; align-items:center; gap:12px; margin-bottom:12px; color:var(--text-primary); cursor:pointer;">
-                            <input type="checkbox" checked style="accent-color: var(--ai-gradient-start); width:18px; height:18px;">
-                            <span><strong>Versio 1: Tarkka</strong> (Kielioppikorjaukset, uskollinen alkuperäiselle)</span>
-                        </label>
-                        <label style="display:flex; align-items:center; gap:12px; margin-bottom:12px; color:var(--text-primary); cursor:pointer;">
-                            <input type="checkbox" checked style="accent-color: var(--ai-gradient-start); width:18px; height:18px;">
-                            <span><strong>Versio 2: Kaunokirjallinen</strong> (Sujuvampi rytmi, elävämpi kieli)</span>
-                        </label>
-                        <label style="display:flex; align-items:center; gap:12px; margin-bottom:12px; color:var(--text-primary); cursor:pointer;">
-                            <input type="checkbox" style="accent-color: var(--ai-gradient-start); width:18px; height:18px;">
-                            <span><strong>Versio 3: Moderni</strong> (Lyhyemmät lauseet, karsitut adjektiivit)</span>
-                        </label>
-                        <label style="display:flex; align-items:center; gap:12px; margin-bottom:12px; color:var(--text-primary); cursor:pointer;">
-                            <input type="checkbox" checked style="accent-color: var(--ai-gradient-start); width:18px; height:18px;">
-                            <span><strong>Versio 4: Kirjan oma tyyli</strong> (Hyödyntää Analyzer-luomaa style.txt-ohjeistusta)</span>
-                        </label>
-                        <label style="display:flex; align-items:center; gap:12px; margin-bottom:20px; color:var(--text-primary); cursor:pointer;">
-                            <input type="checkbox" style="accent-color: var(--ai-gradient-start); width:18px; height:18px;">
-                            <span><strong>Versio 5: Selkokieli</strong> (Helppolukuinen ja tiivistetty lyhennelmä erityisryhmille)</span>
-                        </label>
-                    </div>
-
-                    <!-- Esikatselu / Vertailu -->
-                    <div class="card glass-panel" style="display:flex; flex-direction:column;">
-                        <h3 style="margin-bottom:20px; color:var(--text-primary);">Kohtauksen Vertailu (Esimerkki)</h3>
-                        
-                        <div style="background:rgba(0,0,0,0.2); padding:16px; border-radius:8px; border:1px solid var(--border-color); margin-bottom:16px;">
-                            <span class="badge" style="margin-bottom:8px; display:inline-block; margin-left:0;">Alkuperäinen raakakäännös</span>
-                            <p style="font-size:13px; color:var(--text-secondary);">Hän laittoi kätensä taskuunsa ja katsoi pientä oliota, joka oli kylmä.</p>
+                <div class="versions-view">
+                    <div class="header versions-header">
+                        <div class="header-info">
+                            <p class="eyebrow">Muutoshallinta</p>
+                            <h2>Versiohistoria</h2>
+                            <p id="versions-project-summary">Valitse käsikirjoitus nähdäksesi sen palautuspisteet.</p>
                         </div>
-
-                        <div style="background:rgba(16,185,129,0.1); padding:16px; border-radius:8px; border:1px solid rgba(16,185,129,0.3); margin-bottom:16px;">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                                <span class="badge glowing" style="margin-left:0; background:var(--ai-gradient-end); color:#fff; border:none;">Versio 2: Kaunokirjallinen</span>
-                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:11px;">Valitse tämä</button>
-                            </div>
-                            <p style="font-size:13px; color:var(--text-primary);">Hän työnsi kätensä taskuun ja tuijotti pientä, kylmästä tärisevää olentoa.</p>
-                        </div>
-                        
-                        <div style="background:rgba(0,0,0,0.2); padding:16px; border-radius:8px; border:1px solid var(--border-color);">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                                <span class="badge" style="margin-left:0;">Versio 4: Kirjan oma tyyli</span>
-                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:11px;">Valitse tämä</button>
-                            </div>
-                            <p style="font-size:13px; color:var(--text-secondary);">Hän kätki nyrkkinsä syvälle viittansa uumeniin, antamatta katseensa irrota tuosta hyytävästä sivullisesta.</p>
-                        </div>
+                        <p id="versions-status" class="versions-status" role="status" aria-live="polite"></p>
                     </div>
-                </div>
 
-                <!-- Tulokset / Tallennetut Versiot -->
-                <div class="generated-files-list glass-panel" style="margin-top: 24px;">
-                    <h3 style="margin-bottom:12px; color:var(--text-primary);">Tallennetut Versiot ja Taitot</h3>
-                    <ul style="list-style: none; padding: 0;">
-                        <li style="display:flex; justify-content:space-between; align-items:center; padding: 12px; background: rgba(0,0,0,0.2); border-bottom: 1px solid #333; border-radius:8px; margin-bottom:8px;">
-                            <span style="color:var(--text-primary);">📕 Kasikirjoitus_A5.pdf</span>
-                            <div style="display:flex; gap:8px;">
-                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:var(--ai-gradient-start); border-color:var(--ai-gradient-start);" onclick="window.open().document.write('<html><body style=\'background:#222;color:#fff;font-family:sans-serif;padding:40px;text-align:center;\'><h1>Esikatselu: PDF (Mock)</h1><p>Tässä näkyisi taitettu kirjan PDF selaimeen upotettuna.</p></body></html>');">Avaa</button>
-                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:#ff5555; border-color:#ff5555;" onclick="this.parentElement.parentElement.remove()">🗑️ Poista</button>
+                    <div class="versions-layout">
+                        <section class="card glass-panel versions-create-card">
+                            <div>
+                            <span class="versions-step">Nykyinen työtila</span>
+                            <h3>Tallenna uusi versio</h3>
+                                <p>Koko käsikirjoitus, rakenne, otsikot, analyysit ja projektimuisti tallennetaan samaan versioon.</p>
                             </div>
-                        </li>
-                        <li style="display:flex; justify-content:space-between; align-items:center; padding: 12px; background: rgba(0,0,0,0.2); border-bottom: 1px solid #333; border-radius:8px; margin-bottom:8px;">
-                            <span style="color:var(--text-primary);">📱 Kasikirjoitus_EPUB3.epub</span>
-                            <div style="display:flex; gap:8px;">
-                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:var(--ai-gradient-start); border-color:var(--ai-gradient-start);" onclick="window.open().document.write('<html><body style=\'background:#fff;color:#000;font-family:serif;padding:40px;\'><h1 style=\'text-align:center\'>Luku 1 (eBook Esikatselu)</h1><p>Tässä lukijalaite simuloisi responsiivista ePub-tekstiä.</p></body></html>');">Avaa</button>
-                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:#ff5555; border-color:#ff5555;" onclick="this.parentElement.parentElement.remove()">🗑️ Poista</button>
+                            <label for="version-label-input">Version nimi</label>
+                            <input id="version-label-input" type="text" maxlength="160" placeholder="Esim. Rakenteellinen editointi valmis">
+                            <button id="create-version-btn" class="btn btn-primary" type="button">Tallenna seuraava versio</button>
+                            <div id="versions-current-stats" class="versions-current-stats"></div>
+                        </section>
+
+                        <aside class="card glass-panel versions-safety-card">
+                            <span class="versions-step">Automaattinen suojaus</span>
+                            <h3>Turvaverkko ennen isoja muutoksia</h3>
+                            <p>SkriptLab luo palautuspisteen ennen tekoälyeditointia ja automaattista oikolukua. Myös palautusta edeltävä nykytila säilytetään.</p>
+                            <ul>
+                                <li>Manuaalinen palautuspiste milloin tahansa</li>
+                                <li>Tekijä, ajankohta ja tekstimäärä näkyvät historiassa</li>
+                                <li>Palautus ei poista myöhempiä versioita</li>
+                            </ul>
+                        </aside>
+                    </div>
+
+                    <section class="glass-panel versions-history-panel">
+                        <div class="versions-history-heading">
+                            <div>
+                                <p class="eyebrow">Aikajana</p>
+                                <h3>Tallennetut versiot</h3>
                             </div>
-                        </li>
-                        <li style="display:flex; justify-content:space-between; align-items:center; padding: 12px; background: rgba(0,0,0,0.2); border-bottom: 1px solid #333; border-radius:8px; margin-bottom:8px;">
-                            <span style="color:var(--text-primary);">📄 Versio_4_Kirjan_tyyli.txt</span>
-                            <div style="display:flex; gap:8px;">
-                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:var(--ai-gradient-start); border-color:var(--ai-gradient-start);" onclick="alert('Ladataan vertailuun...')">Vertaa</button>
-                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:#ff5555; border-color:#ff5555;" onclick="this.parentElement.parentElement.remove()">🗑️ Poista</button>
-                            </div>
-                        </li>
-                        <li style="display:flex; justify-content:space-between; align-items:center; padding: 12px; background: rgba(0,0,0,0.2); border-bottom: 1px solid #333; border-radius:8px; margin-bottom:8px;">
-                            <span style="color:var(--text-primary);">📄 Versio_5_Selkokieli.txt</span>
-                            <div style="display:flex; gap:8px;">
-                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:var(--ai-gradient-start); border-color:var(--ai-gradient-start);" onclick="alert('Ladataan vertailuun...')">Vertaa</button>
-                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:12px; color:#ff5555; border-color:#ff5555;" onclick="this.parentElement.parentElement.remove()">🗑️ Poista</button>
-                            </div>
-                        </li>
-                    </ul>
+                            <button id="refresh-versions-btn" class="btn btn-secondary" type="button">Päivitä</button>
+                        </div>
+                        <div id="versions-list" class="versions-list">
+                            <div class="versions-empty">Valitse käsikirjoitus.</div>
+                        </div>
+                    </section>
                 </div>
             </div>
 
@@ -1717,6 +1933,105 @@
                         <div id="cover-gallery" class="grid-cards" style="grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));"></div>
                         <p id="cover-empty-state" style="color:var(--text-secondary);">Ei vielä tallennettuja kansikuvia tai takakansia.</p>
                     </div>
+
+                    <section class="cover-layout-studio" aria-labelledby="cover-layout-heading">
+                        <div class="cover-layout-heading-row">
+                            <div>
+                                <span class="cover-layout-kicker">PAINOKANSI · 300 DPI</span>
+                                <h3 id="cover-layout-heading">Muodosta oikea kansiaukeama</h3>
+                                <p>Etukannesta syntyy yhtenäinen takakansi, sivumäärän mukaan mitoitettu selkä ja painoon mitoitettu PDF.</p>
+                            </div>
+                            <span class="cover-layout-proof-badge">Painoaineiston esikatselu</span>
+                        </div>
+
+                        <div class="cover-layout-workspace">
+                            <div class="cover-layout-controls">
+                                <label class="cover-layout-field cover-layout-field-wide">
+                                    <span>Etukannen kuva</span>
+                                    <select id="cover-layout-front-select">
+                                        <option value="">Luo tai tuo ensin etukansi</option>
+                                    </select>
+                                </label>
+
+                                <label class="cover-layout-field">
+                                    <span>Valmis koko</span>
+                                    <select id="cover-layout-trim-select">
+                                        <option value="A5">A5 · 148 × 210 mm</option>
+                                        <option value="B_FORMAT">B-format · 130 × 198 mm</option>
+                                        <option value="POCKET">Pokkari · 110 × 178 mm</option>
+                                        <option value="SIX_BY_NINE">6 × 9 tuumaa</option>
+                                    </select>
+                                </label>
+
+                                <label class="cover-layout-field">
+                                    <span>Sivumäärä</span>
+                                    <div class="cover-layout-inline-input">
+                                        <input id="cover-layout-page-count" type="number" min="4" max="5000" step="4" placeholder="Päätellään tekstistä">
+                                        <button class="btn btn-secondary" id="cover-layout-estimate-btn" type="button">Päättele</button>
+                                    </div>
+                                </label>
+
+                                <label class="cover-layout-field">
+                                    <span>Paperin arkkipaksuus</span>
+                                    <select id="cover-layout-paper-select">
+                                        <option value="0.085">0,085 mm · ohut</option>
+                                        <option value="0.10" selected>0,10 mm · vakio</option>
+                                        <option value="0.12">0,12 mm · paksu</option>
+                                    </select>
+                                </label>
+
+                                <label class="cover-layout-field">
+                                    <span>Leikkuuvara</span>
+                                    <select id="cover-layout-bleed-select">
+                                        <option value="3" selected>3 mm · vakio</option>
+                                        <option value="5">5 mm</option>
+                                        <option value="0">0 mm · vain testiin</option>
+                                    </select>
+                                </label>
+
+                                <label class="cover-layout-field cover-layout-field-wide">
+                                    <span>Takakansiteksti</span>
+                                    <textarea id="cover-layout-back-text" rows="7" placeholder="Käytetään tuotetiedoissa olevaa takakansitekstiä, jos jätät kentän tyhjäksi."></textarea>
+                                </label>
+
+                                <label class="cover-layout-checkbox cover-layout-field-wide">
+                                    <input id="cover-layout-barcode" type="checkbox" checked>
+                                    <span>Varaa takakanteen paikka ISBN:lle ja viivakoodille</span>
+                                </label>
+
+                                <div class="cover-layout-metrics cover-layout-field-wide" aria-live="polite">
+                                    <div><span>Sivut</span><strong id="cover-layout-pages-metric">—</strong></div>
+                                    <div><span>Selkä</span><strong id="cover-layout-spine-metric">—</strong></div>
+                                    <div><span>Aukeama</span><strong id="cover-layout-size-metric">—</strong></div>
+                                </div>
+
+                                <button class="btn btn-primary cover-layout-generate cover-layout-field-wide" id="cover-layout-generate-btn" type="button">Muodosta painokansi</button>
+                                <p class="cover-layout-status cover-layout-field-wide" id="cover-layout-status">Valitse etukansi. Lopullinen selkäleveys vahvistetaan aina painotalon kanssa.</p>
+                            </div>
+
+                            <div class="cover-layout-stage">
+                                <div class="cover-layout-stage-toolbar">
+                                    <div class="cover-layout-legend" aria-label="Esikatselun merkinnät">
+                                        <span><i class="is-bleed"></i> Leikkuuvara</span>
+                                        <span><i class="is-trim"></i> Leikkauslinja</span>
+                                        <span><i class="is-fold"></i> Selän taite</span>
+                                    </div>
+                                    <span id="cover-layout-resolution">300 DPI</span>
+                                </div>
+                                <div class="cover-layout-preview" id="cover-layout-preview">
+                                    <div class="cover-layout-empty">
+                                        <span class="cover-layout-empty-icon">↔</span>
+                                        <strong>Koko kansiaukeama näkyy tässä</strong>
+                                        <small>Takakansi · selkä · etukansi · leikkuuvarat</small>
+                                    </div>
+                                </div>
+                                <div class="cover-layout-downloads">
+                                    <button class="btn btn-secondary" id="cover-layout-download-png" type="button" disabled>Lataa 300 DPI PNG</button>
+                                    <button class="btn btn-primary" id="cover-layout-download-pdf" type="button" disabled>Lataa painokansi-PDF</button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
                 </div>
 
                 <div class="illustration-section">
@@ -2941,21 +3256,10 @@
                 </div>
             </div>
 
-            <!-- 5. VIEW: EDITOINTI (Vierekkäisnäkymä) -->
-            <div id="view-toimitus" class="view-section hidden">
-                <iframe
-                    id="tyosto-frame-toimitus"
-                    class="tyosto-frame"
-                    title="Editointi"
-                    src="tyosto.html?mode=editoi&v=1"
-                    loading="lazy"
-                ></iframe>
-            </div>
-
         </main>
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-<script src="app.js?v=86"></script>
+<script src="app.js?v=101"></script>
 </body>
 </html>

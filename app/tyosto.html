@@ -4,19 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#FBF9F4">
-<title>Kirjoita ja editoi – SkriptLab</title>
+<title>Mobiili-editori – SkriptLab</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="tyosto.css?v=1">
+<link rel="stylesheet" href="tyosto.css?v=4">
 </head>
 <body>
 
-<main id="view-tyosto" class="screen is-active" aria-label="Kirjoita ja editoi">
+<main id="view-tyosto" class="screen is-active" aria-label="Mobiili-editori">
   <header class="step-header">
     <button class="back-btn" id="btn-back" aria-label="Takaisin" hidden>←</button>
     <div class="grow">
-      <p class="eyebrow">Kirjoita ja editoi</p>
+      <p class="eyebrow">Mobiili-editori</p>
       <h2 id="project-title">–</h2>
     </div>
     <p class="hint" id="save-status" role="status" aria-live="polite" style="margin:0"></p>
@@ -32,6 +32,11 @@
       </button>
       <button class="nav-arrow" id="btn-next-chapter" aria-label="Seuraava osio">›</button>
     </div>
+
+    <details class="chapter-memory" id="chapter-memory" open>
+      <summary><span>Projektimuisti</span><span class="count" id="chapter-memory-count">0</span></summary>
+      <div class="chapter-memory-list" id="chapter-memory-list"></div>
+    </details>
 
     <!-- tilakytkin -->
     <div class="mode-switch" role="tablist" aria-label="Työskentelytila">
@@ -119,6 +124,7 @@
   <div class="sheet-handle" aria-hidden="true"></div>
   <h3>Osiot</h3>
   <div class="sheet-content" id="chapter-sheet-list"></div>
+  <p class="chapter-merge-hint">Yhdistä kaksi peräkkäistä päätekstin lukua vetämällä alempi luku suoraan edellisen päälle.</p>
   <details class="mass-section" id="new-chapter-form">
     <summary>+ Uusi osio</summary>
     <div class="mass-body">
@@ -245,6 +251,6 @@
     };
   })();
 </script>
-<script src="tyosto.js?v=1"></script>
+<script src="tyosto.js?v=5"></script>
 </body>
 </html>

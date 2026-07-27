@@ -220,6 +220,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 	    let currentLayoutAssets = [];
     let currentCoverImages = [];
     let selectedCoverReference = null;
+	let latestCoverLayout = null;
+	let coverLayoutDefaultsProjectId = null;
 	    let imageModels = [];
     let proofreadSuggestions = [];
     let proofreadSelection = { cIndex: null };
@@ -267,17 +269,35 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (Array.isArray(currentUser?.allowed_modules)) return 'view-kirjani';
         if (currentUser?.role === 'oppimateriaali') return 'view-om-projekti';
         if (currentUser?.role === 'kirjailija') {
-            return localStorage.getItem('skriptlab_manuscript') ? 'view-kirjoita' : 'view-kirjani';
+            return localStorage.getItem('skriptlab_manuscript') ? 'view-mobiilieditori' : 'view-kirjani';
         }
         return 'view-kirjani';
     }
     function primaryWritingView() {
-        return 'view-kirjoita';
+        return 'view-mobiilieditori';
     }
     let currentViewId = defaultViewForUser();
     let tuotantoActiveTab = 'kirja';
     let workflowRunning = false;
     let workflowSteps = [];
+    let projectVersions = [];
+    let loadedVersionsProjectId = null;
+    let activeProjectVersionNumber = 0;
+    let pendingRestoreVersionId = null;
+    let pendingRestoreTimer = null;
+    let developmentWorkspaceMode = 'report';
+    let projectKnowledgeItems = [];
+    let knowledgeWorkspaceProjectId = null;
+    let knowledgeWorkspaceVersionCount = 0;
+    let activeKnowledgeFilter = 'all';
+    let editingKnowledgeItemId = null;
+    let knowledgeSuggestions = [];
+    let continuityIssues = [];
+    let knowledgeReviewProjectId = null;
+    let knowledgeReviewSaveTimer = null;
+    let pendingWriteEditorChapterId = null;
+    let developmentSceneSuggestions = [];
+    let developmentSuggestionsProjectId = null;
     const fullWorkspaceRoles = new Set(['admin', 'test_user']);
     const learningMaterialViews = new Set([
         'view-om-projekti',
@@ -289,21 +309,22 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         'view-om-kokonaisuus',
         'view-om-vienti'
     ]);
-    const writerViews = new Set(['view-kirjani', 'view-kirjoita-editoi', 'view-kirjoita', 'view-analyysi', 'view-rakenne', 'view-kehityseditointi', 'view-toimitus', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-kaannokset', 'view-elamakerta']);
-    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita-editoi', 'view-kirjoita', 'view-analyysi', 'view-rakenne', 'view-kehityseditointi', 'view-toimitus', 'view-ai-tyonkulku', 'view-kirja', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
+    const writerViews = new Set(['view-kirjani', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-analyysi', 'view-rakenne', 'view-kehityseditointi', 'view-ai-tyonkulku', 'view-viimeistely', 'view-kirja', 'view-julkaisupaketti', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-kaannokset', 'view-elamakerta']);
+    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-analyysi', 'view-rakenne', 'view-kehityseditointi', 'view-ai-tyonkulku', 'view-viimeistely', 'view-kirja', 'view-julkaisupaketti', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset', 'view-kaannostyotila']);
-    const biographyViews = new Set(['view-kirjani', 'view-rakenne', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-kirjoita', 'view-ai-tyonkulku', 'view-elamakerta', 'view-toimitus', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-audio', 'view-kirja', 'view-julkaise']);
+    const biographyViews = new Set(['view-kirjani', 'view-rakenne', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-ai-tyonkulku', 'view-viimeistely', 'view-elamakerta', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-audio', 'view-kirja', 'view-julkaisupaketti', 'view-julkaise']);
     const accessModuleViews = {
         manuscripts: ['view-kirjani'],
         analysis: ['view-analyysi', 'view-rakenne'],
         development_editing: ['view-kehityseditointi'],
         write_edit: ['view-kirjoita-editoi'],
-        write: ['view-kirjoita'],
-        editing: ['view-toimitus'],
+        write: ['view-mobiilieditori'],
+        editing: ['view-mobiilieditori'],
         proofread: ['view-oikoluku'],
         support_materials: ['view-muut-toiminnot'],
         cover_illustration: ['view-kuvitus'],
         book_layout: ['view-kirja', 'view-taitto'],
+        publication_package: ['view-julkaisupaketti'],
         publish: ['view-julkaise'],
         ai_workflow: ['view-ai-tyonkulku'],
         translations: ['view-kaannokset'],
@@ -319,7 +340,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     };
     function customAccessViews() {
         if (!Array.isArray(currentUser?.allowed_modules)) return null;
-        const allowed = new Set(['view-kirjani']);
+        const allowed = new Set(['view-kirjani', 'view-viimeistely']);
         currentUser.allowed_modules.forEach(moduleKey => {
             (accessModuleViews[moduleKey] || []).forEach(viewId => allowed.add(viewId));
         });
@@ -454,6 +475,23 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const coverLatestPreview = document.getElementById('cover-latest-preview');
     const coverGallery = document.getElementById('cover-gallery');
     const coverEmptyState = document.getElementById('cover-empty-state');
+    const coverLayoutFrontSelect = document.getElementById('cover-layout-front-select');
+    const coverLayoutTrimSelect = document.getElementById('cover-layout-trim-select');
+    const coverLayoutPageCount = document.getElementById('cover-layout-page-count');
+    const coverLayoutPaperSelect = document.getElementById('cover-layout-paper-select');
+    const coverLayoutBleedSelect = document.getElementById('cover-layout-bleed-select');
+    const coverLayoutBackText = document.getElementById('cover-layout-back-text');
+    const coverLayoutBarcode = document.getElementById('cover-layout-barcode');
+    const coverLayoutEstimateBtn = document.getElementById('cover-layout-estimate-btn');
+    const coverLayoutGenerateBtn = document.getElementById('cover-layout-generate-btn');
+    const coverLayoutStatus = document.getElementById('cover-layout-status');
+    const coverLayoutPreview = document.getElementById('cover-layout-preview');
+    const coverLayoutDownloadPng = document.getElementById('cover-layout-download-png');
+    const coverLayoutDownloadPdf = document.getElementById('cover-layout-download-pdf');
+    const coverLayoutPagesMetric = document.getElementById('cover-layout-pages-metric');
+    const coverLayoutSpineMetric = document.getElementById('cover-layout-spine-metric');
+    const coverLayoutSizeMetric = document.getElementById('cover-layout-size-metric');
+    const coverLayoutResolution = document.getElementById('cover-layout-resolution');
     if (logoutLink) {
         logoutLink.addEventListener('click', async (event) => {
             event.preventDefault();
@@ -628,6 +666,252 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         element.classList.toggle('is-pending', pending);
         element.classList.toggle('is-saved', !pending);
     }
+
+    function setVersionsStatus(message = '', isError = false) {
+        const element = document.getElementById('versions-status');
+        if (!element) return;
+        element.textContent = message;
+        element.classList.toggle('is-error', Boolean(isError));
+    }
+
+    function renderTopVersionBadge() {
+        const button = document.getElementById('top-version-btn');
+        if (!button) return;
+        const hasProject = Boolean(window.manuscriptData?.id);
+        button.disabled = !hasProject;
+        button.textContent = hasProject ? `V${activeProjectVersionNumber} · Versiot` : 'V0 · Versiot';
+        button.title = hasProject
+            ? (activeProjectVersionNumber
+                ? `Uusin tallennettu versio V${activeProjectVersionNumber}. Avaa versiohistoria.`
+                : 'Versioita ei ole vielä tallennettu. Avaa versiohistoria.')
+            : 'Valitse ensin käsikirjoitus';
+        button.setAttribute('aria-label', button.title);
+    }
+
+    function versionSourceMeta(source) {
+        const options = {
+            manual: { label: 'Manuaalinen', icon: '●' },
+            ai_edit: { label: 'Ennen tekoälyeditointia', icon: '✦' },
+            ai_proofread: { label: 'Ennen automaattista oikolukua', icon: '✓' },
+            publication_package: { label: 'Julkaisupaketin lähde', icon: '▣' },
+            pre_restore: { label: 'Ennen palautusta', icon: '↶' },
+            chapter_delete: { label: 'Ennen luvun poistoa', icon: '−' },
+            chapter_merge: { label: 'Ennen lukujen yhdistämistä', icon: '⇤' }
+        };
+        return options[source] || { label: 'Automaattinen', icon: '●' };
+    }
+
+    function formatVersionDate(value) {
+        if (!value) return '';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '';
+        return date.toLocaleString('fi-FI', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    function formatVersionCount(value, singular, plural) {
+        const count = Number(value || 0);
+        return `${formatNumber(count)} ${count === 1 ? singular : plural}`;
+    }
+
+    function renderVersionsView() {
+        const project = window.manuscriptData;
+        const summary = document.getElementById('versions-project-summary');
+        const stats = document.getElementById('versions-current-stats');
+        const list = document.getElementById('versions-list');
+        const labelInput = document.getElementById('version-label-input');
+        const createButton = document.getElementById('create-version-btn');
+        if (!summary || !stats || !list || !createButton) return;
+
+        if (!project?.id) {
+            summary.textContent = 'Valitse käsikirjoitus nähdäksesi sen palautuspisteet.';
+            stats.innerHTML = '<span>Ei aktiivista käsikirjoitusta</span>';
+            list.innerHTML = '<div class="versions-empty">Valitse käsikirjoitus.</div>';
+            createButton.disabled = true;
+            if (labelInput) labelInput.disabled = true;
+            return;
+        }
+
+        const editable = canEditProject(project);
+        const paragraphTexts = (project.chapters || []).flatMap(chapter => chapter.paragraphs || []);
+        const paragraphCount = paragraphTexts.length;
+        summary.textContent = `${project.title || 'Nimetön käsikirjoitus'} · ${project.author || 'Tuntematon'}`;
+        stats.innerHTML = `
+            <strong>Uusin tallennettu versio V${activeProjectVersionNumber}</strong>
+            <span>${formatVersionCount((project.chapters || []).length, 'luku', 'lukua')}</span>
+            <span>${formatVersionCount(paragraphCount, 'kappale', 'kappaletta')}</span>
+            <span>${formatVersionCount(countWords(paragraphTexts.join('\n')), 'sana', 'sanaa')}</span>
+        `;
+        createButton.disabled = !editable;
+        createButton.textContent = `Tallenna V${activeProjectVersionNumber + 1}`;
+        if (labelInput) labelInput.disabled = !editable;
+
+        if (loadedVersionsProjectId !== String(project.id)) {
+            list.innerHTML = '<div class="versions-empty">Ladataan versiohistoriaa…</div>';
+            return;
+        }
+        if (!projectVersions.length) {
+            list.innerHTML = '<div class="versions-empty"><strong>Ei vielä tallennettuja versioita.</strong><span>Luo ensimmäinen palautuspiste ennen seuraavaa isoa muokkauskierrosta.</span></div>';
+            return;
+        }
+
+        list.innerHTML = projectVersions.map((version, index) => {
+            const source = versionSourceMeta(version.source);
+            const restored = version.restored_at
+                ? `<span class="version-restored">Palautettu ${escapeHtml(formatVersionDate(version.restored_at))}</span>`
+                : '';
+            const creator = version.created_by_name ? ` · ${escapeHtml(version.created_by_name)}` : '';
+            return `
+                <article class="version-row ${index === 0 ? 'is-latest' : ''}">
+                    <div class="version-marker" aria-label="Versio ${version.version_number}">V${version.version_number}</div>
+                    <div class="version-content">
+                        <div class="version-title-row">
+                            <div>
+                                <h4>V${version.version_number} · ${escapeHtml(version.label)}</h4>
+                                <p>${source.icon} ${escapeHtml(source.label)} · ${escapeHtml(formatVersionDate(version.created_at))}${creator}</p>
+                            </div>
+                            ${index === 0 ? '<span class="version-latest">Uusin</span>' : ''}
+                        </div>
+                        <div class="version-meta">
+                            <span>${formatVersionCount(version.chapter_count, 'luku', 'lukua')}</span>
+                            <span>${formatVersionCount(version.paragraph_count, 'kappale', 'kappaletta')}</span>
+                            <span>${formatVersionCount(version.word_count, 'sana', 'sanaa')}</span>
+                            <span>${formatVersionCount(version.char_count, 'merkki', 'merkkiä')}</span>
+                            ${restored}
+                        </div>
+                    </div>
+                    ${editable ? `<button class="btn btn-secondary restore-version-btn" type="button" data-version-id="${version.id}">${Number(pendingRestoreVersionId) === Number(version.id) ? `Vahvista V${version.version_number}` : `Palauta V${version.version_number}`}</button>` : ''}
+                </article>
+            `;
+        }).join('');
+    }
+
+    async function loadProjectVersions(showFeedback = true) {
+        const projectId = window.manuscriptData?.id;
+        if (!projectId) {
+            projectVersions = [];
+            loadedVersionsProjectId = null;
+            activeProjectVersionNumber = 0;
+            renderTopVersionBadge();
+            renderVersionsView();
+            return [];
+        }
+        if (showFeedback) setVersionsStatus('Ladataan versiohistoriaa…');
+        const requestedProjectId = String(projectId);
+        try {
+            const response = await apiFetch(`/api/projects/${projectId}/versions`);
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'Versiohistorian lataus epäonnistui.');
+            if (String(window.manuscriptData?.id || '') !== requestedProjectId) return [];
+            projectVersions = Array.isArray(data) ? data : [];
+            loadedVersionsProjectId = requestedProjectId;
+            activeProjectVersionNumber = projectVersions.reduce((highest, version) => Math.max(highest, Number(version.version_number || 0)), 0);
+            renderTopVersionBadge();
+            renderVersionsView();
+            if (showFeedback) setVersionsStatus(projectVersions.length ? `${projectVersions.length} versiota ladattu.` : 'Ei vielä tallennettuja versioita.');
+            return projectVersions;
+        } catch (error) {
+            projectVersions = [];
+            loadedVersionsProjectId = requestedProjectId;
+            activeProjectVersionNumber = 0;
+            renderTopVersionBadge();
+            renderVersionsView();
+            setVersionsStatus(error.message || 'Versiohistorian lataus epäonnistui.', true);
+            return [];
+        }
+    }
+
+    async function createProjectVersion(options = {}) {
+        const project = window.manuscriptData;
+        if (!project?.id) throw new Error('Valitse ensin käsikirjoitus.');
+        await window.flushManuscriptSaveQueue();
+        const labelInput = document.getElementById('version-label-input');
+        const createButton = document.getElementById('create-version-btn');
+        const source = options.source || 'manual';
+        const label = options.label || (source === 'manual' ? labelInput?.value.trim() : '');
+        if (!options.silent) setVersionsStatus('Tallennetaan palautuspistettä…');
+        if (source === 'manual' && createButton) createButton.disabled = true;
+        try {
+            const response = await apiFetch(`/api/projects/${project.id}/versions`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ label: label || null, source })
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'Palautuspisteen tallennus epäonnistui.');
+            if (String(loadedVersionsProjectId || '') === String(project.id)) {
+                projectVersions = [data, ...projectVersions.filter(item => Number(item.id) !== Number(data.id))];
+                renderVersionsView();
+            }
+            activeProjectVersionNumber = Math.max(activeProjectVersionNumber, Number(data.version_number || 0));
+            renderTopVersionBadge();
+            if (source === 'manual' && labelInput) labelInput.value = '';
+            if (!options.silent) setVersionsStatus(`Versio V${data.version_number} tallennettu.`);
+            return data;
+        } finally {
+            if (source === 'manual' && createButton) createButton.disabled = !canEditProject(window.manuscriptData);
+        }
+    }
+
+    async function restoreProjectVersion(versionId) {
+        const project = window.manuscriptData;
+        const version = projectVersions.find(item => Number(item.id) === Number(versionId));
+        if (!project?.id || !version) return;
+        if (Number(pendingRestoreVersionId) !== Number(version.id)) {
+            pendingRestoreVersionId = version.id;
+            window.clearTimeout(pendingRestoreTimer);
+            pendingRestoreTimer = window.setTimeout(() => {
+                pendingRestoreVersionId = null;
+                renderVersionsView();
+                setVersionsStatus('Palautus peruttiin, koska sitä ei vahvistettu.');
+            }, 15000);
+            renderVersionsView();
+            setVersionsStatus(`Vahvista V${version.version_number}: nykytilasta tallennetaan ensin oma turvaversio.`);
+            return;
+        }
+        pendingRestoreVersionId = null;
+        window.clearTimeout(pendingRestoreTimer);
+        await window.flushManuscriptSaveQueue();
+        document.querySelectorAll('.restore-version-btn').forEach(button => { button.disabled = true; });
+        setVersionsStatus('Palautetaan versiota…');
+        try {
+            const response = await apiFetch(`/api/projects/${project.id}/versions/${version.id}/restore`, { method: 'POST' });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'Version palautus epäonnistui.');
+            projectKnowledgeItems = [];
+            knowledgeWorkspaceProjectId = null;
+            knowledgeWorkspaceVersionCount = 0;
+            setActiveManuscript(data.project, { skipVersionsRefresh: true });
+            await loadProjectVersions(false);
+            if (developmentWorkspaceMode === 'knowledge') await loadKnowledgeWorkspace(false);
+            setVersionsStatus(`Versio V${version.version_number} ”${version.label}” palautettu. Palautusta edeltävä tila säilytettiin uutena versiona.`);
+        } catch (error) {
+            setVersionsStatus(error.message || 'Version palautus epäonnistui.', true);
+            renderVersionsView();
+        }
+    }
+
+    document.getElementById('create-version-btn')?.addEventListener('click', () => {
+        createProjectVersion().catch(error => setVersionsStatus(error.message, true));
+    });
+    document.getElementById('refresh-versions-btn')?.addEventListener('click', () => loadProjectVersions(true));
+    document.getElementById('version-label-input')?.addEventListener('keydown', event => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        createProjectVersion().catch(error => setVersionsStatus(error.message, true));
+    });
+    document.getElementById('versions-list')?.addEventListener('click', event => {
+        const button = event.target.closest('.restore-version-btn');
+        if (button) restoreProjectVersion(Number(button.dataset.versionId));
+    });
+    document.getElementById('top-version-btn')?.addEventListener('click', () => {
+        openModule('view-viimeistely');
+    });
 
     function assetTextContent(asset) {
         const dataUrl = asset?.data_url || '';
@@ -1701,6 +1985,208 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         window.location.href = `mailto:skriptlab@skriptlab.com?subject=${subject}&body=${body}`;
     }
 
+    let currentPublicationPackageAsset = null;
+    let currentPublicationPackageCovers = [];
+
+    function setPublicationPackageStatus(message, isError = false) {
+        const status = document.getElementById('publication-package-status');
+        if (!status) return;
+        status.textContent = message;
+        status.style.color = isError ? '#ffb4b4' : 'var(--text-secondary)';
+    }
+
+    function publicationPackageVersionNumber(item) {
+        const direct = Number(item?.version_number || 0);
+        if (direct) return direct;
+        const match = String(item?.title || '').match(/\bV(\d+)\b/i);
+        return match ? Number(match[1]) : 0;
+    }
+
+    function publicationPackageFileName(asset) {
+        const title = String(window.manuscriptData?.title || 'julkaisupaketti')
+            .toLowerCase()
+            .replace(/[^a-z0-9åäö]+/gi, '-')
+            .replace(/^-+|-+$/g, '') || 'julkaisupaketti';
+        const version = publicationPackageVersionNumber(asset);
+        return `${title}${version ? `-v${version}` : ''}-julkaisupaketti.zip`;
+    }
+
+    function downloadPublicationPackage() {
+        if (!currentPublicationPackageAsset?.data_url) {
+            setPublicationPackageStatus('Muodosta julkaisupaketti ensin.', true);
+            return;
+        }
+        const link = document.createElement('a');
+        link.href = currentPublicationPackageAsset.data_url;
+        link.download = publicationPackageFileName(currentPublicationPackageAsset);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    }
+
+    function renderPublicationPackageCover() {
+        const select = document.getElementById('publication-package-cover-select');
+        const preview = document.getElementById('publication-package-cover-preview');
+        const printCoverFormat = document.getElementById('publication-package-print-cover-format');
+        if (!select || !preview) return;
+        const selected = currentPublicationPackageCovers.find(item => String(item.id) === String(select.value));
+        preview.innerHTML = selected?.data_url
+            ? `<img src="${selected.data_url}" alt="${escapeHtml(selected.title || 'Valittu kansi')}">`
+            : '<span>Ei kansikuvaa paketissa</span>';
+        printCoverFormat?.classList.toggle('hidden', selected?.material_kind !== 'print_cover_layout');
+    }
+
+    function renderPublicationPackageResult(asset, version = null, warnings = []) {
+        const result = document.getElementById('publication-package-result');
+        const versionEl = document.getElementById('publication-package-result-version');
+        const titleEl = document.getElementById('publication-package-result-title');
+        const detailEl = document.getElementById('publication-package-result-detail');
+        if (!result) return;
+        currentPublicationPackageAsset = asset || null;
+        result.classList.toggle('hidden', !asset);
+        if (!asset) return;
+        const versionNumber = publicationPackageVersionNumber(version) || publicationPackageVersionNumber(asset);
+        const selectedCoverId = document.getElementById('publication-package-cover-select')?.value;
+        const includesPrintCover = currentPublicationPackageCovers.some(item => (
+            String(item.id) === String(selectedCoverId) && item.material_kind === 'print_cover_layout'
+        ));
+        if (versionEl) versionEl.textContent = versionNumber ? `V${versionNumber}` : 'ZIP';
+        if (titleEl) titleEl.textContent = asset.title || 'Julkaisupaketti';
+        if (detailEl) {
+            detailEl.textContent = warnings.length
+                ? `Paketti on valmis. ${warnings.length} tarkistushuomiota löytyy paketin LUE_MINUT-tiedostosta.`
+                : includesPrintCover
+                    ? 'PDF, EPUB, DOCX, painokansi-PDF ja tuotetiedot ovat samassa jäljitettävässä ZIP-paketissa.'
+                    : 'PDF, EPUB, DOCX, kansi ja tuotetiedot ovat samassa jäljitettävässä ZIP-paketissa.';
+        }
+    }
+
+    function renderPublicationPackageReadiness(data) {
+        const current = document.getElementById('publication-package-current-project');
+        const words = document.getElementById('publication-package-word-count');
+        const version = document.getElementById('publication-package-version');
+        const checks = document.getElementById('publication-package-checks');
+        const coverSelect = document.getElementById('publication-package-cover-select');
+        const buildButton = document.getElementById('publication-package-build-btn');
+        if (current) current.textContent = `Käsikirjoitus: ${data.title || 'Nimetön'}${data.author ? ` · ${data.author}` : ''}`;
+        if (words) words.textContent = Number(data.word_count || 0).toLocaleString('fi-FI');
+        if (version) version.textContent = data.latest_version ? `V${data.latest_version.version_number}` : 'V0';
+
+        if (checks) {
+            checks.innerHTML = (data.checks || []).map(check => {
+                const icon = check.status === 'ready' ? '✓' : check.status === 'blocked' ? '×' : '!';
+                return `
+                    <article class="publication-package-check" data-status="${escapeHtml(check.status || 'attention')}" data-action-module="${escapeHtml(check.action_module || '')}" tabindex="0">
+                        <span class="publication-package-check-icon">${icon}</span>
+                        <strong>${escapeHtml(check.label || '')}</strong>
+                        <p>${escapeHtml(check.detail || '')}</p>
+                    </article>
+                `;
+            }).join('');
+            checks.querySelectorAll('.publication-package-check').forEach(card => {
+                const openAction = () => {
+                    const target = card.dataset.actionModule;
+                    if (target && document.getElementById(target)) openModule(target);
+                };
+                card.addEventListener('click', openAction);
+                card.addEventListener('keydown', event => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        openAction();
+                    }
+                });
+            });
+        }
+
+        currentPublicationPackageCovers = Array.isArray(data.covers) ? data.covers : [];
+        if (coverSelect) {
+            const previousValue = coverSelect.value;
+            coverSelect.innerHTML = [
+                '<option value="">Ei kansikuvaa paketissa</option>',
+                ...currentPublicationPackageCovers.map((cover, index) => (
+                    `<option value="${cover.id}">${escapeHtml(cover.title || `Kansi ${index + 1}`)}</option>`
+                ))
+            ].join('');
+            if (currentPublicationPackageCovers.some(item => String(item.id) === String(previousValue))) {
+                coverSelect.value = previousValue;
+            } else if (currentPublicationPackageCovers.length) {
+                coverSelect.value = String(currentPublicationPackageCovers[0].id);
+            }
+        }
+        renderPublicationPackageCover();
+        if (buildButton) buildButton.disabled = !data.can_build;
+        renderPublicationPackageResult(data.latest_package, data.latest_version, []);
+
+        const attentionCount = (data.checks || []).filter(check => check.status === 'attention').length;
+        const blockedCount = (data.checks || []).filter(check => check.status === 'blocked').length;
+        if (blockedCount) {
+            setPublicationPackageStatus(`${blockedCount} estävää kohtaa pitää korjata ennen paketin muodostamista.`, true);
+        } else if (attentionCount) {
+            setPublicationPackageStatus(`Paketti voidaan muodostaa. ${attentionCount} kohtaa kannattaa vielä tarkistaa.`);
+        } else {
+            setPublicationPackageStatus('Kaikki tarkistukset kunnossa. Paketti on valmis muodostettavaksi.');
+        }
+    }
+
+    async function loadPublicationPackageReadiness() {
+        if (!window.manuscriptData?.id) {
+            const current = document.getElementById('publication-package-current-project');
+            const checks = document.getElementById('publication-package-checks');
+            if (current) current.textContent = 'Valitse ensin käsikirjoitus.';
+            if (checks) checks.innerHTML = '';
+            renderPublicationPackageResult(null);
+            setPublicationPackageStatus('Valitse käsikirjoitus ennen julkaisupaketin muodostamista.', true);
+            return;
+        }
+        setPublicationPackageStatus('Tarkistetaan käsikirjoitus, kansi, tuotetiedot ja formaatit…');
+        try {
+            const response = await apiFetch(`/api/projects/${window.manuscriptData.id}/publication-package/readiness`);
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'Julkaisupaketin valmiustarkistus epäonnistui.');
+            renderPublicationPackageReadiness(data);
+        } catch (err) {
+            setPublicationPackageStatus(err.message, true);
+        }
+    }
+
+    async function buildPublicationPackage() {
+        const button = document.getElementById('publication-package-build-btn');
+        if (!window.manuscriptData?.id) {
+            setPublicationPackageStatus('Valitse käsikirjoitus ensin.', true);
+            return;
+        }
+        if (button) button.disabled = true;
+        setPublicationPackageStatus('Tallennetaan käsikirjoitus, lukitaan lähdeversio ja muodostetaan PDF, EPUB, DOCX, valittu kansiaineisto sekä metadata…');
+        try {
+            const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
+            if (savedProject?.id) window.manuscriptData = savedProject;
+            const coverValue = document.getElementById('publication-package-cover-select')?.value || '';
+            const response = await apiFetch(`/api/projects/${window.manuscriptData.id}/publication-package/build`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    cover_asset_id: coverValue ? Number(coverValue) : null,
+                    layout_style: document.getElementById('publication-package-layout-size')?.value || 'A5',
+                    hyphenation_level: 'balanced'
+                })
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'Julkaisupaketin muodostaminen epäonnistui.');
+            renderPublicationPackageResult(data.package, data.source_version, data.warnings || []);
+            setPublicationPackageStatus(
+                data.warnings?.length
+                    ? `Julkaisupaketti V${data.source_version.version_number} muodostettu. ${data.warnings.length} tarkistushuomiota.`
+                    : `Julkaisupaketti V${data.source_version.version_number} muodostettu onnistuneesti.`
+            );
+            await loadProjectVersions(false);
+            await loadPublicationPackageReadiness();
+        } catch (err) {
+            setPublicationPackageStatus(err.message, true);
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
     function renderPublishView() {
         const currentEl = document.getElementById('publish-current-project');
         const statusEl = document.getElementById('publish-status');
@@ -1880,17 +2366,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             window.clearTimeout(writerDeskAutosaveTimer);
             if (syncWriterDeskEditorToManuscript()) {
                 savePromise = window.saveProjectChapterToDB(window.manuscriptData, writerDeskSelection.cIndex);
-            }
-        }
-        if (currentViewId === 'view-kirjoita') {
-            if (syncWritingEditorToManuscript()) {
-                savePromise = window.saveProjectChapterToDB(window.manuscriptData, writingSelection.cIndex);
-            }
-        }
-        if (currentViewId === 'view-toimitus') {
-            window.clearTimeout(editingAutosaveTimer);
-            if (syncEditedTargetToManuscript({ showAlerts: false })) {
-                savePromise = window.saveProjectChapterToDB(window.manuscriptData, window.currentEditSelection?.cIndex);
             }
         }
         if (savePromise) await savePromise;
@@ -3226,7 +3701,13 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const navItems = document.querySelectorAll('#nav-menu li[data-view]');
     const views = document.querySelectorAll('.view-section');
 
+    function canonicalViewId(viewId) {
+        if (viewId === 'view-kirjoita' || viewId === 'view-toimitus') return 'view-mobiilieditori';
+        return viewId;
+    }
+
     function navViewFor(viewId) {
+        viewId = canonicalViewId(viewId);
         if (viewId === 'view-rakenne') return 'view-analyysi';
         if (viewId === 'view-taitto') return 'view-kirja';
         if (viewId === 'view-suomentaja') return 'view-kaannokset';
@@ -3234,6 +3715,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     function isViewAllowed(viewId) {
+        viewId = canonicalViewId(viewId);
         if (canSeeAllModules) return true;
         const groupViews = customAccessViews();
         if (groupViews) return groupViews.has(viewId);
@@ -3266,6 +3748,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     function openModule(viewId) {
+        viewId = canonicalViewId(viewId);
         const requestedViewId = viewId;
         let activeNavViewId = viewId;
         if (viewId === 'view-taitto') {
@@ -3285,6 +3768,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         views.forEach(v => v.classList.add('hidden'));
         const targetView = document.getElementById(viewId);
         if(targetView) targetView.classList.remove('hidden');
+        appWrapper.scrollTop = 0;
+        const mainContent = document.querySelector('.main-content');
+        if (mainContent) mainContent.scrollTop = 0;
 
         navItems.forEach(item => {
             if(item.getAttribute('data-view') === navViewFor(currentViewId)) {
@@ -3299,8 +3785,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (['view-kirjani', 'view-analyysi', 'view-rakenne'].includes(viewId)) {
             refreshManuskriptiFrame(viewId);
         }
-        if (['view-kirjoita', 'view-toimitus'].includes(viewId)) {
-            refreshTyostoFrame(viewId);
+        if (viewId === 'view-mobiilieditori') {
+            refreshMobileEditorFrame();
         }
         if (viewId === 'view-kirjoita-editoi') {
             refreshWriteEditorFrame();
@@ -3308,12 +3794,16 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (viewId === 'view-muut-toiminnot') {
             refreshTuotantoFrame(viewId, requestedViewId);
         }
+        if (viewId === 'view-viimeistely') {
+            renderVersionsView();
+            loadProjectVersions(false);
+        }
+        if (viewId === 'view-julkaisupaketti') {
+            loadPublicationPackageReadiness();
+        }
     }
 
     function persistPendingModuleEdits(nextViewId) {
-        if (currentViewId === 'view-kirjoita' && nextViewId !== 'view-kirjoita') {
-            saveWritingText(false);
-        }
         if (currentViewId === 'view-tyopoyta' && nextViewId !== 'view-tyopoyta') {
             saveWriterDeskText(false);
         }
@@ -3334,9 +3824,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             }
             if (nextViewId === 'view-julkaise') {
                 renderPublishView();
-            }
-            if (nextViewId === 'view-kirjoita') {
-                renderWritingView();
             }
             if (nextViewId === 'view-rakenne') {
                 renderStructureModule();
@@ -4888,7 +5375,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 const index = Number(button.dataset.structureChapterIndex || 0);
                 writingSelection = { cIndex: index, pIndex: 0 };
                 window.currentEditSelection = { cIndex: index, pIndex: 0 };
-                window.openModule('view-kirjoita');
+                window.openModule('view-mobiilieditori');
                 renderWritingView();
             });
         });
@@ -5826,6 +6313,215 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         ).trim();
     }
 
+    const coverLayoutTrimSizes = {
+        A5: { width: 148, height: 210, wordsPerPage: 250 },
+        B_FORMAT: { width: 130, height: 198, wordsPerPage: 225 },
+        POCKET: { width: 110, height: 178, wordsPerPage: 190 },
+        SIX_BY_NINE: { width: 152.4, height: 228.6, wordsPerPage: 285 }
+    };
+
+    function roundedPrintPageCount(value) {
+        const number = Math.max(4, Math.round(Number(value) || 4));
+        return Math.ceil(number / 4) * 4;
+    }
+
+    function estimatedCoverLayoutPageCount() {
+        const productPageCount = String(window.manuscriptData?.analysis?.product_info?.page_count || '').match(/\d+/);
+        if (productPageCount) return roundedPrintPageCount(Number(productPageCount[0]));
+        const text = String(getFullManuscriptText(window.manuscriptData) || '');
+        const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+        const trim = coverLayoutTrimSizes[coverLayoutTrimSelect?.value] || coverLayoutTrimSizes.A5;
+        return roundedPrintPageCount(Math.max(1, Math.ceil(words / trim.wordsPerPage)) + 8);
+    }
+
+    function coverLayoutBackCoverDefault() {
+        const productInfo = window.manuscriptData?.analysis?.product_info || {};
+        return String(productInfo.backcover || productInfo.long_description || analysisBackCoverText() || '').trim();
+    }
+
+    function setCoverLayoutStatus(message, isError = false) {
+        if (!coverLayoutStatus) return;
+        coverLayoutStatus.textContent = message;
+        coverLayoutStatus.classList.toggle('is-error', Boolean(isError));
+    }
+
+    function updateCoverLayoutMetrics(pageOverride = null, layoutOverride = null) {
+        const trimKey = layoutOverride?.trim_size || coverLayoutTrimSelect?.value || 'A5';
+        const trim = coverLayoutTrimSizes[trimKey] || coverLayoutTrimSizes.A5;
+        const pages = roundedPrintPageCount(pageOverride || coverLayoutPageCount?.value || estimatedCoverLayoutPageCount());
+        const paper = Number(layoutOverride?.paper_caliper_mm ?? coverLayoutPaperSelect?.value ?? 0.10);
+        const bleed = Number(layoutOverride?.bleed_mm ?? coverLayoutBleedSelect?.value ?? 3);
+        const spine = Number(layoutOverride?.spine_width_mm ?? ((pages / 2) * paper));
+        const totalWidth = Number(layoutOverride?.total_width_mm ?? (trim.width * 2 + spine + bleed * 2));
+        const totalHeight = Number(layoutOverride?.total_height_mm ?? (trim.height + bleed * 2));
+        if (coverLayoutPagesMetric) coverLayoutPagesMetric.textContent = `${pages} s.`;
+        if (coverLayoutSpineMetric) coverLayoutSpineMetric.textContent = `${spine.toFixed(2).replace('.', ',')} mm`;
+        if (coverLayoutSizeMetric) coverLayoutSizeMetric.textContent = `${totalWidth.toFixed(1).replace('.', ',')} × ${totalHeight.toFixed(1).replace('.', ',')} mm`;
+        return { pages, spine, totalWidth, totalHeight };
+    }
+
+    function populateCoverLayoutDefaults(force = false) {
+        const projectId = window.manuscriptData?.id || null;
+        const projectChanged = projectId !== coverLayoutDefaultsProjectId;
+        if (coverLayoutPageCount && (force || projectChanged || !coverLayoutPageCount.value)) {
+            coverLayoutPageCount.value = String(estimatedCoverLayoutPageCount());
+            coverLayoutPageCount.dataset.source = 'inferred';
+        }
+        if (coverLayoutBackText && (force || projectChanged || !coverLayoutBackText.value.trim())) {
+            coverLayoutBackText.value = coverLayoutBackCoverDefault();
+        }
+        coverLayoutDefaultsProjectId = projectId;
+        updateCoverLayoutMetrics();
+    }
+
+    function renderCoverLayoutSourceOptions() {
+        if (!coverLayoutFrontSelect) return;
+        const previous = coverLayoutFrontSelect.value;
+        const fronts = currentCoverImages.filter(item => item.asset_type === 'cover_image');
+        coverLayoutFrontSelect.innerHTML = '';
+        if (!fronts.length) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = 'Luo tai tuo ensin etukansi';
+            coverLayoutFrontSelect.appendChild(option);
+        } else {
+            fronts.forEach((item, index) => {
+                const option = document.createElement('option');
+                option.value = String(item.id);
+                option.textContent = `${index === 0 ? 'Uusin · ' : ''}${item.title || `Etukansi ${item.id}`}`;
+                coverLayoutFrontSelect.appendChild(option);
+            });
+            const latestSourceId = latestCoverLayout?.front_cover_asset_id;
+            const preferred = [previous, latestSourceId && String(latestSourceId)].find(value => value && fronts.some(item => String(item.id) === String(value)));
+            coverLayoutFrontSelect.value = preferred || String(fronts[0].id);
+        }
+        if (coverLayoutGenerateBtn) coverLayoutGenerateBtn.disabled = !fronts.length;
+    }
+
+    function renderCoverLayout(layout) {
+        latestCoverLayout = layout || null;
+        if (!coverLayoutPreview) return;
+        if (!layout) {
+            coverLayoutPreview.innerHTML = `
+                <div class="cover-layout-empty">
+                    <span class="cover-layout-empty-icon">↔</span>
+                    <strong>Koko kansiaukeama näkyy tässä</strong>
+                    <small>Takakansi · selkä · etukansi · leikkuuvarat</small>
+                </div>`;
+            if (coverLayoutDownloadPng) coverLayoutDownloadPng.disabled = true;
+            if (coverLayoutDownloadPdf) coverLayoutDownloadPdf.disabled = true;
+            if (coverLayoutResolution) coverLayoutResolution.textContent = '300 DPI';
+            renderCoverLayoutSourceOptions();
+            updateCoverLayoutMetrics();
+            return;
+        }
+        const artworkFromGallery = currentCoverImages.find(item => String(item.id) === String(layout.artwork?.id));
+        if (artworkFromGallery?.data_url) layout.artwork.data_url = artworkFromGallery.data_url;
+        if (coverLayoutTrimSelect && coverLayoutTrimSizes[layout.trim_size]) coverLayoutTrimSelect.value = layout.trim_size;
+        if (coverLayoutPageCount) coverLayoutPageCount.value = String(layout.page_count || '');
+        if (coverLayoutPageCount) coverLayoutPageCount.dataset.source = layout.page_count_source === 'manual' ? 'manual' : 'inferred';
+        if (coverLayoutBackText && layout.back_cover_text) coverLayoutBackText.value = layout.back_cover_text;
+        if (coverLayoutBarcode) coverLayoutBarcode.checked = layout.include_barcode_area !== false;
+        if (coverLayoutPaperSelect) {
+            const paperOption = Array.from(coverLayoutPaperSelect.options).find(option => Math.abs(Number(option.value) - Number(layout.paper_caliper_mm || 0.10)) < 0.0001);
+            if (paperOption) coverLayoutPaperSelect.value = paperOption.value;
+        }
+        if (coverLayoutBleedSelect) coverLayoutBleedSelect.value = String(layout.bleed_mm ?? 3);
+        if (coverLayoutResolution) coverLayoutResolution.textContent = `${layout.dpi || 300} DPI · PDF`;
+        coverLayoutPreview.innerHTML = layout.preview?.data_url
+            ? `<img src="${layout.preview.data_url}" alt="Painokannen esikatselu: takakansi, selkä, etukansi ja leikkuuvarat">`
+            : '<div class="cover-layout-empty"><strong>Esikatselua ei löytynyt.</strong></div>';
+        if (coverLayoutDownloadPng) coverLayoutDownloadPng.disabled = !layout.artwork?.data_url;
+        if (coverLayoutDownloadPdf) coverLayoutDownloadPdf.disabled = !layout.pdf?.data_url;
+        updateCoverLayoutMetrics(layout.page_count, layout);
+        renderCoverLayoutSourceOptions();
+        const sourceLabel = layout.page_count_source === 'estimate'
+            ? 'Sivumäärä pääteltiin käsikirjoituksesta.'
+            : layout.page_count_source === 'product_info'
+                ? 'Sivumäärä luettiin tuotetiedoista.'
+                : 'Sivumäärä annettiin käsin.';
+        setCoverLayoutStatus(`${sourceLabel} Selkä ${Number(layout.spine_width_mm).toFixed(2).replace('.', ',')} mm. Painotalo vahvistaa lopullisen mitan.`);
+    }
+
+    async function loadLatestCoverLayout() {
+        if (!window.manuscriptData?.id) {
+            renderCoverLayout(null);
+            return;
+        }
+        try {
+            const response = await apiFetch(`/api/projects/${window.manuscriptData.id}/cover-layout/latest`);
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'Painokannen lataus epäonnistui.');
+            renderCoverLayout(data);
+        } catch (error) {
+            setCoverLayoutStatus(error.message || 'Painokannen lataus epäonnistui.', true);
+        }
+    }
+
+    function downloadCoverLayoutAsset(asset, suffix, fallbackExtension) {
+        if (!asset?.data_url) {
+            setCoverLayoutStatus('Tiedostoa ei löytynyt ladattavaksi.', true);
+            return;
+        }
+        const extension = asset.mime_type === 'application/pdf' ? 'pdf' : fallbackExtension;
+        const link = document.createElement('a');
+        link.href = asset.data_url;
+        link.download = `${safeFileStem(window.manuscriptData?.title || 'kirja')}-${suffix}.${extension}`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    }
+
+    async function generateCoverLayout() {
+        if (window.manuscriptData && !window.manuscriptData.id) {
+            const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
+            if (savedProject?.id) window.manuscriptData = savedProject;
+        }
+        const projectId = window.manuscriptData?.id;
+        const frontCoverId = Number(coverLayoutFrontSelect?.value || 0);
+        if (!projectId || !frontCoverId) {
+            setCoverLayoutStatus('Valitse ensin käsikirjoitus ja etukansi.', true);
+            return;
+        }
+        const metrics = updateCoverLayoutMetrics();
+        if (coverLayoutGenerateBtn) {
+            coverLayoutGenerateBtn.disabled = true;
+            coverLayoutGenerateBtn.textContent = 'Muodostetaan 300 DPI aineistoa…';
+        }
+        if (coverLayoutPreview) coverLayoutPreview.innerHTML = '<div class="cover-layout-empty"><span class="cover-layout-empty-icon">↔</span><strong>Mitoitetaan kansiaukeamaa…</strong><small>Takakansi, selkä ja leikkuuvarat</small></div>';
+        setCoverLayoutStatus('Luodaan painokelpoinen PNG, merkitty esikatselu ja PDF…');
+        try {
+            const response = await apiFetch(`/api/projects/${projectId}/cover-layout`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    front_cover_asset_id: frontCoverId,
+                    trim_size: coverLayoutTrimSelect?.value || 'A5',
+                    page_count: coverLayoutPageCount?.dataset.source === 'manual' ? metrics.pages : null,
+                    paper_caliper_mm: Number(coverLayoutPaperSelect?.value || 0.10),
+                    bleed_mm: Number(coverLayoutBleedSelect?.value ?? 3),
+                    back_cover_text: coverLayoutBackText?.value.trim() || null,
+                    title_text: coverTitleInput?.value.trim() || coverTitleFromProject(),
+                    author_text: coverAuthorInput?.value.trim() || coverAuthorFromProject(),
+                    include_barcode_area: Boolean(coverLayoutBarcode?.checked)
+                })
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'Painokannen muodostaminen epäonnistui.');
+            await loadCoverImages();
+            renderCoverLayout(data);
+            loadUsage();
+        } catch (error) {
+            setCoverLayoutStatus(error.message || 'Painokannen muodostaminen epäonnistui.', true);
+            renderCoverLayout(latestCoverLayout);
+        } finally {
+            if (coverLayoutGenerateBtn) {
+                coverLayoutGenerateBtn.disabled = !currentCoverImages.some(item => item.asset_type === 'cover_image');
+                coverLayoutGenerateBtn.textContent = 'Muodosta painokansi';
+            }
+        }
+    }
+
     function updateIllustrationProjectText() {
         if (!illustrationCurrentProject) return;
         const title = window.manuscriptData?.title || '[Ei aktiivista teosta]';
@@ -6358,7 +7054,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function coverAssetTypeLabel(item) {
         return item?.asset_type === 'full_cover_image'
-            ? 'Koko kansi'
+            ? item?.material_kind === 'print_cover_layout' ? 'Painokansi · 300 DPI' : 'Koko kansi'
             : item?.asset_type === 'back_cover_image'
                 ? 'Takakansi'
                 : 'Etukansi';
@@ -6390,6 +7086,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         updateIllustrationProjectText();
         if (!coverGallery || !coverEmptyState || !coverLatestPreview) return;
         currentCoverImages = Array.isArray(items) ? items : [];
+        renderCoverLayoutSourceOptions();
+        populateCoverLayoutDefaults();
         if (selectedCoverReference && !currentCoverImages.some(item => String(item.id) === String(selectedCoverReference.id))) {
             selectedCoverReference = null;
         }
@@ -6464,7 +7162,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function coverImageFileName(asset) {
         const title = safeFileStem(window.manuscriptData?.title || asset?.title || 'kansi', 'kansi');
         const side = asset?.asset_type === 'full_cover_image'
-            ? 'koko-kansi'
+            ? asset?.material_kind === 'print_cover_layout' ? 'painokansi-300dpi' : 'koko-kansi'
             : asset?.asset_type === 'back_cover_image'
                 ? 'takakansi'
                 : 'etukansi';
@@ -6535,6 +7233,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         updateIllustrationProjectText();
         if (!window.manuscriptData?.id) {
             renderCoverImages([]);
+            renderCoverLayout(null);
             setIllustrationStatus('Valitse tai tallenna käsikirjoitus ennen kansikuvan generointia.');
             return;
         }
@@ -6543,6 +7242,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || 'Kansikuvien lataus epäonnistui.');
             renderCoverImages(data || []);
+            await loadLatestCoverLayout();
             if (data?.length) setIllustrationStatus('Kansikuvat ladattu.');
         } catch (err) {
             setIllustrationStatus(err.message, true);
@@ -6672,6 +7372,28 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     if (coverGenerateBtn) {
         coverGenerateBtn.addEventListener('click', generateCoverImage);
     }
+
+    [coverLayoutTrimSelect, coverLayoutPageCount, coverLayoutPaperSelect, coverLayoutBleedSelect].forEach(element => {
+        element?.addEventListener('input', () => {
+            if (element === coverLayoutPageCount) coverLayoutPageCount.dataset.source = 'manual';
+            updateCoverLayoutMetrics();
+        });
+        element?.addEventListener('change', () => {
+            if (element === coverLayoutTrimSelect && coverLayoutPageCount?.dataset.source !== 'manual') {
+                coverLayoutPageCount.value = String(estimatedCoverLayoutPageCount());
+            }
+            updateCoverLayoutMetrics();
+        });
+    });
+    coverLayoutEstimateBtn?.addEventListener('click', () => {
+        if (coverLayoutPageCount) coverLayoutPageCount.value = String(estimatedCoverLayoutPageCount());
+        if (coverLayoutPageCount) coverLayoutPageCount.dataset.source = 'inferred';
+        updateCoverLayoutMetrics();
+        setCoverLayoutStatus('Sivumäärä pääteltiin sanamäärästä ja pyöristettiin neljällä jaolliseksi.');
+    });
+    coverLayoutGenerateBtn?.addEventListener('click', generateCoverLayout);
+    coverLayoutDownloadPng?.addEventListener('click', () => downloadCoverLayoutAsset(latestCoverLayout?.artwork, 'painokansi-300dpi', 'png'));
+    coverLayoutDownloadPdf?.addEventListener('click', () => downloadCoverLayoutAsset(latestCoverLayout?.pdf, 'painokansi', 'pdf'));
 
     function layoutFileName(asset) {
         const safeTitle = (window.manuscriptData?.title || 'kasikirjoitus').toLowerCase().replace(/[^a-z0-9åäö]+/gi, '-').replace(/^-|-$/g, '') || 'kasikirjoitus';
@@ -7453,6 +8175,1194 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         setDevelopmentFocusValues(brief.focus_areas || []);
     }
 
+    const knowledgeTypeOrder = ['scene', 'character', 'location', 'timeline', 'fact', 'concept', 'source'];
+    const knowledgeTypeDefinitions = {
+        scene: {
+            label: 'Kohtaus', plural: 'Kohtaukset', icon: '🎬',
+            fields: [
+                { key: 'viewpoint', label: 'Näkökulma' },
+                { key: 'function', label: 'Kohtauksen tehtävä' }
+            ],
+            content: 'Tapahtuma, konflikti ja muutos',
+            placeholder: 'Mitä kohtauksessa tapahtuu, mikä muuttuu ja mikä jää avoimeksi?'
+        },
+        character: {
+            label: 'Henkilö', plural: 'Henkilöt', icon: '●',
+            fields: [
+                { key: 'aliases', label: 'Aliakset ja puhuttelunimet' },
+                { key: 'role', label: 'Rooli teoksessa' },
+                { key: 'goal', label: 'Tavoite tai kaari' },
+                { key: 'relationships', label: 'Keskeiset suhteet' },
+                { key: 'state', label: 'Nykyinen tila' }
+            ],
+            content: 'Kuvaus ja jatkuvuusmuistiinpanot',
+            placeholder: 'Kuka henkilö on, mitä hän tavoittelee ja mitä tekstissä pitää säilyttää johdonmukaisena?'
+        },
+        location: {
+            label: 'Paikka', plural: 'Paikat', icon: '⌖',
+            fields: [
+                { key: 'time_layer', label: 'Ajankohta tai aikataso' },
+                { key: 'significance', label: 'Merkitys teoksessa' },
+                { key: 'traits', label: 'Pysyvät tuntomerkit' },
+                { key: 'rules', label: 'Paikan säännöt tai rajoitteet' }
+            ],
+            content: 'Kuvaus ja jatkuvuusmuistiinpanot',
+            placeholder: 'Miltä paikka näyttää ja tuntuu, mitä siellä tapahtuu ja mitkä yksityiskohdat pitää säilyttää?'
+        },
+        timeline: {
+            label: 'Aikajana', plural: 'Aikajana', icon: '◷',
+            fields: [
+                { key: 'time', label: 'Ajankohta' },
+                { key: 'sequence', label: 'Järjestys tai aikajanan kohta' },
+                { key: 'participants', label: 'Osalliset' },
+                { key: 'consequence', label: 'Seuraus' }
+            ],
+            content: 'Tapahtuma ja sen merkitys aikajanalla',
+            placeholder: 'Mitä tapahtuu, milloin ja mitä siitä seuraa?'
+        },
+        fact: {
+            label: 'Fakta', plural: 'Faktat', icon: '✓',
+            fields: [
+                { key: 'category', label: 'Luokka' },
+                { key: 'value', label: 'Vahvistettu arvo tai muoto' },
+                { key: 'scope', label: 'Voimassaolo' }
+            ],
+            content: 'Faktan selitys ja jatkuvuusmerkitys',
+            placeholder: 'Kirjaa nimi, ikä, esine, termi, maailman sääntö tai muu tieto, jonka pitää pysyä samana.'
+        },
+        concept: {
+            label: 'Käsite', plural: 'Käsitteet', icon: '◇',
+            fields: [
+                { key: 'manifestation', label: 'Ilmeneminen tekstissä' },
+                { key: 'direction', label: 'Kehityssuunta' }
+            ],
+            content: 'Määritelmä ja toimituksellinen merkitys',
+            placeholder: 'Mitä teema, motiivi, termi tai ydinkäsite tarkoittaa juuri tässä teoksessa?'
+        },
+        source: {
+            label: 'Lähde', plural: 'Lähteet', icon: '↗',
+            fields: [
+                { key: 'creator', label: 'Tekijä tai organisaatio' },
+                { key: 'publication', label: 'Julkaisu tai arkisto' }
+            ],
+            content: 'Lähteen sisältö ja käyttötarkoitus',
+            placeholder: 'Mitä lähde tukee, mihin sitä käytetään ja mitä siitä on vielä tarkistettava?'
+        }
+    };
+
+    function knowledgeTypeMeta(type) {
+        return knowledgeTypeDefinitions[type] || knowledgeTypeDefinitions.concept;
+    }
+
+    function knowledgeStatusLabel(status) {
+        return ({ draft: 'Luonnos', needs_review: 'Tarkistettava', verified: 'Vahvistettu' })[status] || 'Luonnos';
+    }
+
+    function setKnowledgeStatus(message, isError = false) {
+        const element = document.getElementById('knowledge-status');
+        if (!element) return;
+        element.textContent = message || '';
+        element.classList.toggle('is-error', Boolean(isError));
+    }
+
+    function populateKnowledgeChapterSelect(selectedValue) {
+        const select = document.getElementById('knowledge-chapter');
+        if (!select) return;
+        const selected = selectedValue === undefined ? select.value : String(selectedValue || '');
+        const options = (window.manuscriptData?.chapters || []).map((chapter, index) => {
+            const chapterId = String(chapter.id || '');
+            const title = structureDisplayTitle(chapter, index) || `Osio ${index + 1}`;
+            return `<option value="${escapeHtml(chapterId)}">${escapeHtml(title)}</option>`;
+        });
+        select.innerHTML = `<option value="">Koko teos / ei sidosta</option>${options.join('')}`;
+        select.value = Array.from(select.options).some(option => option.value === selected) ? selected : '';
+    }
+
+    function knowledgeDetailValue(type, details, field, index) {
+        const value = details?.[field.key];
+        if (value !== undefined && value !== null) return String(value);
+        if (index === 0 && details?.field_a) return String(details.field_a);
+        if (index === 1 && details?.field_b) return String(details.field_b);
+        return '';
+    }
+
+    function renderKnowledgeDetailFields(values = {}) {
+        const container = document.getElementById('knowledge-detail-fields');
+        if (!container) return;
+        const type = document.getElementById('knowledge-item-type')?.value || 'scene';
+        const meta = knowledgeTypeMeta(type);
+        container.innerHTML = (meta.fields || []).map((field, index) => `
+            <div class="settings-row${(meta.fields || []).length % 2 && index === meta.fields.length - 1 ? ' knowledge-wide-field' : ''}">
+                <label for="knowledge-detail-${escapeHtml(field.key)}">${escapeHtml(field.label)}</label>
+                <input id="knowledge-detail-${escapeHtml(field.key)}" type="text" maxlength="1000" data-knowledge-detail-key="${escapeHtml(field.key)}" value="${escapeHtml(knowledgeDetailValue(type, values, field, index))}">
+            </div>
+        `).join('');
+    }
+
+    function currentKnowledgeDetailValues() {
+        const values = {};
+        document.querySelectorAll('#knowledge-detail-fields [data-knowledge-detail-key]').forEach(input => {
+            values[input.dataset.knowledgeDetailKey] = input.value;
+        });
+        return values;
+    }
+
+    function updateKnowledgeTypeFields(values) {
+        const type = document.getElementById('knowledge-item-type')?.value || 'scene';
+        const meta = knowledgeTypeMeta(type);
+        const contentLabel = document.getElementById('knowledge-content-label');
+        const content = document.getElementById('knowledge-content');
+        renderKnowledgeDetailFields(values === undefined ? currentKnowledgeDetailValues() : values);
+        if (contentLabel) contentLabel.textContent = meta.content;
+        if (content) content.placeholder = meta.placeholder;
+    }
+
+    function resetKnowledgeForm(preferredType) {
+        editingKnowledgeItemId = null;
+        const type = document.getElementById('knowledge-item-type');
+        const title = document.getElementById('knowledge-title');
+        const status = document.getElementById('knowledge-item-status');
+        const sourceUrl = document.getElementById('knowledge-source-url');
+        const tags = document.getElementById('knowledge-tags');
+        const content = document.getElementById('knowledge-content');
+        if (type) type.value = knowledgeTypeDefinitions[preferredType] ? preferredType : (activeKnowledgeFilter !== 'all' ? activeKnowledgeFilter : 'scene');
+        if (title) title.value = '';
+        if (status) status.value = 'draft';
+        if (sourceUrl) sourceUrl.value = '';
+        if (tags) tags.value = '';
+        if (content) content.value = '';
+        populateKnowledgeChapterSelect('');
+        updateKnowledgeTypeFields({});
+        const formTitle = document.getElementById('knowledge-form-title');
+        const saveButton = document.getElementById('knowledge-save-btn');
+        const cancelButton = document.getElementById('knowledge-cancel-btn');
+        if (formTitle) formTitle.textContent = 'Lisää projektimuistiin';
+        if (saveButton) saveButton.textContent = 'Lisää projektimuistiin';
+        cancelButton?.classList.add('hidden');
+    }
+
+    function knowledgeChapterLabel(chapterId) {
+        if (!chapterId) return '';
+        const index = (window.manuscriptData?.chapters || []).findIndex(chapter => String(chapter.id || '') === String(chapterId));
+        if (index < 0) return 'Poistettu osio';
+        return structureDisplayTitle(window.manuscriptData.chapters[index], index) || `Osio ${index + 1}`;
+    }
+
+    function knowledgeFormPayload() {
+        const tags = (document.getElementById('knowledge-tags')?.value || '')
+            .split(',')
+            .map(tag => tag.trim())
+            .filter((tag, index, values) => tag && values.indexOf(tag) === index);
+        const details = {};
+        document.querySelectorAll('#knowledge-detail-fields [data-knowledge-detail-key]').forEach(input => {
+            details[input.dataset.knowledgeDetailKey] = input.value.trim();
+        });
+        details.tags = tags;
+        return {
+            item_type: document.getElementById('knowledge-item-type')?.value || 'scene',
+            title: document.getElementById('knowledge-title')?.value?.trim() || '',
+            content: document.getElementById('knowledge-content')?.value?.trim() || '',
+            source_url: document.getElementById('knowledge-source-url')?.value?.trim() || null,
+            chapter_custom_id: document.getElementById('knowledge-chapter')?.value || null,
+            status: document.getElementById('knowledge-item-status')?.value || 'draft',
+            details
+        };
+    }
+
+    function renderKnowledgeCounts() {
+        const counts = Object.fromEntries(knowledgeTypeOrder.map(type => [type, 0]));
+        projectKnowledgeItems.forEach(item => {
+            if (counts[item.item_type] !== undefined) counts[item.item_type] += 1;
+        });
+        counts.all = projectKnowledgeItems.length;
+        document.querySelectorAll('[data-knowledge-count]').forEach(element => {
+            element.textContent = String(counts[element.dataset.knowledgeCount] || 0);
+        });
+    }
+
+    function knowledgeCardHtml(item) {
+        const meta = knowledgeTypeMeta(item.item_type);
+        const details = item.details || {};
+        const tags = Array.isArray(details.tags) ? details.tags.filter(Boolean) : [];
+        const chapter = knowledgeChapterLabel(item.chapter_custom_id);
+        const source = String(item.source_url || '').trim();
+        const safeLink = /^https?:\/\//i.test(source);
+        const editable = canEditProject(window.manuscriptData || {});
+        const detailsHtml = [
+            ...(meta.fields || []).map((field, index) => {
+                const value = knowledgeDetailValue(item.item_type, details, field, index);
+                return value ? `<span><strong>${escapeHtml(field.label)}:</strong> ${escapeHtml(value)}</span>` : '';
+            }),
+            chapter ? `<span><strong>Osio:</strong> ${escapeHtml(chapter)}</span>` : ''
+        ].filter(Boolean).join('');
+        const sourceHtml = source
+            ? (safeLink
+                ? `<a class="knowledge-source-link" href="${escapeHtml(source)}" target="_blank" rel="noopener noreferrer">Avaa lähde ↗</a>`
+                : `<span class="knowledge-source-reference">Viite: ${escapeHtml(source)}</span>`)
+            : '';
+        return `
+            <article class="knowledge-card" data-knowledge-id="${item.id}">
+                <div class="knowledge-card-header">
+                    <div class="knowledge-card-title">
+                        <span class="knowledge-type-icon" aria-hidden="true">${meta.icon}</span>
+                        <div>
+                            <div class="knowledge-card-chips">
+                                <span class="knowledge-type-chip">${escapeHtml(meta.label)}</span>
+                                <span class="knowledge-status-chip is-${escapeHtml(item.status)}">${escapeHtml(knowledgeStatusLabel(item.status))}</span>
+                            </div>
+                            <h4>${escapeHtml(item.title)}</h4>
+                        </div>
+                    </div>
+                    <div class="knowledge-card-actions">
+                        ${item.chapter_custom_id ? `<button type="button" class="knowledge-icon-btn" data-knowledge-action="open-chapter">Avaa osio</button>` : ''}
+                        ${editable ? `<button type="button" class="knowledge-icon-btn" data-knowledge-action="edit" aria-label="Muokkaa merkintää">Muokkaa</button><button type="button" class="knowledge-icon-btn is-danger" data-knowledge-action="delete" aria-label="Poista merkintä">Poista</button>` : ''}
+                    </div>
+                </div>
+                ${detailsHtml ? `<div class="knowledge-card-details">${detailsHtml}</div>` : ''}
+                ${item.content ? `<p class="knowledge-card-content">${escapeHtml(item.content)}</p>` : ''}
+                ${tags.length ? `<div class="knowledge-tags">${tags.map(tag => `<span>${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
+                ${sourceHtml}
+            </article>`;
+    }
+
+    function renderKnowledgeList() {
+        const list = document.getElementById('knowledge-list');
+        if (!list) return;
+        const search = (document.getElementById('knowledge-search')?.value || '').trim().toLocaleLowerCase('fi-FI');
+        const filtered = projectKnowledgeItems.filter(item => {
+            if (activeKnowledgeFilter !== 'all' && item.item_type !== activeKnowledgeFilter) return false;
+            if (!search) return true;
+            const haystack = [item.title, item.content, item.source_url, item.chapter_custom_id, JSON.stringify(item.details || {})]
+                .join(' ')
+                .toLocaleLowerCase('fi-FI');
+            return haystack.includes(search);
+        });
+        if (!window.manuscriptData) {
+            list.innerHTML = '<div class="knowledge-empty"><strong>Valitse käsikirjoitus.</strong><span>Projektimuisti avautuu aktiiviselle käsikirjoitukselle.</span></div>';
+            return;
+        }
+        if (!filtered.length) {
+            const message = projectKnowledgeItems.length ? 'Hakua tai suodatinta vastaavia kortteja ei löytynyt.' : 'Projektimuistissa ei ole vielä merkintöjä.';
+            list.innerHTML = `<div class="knowledge-empty"><strong>${escapeHtml(message)}</strong><span>Lisää ensimmäinen kohtaus, henkilö, paikka, aikajanan tapahtuma tai fakta viereisellä lomakkeella.</span></div>`;
+            return;
+        }
+        list.innerHTML = filtered.map(knowledgeCardHtml).join('');
+    }
+
+    function renderKnowledgeWorkspace() {
+        const project = window.manuscriptData;
+        const summary = document.getElementById('knowledge-workspace-summary');
+        const editable = Boolean(project && canEditProject(project));
+        syncKnowledgeReviewState();
+        if (summary) {
+            summary.textContent = project
+                ? `${projectKnowledgeItems.length} tietokorttia · ${knowledgeWorkspaceVersionCount} palautuspistettä · ${project.title || 'Nimetön käsikirjoitus'}`
+                : 'Valitse käsikirjoitus nähdäksesi projektimuistin.';
+        }
+        populateKnowledgeChapterSelect();
+        updateKnowledgeTypeFields();
+        renderKnowledgeCounts();
+        renderKnowledgeList();
+        renderKnowledgeSuggestions();
+        renderContinuityIssues();
+        document.querySelectorAll('#development-knowledge-workspace input, #development-knowledge-workspace select, #development-knowledge-workspace textarea').forEach(field => {
+            if (field.id !== 'knowledge-search') field.disabled = !editable;
+        });
+        const saveButton = document.getElementById('knowledge-save-btn');
+        if (saveButton) saveButton.disabled = !editable;
+        const extractButton = document.getElementById('knowledge-extract-btn');
+        const continuityButton = document.getElementById('knowledge-continuity-btn');
+        const suggestionSelectAll = document.getElementById('knowledge-suggestions-select-all');
+        const suggestionClear = document.getElementById('knowledge-suggestions-clear');
+        if (extractButton) extractButton.disabled = !editable || !(project?.chapters || []).length;
+        if (continuityButton) continuityButton.disabled = !editable || !projectKnowledgeItems.length;
+        if (suggestionSelectAll) suggestionSelectAll.disabled = !editable;
+        if (suggestionClear) suggestionClear.disabled = !editable;
+        if (project && !editable) setKnowledgeStatus('Projektimuisti on katselutilassa.');
+    }
+
+    async function loadKnowledgeWorkspace(showFeedback = true) {
+        const projectId = window.manuscriptData?.id;
+        if (!projectId) {
+            projectKnowledgeItems = [];
+            knowledgeWorkspaceProjectId = null;
+            knowledgeWorkspaceVersionCount = 0;
+            renderKnowledgeWorkspace();
+            if (showFeedback) setKnowledgeStatus('Valitse käsikirjoitus ensin.', true);
+            return [];
+        }
+        const requestedProjectId = String(projectId);
+        if (String(knowledgeWorkspaceProjectId || '') !== requestedProjectId) {
+            projectKnowledgeItems = [];
+            knowledgeWorkspaceVersionCount = 0;
+            editingKnowledgeItemId = null;
+        }
+        if (showFeedback) setKnowledgeStatus('Ladataan projektimuistia…');
+        try {
+            const response = await apiFetch(`/api/projects/${projectId}/workspace`);
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'Projektimuistin lataus epäonnistui.');
+            if (String(window.manuscriptData?.id || '') !== requestedProjectId) return [];
+            projectKnowledgeItems = Array.isArray(data?.knowledge_items) ? data.knowledge_items : [];
+            knowledgeWorkspaceProjectId = requestedProjectId;
+            knowledgeWorkspaceVersionCount = Number(data?.version_count || 0);
+            renderKnowledgeWorkspace();
+            if (showFeedback) setKnowledgeStatus(projectKnowledgeItems.length ? 'Projektimuisti ladattu.' : 'Projektimuisti on valmis ensimmäiselle merkinnälle.');
+            return projectKnowledgeItems;
+        } catch (error) {
+            knowledgeWorkspaceProjectId = requestedProjectId;
+            renderKnowledgeWorkspace();
+            setKnowledgeStatus(error.message || 'Projektimuistin lataus epäonnistui.', true);
+            return [];
+        }
+    }
+
+    async function ensureKnowledgeWorkspaceLoaded() {
+        const projectId = String(window.manuscriptData?.id || '');
+        if (projectId && String(knowledgeWorkspaceProjectId || '') !== projectId) {
+            await loadKnowledgeWorkspace(false);
+        }
+    }
+
+    function setDevelopmentWorkspaceMode(mode) {
+        developmentWorkspaceMode = mode === 'knowledge' ? 'knowledge' : 'report';
+        document.getElementById('development-report-workspace')?.classList.toggle('hidden', developmentWorkspaceMode !== 'report');
+        document.getElementById('development-knowledge-workspace')?.classList.toggle('hidden', developmentWorkspaceMode !== 'knowledge');
+        document.querySelectorAll('[data-development-workspace]').forEach(button => {
+            const active = button.dataset.developmentWorkspace === developmentWorkspaceMode;
+            button.classList.toggle('is-active', active);
+            button.setAttribute('aria-selected', String(active));
+        });
+        document.querySelectorAll('.development-report-action').forEach(button => button.classList.toggle('hidden', developmentWorkspaceMode !== 'report'));
+        if (developmentWorkspaceMode === 'knowledge') {
+            renderKnowledgeWorkspace();
+            ensureKnowledgeWorkspaceLoaded();
+        }
+    }
+
+    async function saveKnowledgeItem() {
+        const project = window.manuscriptData;
+        if (!project?.id) {
+            setKnowledgeStatus('Valitse käsikirjoitus ensin.', true);
+            return;
+        }
+        const payload = knowledgeFormPayload();
+        if (!payload.title) {
+            setKnowledgeStatus('Anna merkinnälle otsikko.', true);
+            document.getElementById('knowledge-title')?.focus();
+            return;
+        }
+        const saveButton = document.getElementById('knowledge-save-btn');
+        if (saveButton) saveButton.disabled = true;
+        setKnowledgeStatus(editingKnowledgeItemId ? 'Tallennetaan muutoksia…' : 'Lisätään projektimuistiin…');
+        try {
+            const url = editingKnowledgeItemId
+                ? `/api/projects/${project.id}/knowledge/${editingKnowledgeItemId}`
+                : `/api/projects/${project.id}/knowledge`;
+            const response = await apiFetch(url, {
+                method: editingKnowledgeItemId ? 'PATCH' : 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'Projektimuistin tallennus epäonnistui.');
+            const existingIndex = projectKnowledgeItems.findIndex(item => Number(item.id) === Number(data.id));
+            if (existingIndex >= 0) projectKnowledgeItems.splice(existingIndex, 1, data);
+            else projectKnowledgeItems.push(data);
+            projectKnowledgeItems.sort((a, b) => knowledgeTypeOrder.indexOf(a.item_type) - knowledgeTypeOrder.indexOf(b.item_type) || Number(a.sort_order || 0) - Number(b.sort_order || 0));
+            const savedType = data.item_type;
+            resetKnowledgeForm(savedType);
+            renderKnowledgeWorkspace();
+            setKnowledgeStatus(existingIndex >= 0 ? 'Merkintä päivitetty.' : 'Merkintä lisätty projektimuistiin.');
+        } catch (error) {
+            setKnowledgeStatus(error.message || 'Projektimuistin tallennus epäonnistui.', true);
+        } finally {
+            if (saveButton) saveButton.disabled = !canEditProject(window.manuscriptData || {});
+        }
+    }
+
+    function editKnowledgeItem(itemId) {
+        const item = projectKnowledgeItems.find(candidate => Number(candidate.id) === Number(itemId));
+        if (!item) return;
+        editingKnowledgeItemId = item.id;
+        const details = item.details || {};
+        document.getElementById('knowledge-item-type').value = item.item_type;
+        document.getElementById('knowledge-title').value = item.title || '';
+        document.getElementById('knowledge-item-status').value = item.status || 'draft';
+        document.getElementById('knowledge-source-url').value = item.source_url || '';
+        document.getElementById('knowledge-tags').value = Array.isArray(details.tags) ? details.tags.join(', ') : '';
+        document.getElementById('knowledge-content').value = item.content || '';
+        populateKnowledgeChapterSelect(item.chapter_custom_id || '');
+        updateKnowledgeTypeFields(details);
+        document.getElementById('knowledge-form-title').textContent = `Muokkaa: ${item.title}`;
+        document.getElementById('knowledge-save-btn').textContent = 'Tallenna muutokset';
+        document.getElementById('knowledge-cancel-btn')?.classList.remove('hidden');
+        document.querySelector('.knowledge-form-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.getElementById('knowledge-title')?.focus({ preventScroll: true });
+    }
+
+    async function deleteKnowledgeItem(itemId) {
+        const item = projectKnowledgeItems.find(candidate => Number(candidate.id) === Number(itemId));
+        const projectId = window.manuscriptData?.id;
+        if (!item || !projectId) return;
+        if (!window.confirm(`Poistetaanko projektimuistista ”${item.title}”?`)) return;
+        setKnowledgeStatus('Poistetaan merkintää…');
+        try {
+            const response = await apiFetch(`/api/projects/${projectId}/knowledge/${item.id}`, { method: 'DELETE' });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'Merkinnän poistaminen epäonnistui.');
+            projectKnowledgeItems = projectKnowledgeItems.filter(candidate => Number(candidate.id) !== Number(item.id));
+            if (Number(editingKnowledgeItemId) === Number(item.id)) resetKnowledgeForm(item.item_type);
+            renderKnowledgeWorkspace();
+            setKnowledgeStatus('Merkintä poistettu projektimuistista.');
+        } catch (error) {
+            setKnowledgeStatus(error.message || 'Merkinnän poistaminen epäonnistui.', true);
+        }
+    }
+
+    function parseAiJsonObject(value) {
+        const text = String(value || '').trim();
+        if (!text) return null;
+        const withoutFence = text
+            .replace(/^```(?:json)?\s*/i, '')
+            .replace(/\s*```$/i, '')
+            .trim();
+        try {
+            const parsed = JSON.parse(withoutFence);
+            return parsed && typeof parsed === 'object' ? parsed : null;
+        } catch (error) {
+            const start = withoutFence.indexOf('{');
+            const end = withoutFence.lastIndexOf('}');
+            if (start < 0 || end <= start) return null;
+            try {
+                const parsed = JSON.parse(withoutFence.slice(start, end + 1));
+                return parsed && typeof parsed === 'object' ? parsed : null;
+            } catch (nestedError) {
+                return null;
+            }
+        }
+    }
+
+    function knowledgeChapterIdFromReference(reference) {
+        const value = String(reference || '').trim();
+        if (!value) return null;
+        const direct = (window.manuscriptData?.chapters || []).find(chapter => String(chapter.id || '') === value);
+        if (direct) return direct.id;
+        const match = value.match(/CHAPTER[_\s-]*(\d+)/i);
+        if (!match) return null;
+        const order = Number(match[1]) - 1;
+        return bodyChapterEntries()[order]?.chapter?.id || null;
+    }
+
+    function knowledgeSuggestionChapterOptions(selectedId) {
+        const options = (window.manuscriptData?.chapters || []).map((chapter, index) => {
+            const chapterId = String(chapter.id || '');
+            const title = structureDisplayTitle(chapter, index) || `Osio ${index + 1}`;
+            return `<option value="${escapeHtml(chapterId)}"${chapterId === String(selectedId || '') ? ' selected' : ''}>${escapeHtml(title)}</option>`;
+        });
+        return `<option value="">Koko teos / ei osiosidosta</option>${options.join('')}`;
+    }
+
+    function knowledgeSuggestionDetailFields(type, fields = {}, suggestionId = '') {
+        const meta = knowledgeTypeMeta(type);
+        return (meta.fields || []).map(field => `
+            <label>${escapeHtml(field.label)}
+                <input type="text" maxlength="1000" data-knowledge-suggestion-detail="${escapeHtml(field.key)}" value="${escapeHtml(fields?.[field.key] || '')}" aria-label="${escapeHtml(field.label)} ehdotukselle ${escapeHtml(suggestionId)}">
+            </label>
+        `).join('');
+    }
+
+    function normalizedKnowledgeTitle(value) {
+        return String(value || '').trim().toLocaleLowerCase('fi-FI').replace(/\s+/g, ' ');
+    }
+
+    function isKnowledgeSuggestionDuplicate(suggestion) {
+        const title = normalizedKnowledgeTitle(suggestion?.title);
+        return Boolean(title && projectKnowledgeItems.some(item => (
+            item.item_type === suggestion.item_type && normalizedKnowledgeTitle(item.title) === title
+        )));
+    }
+
+    function sanitizeKnowledgeSuggestions(rawSuggestions) {
+        const allowed = new Set(['character', 'location', 'timeline', 'fact']);
+        return (Array.isArray(rawSuggestions) ? rawSuggestions : []).slice(0, 60).map((raw, index) => {
+            const itemType = allowed.has(String(raw?.type || raw?.item_type || '').toLowerCase())
+                ? String(raw.type || raw.item_type).toLowerCase()
+                : 'fact';
+            const fields = raw?.fields && typeof raw.fields === 'object' ? raw.fields : (raw?.details || {});
+            const cleanFields = {};
+            (knowledgeTypeMeta(itemType).fields || []).forEach(field => {
+                cleanFields[field.key] = String(fields?.[field.key] || '').trim().slice(0, 1000);
+            });
+            return {
+                id: String(raw?.id || `knowledge-suggestion-${Date.now()}-${index}`),
+                selected: false,
+                item_type: itemType,
+                title: String(raw?.title || '').trim().slice(0, 240),
+                content: String(raw?.content || raw?.description || '').trim().slice(0, 100000),
+                chapter_custom_id: knowledgeChapterIdFromReference(raw?.chapter_custom_id || raw?.chapter),
+                fields: cleanFields
+            };
+        }).filter(item => item.title && item.content);
+    }
+
+    function syncKnowledgeReviewState() {
+        const projectId = String(window.manuscriptData?.id || '');
+        if (knowledgeReviewProjectId === projectId) return;
+        const dev = window.manuscriptData?.analysis?.development_editing || {};
+        knowledgeSuggestions = sanitizeKnowledgeSuggestions(dev.knowledge_suggestions || []).map((item, index) => ({
+            ...item,
+            id: item.id || `knowledge-suggestion-saved-${index}`,
+            selected: Boolean(dev.knowledge_suggestions?.[index]?.selected)
+        }));
+        continuityIssues = (Array.isArray(dev.continuity_issues) ? dev.continuity_issues : []).map((issue, index) => ({
+            id: String(issue?.id || `continuity-saved-${index}`),
+            severity: ['high', 'warning', 'note'].includes(issue?.severity) ? issue.severity : 'warning',
+            title: String(issue?.title || 'Jatkuvuushavainto'),
+            description: String(issue?.description || ''),
+            chapter_custom_id: knowledgeChapterIdFromReference(issue?.chapter_custom_id || issue?.chapter),
+            memory_title: String(issue?.memory_title || ''),
+            evidence: String(issue?.evidence || ''),
+            recommendation: String(issue?.recommendation || ''),
+            confidence: String(issue?.confidence || ''),
+            status: issue?.status === 'resolved' ? 'resolved' : 'open'
+        }));
+        knowledgeReviewProjectId = projectId;
+    }
+
+    async function saveKnowledgeReviewState() {
+        if (!window.manuscriptData) return;
+        const dev = developmentData();
+        dev.knowledge_suggestions = knowledgeSuggestions;
+        dev.continuity_issues = continuityIssues;
+        dev.updated_at = new Date().toISOString();
+        await window.saveManuscriptToDB(window.manuscriptData);
+    }
+
+    function scheduleKnowledgeReviewSave() {
+        window.clearTimeout(knowledgeReviewSaveTimer);
+        knowledgeReviewSaveTimer = window.setTimeout(() => {
+            saveKnowledgeReviewState().catch(() => setKnowledgeStatus('Hyväksyntäjonon tallennus epäonnistui.', true));
+        }, 600);
+    }
+
+    function updateKnowledgeSuggestionControls() {
+        const selectedCount = knowledgeSuggestions.filter(item => item.selected && !isKnowledgeSuggestionDuplicate(item)).length;
+        const duplicateCount = knowledgeSuggestions.filter(isKnowledgeSuggestionDuplicate).length;
+        const acceptButton = document.getElementById('knowledge-suggestions-accept');
+        if (acceptButton) {
+            acceptButton.disabled = !selectedCount || !canEditProject(window.manuscriptData || {});
+            acceptButton.textContent = selectedCount
+                ? `Hyväksy ${selectedCount} valittua projektimuistiin`
+                : 'Valitse hyväksyttävät ehdotukset';
+        }
+        const status = document.getElementById('knowledge-suggestions-status');
+        if (status) status.textContent = `${knowledgeSuggestions.length} ehdotusta · ${selectedCount} valittuna${duplicateCount ? ` · ${duplicateCount} jo muistissa` : ''}`;
+    }
+
+    function renderKnowledgeSuggestions() {
+        const panel = document.getElementById('knowledge-suggestions-panel');
+        const list = document.getElementById('knowledge-suggestions-list');
+        if (!panel || !list) return;
+        panel.classList.toggle('hidden', !knowledgeSuggestions.length);
+        if (!knowledgeSuggestions.length) {
+            list.innerHTML = '';
+            return;
+        }
+        const typeOptions = ['character', 'location', 'timeline', 'fact'];
+        list.innerHTML = knowledgeSuggestions.map((item, index) => {
+            const duplicate = isKnowledgeSuggestionDuplicate(item);
+            return `
+                <article class="knowledge-suggestion-card" data-knowledge-suggestion-id="${escapeHtml(item.id)}">
+                    <label class="knowledge-suggestion-select">
+                        <input type="checkbox" data-knowledge-suggestion-field="selected" ${item.selected ? 'checked' : ''} ${duplicate ? 'disabled' : ''}>
+                        <span>${duplicate ? 'Jo muistissa' : `Ehdotus ${index + 1}`}</span>
+                    </label>
+                    <div class="knowledge-suggestion-fields">
+                        <label>Tyyppi
+                            <select data-knowledge-suggestion-field="item_type">${typeOptions.map(type => `<option value="${type}"${type === item.item_type ? ' selected' : ''}>${escapeHtml(knowledgeTypeMeta(type).label)}</option>`).join('')}</select>
+                        </label>
+                        <label>Otsikko
+                            <input type="text" maxlength="240" data-knowledge-suggestion-field="title" value="${escapeHtml(item.title)}">
+                        </label>
+                        <label class="knowledge-suggestion-wide">Lähdeosio
+                            <select data-knowledge-suggestion-field="chapter_custom_id">${knowledgeSuggestionChapterOptions(item.chapter_custom_id)}</select>
+                        </label>
+                        <div class="knowledge-suggestion-details">${knowledgeSuggestionDetailFields(item.item_type, item.fields, item.id)}</div>
+                        <label class="knowledge-suggestion-wide">Kuvaus ja jatkuvuusmuistiinpano
+                            <textarea rows="4" maxlength="100000" data-knowledge-suggestion-field="content">${escapeHtml(item.content)}</textarea>
+                        </label>
+                    </div>
+                </article>`;
+        }).join('');
+        updateKnowledgeSuggestionControls();
+    }
+
+    function continuitySeverityLabel(issue) {
+        if (issue.status === 'resolved') return 'Käsitelty';
+        return ({ high: 'Merkittävä', warning: 'Tarkista', note: 'Huomio' })[issue.severity] || 'Tarkista';
+    }
+
+    function renderContinuityIssues() {
+        const panel = document.getElementById('continuity-panel');
+        const list = document.getElementById('continuity-list');
+        const status = document.getElementById('continuity-status');
+        if (!panel || !list) return;
+        panel.classList.toggle('hidden', !continuityIssues.length);
+        if (!continuityIssues.length) {
+            list.innerHTML = '';
+            if (status) status.textContent = '';
+            return;
+        }
+        const openCount = continuityIssues.filter(issue => issue.status !== 'resolved').length;
+        const editable = canEditProject(window.manuscriptData || {});
+        if (status) status.textContent = `${openCount} avoinna · ${continuityIssues.length - openCount} käsitelty`;
+        list.innerHTML = continuityIssues.map(issue => {
+            const chapter = knowledgeChapterLabel(issue.chapter_custom_id);
+            return `
+                <article class="continuity-card is-${escapeHtml(issue.severity)}${issue.status === 'resolved' ? ' is-resolved' : ''}" data-continuity-id="${escapeHtml(issue.id)}">
+                    <div class="continuity-card-header">
+                        <h4>${escapeHtml(issue.title)}</h4>
+                        <span class="continuity-chip">${escapeHtml(continuitySeverityLabel(issue))}</span>
+                    </div>
+                    <p>${escapeHtml(issue.description)}</p>
+                    <div class="continuity-card-meta">
+                        ${chapter ? `<span><strong>Osio:</strong> ${escapeHtml(chapter)}</span>` : ''}
+                        ${issue.memory_title ? `<span><strong>Muistikortti:</strong> ${escapeHtml(issue.memory_title)}</span>` : ''}
+                        ${issue.confidence ? `<span><strong>Varmuus:</strong> ${escapeHtml(issue.confidence)}</span>` : ''}
+                    </div>
+                    ${issue.evidence ? `<p><strong>Peruste:</strong> ${escapeHtml(issue.evidence)}</p>` : ''}
+                    ${issue.recommendation ? `<p><strong>Tarkista:</strong> ${escapeHtml(issue.recommendation)}</p>` : ''}
+                    <div class="continuity-card-actions">
+                        ${issue.chapter_custom_id ? '<button class="btn btn-secondary" type="button" data-continuity-action="open">Avaa lähdeosio</button>' : ''}
+                        ${editable ? `<button class="btn btn-secondary" type="button" data-continuity-action="toggle">${issue.status === 'resolved' ? 'Palauta avoimeksi' : 'Merkitse käsitellyksi'}</button>` : ''}
+                    </div>
+                </article>`;
+        }).join('');
+    }
+
+    function splitKnowledgeSourceText(value, maxChars = 30000) {
+        const paragraphs = String(value || '').split(/\n\s*\n/).map(item => item.trim()).filter(Boolean);
+        const chunks = [];
+        let buffer = '';
+        const push = () => {
+            if (buffer) chunks.push(buffer);
+            buffer = '';
+        };
+        paragraphs.forEach(paragraph => {
+            if (paragraph.length > maxChars) {
+                push();
+                for (let start = 0; start < paragraph.length; start += maxChars) {
+                    chunks.push(paragraph.slice(start, start + maxChars));
+                }
+                return;
+            }
+            const candidate = buffer ? `${buffer}\n\n${paragraph}` : paragraph;
+            if (candidate.length > maxChars) push();
+            buffer = buffer ? `${buffer}\n\n${paragraph}` : paragraph;
+        });
+        push();
+        return chunks;
+    }
+
+    function knowledgeManuscriptChunks(maxChunkChars = 34000, maxChunks = 24) {
+        const pieces = [];
+        bodyChapterEntries().forEach(({ chapter, index }, order) => {
+            const title = structureDisplayTitle(chapter, index) || `Osio ${order + 1}`;
+            const chapterText = (chapter.paragraphs || []).join('\n\n').trim();
+            const chapterPieces = splitKnowledgeSourceText(chapterText, Math.max(8000, maxChunkChars - 500));
+            chapterPieces.forEach((text, pieceIndex) => {
+                const pieceLabel = chapterPieces.length > 1 ? ` | osion pala ${pieceIndex + 1}/${chapterPieces.length}` : '';
+                pieces.push(`CHAPTER_${String(order + 1).padStart(2, '0')} | ${title} | chapter_custom_id=${chapter.id || ''}${pieceLabel}\n${text}`);
+            });
+        });
+        const chunks = [];
+        let buffer = '';
+        let includedPieces = 0;
+        for (const piece of pieces) {
+            if (chunks.length >= maxChunks) break;
+            const candidate = buffer ? `${buffer}\n\n---\n\n${piece}` : piece;
+            if (candidate.length > maxChunkChars && buffer) {
+                chunks.push(buffer);
+                buffer = '';
+                if (chunks.length >= maxChunks) break;
+                buffer = piece;
+                includedPieces += 1;
+                continue;
+            }
+            buffer = candidate;
+            includedPieces += 1;
+        }
+        if (buffer && chunks.length < maxChunks) chunks.push(buffer);
+        return {
+            chunks,
+            omittedPieces: Math.max(0, pieces.length - includedPieces)
+        };
+    }
+
+    function compactKnowledgeIndex(maxChars = 12000) {
+        const rows = [];
+        let used = 0;
+        for (const item of projectKnowledgeItems) {
+            const meta = knowledgeTypeMeta(item.item_type);
+            const details = item.details || {};
+            const fields = (meta.fields || []).map((field, index) => {
+                const value = knowledgeDetailValue(item.item_type, details, field, index);
+                return value ? `${field.label}: ${compactDevelopmentText(value, 180)}` : '';
+            }).filter(Boolean).join(' | ');
+            const row = [
+                `${meta.label}: ${item.title} (${knowledgeStatusLabel(item.status)})`,
+                fields,
+                item.content ? compactDevelopmentText(item.content, 320) : '',
+                item.chapter_custom_id ? `Lähdeosio: ${knowledgeChapterLabel(item.chapter_custom_id)}` : ''
+            ].filter(Boolean).join('\n');
+            if (used + row.length > maxChars) break;
+            rows.push(row);
+            used += row.length;
+        }
+        return rows.join('\n\n');
+    }
+
+    function mergeKnowledgeSuggestionLists(current, incoming) {
+        const merged = [...current];
+        incoming.forEach(candidate => {
+            const existing = merged.find(item => item.item_type === candidate.item_type && normalizedKnowledgeTitle(item.title) === normalizedKnowledgeTitle(candidate.title));
+            if (!existing) {
+                merged.push(candidate);
+                return;
+            }
+            if (candidate.content.length > existing.content.length) existing.content = candidate.content;
+            existing.chapter_custom_id = existing.chapter_custom_id || candidate.chapter_custom_id;
+            Object.entries(candidate.fields || {}).forEach(([key, value]) => {
+                if (!existing.fields?.[key] && value) {
+                    existing.fields = existing.fields || {};
+                    existing.fields[key] = value;
+                }
+            });
+        });
+        return merged.slice(0, 80);
+    }
+
+    function mergeContinuityIssueLists(current, incoming) {
+        const merged = [...current];
+        incoming.forEach(candidate => {
+            const duplicate = merged.some(issue => (
+                normalizedKnowledgeTitle(issue.title) === normalizedKnowledgeTitle(candidate.title)
+                && String(issue.chapter_custom_id || '') === String(candidate.chapter_custom_id || '')
+            ));
+            if (!duplicate) merged.push(candidate);
+        });
+        return merged.slice(0, 60);
+    }
+
+    function buildKnowledgeExtractionPrompt() {
+        return `PROJECT_MEMORY_TOOL:extract
+Poimi annetusta käsikirjoituksesta vain tekstin tukemia henkilöitä, paikkoja, aikajanan tapahtumia ja jatkuvuuden kannalta tärkeitä faktoja.
+
+Palauta ainoastaan kelvollinen JSON-objekti muodossa:
+{"suggestions":[{"type":"character|location|timeline|fact","title":"...","chapter":"CHAPTER_01","content":"...","fields":{"kentän_nimi":"..."}}]}
+
+Käytä kenttiä tyypeittäin:
+- character: aliases, role, goal, relationships, state
+- location: time_layer, significance, traits, rules
+- timeline: time, sequence, participants, consequence
+- fact: category, value, scope
+
+Säännöt:
+- Enintään 40 ehdotusta.
+- Älä keksi puuttuvia ominaisuuksia. Jätä kenttä tyhjäksi.
+- Liitä jokaiseen ehdotukseen tarkin mahdollinen CHAPTER-tunniste.
+- Yhdistä saman henkilön tai paikan toistuvat maininnat yhdeksi ehdotukseksi.
+- Kirjoita tiiviisti suomeksi. Älä lisää Markdownia tai muuta tekstiä JSONin ympärille.`;
+    }
+
+    async function extractKnowledgeSuggestions() {
+        if (!window.manuscriptData?.chapters?.length) {
+            setKnowledgeStatus('Valitse tekstillinen käsikirjoitus ensin.', true);
+            return;
+        }
+        const button = document.getElementById('knowledge-extract-btn');
+        if (button) button.disabled = true;
+        setKnowledgeStatus('Poimitaan käsikirjoituksesta projektitietoja…');
+        try {
+            const manuscript = knowledgeManuscriptChunks();
+            if (!manuscript.chunks.length) throw new Error('Käsikirjoituksesta ei löytynyt poimittavaa tekstiä.');
+            let suggestions = [];
+            for (let index = 0; index < manuscript.chunks.length; index += 1) {
+                setKnowledgeStatus(`Poimitaan projektitietoja · osa ${index + 1}/${manuscript.chunks.length}…`);
+                const response = await apiFetch('/api/edit', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        purpose: 'development_editing',
+                        temperature: 0.1,
+                        prompt: buildKnowledgeExtractionPrompt(),
+                        text: [
+                            `PROJEKTI: ${window.manuscriptData.title || 'Nimetön'}`,
+                            index === 0 ? `AIEMPI ANALYYSI:\n${compactDevelopmentText(developmentAnalysisBrief(), 7000) || 'Ei aiempaa analyysiä.'}` : '',
+                            `JO PROJEKTIMUISTISSA:\n${compactKnowledgeIndex(7000) || 'Ei merkintöjä.'}`,
+                            `KÄSIKIRJOITUS OSIOITTAIN:\n${manuscript.chunks[index]}`
+                        ].filter(Boolean).join('\n\n')
+                    })
+                });
+                const payload = await response.json().catch(() => null);
+                if (!response.ok) throw new Error(payload?.detail || `Projektitietojen poiminta epäonnistui osassa ${index + 1}.`);
+                const parsed = parseAiJsonObject(payload?.edited_text);
+                suggestions = mergeKnowledgeSuggestionLists(suggestions, sanitizeKnowledgeSuggestions(parsed?.suggestions));
+            }
+            if (!suggestions.length) throw new Error('Poiminta ei palauttanut tarkistettavia tietoja.');
+            knowledgeSuggestions = suggestions;
+            await saveKnowledgeReviewState();
+            renderKnowledgeSuggestions();
+            document.getElementById('knowledge-suggestions-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setKnowledgeStatus(`${suggestions.length} ehdotusta poimittu hyväksyntäjonoon.${manuscript.omittedPieces ? ` Erittäin pitkästä käsikirjoituksesta jäi ${manuscript.omittedPieces} tekstipalaa seuraavaan ajoon.` : ''}`);
+            loadUsage();
+        } catch (error) {
+            setKnowledgeStatus(networkFailureMessage(error), true);
+            loadUsage();
+        } finally {
+            if (button) button.disabled = !canEditProject(window.manuscriptData || {});
+        }
+    }
+
+    async function acceptKnowledgeSuggestions() {
+        const project = window.manuscriptData;
+        const selected = knowledgeSuggestions.filter(item => item.selected && !isKnowledgeSuggestionDuplicate(item) && item.title.trim());
+        if (!project?.id || !selected.length) return;
+        const button = document.getElementById('knowledge-suggestions-accept');
+        if (button) button.disabled = true;
+        setKnowledgeStatus('Tallennetaan hyväksyttyjä tietoja projektimuistiin…');
+        const acceptedIds = new Set();
+        const failures = [];
+        for (const suggestion of selected) {
+            try {
+                const chapterLabel = knowledgeChapterLabel(suggestion.chapter_custom_id);
+                const response = await apiFetch(`/api/projects/${project.id}/knowledge`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        item_type: suggestion.item_type,
+                        title: suggestion.title.trim(),
+                        content: suggestion.content.trim(),
+                        chapter_custom_id: suggestion.chapter_custom_id || null,
+                        source_url: chapterLabel ? `Käsikirjoitus: ${chapterLabel}` : 'Käsikirjoitus: koko teos',
+                        status: 'needs_review',
+                        details: { ...suggestion.fields, tags: ['AI-ehdotus'] }
+                    })
+                });
+                const data = await response.json().catch(() => null);
+                if (!response.ok) throw new Error(data?.detail || 'Tallennus epäonnistui.');
+                projectKnowledgeItems.push(data);
+                acceptedIds.add(suggestion.id);
+            } catch (error) {
+                failures.push(`${suggestion.title}: ${error.message}`);
+            }
+        }
+        knowledgeSuggestions = knowledgeSuggestions.filter(item => !acceptedIds.has(item.id));
+        projectKnowledgeItems.sort((a, b) => knowledgeTypeOrder.indexOf(a.item_type) - knowledgeTypeOrder.indexOf(b.item_type) || Number(a.sort_order || 0) - Number(b.sort_order || 0));
+        await saveKnowledgeReviewState();
+        renderKnowledgeWorkspace();
+        setKnowledgeStatus(failures.length
+            ? `${acceptedIds.size} tietoa hyväksyttiin, ${failures.length} epäonnistui.`
+            : `${acceptedIds.size} tietoa lisättiin projektimuistiin tarkistettaviksi.`, Boolean(failures.length));
+    }
+
+    function sanitizeContinuityIssues(rawIssues) {
+        return (Array.isArray(rawIssues) ? rawIssues : []).slice(0, 50).map((raw, index) => ({
+            id: `continuity-${Date.now()}-${index}`,
+            severity: ['high', 'warning', 'note'].includes(String(raw?.severity || '').toLowerCase()) ? String(raw.severity).toLowerCase() : 'warning',
+            title: String(raw?.title || 'Jatkuvuushavainto').trim().slice(0, 240),
+            description: String(raw?.description || '').trim().slice(0, 4000),
+            chapter_custom_id: knowledgeChapterIdFromReference(raw?.chapter_custom_id || raw?.chapter),
+            memory_title: String(raw?.memory_title || '').trim().slice(0, 240),
+            evidence: String(raw?.evidence || '').trim().slice(0, 2000),
+            recommendation: String(raw?.recommendation || '').trim().slice(0, 2000),
+            confidence: String(raw?.confidence || '').trim().slice(0, 80),
+            status: 'open'
+        })).filter(issue => issue.description && issue.chapter_custom_id);
+    }
+
+    function buildContinuityPrompt() {
+        return `PROJECT_MEMORY_TOOL:continuity
+Vertaa projektimuistin tietoja käsikirjoitukseen ja raportoi vain aidosti perustellut jatkuvuusristiriidat tai kohdat, jotka ihmisen kannattaa tarkistaa.
+
+Palauta ainoastaan kelvollinen JSON-objekti muodossa:
+{"issues":[{"severity":"high|warning|note","title":"...","description":"...","chapter":"CHAPTER_02","memory_title":"...","evidence":"...","recommendation":"...","confidence":"high|medium|low"}]}
+
+Säännöt:
+- Älä korjaa tai kirjoita käsikirjoitusta uudelleen.
+- Älä raportoi tarkoituksellista kehitystä ristiriitana, jos muutos tai aikasiirtymä selittää sen.
+- Liitä havainto tarkimpaan mahdolliseen CHAPTER-tunnisteeseen ja nimeä siihen liittyvä muistikortti.
+- Jos näyttö ei riitä, jätä havainto pois.
+- Enintään 30 havaintoa. Ei Markdownia JSONin ympärille.`;
+    }
+
+    async function runContinuityCheck() {
+        if (!projectKnowledgeItems.length) {
+            setKnowledgeStatus('Lisää tai hyväksy projektimuistiin tietoja ennen jatkuvuustarkistusta.', true);
+            return;
+        }
+        const button = document.getElementById('knowledge-continuity-btn');
+        if (button) button.disabled = true;
+        setKnowledgeStatus('Tarkistetaan käsikirjoituksen jatkuvuutta…');
+        try {
+            const manuscript = knowledgeManuscriptChunks();
+            if (!manuscript.chunks.length) throw new Error('Käsikirjoituksesta ei löytynyt tarkistettavaa tekstiä.');
+            let issues = [];
+            const memory = compactKnowledgeIndex(12000);
+            for (let index = 0; index < manuscript.chunks.length; index += 1) {
+                setKnowledgeStatus(`Tarkistetaan jatkuvuutta · osa ${index + 1}/${manuscript.chunks.length}…`);
+                const response = await apiFetch('/api/edit', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        purpose: 'development_editing',
+                        temperature: 0.1,
+                        prompt: buildContinuityPrompt(),
+                        text: `PROJEKTIMUISTI:\n${memory}\n\nKÄSIKIRJOITUS OSIOITTAIN:\n${manuscript.chunks[index]}`
+                    })
+                });
+                const payload = await response.json().catch(() => null);
+                if (!response.ok) throw new Error(payload?.detail || `Jatkuvuustarkistus epäonnistui osassa ${index + 1}.`);
+                const parsed = parseAiJsonObject(payload?.edited_text);
+                issues = mergeContinuityIssueLists(issues, sanitizeContinuityIssues(parsed?.issues));
+            }
+            continuityIssues = issues;
+            await saveKnowledgeReviewState();
+            renderContinuityIssues();
+            if (continuityIssues.length) {
+                document.getElementById('continuity-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                setKnowledgeStatus(`${continuityIssues.length} jatkuvuushavaintoa odottaa tarkistusta.${manuscript.omittedPieces ? ` Erittäin pitkästä käsikirjoituksesta jäi ${manuscript.omittedPieces} tekstipalaa seuraavaan ajoon.` : ''}`);
+            } else {
+                setKnowledgeStatus('Tarkistus ei löytänyt riittävän perusteltuja jatkuvuusristiriitoja.');
+            }
+            loadUsage();
+        } catch (error) {
+            setKnowledgeStatus(networkFailureMessage(error), true);
+            loadUsage();
+        } finally {
+            if (button) button.disabled = !canEditProject(window.manuscriptData || {}) || !projectKnowledgeItems.length;
+        }
+    }
+
+    function openKnowledgeChapter(chapterId) {
+        if (!chapterId) return;
+        pendingWriteEditorChapterId = String(chapterId);
+        openModule('view-kirjoita-editoi');
+    }
+
+    function developmentKnowledgeBrief(maxItems = 80) {
+        if (!projectKnowledgeItems.length) return '';
+        const selected = projectKnowledgeItems.slice(0, maxItems);
+        const rows = selected.map((item, index) => {
+            const meta = knowledgeTypeMeta(item.item_type);
+            const details = item.details || {};
+            const tags = Array.isArray(details.tags) && details.tags.length ? `Tunnisteet: ${details.tags.join(', ')}` : '';
+            const structured = (meta.fields || []).map((field, fieldIndex) => {
+                const value = knowledgeDetailValue(item.item_type, details, field, fieldIndex);
+                return value ? `${field.label}: ${value}` : '';
+            }).filter(Boolean);
+            return [
+                `MEMORY_${String(index + 1).padStart(2, '0')} | ${meta.label.toUpperCase()} | ${item.title} | ${knowledgeStatusLabel(item.status)}`,
+                item.chapter_custom_id ? `Osio: ${knowledgeChapterLabel(item.chapter_custom_id)}` : '',
+                ...structured,
+                item.content ? compactDevelopmentText(item.content, 700) : '',
+                tags,
+                item.source_url ? `Lähde tai viite: ${item.source_url}` : ''
+            ].filter(Boolean).join('\n');
+        });
+        if (projectKnowledgeItems.length > selected.length) rows.push(`HUOM: ${projectKnowledgeItems.length - selected.length} projektimuistin merkintää jätettiin pois pituusrajan vuoksi.`);
+        return rows.join('\n\n---\n\n');
+    }
+
+    function cleanSceneSuggestionTitle(value, index) {
+        const cleaned = String(value || '')
+            .replace(/^#{1,6}\s*/, '')
+            .replace(/^\*\*|\*\*$/g, '')
+            .replace(/^(?:kohtauskortti|kohtaus)\s*(?:\d+)?\s*[:.\-–—]?\s*/i, '')
+            .trim();
+        return cleaned || `Kohtaus ${index + 1}`;
+    }
+
+    function suggestionChapterId(text) {
+        const match = String(text || '').match(/CHAPTER_(\d+)/i);
+        if (!match) return null;
+        const order = Number(match[1]) - 1;
+        const entries = bodyChapterEntries();
+        const chapter = entries[order]?.chapter || window.manuscriptData?.chapters?.[order];
+        return chapter?.id || null;
+    }
+
+    function extractSceneSuggestionsFromBlueprint(blueprint) {
+        const heading = 'Kohtauskortit'.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const sectionMatch = String(blueprint || '').match(
+            new RegExp(`(?:^|\\n)##\\s*${heading}\\s*\\n([\\s\\S]*?)(?=\\n##(?!#)\\s|$)`, 'i')
+        );
+        const section = sectionMatch?.[1]?.trim() || '';
+        if (!section) return [];
+        const blocks = [];
+        let current = null;
+        const pushCurrent = () => {
+            if (!current) return;
+            const content = current.lines.join('\n').trim();
+            if (current.title || content) blocks.push({ title: current.title, content });
+            current = null;
+        };
+        const propertyLine = /^(?:[-*]\s*)?(?:osio|tapahtuma|konflikti|muutos|funktio|tehtävä|varmuus|näkökulma)\s*:/i;
+        String(section).split(/\r?\n/).forEach(rawLine => {
+            const line = rawLine.trim();
+            if (!line || /^```/.test(line)) return;
+            const heading = line.match(/^#{3,6}\s+(.+)$/);
+            const namedBullet = line.match(/^[-*]\s+(?:\*\*)?(kohtaus(?:kortti)?\s*(?:\d+)?\s*[:.\-–—]\s*.+?)(?:\*\*)?$/i);
+            if (heading || namedBullet) {
+                pushCurrent();
+                current = { title: (heading?.[1] || namedBullet?.[1] || ''), lines: [] };
+                return;
+            }
+            if (!current && /^[-*]\s+/.test(line) && !propertyLine.test(line)) {
+                const standalone = line.replace(/^[-*]\s+/, '');
+                const parts = standalone.split(/\s+(?:—|–|::)\s+|:\s+/, 2);
+                blocks.push({ title: parts[0], content: standalone });
+                return;
+            }
+            if (!current) current = { title: '', lines: [] };
+            current.lines.push(line.replace(/^[-*]\s+/, ''));
+        });
+        pushCurrent();
+        return blocks.slice(0, 80).map((block, index) => {
+            const combined = `${block.title}\n${block.content}`;
+            const functionMatch = block.content.match(/(?:funktio|tehtävä)\s*:\s*([^\n]+)/i);
+            return {
+                id: `scene-suggestion-${Date.now()}-${index}`,
+                selected: false,
+                title: cleanSceneSuggestionTitle(block.title, index).slice(0, 240),
+                content: block.content || cleanSceneSuggestionTitle(block.title, index),
+                chapter_custom_id: suggestionChapterId(combined),
+                function_note: functionMatch?.[1]?.trim() || 'AI:n rakennemallista poimittu ehdotus'
+            };
+        }).filter(item => item.title || item.content);
+    }
+
+    function sceneSuggestionChapterOptions(selectedId) {
+        const options = (window.manuscriptData?.chapters || []).map((chapter, index) => {
+            const chapterId = String(chapter.id || '');
+            const title = structureDisplayTitle(chapter, index) || `Osio ${index + 1}`;
+            const selected = chapterId === String(selectedId || '') ? ' selected' : '';
+            return `<option value="${escapeHtml(chapterId)}"${selected}>${escapeHtml(title)}</option>`;
+        });
+        return `<option value="">Ei osiosidosta</option>${options.join('')}`;
+    }
+
+    function setSceneSuggestionsStatus(message, isError = false) {
+        const status = document.getElementById('scene-suggestions-status');
+        if (!status) return;
+        status.textContent = message || '';
+        status.style.color = isError ? '#ffb4b4' : '';
+    }
+
+    function updateSceneSuggestionsControls() {
+        const selectedCount = developmentSceneSuggestions.filter(item => item.selected).length;
+        const acceptButton = document.getElementById('scene-suggestions-accept');
+        if (acceptButton) {
+            acceptButton.disabled = !selectedCount || !canEditProject(window.manuscriptData || {});
+            acceptButton.textContent = selectedCount
+                ? `Hyväksy ${selectedCount} valittua projektimuistiin`
+                : 'Valitse hyväksyttävät ehdotukset';
+        }
+        setSceneSuggestionsStatus(`${developmentSceneSuggestions.length} ehdotusta · ${selectedCount} valittuna`);
+    }
+
+    function renderSceneSuggestions() {
+        const panel = document.getElementById('scene-suggestions-panel');
+        const list = document.getElementById('scene-suggestions-list');
+        if (!panel || !list) return;
+        panel.classList.toggle('hidden', !developmentSceneSuggestions.length);
+        if (!developmentSceneSuggestions.length) {
+            list.innerHTML = '';
+            return;
+        }
+        list.innerHTML = developmentSceneSuggestions.map((item, index) => `
+            <article class="scene-suggestion-card" data-scene-suggestion-id="${escapeHtml(item.id)}">
+                <label class="scene-suggestion-select">
+                    <input type="checkbox" data-scene-suggestion-field="selected" ${item.selected ? 'checked' : ''}>
+                    <span>Ehdotus ${index + 1}</span>
+                </label>
+                <div class="scene-suggestion-fields">
+                    <label>Kohtauksen nimi<input type="text" maxlength="240" data-scene-suggestion-field="title" value="${escapeHtml(item.title)}"></label>
+                    <label>Liittyvä osio<select data-scene-suggestion-field="chapter_custom_id">${sceneSuggestionChapterOptions(item.chapter_custom_id)}</select></label>
+                    <label class="scene-suggestion-wide">Kohtauskortin sisältö<textarea rows="5" data-scene-suggestion-field="content">${escapeHtml(item.content)}</textarea></label>
+                </div>
+            </article>
+        `).join('');
+        updateSceneSuggestionsControls();
+    }
+
+    async function generateSceneSuggestions() {
+        const blueprint = document.getElementById('development-blueprint')?.value || developmentData().blueprint || '';
+        const suggestions = extractSceneSuggestionsFromBlueprint(blueprint);
+        if (!suggestions.length) {
+            setDevelopmentStatus('Rakennemallista ei löytynyt jäsenneltyä Kohtauskortit-osiota.', true);
+            return;
+        }
+        developmentSceneSuggestions = suggestions;
+        developmentSuggestionsProjectId = String(window.manuscriptData?.id || '');
+        const dev = developmentData();
+        dev.scene_suggestions = suggestions;
+        await window.saveManuscriptToDB(window.manuscriptData);
+        renderSceneSuggestions();
+        document.getElementById('scene-suggestions-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setDevelopmentStatus(`${suggestions.length} kohtauskorttiehdotusta poimittu tarkistettavaksi.`);
+    }
+
+    async function acceptSceneSuggestions() {
+        const project = window.manuscriptData;
+        const selected = developmentSceneSuggestions.filter(item => item.selected && item.title.trim());
+        if (!project?.id || !selected.length) return;
+        const acceptButton = document.getElementById('scene-suggestions-accept');
+        if (acceptButton) acceptButton.disabled = true;
+        setSceneSuggestionsStatus('Tallennetaan valittuja kohtauskortteja…');
+        await ensureKnowledgeWorkspaceLoaded();
+        const acceptedIds = new Set();
+        const failures = [];
+        for (const suggestion of selected) {
+            try {
+                const response = await apiFetch(`/api/projects/${project.id}/knowledge`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        item_type: 'scene',
+                        title: suggestion.title.trim(),
+                        content: suggestion.content.trim(),
+                        chapter_custom_id: suggestion.chapter_custom_id || null,
+                        status: 'needs_review',
+                        details: {
+                            field_a: '',
+                            field_b: suggestion.function_note || 'AI:n rakennemallista poimittu ehdotus',
+                            tags: ['AI-ehdotus']
+                        }
+                    })
+                });
+                const data = await response.json().catch(() => null);
+                if (!response.ok) throw new Error(data?.detail || 'Tallennus epäonnistui.');
+                projectKnowledgeItems.push(data);
+                acceptedIds.add(suggestion.id);
+            } catch (error) {
+                failures.push(`${suggestion.title}: ${error.message}`);
+            }
+        }
+        developmentSceneSuggestions = developmentSceneSuggestions.filter(item => !acceptedIds.has(item.id));
+        developmentData().scene_suggestions = developmentSceneSuggestions;
+        await window.saveManuscriptToDB(window.manuscriptData);
+        renderSceneSuggestions();
+        renderKnowledgeWorkspace();
+        if (failures.length) {
+            setDevelopmentStatus(`${acceptedIds.size} ehdotusta hyväksyttiin, ${failures.length} epäonnistui.`, true);
+            setSceneSuggestionsStatus(failures.join(' · '), true);
+        } else {
+            setDevelopmentStatus(`${acceptedIds.size} kohtauskorttia lisättiin projektimuistiin tarkistettaviksi.`);
+        }
+    }
+
     function developmentToneLabel(value) {
         const labels = {
             friendly: 'Kirjailijaystävällinen palaute',
@@ -7523,6 +9433,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             brief.support_material ? `Tukiaineisto:\n${compactDevelopmentText(brief.support_material, 1600)}` : '',
             brief.author_questions ? `Kirjailijan kysymykset:\n${compactDevelopmentText(brief.author_questions, 1200)}` : '',
             '',
+            'PROJEKTIMUISTI (KIRJAILIJAN JA TOIMITTAJAN VAHVISTAMAT TAI TARKISTETTAVAT TIEDOT):',
+            developmentKnowledgeBrief() || 'Projektimuistissa ei ole vielä erillisiä tietokortteja.',
+            '',
             'AIEMPI ANALYYSI JA METADATA:',
             developmentAnalysisBrief() || 'Ei aiempaa analyysiä. Tee varovainen ensimmäinen rakennemalli tekstinäytteiden perusteella.',
             '',
@@ -7543,7 +9456,15 @@ Palauta suomeksi Markdown-muotoinen apuaineistopaketti näillä otsikoilla:
 ## Koko teoksen synopsis
 ## Osio- ja lukukohtaiset tiivistelmät
 ## Kohtauskortit
-Kirjoita jokaisesta havaitusta kohtauksesta tiivis kortti: tapahtuma, konflikti, muutos, funktio, varmuus. Jos kohtauksen funktio tai konflikti ei selviä, sano se.
+Kirjoita jokainen havaittu kohtaus täsmälleen tällä rakenteella:
+### KOHTAUS: [lyhyt yksilöivä nimi]
+- Osio: [CHAPTER-tunniste ja osion nimi]
+- Tapahtuma: [mitä tapahtuu]
+- Konflikti: [mikä vastavoima tai jännite toimii]
+- Muutos: [mikä muuttuu kohtauksen aikana]
+- Funktio: [kohtauksen tehtävä kokonaisuudessa]
+- Varmuus: [varmistettu havainto / perusteltu tulkinta / epävarma tulkinta]
+Jos kohtauksen funktio tai konflikti ei selviä, sano se kentässä suoraan.
 ## Hahmokartta ja hahmojen funktiot
 ## Teemakartta
 ## Lukijan tiedon eteneminen
@@ -7702,7 +9623,26 @@ Säännöt:
         if (corrections) corrections.value = dev.corrections || '';
         if (feedback) feedback.value = dev.feedback_report || '';
         if (plan) plan.value = dev.revision_plan || '';
+        const projectId = String(data?.id || '');
+        if (developmentSuggestionsProjectId !== projectId) {
+            developmentSceneSuggestions = Array.isArray(dev.scene_suggestions)
+                ? dev.scene_suggestions.map((item, index) => Object.assign({
+                    id: `scene-suggestion-saved-${index}`,
+                    selected: false,
+                    title: '',
+                    content: '',
+                    chapter_custom_id: null,
+                    function_note: 'AI:n rakennemallista poimittu ehdotus'
+                }, item))
+                : [];
+            developmentSuggestionsProjectId = projectId || null;
+        }
+        const suggestionButton = document.getElementById('development-scene-suggestions-btn');
+        if (suggestionButton) suggestionButton.disabled = !data || !String(dev.blueprint || '').trim();
+        renderSceneSuggestions();
         renderDevelopmentSummary();
+        renderKnowledgeWorkspace();
+        setDevelopmentWorkspaceMode(developmentWorkspaceMode);
         setDevelopmentStatus(data ? 'Valmis.' : 'Valitse käsikirjoitus ensin.', !data);
     }
 
@@ -7731,6 +9671,7 @@ Säännöt:
             return;
         }
         await flushPendingManuscriptEdits();
+        await ensureKnowledgeWorkspaceLoaded();
         const button = document.getElementById('development-blueprint-btn');
         if (button) button.disabled = true;
         setDevelopmentStatus('Luodaan rakennemallia...');
@@ -7751,12 +9692,16 @@ Säännöt:
             dev.brief = readDevelopmentBriefFromForm();
             dev.blueprint = payload?.edited_text || '';
             dev.validation_report = developmentValidationFromBlueprint(dev.blueprint);
+            dev.scene_suggestions = [];
+            developmentSceneSuggestions = [];
+            developmentSuggestionsProjectId = String(window.manuscriptData?.id || '');
             dev.blueprint_updated_at = new Date().toISOString();
             dev.updated_at = dev.blueprint_updated_at;
             const blueprintEl = document.getElementById('development-blueprint');
             const validationEl = document.getElementById('development-validation');
             if (blueprintEl) blueprintEl.value = dev.blueprint;
             if (validationEl) validationEl.value = dev.validation_report;
+            renderSceneSuggestions();
             await window.saveManuscriptToDB(window.manuscriptData);
             renderDevelopmentSummary();
             loadUsage();
@@ -7776,6 +9721,7 @@ Säännöt:
             return;
         }
         await saveDevelopmentEditingEdits(false);
+        await ensureKnowledgeWorkspaceLoaded();
         const dev = developmentData();
         if (!String(dev.blueprint || '').trim()) {
             setDevelopmentStatus('Luo rakennemalli ensin.', true);
@@ -7984,6 +9930,13 @@ Säännöt:
     async function runWorkflowEditChapters() {
         const entries = bodyChapterEntries();
         setWorkflowStep('edit', 'running', `Editoidaan ${entries.length} lukua.`);
+        if (entries.length) {
+            await createProjectVersion({
+                label: 'Ennen tekoälyeditointia',
+                source: 'ai_edit',
+                silent: true
+            });
+        }
         let edited = 0;
         for (const { chapter, index } of entries) {
             const sourceText = (chapter.paragraphs || []).join('\n\n').trim();
@@ -8036,6 +9989,13 @@ Säännöt:
     async function runWorkflowProofreadChapters() {
         const entries = bodyChapterEntries();
         setWorkflowStep('proofread', 'running', `Oikoluetaan ${entries.length} lukua.`);
+        if (entries.length) {
+            await createProjectVersion({
+                label: 'Ennen automaattista oikolukua',
+                source: 'ai_proofread',
+                silent: true
+            });
+        }
         let applied = 0;
         const failed = [];
         for (const { chapter, index } of entries) {
@@ -9056,6 +11016,18 @@ Säännöt:
     if (publishBuildApplicationBtn) publishBuildApplicationBtn.addEventListener('click', buildPublishApplication);
     if (publishCopyApplicationBtn) publishCopyApplicationBtn.addEventListener('click', copyPublishApplication);
     if (publishPrintOfferBtn) publishPrintOfferBtn.addEventListener('click', requestPrintOffer);
+    document.getElementById('publication-package-build-btn')?.addEventListener('click', buildPublicationPackage);
+    document.getElementById('publication-package-download-btn')?.addEventListener('click', downloadPublicationPackage);
+    document.getElementById('publication-package-cover-select')?.addEventListener('change', renderPublicationPackageCover);
+    document.getElementById('publication-package-open-cover-btn')?.addEventListener('click', () => openModule('view-kuvitus'));
+    document.getElementById('publication-package-translate-btn')?.addEventListener('click', () => {
+        openModule('view-kaannokset');
+        const sourceSelect = document.getElementById('finnish-translation-source-select');
+        const targetSelect = document.getElementById('finnish-translation-target-language-select');
+        if (sourceSelect) sourceSelect.value = 'book';
+        if (targetSelect && targetSelect.value === 'fi') targetSelect.value = 'en';
+        updateFinnishTranslationEstimate();
+    });
     [bookFontSelect, bookFontSizeSelect, bookWidthSelect].forEach(select => {
         if (select) select.addEventListener('change', applyBookReaderSettings);
     });
@@ -9126,11 +11098,134 @@ Säännöt:
     if (structureAiBtn) structureAiBtn.addEventListener('click', createAiStructureProposal);
     if (structureAcceptBtn) structureAcceptBtn.addEventListener('click', acceptStructureProposal);
     if (structureRejectBtn) structureRejectBtn.addEventListener('click', rejectStructureProposal);
-    if (developmentRefreshBtn) developmentRefreshBtn.addEventListener('click', renderDevelopmentEditingView);
+    if (developmentRefreshBtn) developmentRefreshBtn.addEventListener('click', () => {
+        if (developmentWorkspaceMode === 'knowledge') loadKnowledgeWorkspace(true);
+        else renderDevelopmentEditingView();
+    });
     if (developmentSaveBtn) developmentSaveBtn.addEventListener('click', () => saveDevelopmentEditingEdits(true));
     if (developmentBlueprintBtn) developmentBlueprintBtn.addEventListener('click', runDevelopmentBlueprint);
     if (developmentFeedbackBtn) developmentFeedbackBtn.addEventListener('click', runDevelopmentFeedback);
     if (developmentDownloadBtn) developmentDownloadBtn.addEventListener('click', downloadDevelopmentMarkdown);
+    document.getElementById('development-scene-suggestions-btn')?.addEventListener('click', () => {
+        generateSceneSuggestions().catch(error => setDevelopmentStatus(error.message || 'Kohtauskorttiehdotusten poiminta epäonnistui.', true));
+    });
+    document.getElementById('development-blueprint')?.addEventListener('input', event => {
+        const button = document.getElementById('development-scene-suggestions-btn');
+        if (button) button.disabled = !window.manuscriptData || !String(event.target.value || '').trim();
+    });
+    document.getElementById('scene-suggestions-select-all')?.addEventListener('click', () => {
+        developmentSceneSuggestions.forEach(item => { item.selected = true; });
+        renderSceneSuggestions();
+    });
+    document.getElementById('scene-suggestions-clear')?.addEventListener('click', () => {
+        developmentSceneSuggestions = [];
+        developmentData().scene_suggestions = [];
+        renderSceneSuggestions();
+        window.saveManuscriptToDB(window.manuscriptData);
+        setDevelopmentStatus('Kohtauskorttiehdotukset tyhjennettiin.');
+    });
+    document.getElementById('scene-suggestions-accept')?.addEventListener('click', () => {
+        acceptSceneSuggestions().catch(error => setDevelopmentStatus(error.message || 'Kohtauskorttien hyväksyminen epäonnistui.', true));
+    });
+    const sceneSuggestionsList = document.getElementById('scene-suggestions-list');
+    const updateSceneSuggestionFromEvent = event => {
+        const field = event.target.dataset.sceneSuggestionField;
+        const card = event.target.closest('[data-scene-suggestion-id]');
+        if (!field || !card) return;
+        const suggestion = developmentSceneSuggestions.find(item => item.id === card.dataset.sceneSuggestionId);
+        if (!suggestion) return;
+        suggestion[field] = field === 'selected' ? Boolean(event.target.checked) : event.target.value;
+        developmentData().scene_suggestions = developmentSceneSuggestions;
+        updateSceneSuggestionsControls();
+    };
+    sceneSuggestionsList?.addEventListener('input', updateSceneSuggestionFromEvent);
+    sceneSuggestionsList?.addEventListener('change', updateSceneSuggestionFromEvent);
+    document.querySelectorAll('[data-development-workspace]').forEach(button => {
+        button.addEventListener('click', () => setDevelopmentWorkspaceMode(button.dataset.developmentWorkspace));
+    });
+    document.querySelectorAll('[data-knowledge-filter]').forEach(button => {
+        button.addEventListener('click', () => {
+            activeKnowledgeFilter = button.dataset.knowledgeFilter || 'all';
+            document.querySelectorAll('[data-knowledge-filter]').forEach(candidate => candidate.classList.toggle('is-active', candidate === button));
+            renderKnowledgeList();
+            if (!editingKnowledgeItemId && activeKnowledgeFilter !== 'all') resetKnowledgeForm(activeKnowledgeFilter);
+        });
+    });
+    document.getElementById('knowledge-item-type')?.addEventListener('change', () => updateKnowledgeTypeFields({}));
+    document.getElementById('knowledge-save-btn')?.addEventListener('click', saveKnowledgeItem);
+    document.getElementById('knowledge-cancel-btn')?.addEventListener('click', () => resetKnowledgeForm());
+    document.getElementById('knowledge-search')?.addEventListener('input', renderKnowledgeList);
+    document.getElementById('knowledge-extract-btn')?.addEventListener('click', extractKnowledgeSuggestions);
+    document.getElementById('knowledge-continuity-btn')?.addEventListener('click', runContinuityCheck);
+    document.getElementById('knowledge-suggestions-select-all')?.addEventListener('click', () => {
+        knowledgeSuggestions.forEach(item => { item.selected = !isKnowledgeSuggestionDuplicate(item); });
+        renderKnowledgeSuggestions();
+        scheduleKnowledgeReviewSave();
+    });
+    document.getElementById('knowledge-suggestions-clear')?.addEventListener('click', () => {
+        knowledgeSuggestions = [];
+        renderKnowledgeSuggestions();
+        saveKnowledgeReviewState().catch(() => setKnowledgeStatus('Hyväksyntäjonon tyhjennys ei tallentunut.', true));
+        setKnowledgeStatus('Hyväksyntäjono tyhjennettiin.');
+    });
+    document.getElementById('knowledge-suggestions-accept')?.addEventListener('click', () => {
+        acceptKnowledgeSuggestions().catch(error => setKnowledgeStatus(error.message || 'Ehdotusten hyväksyminen epäonnistui.', true));
+    });
+    const knowledgeSuggestionsList = document.getElementById('knowledge-suggestions-list');
+    const updateKnowledgeSuggestionFromEvent = event => {
+        const card = event.target.closest('[data-knowledge-suggestion-id]');
+        if (!card) return;
+        const item = knowledgeSuggestions.find(candidate => candidate.id === card.dataset.knowledgeSuggestionId);
+        if (!item) return;
+        const detailKey = event.target.dataset.knowledgeSuggestionDetail;
+        const field = event.target.dataset.knowledgeSuggestionField;
+        if (detailKey) {
+            item.fields = item.fields || {};
+            item.fields[detailKey] = event.target.value;
+        } else if (field === 'selected') {
+            item.selected = Boolean(event.target.checked);
+        } else if (field === 'item_type') {
+            item.item_type = event.target.value;
+            item.fields = {};
+            renderKnowledgeSuggestions();
+        } else if (field) {
+            item[field] = event.target.value;
+        } else {
+            return;
+        }
+        updateKnowledgeSuggestionControls();
+        scheduleKnowledgeReviewSave();
+    };
+    knowledgeSuggestionsList?.addEventListener('input', updateKnowledgeSuggestionFromEvent);
+    knowledgeSuggestionsList?.addEventListener('change', updateKnowledgeSuggestionFromEvent);
+    document.getElementById('continuity-list')?.addEventListener('click', event => {
+        const button = event.target.closest('[data-continuity-action]');
+        const card = button?.closest('[data-continuity-id]');
+        if (!button || !card) return;
+        const issue = continuityIssues.find(candidate => candidate.id === card.dataset.continuityId);
+        if (!issue) return;
+        if (button.dataset.continuityAction === 'open') {
+            openKnowledgeChapter(issue.chapter_custom_id);
+            return;
+        }
+        if (button.dataset.continuityAction === 'toggle') {
+            issue.status = issue.status === 'resolved' ? 'open' : 'resolved';
+            renderContinuityIssues();
+            saveKnowledgeReviewState().catch(() => setKnowledgeStatus('Havainnon tilan tallennus epäonnistui.', true));
+        }
+    });
+    document.getElementById('knowledge-list')?.addEventListener('click', event => {
+        const button = event.target.closest('[data-knowledge-action]');
+        const card = button?.closest('[data-knowledge-id]');
+        if (!button || !card) return;
+        const itemId = Number(card.dataset.knowledgeId);
+        if (button.dataset.knowledgeAction === 'open-chapter') {
+            const item = projectKnowledgeItems.find(candidate => Number(candidate.id) === itemId);
+            openKnowledgeChapter(item?.chapter_custom_id);
+        }
+        if (button.dataset.knowledgeAction === 'edit') editKnowledgeItem(itemId);
+        if (button.dataset.knowledgeAction === 'delete') deleteKnowledgeItem(itemId);
+    });
     document.querySelectorAll('.structure-option, .structure-front-option').forEach(input => {
         input.addEventListener('change', () => syncStructureOptionState(input));
     });
@@ -9171,12 +11266,6 @@ Säännöt:
     window.addEventListener('beforeunload', () => {
         if (currentViewId === 'view-tyopoyta') {
             syncWriterDeskEditorToManuscript();
-        }
-        if (currentViewId === 'view-kirjoita') {
-            syncWritingEditorToManuscript();
-        }
-        if (currentViewId === 'view-toimitus') {
-            syncEditedTargetToManuscript({ showAlerts: false });
         }
     });
 
@@ -9271,6 +11360,17 @@ Säännöt:
 
     function clearActiveManuscript() {
         window.manuscriptData = null;
+        projectVersions = [];
+        loadedVersionsProjectId = null;
+        activeProjectVersionNumber = 0;
+        pendingRestoreVersionId = null;
+        window.clearTimeout(pendingRestoreTimer);
+        projectKnowledgeItems = [];
+        knowledgeWorkspaceProjectId = null;
+        knowledgeWorkspaceVersionCount = 0;
+        editingKnowledgeItemId = null;
+        developmentSceneSuggestions = [];
+        developmentSuggestionsProjectId = null;
         localStorage.removeItem('skriptlab_manuscript');
         localStorage.removeItem('skriptlab_raw_text');
         localStorage.removeItem(ACTIVE_PROJECT_ID_KEY);
@@ -9300,6 +11400,8 @@ Säännöt:
         renderProofreadView();
         renderProductInfo(true);
         renderAudioView(true);
+        renderVersionsView();
+        renderTopVersionBadge();
         if (window.renderNavList) window.renderNavList();
         updateTranslationProjectSelect();
         updateFinnishTranslationProjectSelect();
@@ -9367,6 +11469,20 @@ Säännöt:
         }
         cleanupGeneratedPlaceholderChapters(data);
         normalizeImportedFallbackChapter(data);
+        const versionsProjectChanged = String(loadedVersionsProjectId || '') !== String(data.id || '');
+        if (versionsProjectChanged) {
+            projectVersions = [];
+            loadedVersionsProjectId = null;
+            activeProjectVersionNumber = 0;
+            pendingRestoreVersionId = null;
+            window.clearTimeout(pendingRestoreTimer);
+        }
+        if (String(knowledgeWorkspaceProjectId || '') !== String(data.id || '')) {
+            projectKnowledgeItems = [];
+            knowledgeWorkspaceProjectId = null;
+            knowledgeWorkspaceVersionCount = 0;
+            editingKnowledgeItemId = null;
+        }
         window.manuscriptData = data;
         if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
         localStorage.setItem('skriptlab_manuscript', JSON.stringify(window.manuscriptData));
@@ -9378,8 +11494,8 @@ Säännöt:
         if (!options.skipManuskriptiFrameRefresh && ['view-kirjani', 'view-analyysi', 'view-rakenne'].includes(currentViewId)) {
             refreshManuskriptiFrame(currentViewId);
         }
-        if (!options.skipTyostoFrameRefresh && ['view-kirjoita', 'view-toimitus'].includes(currentViewId)) {
-            refreshTyostoFrame(currentViewId);
+        if (!options.skipTyostoFrameRefresh && currentViewId === 'view-mobiilieditori') {
+            refreshMobileEditorFrame();
         }
         if (!options.skipWriteEditorFrameRefresh && currentViewId === 'view-kirjoita-editoi') {
             refreshWriteEditorFrame();
@@ -9395,6 +11511,9 @@ Säännöt:
         renderStructureModule();
         renderDevelopmentEditingView();
         renderWritingView();
+        renderVersionsView();
+        renderTopVersionBadge();
+        if (!options.skipVersionsRefresh && (versionsProjectChanged || currentViewId === 'view-viimeistely')) loadProjectVersions(false);
         if (window.renderNavList) window.renderNavList();
         updateTranslationProjectSelect();
         updateFinnishTranslationProjectSelect();
@@ -9752,6 +11871,13 @@ Säännöt:
         if (event.origin !== window.location.origin) return;
         const message = event.data;
         if (!message || typeof message !== 'object') return;
+
+        if (message.type === 'skriptlab:versions-changed') {
+            const changedProjectId = String(message.projectId || '');
+            if (changedProjectId && String(window.manuscriptData?.id || '') === changedProjectId) {
+                loadProjectVersions(false);
+            }
+        }
 
         if (message.type === 'skriptlab:project-selected') {
             const target = message.project && typeof message.project === 'object'
@@ -13146,23 +15272,14 @@ Säännöt:
         frame.src = `manuskripti.html?${params.toString()}`;
     }
 
-    function tyostoFrameMode(viewId) {
-        return viewId === 'view-toimitus' ? 'editoi' : 'kirjoita';
-    }
-
-    function refreshTyostoFrame(viewId = currentViewId) {
-        const frameId = {
-            'view-kirjoita': 'tyosto-frame-kirjoita',
-            'view-toimitus': 'tyosto-frame-toimitus'
-        }[viewId];
-        if (!frameId) return;
-        const frame = document.getElementById(frameId);
+    function refreshMobileEditorFrame() {
+        const frame = document.getElementById('mobiili-editori-frame');
         if (!frame) return;
         const params = new URLSearchParams();
         const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
-        params.set('mode', tyostoFrameMode(viewId));
+        params.set('mode', 'kirjoita');
         if (projectId) params.set('project', projectId);
-        params.set('v', '1');
+        params.set('v', '5');
         params.set('t', String(Date.now()));
         frame.src = `tyosto.html?${params.toString()}`;
     }
@@ -13173,9 +15290,11 @@ Säännöt:
         const params = new URLSearchParams();
         const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
         if (projectId) params.set('project', projectId);
-        params.set('v', '2');
+        if (pendingWriteEditorChapterId) params.set('chapter', pendingWriteEditorChapterId);
+        params.set('v', '6');
         params.set('t', String(Date.now()));
         frame.src = `kirjoita-editoi.html?${params.toString()}`;
+        pendingWriteEditorChapterId = null;
     }
 
     function tuotantoFrameTab(viewId, requestedViewId = null) {
@@ -14869,9 +16988,6 @@ ${state.validation || 'Ei validointia.'}`;
         const chapterLabel = document.getElementById('original-chapter-label');
         const displayTitle = structureDisplayTitle(chapter, cIndex) || `Luku ${cIndex + 1}`;
         if (chapterLabel) chapterLabel.textContent = `- ${displayTitle}`;
-        const statusP = document.querySelector('#view-toimitus .header-info p');
-        if (statusP) statusP.textContent = `${displayTitle} · editointi`;
-
         if (editScopeSelect?.value === 'paragraph' && normalizeText(getEditableText()) === normalizeText(previousText)) {
             setEditableText(chapter.paragraphs[pIndex] || '');
             renderEditedDiffPreview();
@@ -14967,10 +17083,6 @@ ${state.validation || 'Ei validointia.'}`;
         
         renderEditorParagraphPicker(cIndex, pIndex);
         
-        const statusP = document.querySelector('#view-toimitus .header-info p');
-        if (statusP) {
-            statusP.textContent = `${displayTitle} · editointi`;
-        }
     };
 
     // Korvaa alkuperäinen -napin logiikka

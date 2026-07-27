@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Elämäkerta – mobiilinatiivi käyttöliittymä
+   Mobiili-editori – mobiilinatiivi käyttöliittymä
    Paletti: paperi + muste + mustikka (pääväri) + hilla (edistyminen)
    Tunnusmerkki: "tarinan lanka" – ommelviiva, joka sitoo vaiheet yhteen
    ========================================================================== */
@@ -705,7 +705,7 @@ details.analysis-section[open] summary::after { transform: rotate(180deg); }
 .proposal-card { margin-top: 18px; }
 
 /* ==========================================================================
-   Kirjoita ja editoi -moduulin lisätyylit
+   Mobiili-editorin lisätyylit
    ========================================================================== */
 
 .mode-switch, .scope-switch {
@@ -781,6 +781,57 @@ details.analysis-section[open] summary::after { transform: rotate(180deg); }
 }
 
 .chapter-title-btn .sub { display: block; font-family: var(--body); font-weight: 400; font-size: 12px; color: var(--muste-45); }
+
+.chapter-memory {
+  margin-top: 10px;
+  border: 1px solid var(--raja);
+  border-radius: var(--radius-s);
+  background: var(--mustikka-vaalea);
+  overflow: hidden;
+}
+
+.chapter-memory summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 9px 12px;
+  color: var(--mustikka);
+  font-size: 13px;
+  font-weight: 700;
+  list-style: none;
+  cursor: pointer;
+}
+
+.chapter-memory summary::-webkit-details-marker { display: none; }
+.chapter-memory summary::before { content: "›"; transition: transform 120ms ease; }
+.chapter-memory[open] summary::before { transform: rotate(90deg); }
+.chapter-memory summary > span:first-of-type { flex: 1; }
+
+.chapter-memory-list {
+  display: grid;
+  gap: 8px;
+  padding: 0 10px 10px;
+}
+
+.chapter-memory-card {
+  display: grid;
+  gap: 3px;
+  padding: 9px 10px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid var(--raja);
+  border-left: 3px solid var(--mustikka);
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.chapter-memory-card.needs-review { border-left-color: var(--hilla); }
+.chapter-memory-card > span { color: var(--muste-45); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.chapter-memory-card strong, .chapter-memory-card p, .chapter-memory-card small { margin: 0; }
+.chapter-memory-card p, .chapter-memory-card small { white-space: pre-wrap; }
+.chapter-memory-card small { color: var(--muste-45); font-size: 10px; }
+.chapter-memory-empty { margin: 0; padding: 5px 3px 3px; color: var(--muste-45); font-size: 12px; }
 
 /* kirjoita */
 
@@ -919,6 +970,64 @@ details.analysis-section[open] summary::after { transform: rotate(180deg); }
 
 .sheet-list .toc-item { min-height: 48px; }
 .sheet-list .toc-item.is-current { border-color: var(--mustikka); background: var(--mustikka-vaalea); }
+.chapter-sheet-item[draggable="true"] {
+  cursor: grab;
+}
+.chapter-sheet-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: stretch;
+}
+.chapter-sheet-item[draggable="true"]:active {
+  cursor: grabbing;
+}
+.chapter-sheet-item.is-dragging {
+  opacity: 0.45;
+}
+.chapter-sheet-item.is-merge-target .toc-item {
+  border-color: var(--hilla);
+  background: var(--hilla-vaalea);
+  box-shadow: 0 0 0 3px rgba(217, 154, 65, 0.14);
+}
+.chapter-drag-handle {
+  flex: none;
+  color: var(--muste-45);
+  font-size: 15px;
+  letter-spacing: -4px;
+  transform: rotate(90deg);
+}
+.chapter-merge-hint {
+  margin: 2px 0 10px;
+  color: var(--muste-45);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.chapter-merge-btn {
+  border: 1px solid var(--raja);
+  border-radius: var(--radius-s);
+  background: var(--paperi-tumma);
+  color: var(--mustikka);
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.chapter-merge-btn:hover,
+.chapter-merge-btn:focus-visible {
+  border-color: var(--hilla);
+  background: var(--hilla-vaalea);
+  outline: none;
+}
+@media (max-width: 560px) {
+  .chapter-sheet-item {
+    grid-template-columns: 1fr;
+  }
+  .chapter-merge-btn {
+    justify-self: end;
+  }
+}
 
 details.mass-section {
   background: var(--paperi-tumma);

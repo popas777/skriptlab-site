@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f4f2ed">
   <title>Kirjoita ja editoi - SkriptLab</title>
-  <link rel="stylesheet" href="kirjoita-editoi.css?v=2">
+  <link rel="stylesheet" href="kirjoita-editoi.css?v=4">
 </head>
 <body data-mobile-panel="editor">
   <main class="write-editor-app" aria-label="Kirjoita ja editoi">
@@ -35,6 +35,10 @@
           <button class="icon-btn pane-close" id="notes-close" type="button" aria-label="Sulje muistiinpanot">×</button>
         </div>
         <div class="notes-scroll">
+          <details class="note-group project-memory-group" open>
+            <summary><span>Aktiivisen osion projektimuisti</span><span class="note-count" id="project-memory-count">0</span></summary>
+            <div class="note-content project-memory-content" id="project-memory-content"></div>
+          </details>
           <details class="note-group" open>
             <summary><span>Yleiskuva</span><span class="note-count" id="overview-count">0</span></summary>
             <div class="note-content" id="note-overview"></div>
@@ -78,6 +82,7 @@
           </select>
           <span class="toolbar-divider"></span>
           <button class="format-btn" id="insert-chapter-break" type="button" aria-label="Osanvaihto, lisää uusi luku" title="Osanvaihto: lisää uusi luku">＋</button>
+          <button class="format-btn is-danger" id="delete-current-chapter" type="button" aria-label="Poista nykyinen luku" title="Poista nykyinen luku">−</button>
           <span class="toolbar-divider"></span>
           <button class="format-btn format-bold" type="button" data-command="bold" aria-label="Lihavoi" title="Lihavoi">B</button>
           <button class="format-btn format-italic" type="button" data-command="italic" aria-label="Kursivoi" title="Kursivoi">I</button>
@@ -207,6 +212,6 @@
   <div class="toast" id="toast" hidden role="status" aria-live="polite"></div>
 
   <script src="config.js?v=1"></script>
-  <script src="kirjoita-editoi.js?v=2"></script>
+  <script src="kirjoita-editoi.js?v=6"></script>
 </body>
 </html>
