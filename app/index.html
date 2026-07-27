@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=60">
+    <link rel="stylesheet" href="styles.css?v=61">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -71,8 +71,8 @@
             <nav class="sidebar-nav">
                 <ul id="nav-menu">
                     <li class="active" data-view="view-kirjani">Käsikirjoitukseni</li>
-                    <li data-view="view-analyysi">Analyysi ja rakenne</li>
-                    <li data-view="view-kehityseditointi">Rakenne- ja kehityseditointi</li>
+                    <li data-view="view-analyysi">Analyysi</li>
+                    <li data-view="view-kehityseditointi">Kehityseditointi ja projektimuisti</li>
                     <li data-view="view-kirjoita-editoi">Kirjoita ja editoi</li>
                     <li data-view="view-mobiilieditori">Mobiili-editori</li>
                     <li data-view="view-oikoluku">Oikoluku ja viimeistely</li>
@@ -389,263 +389,81 @@
                 </div>
             </div>
 
-            <!-- 1.18 VIEW: RAKENNE- JA KEHITYSEDITOINTI -->
+            <!-- 1.18 VIEW: KEHITYSEDITOINTI JA PROJEKTIMUISTI -->
             <div id="view-kehityseditointi" class="view-section hidden">
                 <div class="header">
                     <div class="header-info">
-                        <h2>Rakenne- ja kehityseditointi</h2>
-                        <p id="development-current-project">Valitse käsikirjoitus ja muodosta toimituksellinen rakennemalli.</p>
+                        <p class="eyebrow">Toimituksellinen työvaihe</p>
+                        <h2>Kehityseditointi ja projektimuisti</h2>
+                        <p id="development-current-project">Valitse käsikirjoitus ja luo kehityspalaute sekä myöhemmissä vaiheissa käytettävä projektimuisti.</p>
                     </div>
                     <div class="header-actions">
                         <button class="btn btn-secondary" id="development-refresh-btn" type="button">Päivitä</button>
-                        <button class="btn btn-secondary development-report-action" id="development-save-btn" type="button">Tallenna muutokset</button>
-                        <button class="btn btn-primary development-report-action" id="development-blueprint-btn" type="button">Luo rakennemalli</button>
-                        <button class="btn btn-primary development-report-action" id="development-feedback-btn" type="button">Luo kehityspalaute</button>
                     </div>
                 </div>
 
-                <div class="development-workspace-tabs" role="tablist" aria-label="Rakenne- ja kehityseditoinnin työtilat">
-                    <button class="development-workspace-tab is-active" type="button" role="tab" aria-selected="true" data-development-workspace="report">Kehityspalaute</button>
-                    <button class="development-workspace-tab" type="button" role="tab" aria-selected="false" data-development-workspace="knowledge">Projektimuisti</button>
-                </div>
-
-                <div id="development-report-workspace">
-                <div class="development-grid">
-                    <section class="card glass-panel development-settings">
-                        <h3>Kirjailijan brief</h3>
-                        <p class="card-meta">Nämä tiedot ohjaavat rakennemallia ja kehityspalautteen sävyä. Jos jokin jää tyhjäksi, järjestelmä päättelee sen käsikirjoituksesta.</p>
-
-                        <div class="settings-row">
-                            <label for="development-genre">Laji tai genre</label>
-                            <input id="development-genre" type="text" placeholder="Esim. romaani, tietokirja, fantasia, muistelmamainen romaani">
-                        </div>
-                        <div class="settings-row">
-                            <label for="development-audience">Kohderyhmä</label>
-                            <input id="development-audience" type="text" placeholder="Kenelle teos on tarkoitettu?">
-                        </div>
-                        <div class="settings-row">
-                            <label for="development-tone">Palautteen sävy</label>
-                            <select id="development-tone">
-                                <option value="friendly">Kirjailijaystävällinen</option>
-                                <option value="normal" selected>Normaali kehityspalaute</option>
-                                <option value="strict">Tiukka kustannustoimittajan palaute</option>
-                                <option value="publisher_internal">Kustantamon sisäinen arvio</option>
-                                <option value="revision_plan">Korjaussuunnitelma</option>
-                            </select>
-                        </div>
-                        <div class="settings-row">
-                            <label>Painopisteet</label>
-                            <div class="development-focus-grid">
-                                <label><input type="checkbox" value="rakenne" checked> Rakenne</label>
-                                <label><input type="checkbox" value="juoni" checked> Juoni</label>
-                                <label><input type="checkbox" value="henkilöt" checked> Henkilöt</label>
-                                <label><input type="checkbox" value="teemat"> Teemat</label>
-                                <label><input type="checkbox" value="rytmi" checked> Rytmi</label>
-                                <label><input type="checkbox" value="näkökulma"> Näkökulma</label>
-                                <label><input type="checkbox" value="aikatasot"> Aikatasot</label>
-                                <label><input type="checkbox" value="kaupallinen potentiaali"> Kaupallinen potentiaali</label>
-                                <label><input type="checkbox" value="kirjallinen laatu"> Kirjallinen laatu</label>
+                <div class="development-simple-workspace">
+                    <section id="development-report-workspace" class="card glass-panel development-simple-card">
+                        <div class="development-simple-heading">
+                            <div>
+                                <span class="development-step-number">1</span>
+                                <p class="eyebrow">Kustannustoimittajan palaute</p>
+                                <h3>Kehityseditointi</h3>
                             </div>
+                            <span id="development-status" class="save-timestamp" role="status" aria-live="polite"></span>
                         </div>
-                        <div class="settings-row">
-                            <label for="development-support">Synopsis, saate tai muu tukiaineisto</label>
-                            <textarea id="development-support" rows="6" placeholder="Voit liittää tähän oman synopsiksen, intentiot, aiemman palautteen tai muuta taustatietoa."></textarea>
-                        </div>
-                        <div class="settings-row">
-                            <label for="development-questions">Kirjailijan omat kysymykset</label>
-                            <textarea id="development-questions" rows="5" placeholder="Mihin haluat erityisesti vastauksen?"></textarea>
-                        </div>
-                    </section>
-
-                    <section class="card glass-panel development-summary-card">
-                        <div class="panel-header">
-                            <h3>Työn tila</h3>
-                            <span id="development-status" class="save-timestamp"></span>
-                        </div>
+                        <p class="development-simple-lead">Sovellus lukee analyysin ja käsikirjoituksen, muodostaa taustalla rakennemallin ja palauttaa priorisoidun kehityseditointipalautteen yhdellä ajolla.</p>
+                        <label class="development-simple-prompt" for="development-extra-instructions">
+                            <span>Lisäohje kehityseditoijalle <small>valinnainen</small></span>
+                            <textarea id="development-extra-instructions" rows="4" placeholder="Esim. arvioi erityisesti keskiosan rytmiä, päähenkilön kaarta ja loppuratkaisun uskottavuutta."></textarea>
+                        </label>
+                        <button class="btn btn-primary development-primary-action" id="development-run-btn" type="button">✦ Tee kehityseditointi</button>
                         <div class="development-summary-list" id="development-summary-list"></div>
-                        <div class="development-action-row">
-                            <button class="btn btn-secondary" id="development-download-btn" type="button">Lataa Markdown</button>
-                        </div>
-                    </section>
-                </div>
 
-                <div class="development-output-grid">
-                    <section class="card glass-panel">
-                        <h3>Rakennemalli / apuaineistopaketti</h3>
-                        <p class="card-meta">Agentti 1 mallintaa käsikirjoituksen. Tarkista tulkinnat ennen kehityspalautetta.</p>
-                        <textarea id="development-blueprint" class="development-textarea" placeholder="Rakennemalli näkyy tässä."></textarea>
-                        <div class="development-action-row">
-                            <button class="btn btn-secondary" id="development-scene-suggestions-btn" type="button">Poimi kohtauskorttiehdotukset</button>
+                        <div class="development-result-block">
+                            <div class="panel-header">
+                                <h3>Kehityseditointipalaute</h3>
+                                <button class="btn btn-secondary" id="development-download-btn" type="button">Lataa Markdown</button>
+                            </div>
+                            <textarea id="development-feedback" class="development-textarea" readonly placeholder="Kehityseditointipalaute näkyy tässä ajon valmistuttua."></textarea>
+                        </div>
+                        <div class="development-result-block">
+                            <h3>Priorisoitu korjaussuunnitelma</h3>
+                            <textarea id="development-plan" class="development-textarea medium" readonly placeholder="Tärkeimmät seuraavat toimenpiteet näkyvät tässä."></textarea>
                         </div>
                     </section>
-                    <section class="card glass-panel">
-                        <h3>Käyttäjän korjaukset rakennemalliin</h3>
-                        <p class="card-meta">Korjaa esimerkiksi päähenkilö, ydinkonflikti, teema tai epäselvä rakenne. Nämä välitetään kehityseditoijalle.</p>
-                        <textarea id="development-corrections" class="development-textarea medium" placeholder="Esim. Päähenkilö on X, ei Y. Keskeinen konflikti on..."></textarea>
-                    </section>
-                    <section class="card glass-panel">
-                        <h3>Validointiraportti</h3>
-                        <p class="card-meta">Tarkistus siitä, mihin palautteessa pitää suhtautua varauksella.</p>
-                        <textarea id="development-validation" class="development-textarea medium" placeholder="Validoinnin tulos näkyy tässä."></textarea>
-                    </section>
-                    <section class="card glass-panel">
-                        <h3>Kehitys- ja rakennepalaute</h3>
-                        <p class="card-meta">Agentti 2 arvioi käsikirjoituksen rakennemallin, korjausten ja tekstikatkelmien perusteella.</p>
-                        <textarea id="development-feedback" class="development-textarea" placeholder="Kehityspalaute näkyy tässä."></textarea>
-                    </section>
-                    <section class="card glass-panel development-plan-card">
-                        <h3>Priorisoitu korjaussuunnitelma</h3>
-                        <p class="card-meta">Tiivis työlista seuraavaa muokkauskierrosta varten.</p>
-                        <textarea id="development-plan" class="development-textarea medium" placeholder="Korjaussuunnitelma poimitaan palautteesta tai sitä voi muokata käsin."></textarea>
-                    </section>
-                </div>
 
-                <section class="card glass-panel scene-suggestions-panel hidden" id="scene-suggestions-panel">
-                    <div class="scene-suggestions-heading">
-                        <div>
-                            <p class="eyebrow">Rakennemallista projektimuistiin</p>
-                            <h3>Kohtauskorttiehdotukset</h3>
-                            <p class="card-meta">Tarkista otsikko, osiosidos ja sisältö. Hyväksytyt ehdotukset tallennetaan projektimuistiin tarkistettavina kohtauskortteina.</p>
-                        </div>
-                        <p id="scene-suggestions-status" class="save-timestamp" role="status" aria-live="polite"></p>
-                    </div>
-                    <div class="scene-suggestions-actions">
-                        <button class="btn btn-secondary" id="scene-suggestions-select-all" type="button">Valitse kaikki</button>
-                        <button class="btn btn-secondary" id="scene-suggestions-clear" type="button">Tyhjennä ehdotukset</button>
-                        <button class="btn btn-primary" id="scene-suggestions-accept" type="button">Hyväksy valitut projektimuistiin</button>
-                    </div>
-                    <div id="scene-suggestions-list" class="scene-suggestions-list"></div>
-                </section>
-                </div>
-
-                <div id="development-knowledge-workspace" class="hidden">
-                    <div class="knowledge-overview glass-panel">
-                        <div>
-                            <p class="eyebrow">Yhteinen projektitieto</p>
-                            <h3>Projektimuisti</h3>
-                            <p id="knowledge-workspace-summary">Kohtaukset, henkilöt, paikat, aikajana ja faktat yhdessä paikassa.</p>
-                        </div>
-                        <div class="knowledge-overview-actions">
-                            <div class="knowledge-ai-actions">
-                                <button id="knowledge-extract-btn" class="btn btn-secondary" type="button">Poimi käsikirjoituksesta</button>
-                                <button id="knowledge-continuity-btn" class="btn btn-secondary" type="button">Tarkista jatkuvuus</button>
+                    <section id="development-knowledge-workspace" class="card glass-panel development-simple-card">
+                        <div class="development-simple-heading">
+                            <div>
+                                <span class="development-step-number">2</span>
+                                <p class="eyebrow">Yhteinen tieto myöhempiin vaiheisiin</p>
+                                <h3>Projektimuisti</h3>
                             </div>
                             <p id="knowledge-status" class="knowledge-status" role="status" aria-live="polite"></p>
                         </div>
-                    </div>
-                    <div id="knowledge-extraction-progress" class="knowledge-extraction-progress hidden" role="progressbar" aria-label="Projektimuistin poiminnan eteneminen" aria-valuemin="0" aria-valuenow="0" aria-valuemax="1">
-                        <div class="knowledge-extraction-progress-track"><span id="knowledge-extraction-progress-bar"></span></div>
-                        <p id="knowledge-extraction-progress-text">0/0 osaa käsitelty</p>
-                    </div>
-
-                    <div class="knowledge-filter-row" role="group" aria-label="Suodata projektimuistia">
-                        <button class="knowledge-filter-btn is-active" type="button" data-knowledge-filter="all">Kaikki <span data-knowledge-count="all">0</span></button>
-                        <button class="knowledge-filter-btn" type="button" data-knowledge-filter="scene">Kohtaukset <span data-knowledge-count="scene">0</span></button>
-                        <button class="knowledge-filter-btn" type="button" data-knowledge-filter="character">Henkilöt <span data-knowledge-count="character">0</span></button>
-                        <button class="knowledge-filter-btn" type="button" data-knowledge-filter="location">Paikat <span data-knowledge-count="location">0</span></button>
-                        <button class="knowledge-filter-btn" type="button" data-knowledge-filter="timeline">Aikajana <span data-knowledge-count="timeline">0</span></button>
-                        <button class="knowledge-filter-btn" type="button" data-knowledge-filter="fact">Faktat <span data-knowledge-count="fact">0</span></button>
-                        <button class="knowledge-filter-btn" type="button" data-knowledge-filter="concept">Käsitteet <span data-knowledge-count="concept">0</span></button>
-                        <button class="knowledge-filter-btn" type="button" data-knowledge-filter="source">Lähteet <span data-knowledge-count="source">0</span></button>
-                    </div>
-
-                    <section id="knowledge-suggestions-panel" class="card glass-panel knowledge-review-panel hidden">
-                        <div class="knowledge-review-heading">
+                        <p class="development-simple-lead">Luo henkilöistä, paikoista, aikajanasta ja pysyvistä faktoista projektimuisti, jota kirjoitusavustin, editointi ja käännökset käyttävät automaattisesti.</p>
+                        <label class="development-simple-prompt" for="knowledge-extra-instructions">
+                            <span>Lisäohje projektimuistille <small>valinnainen</small></span>
+                            <textarea id="knowledge-extra-instructions" rows="4" placeholder="Esim. kiinnitä erityistä huomiota henkilönnimien muotoihin, aikatasoihin ja historiallisiin faktoihin."></textarea>
+                        </label>
+                        <button id="knowledge-extract-btn" class="btn btn-primary development-primary-action" type="button">✦ Luo projektimuisti</button>
+                        <div id="knowledge-extraction-progress" class="knowledge-extraction-progress hidden" role="progressbar" aria-label="Projektimuistin poiminnan eteneminen" aria-valuemin="0" aria-valuenow="0" aria-valuemax="1">
+                            <div class="knowledge-extraction-progress-track"><span id="knowledge-extraction-progress-bar"></span></div>
+                            <p id="knowledge-extraction-progress-text">0/0 osaa käsitelty</p>
+                        </div>
+                        <p id="knowledge-workspace-summary" class="development-memory-summary">Projektimuistia ei ole vielä luotu.</p>
+                        <div class="knowledge-list-heading development-memory-heading">
                             <div>
-                                <p class="eyebrow">AI:n poiminnat</p>
-                                <h3>Hyväksyntäjono</h3>
-                                <p class="card-meta">Muokkaa ehdotuksia ja hyväksy vain tiedot, jotka haluat projektimuistiin. Mitään ei hyväksytä automaattisesti.</p>
+                                <p class="eyebrow">Automaattisesti tallennetut tietokortit</p>
+                                <h3>Projektimuistin sisältö</h3>
                             </div>
-                            <p id="knowledge-suggestions-status" class="save-timestamp" role="status" aria-live="polite"></p>
+                            <input id="knowledge-search" type="search" placeholder="Hae projektimuistista" aria-label="Hae projektimuistista">
                         </div>
-                        <div class="knowledge-review-actions">
-                            <button id="knowledge-suggestions-select-all" class="btn btn-secondary" type="button">Valitse kaikki</button>
-                            <button id="knowledge-suggestions-clear" class="btn btn-secondary" type="button">Tyhjennä jono</button>
-                            <button id="knowledge-suggestions-accept" class="btn btn-primary" type="button">Valitse hyväksyttävät ehdotukset</button>
+                        <div id="knowledge-list" class="knowledge-list">
+                            <div class="knowledge-empty">Projektimuistissa ei ole vielä merkintöjä.</div>
                         </div>
-                        <div id="knowledge-suggestions-list" class="knowledge-suggestions-list"></div>
                     </section>
-
-                    <section id="continuity-panel" class="card glass-panel continuity-panel hidden">
-                        <div class="knowledge-review-heading">
-                            <div>
-                                <p class="eyebrow">Käsikirjoitus vastaan projektimuisti</p>
-                                <h3>Jatkuvuushavainnot</h3>
-                                <p class="card-meta">Havainnot ovat tarkistuspyyntöjä. Sovellus ei muuta käsikirjoitusta niiden perusteella.</p>
-                            </div>
-                            <p id="continuity-status" class="save-timestamp" role="status" aria-live="polite"></p>
-                        </div>
-                        <div id="continuity-list" class="continuity-list"></div>
-                    </section>
-
-                    <div class="knowledge-layout">
-                        <section class="card glass-panel knowledge-form-card">
-                            <div class="panel-header">
-                                <div>
-                                    <p class="eyebrow">Uusi tieto</p>
-                                    <h3 id="knowledge-form-title">Lisää projektimuistiin</h3>
-                                </div>
-                                <button id="knowledge-cancel-btn" class="btn btn-secondary hidden" type="button">Peru muokkaus</button>
-                            </div>
-                            <div class="knowledge-form-grid">
-                                <div class="settings-row">
-                                    <label for="knowledge-item-type">Tyyppi</label>
-                                    <select id="knowledge-item-type">
-                                        <option value="scene">Kohtaus</option>
-                                        <option value="character">Henkilö</option>
-                                        <option value="location">Paikka</option>
-                                        <option value="timeline">Aikajana</option>
-                                        <option value="fact">Fakta</option>
-                                        <option value="concept">Teema tai käsite</option>
-                                        <option value="source">Lähde</option>
-                                    </select>
-                                </div>
-                                <div class="settings-row knowledge-title-field">
-                                    <label for="knowledge-title">Otsikko</label>
-                                    <input id="knowledge-title" type="text" maxlength="240" placeholder="Nimeä merkintä selkeästi">
-                                </div>
-                                <div class="settings-row">
-                                    <label for="knowledge-chapter">Liittyvä käsikirjoituksen osio</label>
-                                    <select id="knowledge-chapter"><option value="">Koko teos / ei sidosta</option></select>
-                                </div>
-                                <div class="settings-row">
-                                    <label for="knowledge-item-status">Varmuus</label>
-                                    <select id="knowledge-item-status">
-                                        <option value="draft">Luonnos</option>
-                                        <option value="needs_review">Tarkistettava</option>
-                                        <option value="verified">Vahvistettu</option>
-                                    </select>
-                                </div>
-                                <div id="knowledge-detail-fields" class="knowledge-detail-fields"></div>
-                                <div class="settings-row knowledge-wide-field">
-                                    <label for="knowledge-source-url">Lähdeosoite tai viite</label>
-                                    <input id="knowledge-source-url" type="text" maxlength="4000" placeholder="URL, arkistotunnus, teos tai muu tarkka viite">
-                                </div>
-                                <div class="settings-row knowledge-wide-field">
-                                    <label for="knowledge-tags">Tunnisteet</label>
-                                    <input id="knowledge-tags" type="text" placeholder="Esim. kirje, satama, 1990-luku">
-                                </div>
-                                <div class="settings-row knowledge-wide-field">
-                                    <label id="knowledge-content-label" for="knowledge-content">Kuvaus ja muistiinpanot</label>
-                                    <textarea id="knowledge-content" rows="8" maxlength="100000" placeholder="Kirjaa vain projektin kannalta olennainen, varmennettu tai tarkistettava tieto."></textarea>
-                                </div>
-                            </div>
-                            <button id="knowledge-save-btn" class="btn btn-primary" type="button">Lisää projektimuistiin</button>
-                        </section>
-
-                        <section class="card glass-panel knowledge-list-card">
-                            <div class="knowledge-list-heading">
-                                <div>
-                                    <p class="eyebrow">Kortit</p>
-                                    <h3>Projektin tietokortit</h3>
-                                </div>
-                                <input id="knowledge-search" type="search" placeholder="Hae projektimuistista" aria-label="Hae projektimuistista">
-                            </div>
-                            <div id="knowledge-list" class="knowledge-list">
-                                <div class="knowledge-empty">Projektimuistissa ei ole vielä merkintöjä.</div>
-                            </div>
-                        </section>
-                    </div>
                 </div>
             </div>
 
@@ -1736,18 +1554,17 @@
                 <iframe
                     id="manuskripti-frame-analyysi"
                     class="manuskripti-frame"
-                    title="Analyysi ja rakenne"
-                    src="manuskripti.html?step=analyysi&v=6"
+                    title="Analyysi"
+                    src="manuskripti.html?step=analyysi&v=7"
                     loading="lazy"
                 ></iframe>
                 <div id="legacy-analyysi-view" hidden aria-hidden="true">
 	                <div class="header">
 	                    <div class="header-info">
-	                        <h2>Analyysi ja rakenne</h2>
-	                        <p>Käsikirjoitus: [Ei aktiivista teosta] (rakenne, tyyli ja toimituksellinen arvio)</p>
+                        <h2>Analyysi</h2>
+                        <p>Käsikirjoitus: [Ei aktiivista teosta] (tyyli, sisältö ja toimituksellinen arvio)</p>
 	                    </div>
 	                    <div class="header-actions">
-	                        <button class="btn btn-secondary" id="open-structure-from-analysis-btn" type="button">Muokkaa rakennetta</button>
 	                        <button class="btn btn-secondary" id="load-saved-analysis-btn">Lataa tallennettu analyysi</button>
 	                        <button class="btn btn-primary" id="run-analysis-btn" style="background:linear-gradient(135deg, var(--ai-gradient-start), var(--ai-gradient-end)); border:none;">Suorita kirja-analyysi</button>
 	                    </div>
@@ -1755,7 +1572,7 @@
                 
                 <div id="analysis-loader" class="hidden" style="text-align:center; padding: 60px 40px;">
                     <h3 class="sparkle glow-text" id="analysis-loader-title" style="font-size: 24px;">Analyysi käynnissä...</h3>
-                    <p id="analysis-loader-status" style="color:var(--text-secondary); margin-top:12px;">Jäsennetään tyyli, synopsis, sanasto, markkinointitekstit ja rakenne</p>
+                    <p id="analysis-loader-status" style="color:var(--text-secondary); margin-top:12px;">Jäsennetään tyyli, synopsis, teemat, sanasto ja toimituksellinen arvio</p>
                     <div style="margin-top:24px; font-size:36px; font-weight:600; color:var(--ai-gradient-start);" id="analysis-timer">0:00</div>
                     <p id="analysis-progress-text" style="color:var(--text-secondary); margin-top:8px; font-size:13px;">Pitkät käsikirjoitukset käsitellään osissa. Voit palata tuloksiin myöhemmin, jos yhteys katkeaa.</p>
                     <div style="margin-top:20px; width:200px; height:4px; background:rgba(255,255,255,0.1); border-radius:4px; margin-left:auto; margin-right:auto; overflow:hidden;">
@@ -3497,6 +3314,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=105"></script>
+    <script src="app.js?v=106"></script>
 </body>
 </html>

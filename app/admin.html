@@ -219,14 +219,14 @@
                     <p id="model-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
 
                     <div class="settings-row" style="margin-top: 24px;">
-                        <label>Analyysi, rakenne ja kehityseditointi</label>
+                        <label>Analyysi, kehityseditointi ja projektimuisti</label>
                         <select id="analysis-structure-model-select" style="padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; outline: none; margin-bottom: 12px;"></select>
                         <p style="color: var(--text-secondary); font-size: 12px; line-height: 1.5; margin-top: 0;">
-                            Tätä käytetään käsikirjoitusanalyysissa, rakenne-ehdotuksessa sekä rakenne- ja kehityseditoinnin rakennemallissa.
+                            Tätä käytetään käsikirjoitusanalyysissa, kehityseditoinnissa ja projektimuistin automaattisessa luonnissa.
                         </p>
                     </div>
 
-                    <button id="save-analysis-structure-model-btn" class="btn btn-secondary">Tallenna analyysi/rakenne-malli</button>
+                    <button id="save-analysis-structure-model-btn" class="btn btn-secondary">Tallenna toimitustyön malli</button>
                     <p id="analysis-structure-model-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
 
                     <div class="settings-row" style="margin-top: 24px;">
@@ -1075,7 +1075,7 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                 const modelRef = analysisStructureModelSelect?.value || '';
                 if (!modelRef) return;
                 saveAnalysisStructureModelBtn.disabled = true;
-                analysisStructureModelStatus.textContent = 'Tallennetaan analyysi/rakenne-mallia...';
+                analysisStructureModelStatus.textContent = 'Tallennetaan toimitustyön mallia...';
                 try {
                     const res = await window.SkriptLabAuth.fetch('/api/admin/model-settings', {
                         method: 'PATCH',
@@ -1083,10 +1083,10 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                         body: JSON.stringify({analysis_structure_model: modelRef})
                     });
                     const data = await res.json();
-                    if (!res.ok) throw new Error(data.detail || 'Analyysi/rakenne-mallin tallennus epäonnistui.');
+                    if (!res.ok) throw new Error(data.detail || 'Toimitustyön mallin tallennus epäonnistui.');
                     loadedModelSettings = data;
                     renderAnalysisStructureModelSelect();
-                    analysisStructureModelStatus.textContent = `Analyysi ja rakenne käyttävät nyt: ${data.effective_analysis_structure_model?.display_name || modelRef}`;
+                    analysisStructureModelStatus.textContent = `Analyysi, kehityseditointi ja projektimuisti käyttävät nyt: ${data.effective_analysis_structure_model?.display_name || modelRef}`;
                 } catch (err) {
                     analysisStructureModelStatus.textContent = err.message;
                 } finally {

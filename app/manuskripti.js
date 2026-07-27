@@ -804,16 +804,19 @@
 
   function pathSteps() {
     const analysis = project.analysis || {};
+    const development = analysis.development_editing || {};
     const analysisDone = analysis.analysis_status === "completed" || (!analysis.analysis_status && hasSavedAnalysis(analysis));
     const analysisProgress = analysis.analysis_status === "partial" || (analysis.analysis_status && analysis.analysis_status !== "completed");
+    const developmentDone = Boolean(development.feedback_report);
+    const developmentStarted = Boolean(development.blueprint || development.updated_at);
     const coverPromptStarted = Boolean(analysis.cover_prompt || analysis.cover_prompts || analysis.cover_image_note);
     return [
       { id: "kasikirjoitus", num: 1, name: "Käsikirjoitus", desc: (project.chapters || []).length + " lukua",
         status: projectStageStatus(projectHasText(), false) },
       { id: "analyysi", num: 2, name: "Analyysi", desc: "Arvio, synopsis ja metatiedot",
         status: projectStageStatus(analysisDone, analysisProgress) },
-      { id: "rakenne", num: 3, name: "Rakenne", desc: "Sisällysluettelo ja osajako",
-        status: projectStageStatus(structureIsDone(analysis), structureIsStarted(analysis)) },
+      { id: "kehityseditointi", num: 3, name: "Kehityseditointi", desc: "Palaute ja projektimuisti",
+        status: projectStageStatus(developmentDone, developmentStarted), moduleView: "view-kehityseditointi" },
       { id: "oheisaineistot", num: 4, name: "Oheisaineistot", desc: "Nimiölehti, copysivu ja hakemistot",
         status: projectStageStatus(hasMiscAssets(), false), moduleView: "view-muut-toiminnot" },
       { id: "kansi", num: 5, name: "Kansi", desc: "Etukansi, takakansi tai koko kansi",
@@ -1227,6 +1230,9 @@
     $("f-author").addEventListener("input", scheduleProjectInfoSave);
 
     $("btn-run-analysis").addEventListener("click", runAnalysis);
+    $("btn-open-development").addEventListener("click", () => {
+      notifyParent("skriptlab:open-module", { viewId: "view-kehityseditointi" });
+    });
     $("btn-rule-proposal").addEventListener("click", () => createProposal(false));
     $("btn-ai-proposal").addEventListener("click", () => createProposal(true));
     $("btn-accept-proposal").addEventListener("click", acceptProposal);

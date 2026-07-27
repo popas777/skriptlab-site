@@ -314,13 +314,13 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         'view-om-kokonaisuus',
         'view-om-vienti'
     ]);
-    const writerViews = new Set(['view-kirjani', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-analyysi', 'view-rakenne', 'view-kehityseditointi', 'view-ai-tyonkulku', 'view-viimeistely', 'view-kirja', 'view-julkaisupaketti', 'view-monikielinen-julkaisu', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-kaannokset', 'view-elamakerta']);
-    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-analyysi', 'view-rakenne', 'view-kehityseditointi', 'view-ai-tyonkulku', 'view-viimeistely', 'view-kirja', 'view-julkaisupaketti', 'view-monikielinen-julkaisu', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
+    const writerViews = new Set(['view-kirjani', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-analyysi', 'view-kehityseditointi', 'view-ai-tyonkulku', 'view-viimeistely', 'view-kirja', 'view-julkaisupaketti', 'view-monikielinen-julkaisu', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-kaannokset', 'view-elamakerta']);
+    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-analyysi', 'view-kehityseditointi', 'view-ai-tyonkulku', 'view-viimeistely', 'view-kirja', 'view-julkaisupaketti', 'view-monikielinen-julkaisu', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset', 'view-kaannostyotila']);
-    const biographyViews = new Set(['view-kirjani', 'view-rakenne', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-ai-tyonkulku', 'view-viimeistely', 'view-elamakerta', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-audio', 'view-kirja', 'view-julkaisupaketti', 'view-julkaise']);
+    const biographyViews = new Set(['view-kirjani', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-ai-tyonkulku', 'view-viimeistely', 'view-elamakerta', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-audio', 'view-kirja', 'view-julkaisupaketti', 'view-julkaise']);
     const accessModuleViews = {
         manuscripts: ['view-kirjani'],
-        analysis: ['view-analyysi', 'view-rakenne'],
+        analysis: ['view-analyysi'],
         development_editing: ['view-kehityseditointi'],
         write_edit: ['view-kirjoita-editoi'],
         write: ['view-mobiilieditori'],
@@ -3993,8 +3993,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     if (publisherDemoMode) {
         const demoNavConfig = [
             ['view-kirjani', 'Yleiskuva'],
-            ['view-analyysi', 'Analyysi ja rakenne'],
-            ['view-kehityseditointi', 'Toimituksellinen editointi'],
+            ['view-analyysi', 'Analyysi'],
+            ['view-kehityseditointi', 'Kehityseditointi ja projektimuisti'],
             ['view-kirjoita-editoi', 'Työpöytäeditori'],
             ['view-oikoluku', 'Oikoluku ja viimeistely'],
             ['view-muut-toiminnot', 'Oheisaineistot'],
@@ -4017,6 +4017,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function canonicalViewId(viewId) {
         if (viewId === 'view-kirjoita' || viewId === 'view-toimitus') return 'view-mobiilieditori';
+        if (viewId === 'view-rakenne') return 'view-analyysi';
         return viewId;
     }
 
@@ -8688,6 +8689,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             focus_areas: developmentFocusValues(),
             support_material: document.getElementById('development-support')?.value?.trim() || '',
             author_questions: document.getElementById('development-questions')?.value?.trim() || '',
+            extra_instructions: document.getElementById('development-extra-instructions')?.value?.trim() || '',
         };
     }
 
@@ -8697,11 +8699,13 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const tone = document.getElementById('development-tone');
         const support = document.getElementById('development-support');
         const questions = document.getElementById('development-questions');
+        const extraInstructions = document.getElementById('development-extra-instructions');
         if (genre) genre.value = brief.genre || '';
         if (audience) audience.value = brief.target_audience || '';
         if (tone) tone.value = brief.feedback_mode || 'normal';
         if (support) support.value = brief.support_material || '';
         if (questions) questions.value = brief.author_questions || '';
+        if (extraInstructions) extraInstructions.value = brief.extra_instructions || '';
         setDevelopmentFocusValues(brief.focus_areas || []);
     }
 
@@ -8785,7 +8789,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     function knowledgeStatusLabel(status) {
-        return ({ draft: 'Luonnos', needs_review: 'Tarkistettava', verified: 'Vahvistettu' })[status] || 'Luonnos';
+        return ({ draft: 'Tallennettu', needs_review: 'Tallennettu', verified: 'Vahvistettu' })[status] || 'Tallennettu';
     }
 
     function setKnowledgeStatus(message, isError = false) {
@@ -8917,7 +8921,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const chapter = knowledgeChapterLabel(item.chapter_custom_id);
         const source = String(item.source_url || '').trim();
         const safeLink = /^https?:\/\//i.test(source);
-        const editable = canEditProject(window.manuscriptData || {});
         const detailsHtml = [
             ...(meta.fields || []).map((field, index) => {
                 const value = knowledgeDetailValue(item.item_type, details, field, index);
@@ -8931,28 +8934,29 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 : `<span class="knowledge-source-reference">Viite: ${escapeHtml(source)}</span>`)
             : '';
         return `
-            <article class="knowledge-card" data-knowledge-id="${item.id}">
-                <div class="knowledge-card-header">
-                    <div class="knowledge-card-title">
-                        <span class="knowledge-type-icon" aria-hidden="true">${meta.icon}</span>
-                        <div>
-                            <div class="knowledge-card-chips">
-                                <span class="knowledge-type-chip">${escapeHtml(meta.label)}</span>
-                                <span class="knowledge-status-chip is-${escapeHtml(item.status)}">${escapeHtml(knowledgeStatusLabel(item.status))}</span>
+            <details class="knowledge-card" data-knowledge-id="${item.id}">
+                <summary class="knowledge-card-summary">
+                    <div class="knowledge-card-header">
+                        <div class="knowledge-card-title">
+                            <span class="knowledge-type-icon" aria-hidden="true">${meta.icon}</span>
+                            <div>
+                                <div class="knowledge-card-chips">
+                                    <span class="knowledge-type-chip">${escapeHtml(meta.label)}</span>
+                                    <span class="knowledge-status-chip is-${escapeHtml(item.status)}">${escapeHtml(knowledgeStatusLabel(item.status))}</span>
+                                </div>
+                                <h4>${escapeHtml(item.title)}</h4>
                             </div>
-                            <h4>${escapeHtml(item.title)}</h4>
                         </div>
                     </div>
-                    <div class="knowledge-card-actions">
-                        ${item.chapter_custom_id ? `<button type="button" class="knowledge-icon-btn" data-knowledge-action="open-chapter">Avaa osio</button>` : ''}
-                        ${editable ? `<button type="button" class="knowledge-icon-btn" data-knowledge-action="edit" aria-label="Muokkaa merkintää">Muokkaa</button><button type="button" class="knowledge-icon-btn is-danger" data-knowledge-action="delete" aria-label="Poista merkintä">Poista</button>` : ''}
-                    </div>
+                    <span class="knowledge-card-toggle" aria-hidden="true">⌄</span>
+                </summary>
+                <div class="knowledge-card-body">
+                    ${detailsHtml ? `<div class="knowledge-card-details">${detailsHtml}</div>` : ''}
+                    ${item.content ? `<p class="knowledge-card-content">${escapeHtml(item.content)}</p>` : ''}
+                    ${tags.length ? `<div class="knowledge-tags">${tags.map(tag => `<span>${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
+                    ${sourceHtml}
                 </div>
-                ${detailsHtml ? `<div class="knowledge-card-details">${detailsHtml}</div>` : ''}
-                ${item.content ? `<p class="knowledge-card-content">${escapeHtml(item.content)}</p>` : ''}
-                ${tags.length ? `<div class="knowledge-tags">${tags.map(tag => `<span>${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
-                ${sourceHtml}
-            </article>`;
+            </details>`;
     }
 
     function renderKnowledgeList() {
@@ -8973,7 +8977,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         if (!filtered.length) {
             const message = projectKnowledgeItems.length ? 'Hakua tai suodatinta vastaavia kortteja ei löytynyt.' : 'Projektimuistissa ei ole vielä merkintöjä.';
-            list.innerHTML = `<div class="knowledge-empty"><strong>${escapeHtml(message)}</strong><span>Lisää ensimmäinen kohtaus, henkilö, paikka, aikajanan tapahtuma tai fakta viereisellä lomakkeella.</span></div>`;
+            list.innerHTML = `<div class="knowledge-empty"><strong>${escapeHtml(message)}</strong><span>Luo projektimuisti yhdellä painalluksella. Uusi ajo täydentää puuttuvia tietoja.</span></div>`;
             return;
         }
         list.innerHTML = filtered.map(knowledgeCardHtml).join('');
@@ -9018,8 +9022,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (extractButton) {
             extractButton.disabled = !editable || !(project?.chapters || []).length;
             extractButton.textContent = knowledgeExtractionProgress?.status === 'partial'
-                ? 'Jatka poimintaa'
-                : (knowledgeExtractionProgress?.status === 'completed' ? 'Päivitä projektimuisti' : 'Poimi käsikirjoituksesta');
+                ? 'Jatka projektimuistin luontia'
+                : (knowledgeExtractionProgress?.status === 'completed' ? 'Päivitä projektimuisti' : '✦ Luo projektimuisti');
         }
         if (continuityButton) continuityButton.disabled = !editable || !projectKnowledgeItems.length;
         if (suggestionSelectAll) suggestionSelectAll.disabled = !editable;
@@ -9053,7 +9057,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             knowledgeWorkspaceProjectId = requestedProjectId;
             knowledgeWorkspaceVersionCount = Number(data?.version_count || 0);
             renderKnowledgeWorkspace();
-            if (showFeedback) setKnowledgeStatus(projectKnowledgeItems.length ? 'Projektimuisti ladattu.' : 'Projektimuisti on valmis ensimmäiselle merkinnälle.');
+            renderDevelopmentSummary();
+            if (showFeedback) setKnowledgeStatus(projectKnowledgeItems.length ? 'Projektimuisti ladattu.' : 'Projektimuisti voidaan nyt luoda käsikirjoituksesta.');
             return projectKnowledgeItems;
         } catch (error) {
             knowledgeWorkspaceProjectId = requestedProjectId;
@@ -9299,7 +9304,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function scheduleKnowledgeReviewSave() {
         window.clearTimeout(knowledgeReviewSaveTimer);
         knowledgeReviewSaveTimer = window.setTimeout(() => {
-            saveKnowledgeReviewState().catch(() => setKnowledgeStatus('Hyväksyntäjonon tallennus epäonnistui.', true));
+            saveKnowledgeReviewState().catch(() => setKnowledgeStatus('Projektimuistin poimintatilan tallennus epäonnistui.', true));
         }, 600);
     }
 
@@ -9536,7 +9541,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         return merged.slice(0, 60);
     }
 
-    function buildKnowledgeExtractionPrompt() {
+    function buildKnowledgeExtractionPrompt(extraInstructions = '') {
+        const userInstruction = String(extraInstructions || '').trim();
         return `PROJECT_MEMORY_TOOL:extract
 Poimi annetusta käsikirjoituksesta vain tekstin tukemia henkilöitä, paikkoja, aikajanan tapahtumia ja jatkuvuuden kannalta tärkeitä faktoja.
 
@@ -9554,7 +9560,8 @@ Säännöt:
 - Älä keksi puuttuvia ominaisuuksia. Jätä kenttä tyhjäksi.
 - Liitä jokaiseen ehdotukseen tarkin mahdollinen CHAPTER-tunniste.
 - Yhdistä saman henkilön tai paikan toistuvat maininnat yhdeksi ehdotukseksi.
-- Kirjoita tiiviisti suomeksi. Älä lisää Markdownia tai muuta tekstiä JSONin ympärille.`;
+- Kirjoita tiiviisti suomeksi. Älä lisää Markdownia tai muuta tekstiä JSONin ympärille.
+${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userInstruction, 1800)}` : ''}`;
     }
 
     async function extractKnowledgeSuggestions() {
@@ -9566,6 +9573,10 @@ Säännöt:
         if (button) button.disabled = true;
         setKnowledgeStatus('Poimitaan käsikirjoituksesta projektitietoja…');
         try {
+            await ensureKnowledgeWorkspaceLoaded();
+            const extraInstructions = document.getElementById('knowledge-extra-instructions')?.value?.trim() || '';
+            const development = developmentData();
+            development.knowledge_instructions = extraInstructions;
             const manuscript = knowledgeManuscriptChunks();
             if (!manuscript.chunks.length) throw new Error('Käsikirjoituksesta ei löytynyt poimittavaa tekstiä.');
             const chunks = manuscript.chunks.map((text, index) => ({
@@ -9597,7 +9608,7 @@ Säännöt:
                     body: JSON.stringify({
                         purpose: 'development_editing',
                         temperature: 0.1,
-                        prompt: buildKnowledgeExtractionPrompt(),
+                        prompt: buildKnowledgeExtractionPrompt(extraInstructions),
                         text: [
                             `PROJEKTI: ${window.manuscriptData.title || 'Nimetön'}`,
                             chunk.index === 0 ? `AIEMPI ANALYYSI:\n${compactDevelopmentText(developmentAnalysisBrief(), 4500) || 'Ei aiempaa analyysiä.'}` : '',
@@ -9643,29 +9654,37 @@ Säännöt:
             knowledgeExtractionProgress.updated_at = new Date().toISOString();
             await saveKnowledgeReviewState();
             if (!knowledgeSuggestions.length && failures.length) throw new Error(failures[0].message);
-            if (!knowledgeSuggestions.length) throw new Error('Poiminta ei palauttanut tarkistettavia tietoja.');
-            renderKnowledgeSuggestions();
-            document.getElementById('knowledge-suggestions-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            const retryNote = failures.length ? ` ${failures.length} osaa jäi kesken; paina Jatka poimintaa yrittääksesi ne uudelleen.` : '';
-            setKnowledgeStatus(`${knowledgeSuggestions.length} ehdotusta poimittu hyväksyntäjonoon.${retryNote}${manuscript.omittedPieces ? ` Erittäin pitkästä käsikirjoituksesta jäi ${manuscript.omittedPieces} tekstipalaa seuraavaan ajoon.` : ''}`, Boolean(failures.length));
-            if (button) button.textContent = failures.length ? 'Jatka poimintaa' : 'Päivitä projektimuisti';
+            if (!knowledgeSuggestions.length) throw new Error('Poiminta ei palauttanut projektimuistiin tallennettavia tietoja.');
+            const persistence = await acceptKnowledgeSuggestions({ automatic: true });
+            const retryNote = failures.length ? ` ${failures.length} osaa jäi kesken; jatka projektimuistin luontia yrittääksesi ne uudelleen.` : '';
+            setKnowledgeStatus(`${persistence.created} tietokorttia tallennettiin ja ne ovat heti myöhempien työvaiheiden käytössä.${retryNote}${manuscript.omittedPieces ? ` Erittäin pitkästä käsikirjoituksesta jäi ${manuscript.omittedPieces} tekstipalaa seuraavaan ajoon.` : ''}`, Boolean(failures.length || persistence.failures.length));
+            if (button) button.textContent = failures.length ? 'Jatka projektimuistin luontia' : 'Päivitä projektimuisti';
             loadUsage();
         } catch (error) {
             setKnowledgeStatus(networkFailureMessage(error), true);
-            if (button) button.textContent = 'Jatka poimintaa';
+            if (button) button.textContent = 'Jatka projektimuistin luontia';
             loadUsage();
         } finally {
             if (button) button.disabled = !canEditProject(window.manuscriptData || {});
         }
     }
 
-    async function acceptKnowledgeSuggestions() {
+    async function acceptKnowledgeSuggestions(options = {}) {
+        const automatic = options?.automatic === true;
         const project = window.manuscriptData;
-        const selected = knowledgeSuggestions.filter(item => item.selected && !isKnowledgeSuggestionDuplicate(item) && item.title.trim());
-        if (!project?.id || !selected.length) return;
+        const selected = knowledgeSuggestions.filter(item => (automatic || item.selected) && !isKnowledgeSuggestionDuplicate(item) && item.title.trim());
+        if (!project?.id) return { created: 0, failures: [] };
+        if (!selected.length) {
+            if (automatic) {
+                knowledgeSuggestions = [];
+                await saveKnowledgeReviewState();
+                renderKnowledgeWorkspace();
+            }
+            return { created: 0, failures: [] };
+        }
         const button = document.getElementById('knowledge-suggestions-accept');
         if (button) button.disabled = true;
-        setKnowledgeStatus('Tallennetaan hyväksyttyjä tietoja projektimuistiin…');
+        setKnowledgeStatus(automatic ? 'Tallennetaan projektimuistia…' : 'Tallennetaan valittuja tietoja projektimuistiin…');
         const acceptedIds = new Set();
         const failures = [];
         for (const suggestion of selected) {
@@ -9681,7 +9700,7 @@ Säännöt:
                         chapter_custom_id: suggestion.chapter_custom_id || null,
                         source_url: chapterLabel ? `Käsikirjoitus: ${chapterLabel}` : 'Käsikirjoitus: koko teos',
                         status: 'needs_review',
-                        details: { ...suggestion.fields, tags: ['AI-ehdotus'] }
+                        details: { ...suggestion.fields, tags: ['AI:n luoma'] }
                     })
                 });
                 const data = await response.json().catch(() => null);
@@ -9692,13 +9711,14 @@ Säännöt:
                 failures.push(`${suggestion.title}: ${error.message}`);
             }
         }
-        knowledgeSuggestions = knowledgeSuggestions.filter(item => !acceptedIds.has(item.id));
+        knowledgeSuggestions = knowledgeSuggestions.filter(item => !acceptedIds.has(item.id) && !(automatic && isKnowledgeSuggestionDuplicate(item)));
         projectKnowledgeItems.sort((a, b) => knowledgeTypeOrder.indexOf(a.item_type) - knowledgeTypeOrder.indexOf(b.item_type) || Number(a.sort_order || 0) - Number(b.sort_order || 0));
         await saveKnowledgeReviewState();
         renderKnowledgeWorkspace();
         setKnowledgeStatus(failures.length
-            ? `${acceptedIds.size} tietoa hyväksyttiin, ${failures.length} epäonnistui.`
-            : `${acceptedIds.size} tietoa lisättiin projektimuistiin tarkistettaviksi.`, Boolean(failures.length));
+            ? `${acceptedIds.size} tietokorttia tallennettiin, ${failures.length} epäonnistui.`
+            : `${acceptedIds.size} tietokorttia lisättiin projektimuistiin.`, Boolean(failures.length));
+        return { created: acceptedIds.size, failures };
     }
 
     function sanitizeContinuityIssues(rawIssues) {
@@ -10066,6 +10086,7 @@ Säännöt:
             `Painopisteet: ${brief.focus_areas.length ? brief.focus_areas.join(', ') : 'Ei valittu erikseen.'}`,
             brief.support_material ? `Tukiaineisto:\n${compactDevelopmentText(brief.support_material, 1600)}` : '',
             brief.author_questions ? `Kirjailijan kysymykset:\n${compactDevelopmentText(brief.author_questions, 1200)}` : '',
+            brief.extra_instructions ? `Käyttäjän lisäohje kehityseditoijalle:\n${compactDevelopmentText(brief.extra_instructions, 1800)}` : '',
             '',
             'PROJEKTIMUISTI (KIRJAILIJAN JA TOIMITTAJAN VAHVISTAMAT TAI TARKISTETTAVAT TIEDOT):',
             developmentKnowledgeBrief() || 'Projektimuistissa ei ole vielä erillisiä tietokortteja.',
@@ -10148,7 +10169,8 @@ Säännöt:
 - Jokaisessa isossa havainnossa kerro missä se näkyy, miksi se haittaa tai vahvistaa kokonaisuutta ja mitä voisi tehdä.
 - Merkitse epävarmuus näkyviin.
 - Älä pakota käsikirjoitusta yhteen dramaturgiseen kaavaan.
-- Keskity painopisteisiin: ${brief.focus_areas.length ? brief.focus_areas.join(', ') : 'rakenne, henkilöt, rytmi ja korjaussuunnitelma'}.`;
+- Keskity painopisteisiin: ${brief.focus_areas.length ? brief.focus_areas.join(', ') : 'rakenne, henkilöt, rytmi ja korjaussuunnitelma'}.
+${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compactDevelopmentText(brief.extra_instructions, 1200)}` : ''}`;
     }
 
     function buildDevelopmentFeedbackInput() {
@@ -10226,9 +10248,8 @@ Säännöt:
         const items = [
             ['Käsikirjoitus', data ? `${data.title || 'Nimetön'} · ${formatNumber(countWords(text))} sanaa · ${bodyCount || (data.chapters || []).length} osiota` : 'Ei aktiivista käsikirjoitusta.'],
             ['Analyysi', hasSavedAnalysis(data?.analysis) ? 'Tallennettu analyysi käytettävissä.' : 'Varsinaista analyysiä ei ole vielä tallennettu. Moduuli voi silti tehdä alustavan mallin.'],
-            ['Rakennemalli', dev.blueprint ? `Luotu ${dev.blueprint_updated_at ? new Date(dev.blueprint_updated_at).toLocaleString('fi-FI') : 'aiemmin'}.` : 'Ei vielä luotu.'],
-            ['Kehityspalaute', dev.feedback_report ? `Luotu ${dev.feedback_updated_at ? new Date(dev.feedback_updated_at).toLocaleString('fi-FI') : 'aiemmin'}.` : 'Ei vielä luotu.'],
-            ['Tallennus', dev.updated_at ? `Päivitetty ${new Date(dev.updated_at).toLocaleString('fi-FI')}.` : 'Ei tallennettua kehityseditointia.']
+            ['Kehityseditointi', dev.feedback_report ? `Valmis · ${dev.feedback_updated_at ? new Date(dev.feedback_updated_at).toLocaleString('fi-FI') : 'tallennettu'}.` : 'Ei vielä tehty.'],
+            ['Projektimuisti', projectKnowledgeItems.length ? `${projectKnowledgeItems.length} automaattisesti tallennettua tietokorttia.` : 'Ei vielä luotu.']
         ];
         container.innerHTML = items.map(([title, value]) => `
             <div class="development-summary-item">
@@ -10244,40 +10265,22 @@ Säännöt:
         const data = window.manuscriptData;
         const dev = data?.analysis?.development_editing || {};
         current.textContent = data
-            ? `Käsikirjoitus: ${data.title || 'Nimetön'} (rakennemalli, kehityspalaute ja korjaussuunnitelma)`
-            : 'Valitse käsikirjoitus ja muodosta toimituksellinen rakennemalli.';
+            ? `Käsikirjoitus: ${data.title || 'Nimetön'} · kehityseditointi ja yhteinen projektimuisti`
+            : 'Valitse käsikirjoitus ja luo kehityspalaute sekä projektimuisti.';
         writeDevelopmentBriefToForm(dev.brief || {});
-        const blueprint = document.getElementById('development-blueprint');
-        const validation = document.getElementById('development-validation');
-        const corrections = document.getElementById('development-corrections');
+        const knowledgeInstructions = document.getElementById('knowledge-extra-instructions');
         const feedback = document.getElementById('development-feedback');
         const plan = document.getElementById('development-plan');
-        if (blueprint) blueprint.value = dev.blueprint || '';
-        if (validation) validation.value = dev.validation_report || '';
-        if (corrections) corrections.value = dev.corrections || '';
+        if (knowledgeInstructions) knowledgeInstructions.value = dev.knowledge_instructions || '';
         if (feedback) feedback.value = dev.feedback_report || '';
         if (plan) plan.value = dev.revision_plan || '';
         const projectId = String(data?.id || '');
-        if (developmentSuggestionsProjectId !== projectId) {
-            developmentSceneSuggestions = Array.isArray(dev.scene_suggestions)
-                ? dev.scene_suggestions.map((item, index) => Object.assign({
-                    id: `scene-suggestion-saved-${index}`,
-                    selected: false,
-                    title: '',
-                    content: '',
-                    chapter_custom_id: null,
-                    function_note: 'AI:n rakennemallista poimittu ehdotus'
-                }, item))
-                : [];
-            developmentSuggestionsProjectId = projectId || null;
-        }
-        const suggestionButton = document.getElementById('development-scene-suggestions-btn');
-        if (suggestionButton) suggestionButton.disabled = !data || !String(dev.blueprint || '').trim();
-        renderSceneSuggestions();
+        const shouldLoadKnowledge = Boolean(projectId && String(knowledgeWorkspaceProjectId || '') !== projectId);
+        if (shouldLoadKnowledge) projectKnowledgeItems = [];
         renderDevelopmentSummary();
         renderKnowledgeWorkspace();
-        setDevelopmentWorkspaceMode(developmentWorkspaceMode);
-        setDevelopmentStatus(data ? 'Valmis.' : 'Valitse käsikirjoitus ensin.', !data);
+        if (shouldLoadKnowledge) loadKnowledgeWorkspace(false);
+        setDevelopmentStatus(data ? (dev.feedback_report ? 'Kehityseditointi valmis.' : 'Valmis aloitettavaksi.') : 'Valitse käsikirjoitus ensin.', !data);
     }
 
     async function saveDevelopmentEditingEdits(showStatus = true) {
@@ -10287,16 +10290,87 @@ Säännöt:
         }
         const dev = developmentData();
         dev.brief = readDevelopmentBriefFromForm();
-        dev.blueprint = document.getElementById('development-blueprint')?.value || '';
-        dev.validation_report = document.getElementById('development-validation')?.value || '';
-        dev.corrections = document.getElementById('development-corrections')?.value || '';
-        dev.feedback_report = document.getElementById('development-feedback')?.value || '';
-        dev.revision_plan = document.getElementById('development-plan')?.value || '';
+        const blueprint = document.getElementById('development-blueprint');
+        const validation = document.getElementById('development-validation');
+        const corrections = document.getElementById('development-corrections');
+        const feedback = document.getElementById('development-feedback');
+        const plan = document.getElementById('development-plan');
+        const knowledgeInstructions = document.getElementById('knowledge-extra-instructions');
+        if (blueprint) dev.blueprint = blueprint.value || '';
+        if (validation) dev.validation_report = validation.value || '';
+        if (corrections) dev.corrections = corrections.value || '';
+        if (feedback && !feedback.readOnly) dev.feedback_report = feedback.value || '';
+        if (plan && !plan.readOnly) dev.revision_plan = plan.value || '';
+        if (knowledgeInstructions) dev.knowledge_instructions = knowledgeInstructions.value.trim();
         dev.updated_at = new Date().toISOString();
         await window.saveManuscriptToDB(window.manuscriptData);
         renderDevelopmentSummary();
         if (showStatus) setDevelopmentStatus('Muutokset tallennettu.');
         return dev;
+    }
+
+    async function runDevelopmentEditing() {
+        if (!window.manuscriptData?.chapters?.length) {
+            setDevelopmentStatus('Valitse tekstillinen käsikirjoitus ensin.', true);
+            return;
+        }
+        const button = document.getElementById('development-run-btn');
+        if (button) button.disabled = true;
+        try {
+            await flushPendingManuscriptEdits();
+            await ensureKnowledgeWorkspaceLoaded();
+            const dev = developmentData();
+            dev.brief = readDevelopmentBriefFromForm();
+
+            setDevelopmentStatus('Luetaan käsikirjoitusta ja muodostetaan toimituksellista mallia…');
+            const blueprintResponse = await apiFetch('/api/edit', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    text: developmentProjectInput(),
+                    purpose: 'development_editing',
+                    temperature: 0.2,
+                    prompt: buildDevelopmentBlueprintPrompt()
+                })
+            });
+            const blueprintPayload = await blueprintResponse.json().catch(() => null);
+            if (!blueprintResponse.ok) throw new Error(blueprintPayload?.detail || 'Käsikirjoituksen mallinnus epäonnistui.');
+            dev.blueprint = blueprintPayload?.edited_text || '';
+            dev.validation_report = developmentValidationFromBlueprint(dev.blueprint);
+            dev.blueprint_updated_at = new Date().toISOString();
+
+            setDevelopmentStatus('Kirjoitetaan kehityseditointipalautetta ja korjaussuunnitelmaa…');
+            const feedbackResponse = await apiFetch('/api/edit', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    text: buildDevelopmentFeedbackInput(),
+                    purpose: 'development_editing',
+                    temperature: 0.25,
+                    prompt: buildDevelopmentFeedbackPrompt()
+                })
+            });
+            const feedbackPayload = await feedbackResponse.json().catch(() => null);
+            if (!feedbackResponse.ok) throw new Error(feedbackPayload?.detail || 'Kehityseditointipalautteen luonti epäonnistui.');
+            dev.feedback_report = feedbackPayload?.edited_text || '';
+            dev.revision_plan = extractMarkdownSection(dev.feedback_report, 'Priorisoitu korjaussuunnitelma') || '';
+            dev.feedback_updated_at = new Date().toISOString();
+            dev.updated_at = dev.feedback_updated_at;
+
+            const feedback = document.getElementById('development-feedback');
+            const plan = document.getElementById('development-plan');
+            if (feedback) feedback.value = dev.feedback_report;
+            if (plan) plan.value = dev.revision_plan;
+            await window.saveManuscriptToDB(window.manuscriptData);
+            renderDevelopmentSummary();
+            loadUsage();
+            setDevelopmentStatus('Kehityseditointi valmis ja tallennettu.');
+        } catch (error) {
+            setDevelopmentStatus(networkFailureMessage(error), true);
+            loadUsage();
+        } finally {
+            if (button) button.disabled = !canEditProject(window.manuscriptData || {});
+        }
     }
 
     async function runDevelopmentBlueprint() {
@@ -10404,21 +10478,9 @@ Säännöt:
         const brief = readDevelopmentBriefFromForm();
         const title = window.manuscriptData?.title || 'kasikirjoitus';
         const markdown = [
-            `# Rakenne- ja kehityseditointi: ${title}`,
+            `# Kehityseditointi: ${title}`,
             '',
-            '## Brief',
-            `- Genre: ${brief.genre || '-'}`,
-            `- Kohderyhmä: ${brief.target_audience || '-'}`,
-            `- Sävy: ${developmentToneLabel(brief.feedback_mode)}`,
-            `- Painopisteet: ${brief.focus_areas.join(', ') || '-'}`,
-            brief.author_questions ? `\n### Kirjailijan kysymykset\n${brief.author_questions}` : '',
-            '',
-            dev.blueprint ? dev.blueprint : '## Rakennemalli\nEi vielä tuotettu.',
-            '',
-            dev.validation_report ? dev.validation_report : '## Validointiraportti\nEi vielä tuotettu.',
-            '',
-            dev.corrections ? `## Käyttäjän korjaukset\n${dev.corrections}` : '',
-            '',
+            brief.extra_instructions ? `## Käyttäjän lisäohje\n${brief.extra_instructions}` : '',
             dev.feedback_report ? dev.feedback_report : '## Kehityspalaute\nEi vielä tuotettu.',
             '',
             dev.revision_plan ? `## Korjaussuunnitelma\n${dev.revision_plan}` : ''
@@ -10436,7 +10498,7 @@ Säännöt:
 
     function defaultWorkflowSteps(mode = 'light') {
         const steps = [
-            { id: 'analysis', title: 'Analyysi ja rakenne', detail: 'Muodostetaan kokonaiskuva, tyyli, synopsis ja metatiedot.', status: 'pending' },
+            { id: 'analysis', title: 'Analyysi', detail: 'Muodostetaan kokonaiskuva, tyyli, synopsis ja metatiedot.', status: 'pending' },
             { id: 'structure', title: 'Kirjan osiot', detail: 'Tarkistetaan ja tallennetaan etusivut, päätekstin osiot ja lopputekstit.', status: 'pending' },
             { id: 'misc', title: 'Oheisaineistot', detail: 'Luodaan nimiölehti, copysivu, sisällysluettelo ja tarvittavat hakemistot.', status: 'pending' },
             { id: 'layout', title: 'Taitto ja e-kirja', detail: 'Luodaan PDF-taittovedos, LaTeX-lähde ja EPUB-luonnos.', status: 'pending' }
@@ -11608,6 +11670,7 @@ Säännöt:
     const structureAcceptBtn = document.getElementById('structure-accept-btn');
     const structureRejectBtn = document.getElementById('structure-reject-btn');
     const developmentRefreshBtn = document.getElementById('development-refresh-btn');
+    const developmentRunBtn = document.getElementById('development-run-btn');
     const developmentSaveBtn = document.getElementById('development-save-btn');
     const developmentBlueprintBtn = document.getElementById('development-blueprint-btn');
     const developmentFeedbackBtn = document.getElementById('development-feedback-btn');
@@ -11748,9 +11811,10 @@ Säännöt:
     if (structureAcceptBtn) structureAcceptBtn.addEventListener('click', acceptStructureProposal);
     if (structureRejectBtn) structureRejectBtn.addEventListener('click', rejectStructureProposal);
     if (developmentRefreshBtn) developmentRefreshBtn.addEventListener('click', () => {
-        if (developmentWorkspaceMode === 'knowledge') loadKnowledgeWorkspace(true);
-        else renderDevelopmentEditingView();
+        renderDevelopmentEditingView();
+        loadKnowledgeWorkspace(true);
     });
+    if (developmentRunBtn) developmentRunBtn.addEventListener('click', runDevelopmentEditing);
     if (developmentSaveBtn) developmentSaveBtn.addEventListener('click', () => saveDevelopmentEditingEdits(true));
     if (developmentBlueprintBtn) developmentBlueprintBtn.addEventListener('click', runDevelopmentBlueprint);
     if (developmentFeedbackBtn) developmentFeedbackBtn.addEventListener('click', runDevelopmentFeedback);
@@ -11818,8 +11882,8 @@ Säännöt:
         const extractButton = document.getElementById('knowledge-extract-btn');
         if (extractButton) extractButton.textContent = 'Poimi käsikirjoituksesta';
         renderKnowledgeSuggestions();
-        saveKnowledgeReviewState().catch(() => setKnowledgeStatus('Hyväksyntäjonon tyhjennys ei tallentunut.', true));
-        setKnowledgeStatus('Hyväksyntäjono tyhjennettiin.');
+        saveKnowledgeReviewState().catch(() => setKnowledgeStatus('Projektimuistin poimintatilan tyhjennys ei tallentunut.', true));
+        setKnowledgeStatus('Projektimuistin poimintatila tyhjennettiin.');
     });
     document.getElementById('knowledge-suggestions-accept')?.addEventListener('click', () => {
         acceptKnowledgeSuggestions().catch(error => setKnowledgeStatus(error.message || 'Ehdotusten hyväksyminen epäonnistui.', true));
