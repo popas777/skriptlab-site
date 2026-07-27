@@ -555,7 +555,7 @@ button:disabled {
   height: 190px;
   margin: 2px 0;
   writing-mode: vertical-lr;
-  direction: rtl;
+  direction: ltr;
   accent-color: var(--accent);
 }
 
@@ -630,6 +630,15 @@ button:disabled {
   line-height: 1.45;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 4;
+}
+
+.chat-context-hint {
+  margin: 0;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .chat-thread {

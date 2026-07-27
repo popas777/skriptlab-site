@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f4f2ed">
   <title>Kirjoita ja editoi - SkriptLab</title>
-  <link rel="stylesheet" href="kirjoita-editoi.css?v=5">
+  <link rel="stylesheet" href="kirjoita-editoi.css?v=6">
 </head>
 <body data-mobile-panel="editor">
   <main class="write-editor-app" aria-label="Kirjoita ja editoi">
@@ -136,10 +136,11 @@
             <div><strong>Valittu teksti</strong><button type="button" id="clear-selection">×</button></div>
             <p id="selected-context-text"></p>
           </div>
+          <p class="chat-context-hint">Valinta lähtee kysymyksen ensisijaisena kontekstina. Ilman valintaa avustaja käyttää näkyvää tekstikohtaa ja siihen liittyvää projektimuistia.</p>
           <div class="chat-thread" id="chat-thread" aria-live="polite"></div>
           <form class="chat-composer" id="chat-form">
             <textarea id="chat-input" rows="3" placeholder="Kysy käsikirjoituksesta…"></textarea>
-            <button class="send-btn" type="submit" aria-label="Lähetä" title="Lähetä">↑</button>
+            <button class="send-btn" id="chat-send" type="submit" aria-label="Lähetä" title="Lähetä">↑</button>
           </form>
           <span class="mini-status" id="chat-status"></span>
         </section>
@@ -212,6 +213,6 @@
   <div class="toast" id="toast" hidden role="status" aria-live="polite"></div>
 
   <script src="config.js?v=1"></script>
-  <script src="kirjoita-editoi.js?v=7"></script>
+  <script src="kirjoita-editoi.js?v=8"></script>
 </body>
 </html>

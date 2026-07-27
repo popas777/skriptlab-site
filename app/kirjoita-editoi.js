@@ -839,24 +839,49 @@
     window.requestAnimationFrame(() => { thread.scrollTop = thread.scrollHeight; });
   }
 
+  function visibleEditorContext(maxChars) {
+    const editor = $("manuscript-editor");
+    const scroller = $("document-scroll");
+    const limit = Math.max(1000, Number(maxChars) || 9000);
+    if (!editor || !scroller) return "";
+    const viewport = scroller.getBoundingClientRect();
+    const visibleBlocks = Array.from(editor.children).filter((element) => {
+      const rect = element.getBoundingClientRect();
+      return rect.bottom >= viewport.top - 80 && rect.top <= viewport.bottom + 80;
+    });
+    const source = visibleBlocks.length ? visibleBlocks : [editor];
+    const text = source.map((element) => element.innerText || element.textContent || "")
+      .join("\n\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+    return text.length <= limit ? text : text.slice(0, limit).trimEnd() + "…";
+  }
+
   async function sendChat(event) {
     event.preventDefault();
     if (!state.project) return toast("Valitse käsikirjoitus ensin.");
     const input = $("chat-input");
     const message = input.value.trim();
     if (!message) return;
-    const history = state.chatHistory.slice(-8);
+    const selectedText = state.selectedText.trim();
+    const visibleText = visibleEditorContext(selectedText ? 3500 : 9000);
+    const history = state.chatHistory.slice(-8).map((item) => ({
+      role: item.role === "assistant" ? "assistant" : "user",
+      content: String(item.content || "").slice(0, 3500)
+    }));
     state.chatHistory.push({ role: "user", content: message });
     input.value = "";
     renderChat();
     $("chat-status").textContent = "Avustaja lukee kontekstia…";
     input.disabled = true;
+    $("chat-send").disabled = true;
     try {
       const response = await api("/write-editor/chat", jsonOptions("POST", {
         project_id: state.project.id,
         message,
         chapter_index: state.chapterIndex,
-        selected_text: state.selectedText,
+        selected_text: selectedText,
+        visible_text: visibleText,
         history
       }));
       state.chatHistory.push({ role: "assistant", content: response.message });
@@ -868,6 +893,7 @@
       toast(error.message);
     } finally {
       input.disabled = false;
+      $("chat-send").disabled = false;
       input.focus();
     }
   }

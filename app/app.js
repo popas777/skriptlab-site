@@ -16471,7 +16471,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (projectId) params.set('project', projectId);
         if (pendingWriteEditorChapterId) params.set('chapter', pendingWriteEditorChapterId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '7');
+        params.set('v', '8');
         updateEmbeddedModuleFrame(frame, 'kirjoita-editoi.html', params);
         pendingWriteEditorChapterId = null;
     }
