@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=65">
+    <link rel="stylesheet" href="styles.css?v=66">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -2361,9 +2361,10 @@
             </div>
 
             <!-- 10. VIEW: AUDIO -->
-            <div id="view-audio" class="view-section hidden">
+            <div id="view-audio" class="view-section editorial-paper-workspace audio-modern-workspace hidden">
                 <div class="header audio-header">
                     <div class="header-info">
+                        <p class="production-workspace-eyebrow">ÄÄNIKIRJA · TUOTANTO · ÄÄNIMALLIT</p>
                         <h2>Audio ja äänikirjatuotanto</h2>
                         <p id="audio-current-project">Käsikirjoitus: [Ei aktiivista teosta]</p>
                     </div>
@@ -2454,13 +2455,92 @@
                             </div>
                             <div class="audio-editor-actions">
                                 <button class="btn btn-primary" id="audio-save-chapter-btn" type="button">Tallenna osion aineisto</button>
-                                <button class="btn btn-secondary" id="audio-test-voice-btn" type="button">Lue testinäyte</button>
-                                <button class="btn btn-secondary" id="audio-stop-voice-btn" type="button">Pysäytä</button>
                             </div>
                         </article>
                     </div>
 
-                    <details class="card glass-panel audio-voice-settings" open>
+                    <section class="audio-tts-lab" aria-labelledby="audio-tts-lab-title">
+                        <div class="audio-panel-heading audio-tts-lab-heading">
+                            <div>
+                                <p class="audio-eyebrow">Äänimallien vertailu</p>
+                                <h3 id="audio-tts-lab-title">Testaa lukijaääni ennen tuotantoa</h3>
+                                <p class="card-meta">Sama tekstinäyte voidaan kuunnella Gemini TTS- ja ElevenLabs-malleilla.</p>
+                            </div>
+                            <span class="audio-preview-badge">TESTILABORATORIO</span>
+                        </div>
+
+                    <div class="audio-provider-stack">
+                    <details class="card glass-panel audio-voice-settings audio-provider-card audio-gemini-settings" open>
+                        <summary><span>Gemini TTS -mallien testaus</span><small>Preview</small></summary>
+                        <p class="card-meta">Gemini tuottaa suomenkielisen testinäytteen valitulla TTS-mallilla ja lukijaäänellä. Mallit ladataan palvelimen mallirekisteristä, joten valikoimaa voidaan päivittää myöhemmin.</p>
+                        <div class="audio-settings-grid">
+                            <div class="settings-row">
+                                <label for="audio-gemini-model-select">Gemini TTS -malli</label>
+                                <select id="audio-gemini-model-select">
+                                    <option value="">Ladataan Gemini TTS -malleja...</option>
+                                </select>
+                            </div>
+                            <div class="settings-row">
+                                <label for="audio-gemini-voice-select">Lukijaääni</label>
+                                <select id="audio-gemini-voice-select">
+                                    <optgroup label="Suositellut äänikirjaäänet">
+                                        <option value="Kore" selected>Kore · määrätietoinen</option>
+                                        <option value="Sulafat">Sulafat · lämmin</option>
+                                        <option value="Gacrux">Gacrux · kypsä</option>
+                                        <option value="Achird">Achird · ystävällinen</option>
+                                        <option value="Iapetus">Iapetus · selkeä</option>
+                                        <option value="Schedar">Schedar · tasainen</option>
+                                        <option value="Achernar">Achernar · pehmeä</option>
+                                        <option value="Charon">Charon · informatiivinen</option>
+                                    </optgroup>
+                                    <optgroup label="Muut Gemini-äänet">
+                                        <option value="Zephyr">Zephyr · kirkas</option>
+                                        <option value="Puck">Puck · eloisa</option>
+                                        <option value="Fenrir">Fenrir · innostuva</option>
+                                        <option value="Leda">Leda · nuorekas</option>
+                                        <option value="Orus">Orus · vakaa</option>
+                                        <option value="Aoede">Aoede · kevyt</option>
+                                        <option value="Callirrhoe">Callirrhoe · rento</option>
+                                        <option value="Autonoe">Autonoe · kirkas</option>
+                                        <option value="Enceladus">Enceladus · hengittävä</option>
+                                        <option value="Umbriel">Umbriel · rento</option>
+                                        <option value="Algieba">Algieba · pehmeä</option>
+                                        <option value="Despina">Despina · pehmeä</option>
+                                        <option value="Erinome">Erinome · selkeä</option>
+                                        <option value="Algenib">Algenib · karhea</option>
+                                        <option value="Rasalgethi">Rasalgethi · informatiivinen</option>
+                                        <option value="Laomedeia">Laomedeia · pirteä</option>
+                                        <option value="Alnilam">Alnilam · vakaa</option>
+                                        <option value="Pulcherrima">Pulcherrima · eteenpäin vievä</option>
+                                        <option value="Zubenelgenubi">Zubenelgenubi · arkinen</option>
+                                        <option value="Vindemiatrix">Vindemiatrix · lempeä</option>
+                                        <option value="Sadachbia">Sadachbia · elävä</option>
+                                        <option value="Sadaltager">Sadaltager · asiantunteva</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                            <div class="settings-row">
+                                <label for="audio-gemini-delivery-select">Lukutapa</label>
+                                <select id="audio-gemini-delivery-select">
+                                    <option value="stable">Vakaa ja selkeä</option>
+                                    <option value="natural" selected>Luonteva äänikirjakerronta</option>
+                                    <option value="expressive">Ilmeikäs ja eläytyvä</option>
+                                </select>
+                            </div>
+                            <div class="settings-row audio-provider-note">
+                                <strong>Suomi tunnistetaan automaattisesti</strong>
+                                <span>Testiin käytetään enintään 5 000 merkkiä valitusta osiosta.</span>
+                            </div>
+                        </div>
+                        <p id="audio-gemini-meta" class="audio-voice-meta">Gemini TTS -mallivalikoimaa ladataan.</p>
+                        <div class="audio-editor-actions audio-voice-actions">
+                            <button class="btn btn-primary" id="audio-gemini-test-btn" type="button">Luo Gemini-testinäyte</button>
+                            <button class="btn btn-secondary" type="button" data-audio-stop>Pysäytä</button>
+                        </div>
+                        <audio id="audio-gemini-player" class="audio-tts-player hidden" controls preload="none"></audio>
+                    </details>
+
+                    <details class="card glass-panel audio-voice-settings audio-provider-card audio-eleven-settings" open>
                         <summary>ElevenLabs-lukijaäänen testaus</summary>
                         <p class="card-meta">Valmis esittely ei kuluta tekstikiintiötä. Oman testin luonnissa ElevenLabsille lähetetään valitun laajuuden mukaisesti enintään 5 000 merkkiä osiosta.</p>
                         <div class="audio-settings-grid">
@@ -2499,9 +2579,13 @@
                         <div class="audio-editor-actions audio-voice-actions">
                             <button class="btn btn-secondary" id="audio-refresh-voices-btn" type="button">Päivitä äänet</button>
                             <button class="btn btn-secondary" id="audio-preview-voice-btn" type="button">Kuuntele äänen esittely</button>
+                            <button class="btn btn-primary" id="audio-test-voice-btn" type="button">Luo ElevenLabs-testinäyte</button>
+                            <button class="btn btn-secondary" id="audio-stop-voice-btn" type="button" data-audio-stop>Pysäytä</button>
                         </div>
-                        <audio id="audio-eleven-player" class="audio-eleven-player hidden" controls preload="none"></audio>
+                        <audio id="audio-eleven-player" class="audio-tts-player hidden" controls preload="none"></audio>
                     </details>
+                    </div>
+                    </section>
                 </section>
 
                 <section id="audio-glossary-panel" class="audio-panel hidden" role="tabpanel">
@@ -3320,6 +3404,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=111"></script>
+    <script src="app.js?v=112"></script>
 </body>
 </html>

@@ -11204,6 +11204,11 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     let audioSelectedChapterIndex = null;
     let audioLoadedChapterKey = '';
     let audioLoadedProjectId = null;
+    let geminiTtsModels = [];
+    let geminiTtsModelsLoaded = false;
+    let geminiTtsConfigured = false;
+    let geminiTtsWarning = '';
+    let geminiAudioObjectUrl = '';
     let elevenLabsVoices = [];
     let elevenLabsVoicesLoaded = false;
     let elevenLabsAudioObjectUrl = '';
@@ -11212,7 +11217,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const status = document.getElementById('audio-status');
         if (!status) return;
         status.textContent = message;
-        status.style.color = isError ? '#ffb4b4' : 'var(--text-secondary)';
+        status.classList.toggle('is-error', isError);
+        status.style.removeProperty('color');
     }
 
     function audioDataFromAnalysis() {
@@ -11340,6 +11346,125 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const closing = document.getElementById('audio-closing-words');
         if (opening && (force || !opening.value.trim())) opening.value = defaultAudioOpeningWords();
         if (closing && (force || !closing.value.trim())) closing.value = defaultAudioClosingWords();
+    }
+
+    function renderGeminiTtsMeta() {
+        const select = document.getElementById('audio-gemini-model-select');
+        const voiceSelect = document.getElementById('audio-gemini-voice-select');
+        const deliverySelect = document.getElementById('audio-gemini-delivery-select');
+        const meta = document.getElementById('audio-gemini-meta');
+        const button = document.getElementById('audio-gemini-test-btn');
+        const model = geminiTtsModels.find(item => item.model_name === select?.value);
+        if (button) button.disabled = !geminiTtsConfigured || !model;
+        if (!meta) return;
+        if (!geminiTtsConfigured) {
+            meta.textContent = geminiTtsWarning || 'Lisää GOOGLE_API_KEY tai GEMINI_API_KEY backendin ympäristömuuttujiin.';
+            return;
+        }
+        if (!model) {
+            meta.textContent = 'Gemini TTS -mallia ei ole valittu.';
+            return;
+        }
+        const tier = model.model_tier === 'pro' ? 'laatuun painottuva' : 'nopea ja kustannustehokas';
+        const deliveryLabels = { stable: 'vakaa', natural: 'luonteva', expressive: 'ilmeikäs' };
+        meta.textContent = `${model.display_name} · ${tier} · ääni ${voiceSelect?.value || 'Kore'} · ${deliveryLabels[deliverySelect?.value] || 'luonteva'} lukutapa.`;
+    }
+
+    function applySavedGeminiTtsSettings() {
+        const saved = audioDataFromAnalysis().gemini_voice;
+        if (!saved || typeof saved !== 'object') {
+            renderGeminiTtsMeta();
+            return;
+        }
+        const modelSelect = document.getElementById('audio-gemini-model-select');
+        const voiceSelect = document.getElementById('audio-gemini-voice-select');
+        const deliverySelect = document.getElementById('audio-gemini-delivery-select');
+        [
+            [modelSelect, saved.model_id],
+            [voiceSelect, saved.voice_name],
+            [deliverySelect, saved.delivery]
+        ].forEach(([select, value]) => {
+            if (select && value && Array.from(select.options).some(option => option.value === value)) {
+                select.value = value;
+            }
+        });
+        renderGeminiTtsMeta();
+    }
+
+    async function persistGeminiTtsSettings() {
+        if (!window.manuscriptData?.id) return;
+        const modelId = document.getElementById('audio-gemini-model-select')?.value || '';
+        const model = geminiTtsModels.find(item => item.model_name === modelId);
+        if (!model) return;
+        const audio = {
+            ...audioDataFromAnalysis(),
+            gemini_voice: {
+                provider: 'gemini',
+                model_id: model.model_name,
+                model_name: model.display_name,
+                voice_name: document.getElementById('audio-gemini-voice-select')?.value || 'Kore',
+                delivery: document.getElementById('audio-gemini-delivery-select')?.value || 'natural',
+                updated_at: new Date().toISOString()
+            },
+            updated_at: new Date().toISOString()
+        };
+        window.manuscriptData.analysis = window.manuscriptData.analysis || {};
+        window.manuscriptData.analysis.audio = audio;
+        try {
+            await persistAudioData(audio, '');
+        } catch (err) {
+            console.warn('Gemini TTS settings could not be saved.', err);
+        }
+    }
+
+    async function loadGeminiTtsModels(force = false) {
+        if (!isViewAllowed('view-audio')) return;
+        const select = document.getElementById('audio-gemini-model-select');
+        const meta = document.getElementById('audio-gemini-meta');
+        const button = document.getElementById('audio-gemini-test-btn');
+        if (!select || (geminiTtsModelsLoaded && !force)) {
+            renderGeminiTtsMeta();
+            return;
+        }
+        const currentValue = select.value || audioDataFromAnalysis()?.gemini_voice?.model_id || '';
+        select.disabled = true;
+        if (button) button.disabled = true;
+        select.innerHTML = '<option value="">Ladataan Gemini TTS -malleja...</option>';
+        if (meta) meta.textContent = 'Haetaan käytettävissä olevat Gemini TTS -mallit palvelimelta...';
+        try {
+            const res = await apiFetch('/api/audio/tts-models');
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.detail || 'Gemini TTS -mallien lataaminen epäonnistui.');
+            geminiTtsModels = Array.isArray(data?.models) ? data.models : [];
+            geminiTtsModelsLoaded = true;
+            geminiTtsConfigured = Boolean(data?.configured);
+            geminiTtsWarning = Array.isArray(data?.warnings) ? data.warnings.join(' ') : '';
+            select.innerHTML = '';
+            if (!geminiTtsModels.length) {
+                select.innerHTML = '<option value="">Ei käytettävissä olevia Gemini TTS -malleja</option>';
+                geminiTtsWarning = geminiTtsWarning || 'Lisää TTS-malli palvelimen mallirekisteriin.';
+                return;
+            }
+            geminiTtsModels.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.model_name;
+                option.textContent = `${model.display_name}${model.is_default ? ' · suositeltu' : ''}`;
+                select.appendChild(option);
+            });
+            const preferred = currentValue || data?.default_model || '';
+            if (preferred && geminiTtsModels.some(model => model.model_name === preferred)) {
+                select.value = preferred;
+            }
+            applySavedGeminiTtsSettings();
+        } catch (err) {
+            geminiTtsModelsLoaded = false;
+            geminiTtsConfigured = false;
+            geminiTtsWarning = err.message || 'Gemini TTS -mallien lataaminen epäonnistui.';
+            select.innerHTML = '<option value="">Mallien lataaminen epäonnistui</option>';
+        } finally {
+            select.disabled = false;
+            renderGeminiTtsMeta();
+        }
     }
 
     function audioVoiceMetaText(voice) {
@@ -11547,6 +11672,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 ? `Käsikirjoitus: ${window.manuscriptData.title || 'Nimetön'}`
                 : 'Käsikirjoitus: [Ei aktiivista teosta]';
         }
+        loadGeminiTtsModels(false);
         loadElevenLabsVoices(false);
         if (!window.manuscriptData) {
             if (guide) guide.value = '';
@@ -11560,6 +11686,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             audioSelectedChapterIndex = null;
             audioLoadedChapterKey = '';
             audioLoadedProjectId = window.manuscriptData.id || null;
+            applySavedGeminiTtsSettings();
             applySavedAudioVoiceSettings();
         }
         const entries = audioChapterEntries();
@@ -11817,14 +11944,87 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         return audioTextForScope(entry).text.slice(0, 5000);
     }
 
+    function geminiAudioPlayer() {
+        return document.getElementById('audio-gemini-player');
+    }
+
     function audioPlayer() {
         return document.getElementById('audio-eleven-player');
+    }
+
+    function clearGeminiAudioObjectUrl() {
+        if (geminiAudioObjectUrl) {
+            URL.revokeObjectURL(geminiAudioObjectUrl);
+            geminiAudioObjectUrl = '';
+        }
     }
 
     function clearAudioObjectUrl() {
         if (elevenLabsAudioObjectUrl) {
             URL.revokeObjectURL(elevenLabsAudioObjectUrl);
             elevenLabsAudioObjectUrl = '';
+        }
+    }
+
+    async function testGeminiTtsVoice() {
+        if (!window.manuscriptData?.id) {
+            setAudioStatus('Valitse tallennettu käsikirjoitus ensin.', true);
+            return;
+        }
+        const modelId = document.getElementById('audio-gemini-model-select')?.value || '';
+        const model = geminiTtsModels.find(item => item.model_name === modelId);
+        if (!model) {
+            setAudioStatus('Valitse ensin Gemini TTS -malli.', true);
+            return;
+        }
+        const text = firstAudioSampleText();
+        if (!text) {
+            setAudioStatus('Valitusta osiosta ei löytynyt kuunneltavaa tekstiä.', true);
+            return;
+        }
+        const voiceName = document.getElementById('audio-gemini-voice-select')?.value || 'Kore';
+        const button = document.getElementById('audio-gemini-test-btn');
+        stopAudioVoice(false);
+        if (button) button.disabled = true;
+        setAudioStatus(`Luodaan ${model.display_name} -testinäyte äänellä ${voiceName}...`);
+        try {
+            const res = await apiFetch('/api/audio/gemini-tts-preview', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    project_id: window.manuscriptData.id,
+                    text,
+                    model_id: model.model_name,
+                    voice_name: voiceName,
+                    delivery: document.getElementById('audio-gemini-delivery-select')?.value || 'natural'
+                })
+            });
+            if (!res.ok) {
+                const data = await res.json().catch(() => null);
+                throw new Error(data?.detail || 'Gemini TTS -testinäytteen luonti epäonnistui.');
+            }
+            const blob = await res.blob();
+            if (!blob.size || !String(blob.type || '').startsWith('audio/')) {
+                throw new Error('Gemini TTS ei palauttanut toistettavaa äänitiedostoa.');
+            }
+            const player = geminiAudioPlayer();
+            if (!player) throw new Error('Gemini-äänisoitinta ei löytynyt.');
+            clearGeminiAudioObjectUrl();
+            geminiAudioObjectUrl = URL.createObjectURL(blob);
+            player.src = geminiAudioObjectUrl;
+            player.classList.remove('hidden');
+            player.onended = () => setAudioStatus('Gemini TTS -testinäyte päättyi.');
+            await persistGeminiTtsSettings();
+            try {
+                await player.play();
+                setAudioStatus(`${audioChapterTitle(currentAudioChapterEntry())}: Gemini TTS -testinäytettä toistetaan.`);
+            } catch (err) {
+                setAudioStatus('Gemini-testinäyte on valmis. Käynnistä se soittimen painikkeesta.');
+            }
+        } catch (err) {
+            setAudioStatus(err.message || 'Gemini TTS -äänitesti epäonnistui.', true);
+        } finally {
+            renderGeminiTtsMeta();
         }
     }
 
@@ -11912,11 +12112,11 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
 
     function stopAudioVoice(showStatus = true) {
         if (window.speechSynthesis) window.speechSynthesis.cancel();
-        const player = audioPlayer();
-        if (player) {
+        [geminiAudioPlayer(), audioPlayer()].forEach(player => {
+            if (!player) return;
             player.pause();
             player.currentTime = 0;
-        }
+        });
         if (showStatus) setAudioStatus('Äänitesti pysäytetty.');
     }
 
@@ -17719,8 +17919,11 @@ ${state.validation || 'Ei validointia.'}`;
     const audioSaveGuideBtn = document.getElementById('audio-save-guide-btn');
     const audioSaveScriptBtn = document.getElementById('audio-save-script-btn');
     const audioScriptDefaultsBtn = document.getElementById('audio-script-defaults-btn');
+    const audioGeminiTestBtn = document.getElementById('audio-gemini-test-btn');
+    const audioGeminiModelSelect = document.getElementById('audio-gemini-model-select');
+    const audioGeminiVoiceSelect = document.getElementById('audio-gemini-voice-select');
+    const audioGeminiDeliverySelect = document.getElementById('audio-gemini-delivery-select');
     const audioTestVoiceBtn = document.getElementById('audio-test-voice-btn');
-    const audioStopVoiceBtn = document.getElementById('audio-stop-voice-btn');
     const audioVoiceSelect = document.getElementById('audio-voice-select');
     const audioRefreshVoicesBtn = document.getElementById('audio-refresh-voices-btn');
     const audioPreviewVoiceBtn = document.getElementById('audio-preview-voice-btn');
@@ -18032,8 +18235,17 @@ ${state.validation || 'Ei validointia.'}`;
         fillDefaultAudioScript(true);
         setAudioStatus('Alku- ja loppusanojen ehdotus täytetty. Tarkista teksti ja tallenna.');
     });
+    if (audioGeminiTestBtn) audioGeminiTestBtn.addEventListener('click', testGeminiTtsVoice);
+    [audioGeminiModelSelect, audioGeminiVoiceSelect, audioGeminiDeliverySelect].forEach(select => {
+        select?.addEventListener('change', () => {
+            stopAudioVoice(false);
+            renderGeminiTtsMeta();
+        });
+    });
     if (audioTestVoiceBtn) audioTestVoiceBtn.addEventListener('click', testAudioVoice);
-    if (audioStopVoiceBtn) audioStopVoiceBtn.addEventListener('click', () => stopAudioVoice());
+    document.querySelectorAll('[data-audio-stop]').forEach(button => {
+        button.addEventListener('click', () => stopAudioVoice());
+    });
     if (audioVoiceSelect) audioVoiceSelect.addEventListener('change', () => {
         stopAudioVoice(false);
         renderAudioVoiceMeta();

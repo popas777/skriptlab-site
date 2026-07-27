@@ -8509,6 +8509,267 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     box-shadow: 0 0 0 3px rgba(217, 142, 43, .12);
 }
 
+/* Audio production uses the same editorial paper language as analysis and metadata. */
+.audio-modern-workspace > .audio-header,
+.audio-modern-workspace > .audio-status,
+.audio-modern-workspace > .audio-main-tabs,
+.audio-modern-workspace > .audio-panel {
+    box-sizing: border-box;
+    width: min(100%, 1120px);
+    margin-right: auto;
+    margin-left: auto;
+}
+
+.audio-modern-workspace > .audio-header {
+    align-items: flex-start;
+    margin-bottom: 16px;
+    padding: 8px 0 4px;
+}
+
+.audio-modern-workspace > .audio-header h2 {
+    margin: 0;
+    color: #29241d;
+    font-family: "Fraunces", Georgia, serif;
+    font-size: clamp(28px, 3.6vw, 42px);
+    font-weight: 600;
+    line-height: 1.08;
+}
+
+.audio-modern-workspace > .audio-header .header-info > p:last-child {
+    margin-top: 8px;
+    color: rgba(41, 36, 29, .68);
+    font-size: 15px;
+}
+
+.audio-modern-workspace > .audio-status {
+    margin-top: 0;
+    margin-bottom: 18px;
+    padding: 12px 14px;
+    border: 1px solid rgba(217, 142, 43, .42);
+    border-radius: 10px;
+    background: #f8ecd8;
+    color: rgba(41, 36, 29, .76);
+}
+
+.audio-modern-workspace > .audio-status.is-error {
+    border-color: rgba(163, 59, 46, .35);
+    background: #f8e5e2;
+    color: #8b3126;
+}
+
+.audio-modern-workspace .audio-main-tabs,
+.audio-modern-workspace .audio-output-tabs {
+    gap: 7px;
+}
+
+.audio-modern-workspace .audio-main-tab,
+.audio-modern-workspace .audio-output-tab {
+    border: 1px solid #e4decf;
+    border-radius: 999px;
+    background: #fff;
+    color: rgba(41, 36, 29, .66);
+    box-shadow: 0 1px 2px rgba(41, 36, 29, .04);
+}
+
+.audio-modern-workspace .audio-main-tab.active,
+.audio-modern-workspace .audio-output-tab.active {
+    border-color: #43406e;
+    background: #43406e;
+    color: #fff;
+}
+
+.audio-modern-workspace .card,
+.audio-modern-workspace .audio-tts-lab {
+    border: 1px solid #e4decf;
+    border-radius: 16px;
+    background: #fff;
+    color: #29241d;
+    box-shadow: 0 1px 2px rgba(41, 36, 29, .05), 0 8px 24px rgba(41, 36, 29, .07);
+    backdrop-filter: none;
+}
+
+.audio-modern-workspace .audio-control-card,
+.audio-modern-workspace .audio-source-panel,
+.audio-modern-workspace .audio-output-panel,
+.audio-modern-workspace .audio-single-editor {
+    padding: 20px;
+}
+
+.audio-modern-workspace .audio-panel-heading h3,
+.audio-modern-workspace .audio-voice-settings summary,
+.audio-modern-workspace .audio-single-editor h3 {
+    color: #29241d;
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 600;
+}
+
+.audio-modern-workspace .audio-eyebrow {
+    color: #43406e;
+    letter-spacing: .1em;
+}
+
+.audio-modern-workspace .card-meta,
+.audio-modern-workspace .audio-count,
+.audio-modern-workspace .audio-save-time,
+.audio-modern-workspace .audio-voice-meta {
+    color: rgba(41, 36, 29, .62);
+}
+
+.audio-modern-workspace .settings-row label {
+    color: rgba(41, 36, 29, .72);
+    font-weight: 650;
+}
+
+.audio-modern-workspace .settings-row select,
+.audio-modern-workspace .settings-row input,
+.audio-modern-workspace .settings-row textarea,
+.audio-modern-workspace .audio-large-textarea,
+.audio-modern-workspace .audio-credits-textarea {
+    border: 1px solid #e4decf;
+    border-radius: 10px;
+    background: #fffdf9;
+    color: #29241d;
+}
+
+.audio-modern-workspace .settings-row select:focus,
+.audio-modern-workspace .settings-row input:focus,
+.audio-modern-workspace .settings-row textarea:focus,
+.audio-modern-workspace .audio-large-textarea:focus,
+.audio-modern-workspace .audio-credits-textarea:focus {
+    border-color: #43406e;
+    outline: 3px solid rgba(67, 64, 110, .12);
+}
+
+.audio-modern-workspace #audio-source-preview {
+    background: #f6f2ea;
+}
+
+.audio-modern-workspace .audio-large-textarea {
+    min-height: 360px;
+    height: 44vh;
+    max-height: 650px;
+}
+
+.audio-modern-workspace .audio-icon-btn {
+    border-color: #e4decf;
+    border-radius: 10px;
+    background: #f6f2ea;
+    color: #43406e;
+}
+
+.audio-modern-workspace .audio-tts-lab {
+    padding: 22px;
+}
+
+.audio-modern-workspace .audio-tts-lab-heading {
+    align-items: center;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #ece7dc;
+}
+
+.audio-modern-workspace .audio-tts-lab-heading .card-meta {
+    margin-top: 6px;
+}
+
+.audio-preview-badge {
+    flex: 0 0 auto;
+    padding: 7px 10px;
+    border-radius: 999px;
+    background: #eceaf4;
+    color: #43406e;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .08em;
+}
+
+.audio-provider-stack {
+    display: grid;
+    gap: 14px;
+}
+
+.audio-modern-workspace .audio-provider-card {
+    padding: 18px;
+    border-radius: 14px;
+    box-shadow: none;
+}
+
+.audio-modern-workspace .audio-gemini-settings {
+    border-color: rgba(67, 64, 110, .32);
+    background: linear-gradient(145deg, #fff, #f6f4fb);
+}
+
+.audio-modern-workspace .audio-eleven-settings {
+    border-color: rgba(217, 142, 43, .32);
+    background: linear-gradient(145deg, #fff, #fff9ef);
+}
+
+.audio-modern-workspace .audio-provider-card summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 18px;
+}
+
+.audio-modern-workspace .audio-provider-card summary small {
+    padding: 5px 8px;
+    border-radius: 999px;
+    background: #eceaf4;
+    color: #43406e;
+    font-family: Inter, sans-serif;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.audio-provider-note {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 76px;
+    padding: 12px 14px;
+    border: 1px solid #e4decf;
+    border-radius: 10px;
+    background: #f6f2ea;
+    color: #29241d;
+}
+
+.audio-provider-note strong {
+    font-size: 13px;
+}
+
+.audio-provider-note span {
+    margin-top: 4px;
+    color: rgba(41, 36, 29, .62);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.audio-tts-player {
+    display: block;
+    width: 100%;
+    min-height: 42px;
+    margin-top: 12px;
+}
+
+.audio-tts-player.hidden {
+    display: none;
+}
+
+@media (max-width: 700px) {
+    .audio-modern-workspace .audio-tts-lab {
+        padding: 16px;
+    }
+    .audio-modern-workspace .audio-tts-lab-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+    .audio-modern-workspace .audio-provider-card {
+        padding: 15px;
+    }
+}
+
 /* Analysis and support materials already use this shell inside their frames. */
 #view-analyysi .manuskripti-frame,
 #view-muut-toiminnot .tuotanto-frame {
