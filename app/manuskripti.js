@@ -25,10 +25,19 @@
   let demoMode = CONFIG.demo === true;
   let projects = [];
   let project = null;          // aktiivinen projekti (ProjectSchema)
-  let projectStageAssets = { misc: [], covers: [], layout: [] };
+  let projectStageAssets = {
+    misc: [],
+    covers: [],
+    layout: [],
+    publication: null,
+    translations: [],
+    knowledge: [],
+    versionCount: 0,
+  };
   let proposal = null;         // viimeisin rakenne-ehdotus
   let pollTimer = null;
   let saveTimer = null;
+  let workflowRefreshPromise = null;
   let sheetContext = null;     // { type: "chapter"|"analysis", ... }
   const params = new URLSearchParams(window.location.search);
   const requestedStep = params.get("step") || "";
@@ -403,16 +412,28 @@
   }
 
   async function apiListProjectStageAssets(projectId) {
-    if (demoMode) return { misc: [], covers: [], layout: [] };
-    const [misc, covers, layout] = await Promise.allSettled([
+    if (demoMode) return {
+      misc: [], covers: [], layout: [], publication: null,
+      translations: [], knowledge: [], versionCount: 0,
+    };
+    const [misc, covers, layout, publication, translations, workspace] = await Promise.allSettled([
       api("/projects/" + projectId + "/misc-assets"),
       api("/projects/" + projectId + "/cover-images"),
       api("/projects/" + projectId + "/layout-assets"),
+      api("/projects/" + projectId + "/publication-package/readiness"),
+      api("/projects/" + projectId + "/translations"),
+      api("/projects/" + projectId + "/workspace"),
     ]);
     return {
       misc: misc.status === "fulfilled" && Array.isArray(misc.value) ? misc.value : [],
       covers: covers.status === "fulfilled" && Array.isArray(covers.value) ? covers.value : [],
       layout: layout.status === "fulfilled" && Array.isArray(layout.value) ? layout.value : [],
+      publication: publication.status === "fulfilled" && publication.value && typeof publication.value === "object"
+        ? publication.value : null,
+      translations: translations.status === "fulfilled" && Array.isArray(translations.value) ? translations.value : [],
+      knowledge: workspace.status === "fulfilled" && Array.isArray(workspace.value?.knowledge_items)
+        ? workspace.value.knowledge_items : [],
+      versionCount: workspace.status === "fulfilled" ? Number(workspace.value?.version_count || 0) : 0,
     };
   }
 
@@ -586,6 +607,31 @@
       /* Oheisaineistot eivät estä käsikirjoituksen avaamista. */
     });
   }
+
+  function refreshWorkflowStatus() {
+    const id = project?.id;
+    if (!id || workflowRefreshPromise) return workflowRefreshPromise;
+    workflowRefreshPromise = Promise.allSettled([
+      apiGetProject(id),
+      apiListProjectStageAssets(id),
+    ]).then(([projectResult, assetsResult]) => {
+      if (projectResult.status === "fulfilled") {
+        project = projectResult.value;
+        rememberActiveProject(project);
+      }
+      if (assetsResult.status === "fulfilled") projectStageAssets = assetsResult.value;
+      renderProject();
+      if ($("view-analyysi")?.classList.contains("is-active")) renderAnalysis();
+    }).finally(() => {
+      workflowRefreshPromise = null;
+    });
+    return workflowRefreshPromise;
+  }
+
+  window.addEventListener("message", (event) => {
+    if (event.origin !== window.location.origin) return;
+    if (event.data?.type === "skriptlab:refresh-workflow-status") refreshWorkflowStatus();
+  });
 
   function canDeleteProject(item) {
     if (publisherDemoMode) return false;
@@ -795,6 +841,15 @@
     return ANALYSIS_SECTIONS.concat(META_SECTIONS).some(([field]) => String(analysis[field] || "").trim());
   }
 
+  function hasCompleteAnalysis(analysis) {
+    if (!analysis || typeof analysis !== "object") return false;
+    const editorialCore = ["editorial_assessment", "synopsis", "style"]
+      .every((field) => String(analysis[field] || "").trim());
+    const classificationCount = ["audience", "genre", "library_class", "thema_classes"]
+      .filter((field) => String(analysis[field] || "").trim()).length;
+    return editorialCore && classificationCount >= 2;
+  }
+
   function structureIsDone(analysis) {
     return analysis.structure_completed === true
       || ["accepted", "accepted_metadata", "accepted_reparse"].includes(analysis.structure_status);
@@ -821,33 +876,85 @@
     );
   }
 
+  function hasFullCoverAssets() {
+    return (projectStageAssets.covers || []).some((asset) => asset.asset_type === "full_cover_image");
+  }
+
   function hasLayoutAssets() {
     return (projectStageAssets.layout || []).some((asset) =>
       ["layout_latex", "layout_pdf", "layout_epub"].includes(asset.asset_type)
     );
   }
 
+  function publicationCheckStatus(key) {
+    return (projectStageAssets.publication?.checks || []).find((item) => item.key === key)?.status || "";
+  }
+
+  function productInfoStarted(productInfo) {
+    if (!productInfo || typeof productInfo !== "object") return false;
+    return Object.entries(productInfo).some(([key, value]) =>
+      key !== "missing_fields" && String(value || "").trim()
+    );
+  }
+
+  function marketingStageState(analysis) {
+    const concept = String(analysis.campaign_concept || "").trim();
+    const tagline = String(analysis.marketing_tagline || "").trim();
+    const description = String(analysis.marketing_short || analysis.marketing_long || "").trim();
+    const channel = ["instagram_post", "facebook_post", "tiktok_post", "video_script"]
+      .some((field) => String(analysis[field] || "").trim());
+    const started = Boolean(concept || tagline || description || channel);
+    return { started, done: Boolean(concept && tagline && description && channel) };
+  }
+
   function pathSteps() {
     const analysis = project.analysis || {};
     const development = analysis.development_editing || {};
-    const analysisDone = analysis.analysis_status === "completed" || (!analysis.analysis_status && hasSavedAnalysis(analysis));
-    const analysisProgress = analysis.analysis_status === "partial" || (analysis.analysis_status && analysis.analysis_status !== "completed");
-    const developmentDone = Boolean(development.feedback_report);
-    const developmentStarted = Boolean(development.blueprint || development.updated_at);
+    const workflowState = analysis.workflow_state || {};
+    const analysisDone = analysis.analysis_status === "completed" || hasCompleteAnalysis(analysis);
+    const analysisProgress = !analysisDone && Boolean(analysis.analysis_status || hasSavedAnalysis(analysis));
+    const feedbackDone = Boolean(String(development.feedback_report || "").trim());
+    const memoryDone = (projectStageAssets.knowledge || []).length > 0;
+    const developmentDone = feedbackDone && memoryDone;
+    const developmentStarted = Boolean(feedbackDone || memoryDone || development.blueprint || development.updated_at);
+    const proofreadDone = Boolean(analysis.finishing && typeof analysis.finishing === "object")
+      || workflowState.proofread?.status === "done";
+    const proofreadStarted = proofreadDone || workflowState.proofread?.status === "progress";
+    const productInfo = analysis.product_info && typeof analysis.product_info === "object" ? analysis.product_info : {};
+    const productStarted = productInfoStarted(productInfo);
+    const productDone = publicationCheckStatus("metadata") === "ready"
+      || (productStarted && Array.isArray(productInfo.missing_fields) && productInfo.missing_fields.length === 0);
     const coverPromptStarted = Boolean(analysis.cover_prompt || analysis.cover_prompts || analysis.cover_image_note);
+    const translations = projectStageAssets.translations || [];
+    const translationDone = translations.some((item) =>
+      ["completed", "reviewed"].includes(item.status) && String(item.translated_text || "").trim()
+    );
+    const marketing = marketingStageState(analysis);
     return [
-      { id: "kasikirjoitus", num: 1, name: "Käsikirjoitus", desc: (project.chapters || []).length + " lukua",
-        status: projectStageStatus(projectHasText(), false) },
+      { id: "kasikirjoitus", num: 1, name: "Työpöytäeditori", desc: (project.chapters || []).length + " tekstiosiota",
+        status: projectStageStatus(projectHasText(), false), moduleView: "view-kirjoita-editoi" },
       { id: "analyysi", num: 2, name: "Analyysi", desc: "Arvio, synopsis ja metatiedot",
-        status: projectStageStatus(analysisDone, analysisProgress) },
-      { id: "kehityseditointi", num: 3, name: "Kehityseditointi", desc: "Palaute ja projektimuisti",
+        status: projectStageStatus(analysisDone, analysisProgress), moduleView: "view-analyysi" },
+      { id: "kehityseditointi", num: 3, name: "Kehityseditointi ja projektimuisti", desc: "Palaute ja jatkuvuustiedot",
         status: projectStageStatus(developmentDone, developmentStarted), moduleView: "view-kehityseditointi" },
-      { id: "oheisaineistot", num: 4, name: "Oheisaineistot", desc: "Nimiölehti, copysivu ja hakemistot",
+      { id: "oikoluku", num: 4, name: "Oikoluku ja viimeistely", desc: "Kielenhuolto ja viimeistelty versio",
+        status: projectStageStatus(proofreadDone, proofreadStarted), moduleView: "view-oikoluku" },
+      { id: "oheisaineistot", num: 5, name: "Oheisaineistot", desc: "Copysivu, hakemistot ja etuaineistot",
         status: projectStageStatus(hasMiscAssets(), false), moduleView: "view-muut-toiminnot" },
-      { id: "kansi", num: 5, name: "Kansi", desc: "Etukansi, takakansi tai koko kansi",
-        status: projectStageStatus(hasCoverAssets(), coverPromptStarted), moduleView: "view-kuvitus" },
-      { id: "taitto", num: 6, name: "Taitto", desc: "PDF, LaTeX ja EPUB",
+      { id: "tuotetiedot", num: 6, name: "Tuotetiedot", desc: "Metadata, oikeudet ja avainsanat",
+        status: projectStageStatus(productDone, productStarted), moduleView: "view-tuotetiedot" },
+      { id: "kansi", num: 7, name: "Kansi ja kuvitus", desc: "Etukansi, selkä, takakansi ja leikkuuvarat",
+        status: projectStageStatus(hasFullCoverAssets(), hasCoverAssets() || coverPromptStarted), moduleView: "view-kuvitus" },
+      { id: "taitto", num: 8, name: "Valmis kirja ja taitto", desc: "PDF, EPUB ja tuotantotiedostot",
         status: projectStageStatus(hasLayoutAssets(), false), moduleView: "view-kirja" },
+      { id: "julkaisupaketti", num: 9, name: "Julkaisupaketti", desc: "Lukittu lähde ja toimituspaketti",
+        status: projectStageStatus(Boolean(projectStageAssets.publication?.latest_package), false), moduleView: "view-julkaisupaketti" },
+      { id: "monikielinen", num: 10, name: "Monikielinen julkaisu", desc: "Käännös ja tarkastettu kieliversio",
+        status: projectStageStatus(translationDone, translations.length > 0), moduleView: "view-monikielinen-julkaisu" },
+      { id: "markkinointi", num: 11, name: "Kampanjastudio", desc: "Konsepti, kanavatekstit ja kampanjapaketti",
+        status: projectStageStatus(marketing.done, marketing.started), moduleView: "view-markkinointi" },
+      { id: "versiot", num: 12, name: "Versiohistoria", desc: "Palautuspisteet ja palautettavat versiot",
+        status: projectStageStatus(projectStageAssets.versionCount > 0, false), moduleView: "view-viimeistely" },
     ];
   }
 
@@ -868,9 +975,22 @@
       }
     }
 
+    const steps = pathSteps();
+    const counts = steps.reduce((result, step) => {
+      result[step.status] = (result[step.status] || 0) + 1;
+      return result;
+    }, { done: 0, progress: 0, todo: 0 });
+    const summary = $("project-path-summary");
+    if (summary) {
+      summary.innerHTML =
+        '<span class="is-done">' + counts.done + ' valmista</span>' +
+        '<span class="is-progress">' + counts.progress + ' kesken</span>' +
+        '<span class="is-todo">' + counts.todo + ' aloittamatta</span>';
+    }
+
     const path = $("project-path");
     path.innerHTML = "";
-    for (const step of pathSteps()) {
+    for (const step of steps) {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "path-step is-" + step.status;
@@ -884,15 +1004,16 @@
   }
 
   function openPathStep(step) {
+    if (step.moduleView && window.parent && window.parent !== window) {
+      notifyParent("skriptlab:open-module", { viewId: step.moduleView });
+      return;
+    }
     if (["kasikirjoitus", "analyysi", "rakenne"].includes(step.id)) {
       renderStepView(step.id);
       showScreen(step.id);
       return;
     }
-    if (step.moduleView) {
-      notifyParent("skriptlab:open-module", { viewId: step.moduleView });
-      toast("Avataan moduuli pääsovelluksessa.");
-    }
+    toast("Avaa tämä vaihe SkriptLabin pääsovelluksessa.");
   }
 
   function renderStepView(stepId) {

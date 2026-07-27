@@ -8184,6 +8184,170 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     color: #43406e;
 }
 
+/* Proofreading and finishing */
+#view-oikoluku .editorial-paper-workspace {
+    gap: 16px;
+}
+
+#view-oikoluku .editorial-paper-workspace > .production-workspace-hero {
+    display: block;
+    overflow: visible;
+    margin-bottom: 0;
+    padding: 8px 0 4px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+#view-oikoluku .editorial-paper-workspace > .production-workspace-hero::after {
+    display: none;
+}
+
+#view-oikoluku .production-workspace-hero-copy > p:not(.production-workspace-eyebrow) {
+    max-width: 540px;
+    margin-top: 8px;
+    color: rgba(41, 36, 29, .7);
+    font-size: 15px;
+}
+
+#view-oikoluku .production-workspace-hero-status {
+    min-height: 0;
+    margin-top: 16px;
+    padding: 14px 16px;
+    border: 1px solid #e4decf;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(41, 36, 29, .05), 0 6px 20px rgba(41, 36, 29, .06);
+    backdrop-filter: none;
+}
+
+#view-oikoluku .production-workspace-hero-status > span {
+    color: #43406e;
+}
+
+#view-oikoluku .production-workspace-hero-status > strong {
+    color: #29241d;
+}
+
+#view-oikoluku .production-workspace-hero-status > p,
+#view-oikoluku .production-workspace-hero-status .hint {
+    color: rgba(41, 36, 29, .62);
+}
+
+#view-oikoluku .proofread-mode-switch,
+#view-oikoluku .proofread-panel {
+    width: min(100%, 640px);
+    margin-right: auto;
+    margin-left: auto;
+}
+
+#view-oikoluku .proofread-modern .proofread-mode-switch {
+    gap: 6px;
+    padding: 6px;
+    border: 1px solid #e4decf;
+    border-radius: 14px;
+    background: #f1ede3;
+}
+
+#view-oikoluku .proofread-modern .proofread-mode-switch button {
+    min-height: 48px;
+    border-radius: 10px;
+    color: rgba(41, 36, 29, .62);
+}
+
+#view-oikoluku .proofread-modern .proofread-mode-switch button span {
+    border: 1px solid rgba(67, 64, 110, .2);
+    background: #fff;
+    color: #43406e;
+}
+
+#view-oikoluku .proofread-modern .proofread-mode-switch button.is-active {
+    background: #fff;
+    color: #29241d;
+    box-shadow: 0 1px 2px rgba(41, 36, 29, .06), 0 5px 14px rgba(41, 36, 29, .07);
+}
+
+#view-oikoluku .proofread-panel:not(.hidden) {
+    padding: 20px;
+    border: 1px solid #e4decf;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(41, 36, 29, .05), 0 6px 20px rgba(41, 36, 29, .06);
+}
+
+#view-oikoluku .proofread-modern .nav-arrow,
+#view-oikoluku .proofread-modern .chapter-title-btn,
+#view-oikoluku .summary-card,
+#view-oikoluku .proofread-modern .mass-section,
+#view-oikoluku .reader-card,
+#view-oikoluku .suggestion-item,
+#view-oikoluku .finding-item,
+#view-oikoluku .tool-chip,
+#view-oikoluku .proofread-scope-switch {
+    border-color: #e4decf;
+    background: #fbf9f4;
+    color: #29241d;
+    box-shadow: none;
+}
+
+#view-oikoluku .proofread-modern .chapter-title-btn .sub,
+#view-oikoluku .step-intro,
+#view-oikoluku .suggestion-reason,
+#view-oikoluku .finding-item .issue,
+#view-oikoluku .where,
+#view-oikoluku .hint {
+    color: rgba(41, 36, 29, .62);
+}
+
+#view-oikoluku .tool-chip.is-active,
+#view-oikoluku .proofread-scope-switch button.is-active {
+    border-color: rgba(67, 64, 110, .34);
+    background: #eceaf4;
+    color: #43406e;
+}
+
+#view-oikoluku .proofread-modern input[type="file"],
+#view-oikoluku .proofread-modern textarea {
+    border-color: #e4decf;
+    border-radius: 10px;
+    background: #fffdf9;
+    color: #29241d;
+}
+
+#view-oikoluku .proofread-modern textarea:focus {
+    border-color: #43406e;
+    outline: 3px solid rgba(67, 64, 110, .12);
+}
+
+#view-oikoluku .proofread-modern .field-label,
+#view-oikoluku .proofread-modern .list-title,
+#view-oikoluku .check-row,
+#view-oikoluku .reader-card {
+    color: #29241d;
+}
+
+#view-oikoluku .check-row input {
+    accent-color: #43406e;
+}
+
+#view-oikoluku .suggestion-change del {
+    color: #a33b2e;
+    background: #f8e5e2;
+}
+
+#view-oikoluku .suggestion-change ins,
+#view-oikoluku .finding-item .fix {
+    color: #1f6f43;
+    background: #e5f4ea;
+}
+
+#view-oikoluku .proofread-sheet {
+    border-color: #e4decf;
+    background: #fff;
+    color: #29241d;
+}
+
 /* Product metadata */
 #view-tuotetiedot {
     counter-reset: product-sections;

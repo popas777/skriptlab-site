@@ -105,6 +105,26 @@ body {
 
 /* Tarinan polku: vaihekortit ommellangan varrella */
 
+.path-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0 4px;
+}
+
+.path-summary span {
+  padding: 6px 10px;
+  border: 1px solid var(--raja);
+  border-radius: 999px;
+  background: var(--kortti);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.path-summary .is-done { color: var(--valmis); background: var(--valmis-vaalea); }
+.path-summary .is-progress { color: var(--kesken); background: var(--kesken-vaalea); }
+.path-summary .is-todo { color: var(--aloittamatta); background: var(--aloittamatta-vaalea); }
+
 .path {
   position: relative;
   margin: 20px 0 8px;

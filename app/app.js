@@ -8162,6 +8162,35 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         return window.manuscriptData;
     }
 
+    async function markProjectWorkflowStage(stage, status) {
+        if (!window.manuscriptData?.id || !stage) return;
+        const analysis = window.manuscriptData.analysis || {};
+        const workflowState = {
+            ...(analysis.workflow_state || {}),
+            [stage]: {
+                ...(analysis.workflow_state?.[stage] || {}),
+                status,
+                updated_at: new Date().toISOString(),
+            },
+        };
+        window.manuscriptData.analysis = { ...analysis, workflow_state: workflowState };
+        localStorage.setItem('skriptlab_manuscript', JSON.stringify(window.manuscriptData));
+        try {
+            const response = await apiFetch(`/api/projects/${window.manuscriptData.id}/metadata`, {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ analysis: { workflow_state: workflowState } }),
+            });
+            const saved = await response.json().catch(() => null);
+            if (response.ok && saved?.id) {
+                window.manuscriptData = saved;
+                updateAvailableProject(saved);
+            }
+        } catch (error) {
+            console.warn('Työvaiheen tilan tallennus jäi paikalliseksi:', error);
+        }
+    }
+
     async function loadProofreadDefaultRules(force = false) {
         if (proofreadRulesLoaded && !force) return proofreadDefaultRules;
         try {
@@ -8237,7 +8266,18 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const words = proofreadChapterText(chapter).split(/\s+/).filter(Boolean).length;
         if (titleEl) titleEl.textContent = title;
         if (subEl) subEl.textContent = `Luku ${index + 1}/${chapters.length}${words ? ` · noin ${formatNumber(words)} sanaa` : ''}`;
-        if (statusText) statusText.textContent = window.manuscriptData?.id ? 'Valmis.' : 'Käsikirjoitus tallennetaan ennen ajoa.';
+        if (statusText) {
+            const proofreadState = window.manuscriptData?.analysis?.workflow_state?.proofread?.status || '';
+            if (window.manuscriptData?.analysis?.finishing || proofreadState === 'done') {
+                statusText.textContent = 'Viimeistelty versio valmis.';
+            } else if (proofreadState === 'progress') {
+                statusText.textContent = 'Oikoluku kesken.';
+            } else {
+                statusText.textContent = window.manuscriptData?.id
+                    ? 'Valmis aloitettavaksi.'
+                    : 'Käsikirjoitus tallennetaan ennen ajoa.';
+            }
+        }
         if (previewName) previewName.textContent = `- ${title}`;
         if (prev) prev.disabled = index <= 0;
         if (next) next.disabled = index >= chapters.length - 1;
@@ -8425,6 +8465,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             proofreadSuggestions = (data.suggestions || []).map(item => ({ ...item, status: 'open' }));
             setProofreadWarnings('proofread-warnings', data.warnings || []);
             renderProofreadSuggestions();
+            await markProjectWorkflowStage('proofread', 'progress');
             loadUsage();
         } catch (err) {
             proofreadToast('Oikoluku epäonnistui: ' + err.message);
@@ -8484,6 +8525,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             if (!res.ok) throw new Error(data?.detail || 'Tarkistus epäonnistui.');
             proofreadExtraFindings = Array.isArray(data.findings) ? data.findings : [];
             renderProofreadExtraFindings(data.summary || `${proofreadExtraFindings.length} löydöstä.`, data.warnings || []);
+            await markProjectWorkflowStage('proofread', 'progress');
             loadUsage();
         } catch (err) {
             proofreadToast('Tarkistus epäonnistui: ' + err.message);
@@ -8672,10 +8714,23 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             });
             const saved = await saveRes.json().catch(() => null);
             if (!saveRes.ok) throw new Error(saved?.detail || 'Viimeistellyn version tallennus epäonnistui.');
+            const workflowState = {
+                ...(window.manuscriptData.analysis?.workflow_state || {}),
+                proofread: {
+                    ...(window.manuscriptData.analysis?.workflow_state?.proofread || {}),
+                    status: 'done',
+                    updated_at: new Date().toISOString(),
+                },
+            };
             const metadataRes = await apiFetch(`/api/projects/${window.manuscriptData.id}/metadata`, {
                 method: 'PATCH',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ analysis: result.finishing_metadata || {} }),
+                body: JSON.stringify({
+                    analysis: {
+                        ...(result.finishing_metadata || {}),
+                        workflow_state: workflowState,
+                    },
+                }),
             });
             const metadataProject = await metadataRes.json().catch(() => null);
             if (!metadataRes.ok) throw new Error(metadataProject?.detail || 'Viimeistelyn metadatan tallennus epäonnistui.');
@@ -12978,7 +13033,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
 
         if (message.type === 'skriptlab:open-module') {
             const viewId = String(message.viewId || '');
-            if (viewId && document.getElementById(viewId)) openModule(viewId);
+            if (!viewId || !document.getElementById(viewId)) return;
+            const navItem = Array.from(navItems).find(item => item.dataset.view === viewId && !item.hidden);
+            if (navItem) navItem.click();
+            else openModule(viewId);
         }
     });
 
@@ -16334,6 +16392,28 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             paragraphCount += paragraphs.length;
             paragraphs.forEach(mix);
         });
+        const analysis = data.analysis || {};
+        [
+            analysis.analysis_status,
+            analysis.editorial_assessment,
+            analysis.synopsis,
+            analysis.style,
+            analysis.audience,
+            analysis.genre,
+            analysis.library_class,
+            analysis.thema_classes,
+            JSON.stringify(analysis.development_editing || {}),
+            JSON.stringify(analysis.finishing || {}),
+            JSON.stringify(analysis.workflow_state || {}),
+            JSON.stringify(analysis.product_info || {}),
+            analysis.campaign_concept,
+            analysis.marketing_tagline,
+            analysis.marketing_short,
+            analysis.instagram_post,
+            analysis.facebook_post,
+            analysis.tiktok_post,
+            analysis.video_script,
+        ].forEach(mix);
         return [data.id, data.updated_at || '', data.chapters?.length || 0, paragraphCount, characterCount, fingerprint >>> 0].join('-');
     }
 
@@ -16364,8 +16444,11 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (step) params.set('step', step);
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '7');
-        updateEmbeddedModuleFrame(frame, 'manuskripti.html', params);
+        params.set('v', '8');
+        const reloaded = updateEmbeddedModuleFrame(frame, 'manuskripti.html', params);
+        if (!reloaded && frame.contentWindow) {
+            frame.contentWindow.postMessage({ type: 'skriptlab:refresh-workflow-status' }, window.location.origin);
+        }
     }
 
     function refreshMobileEditorFrame() {
