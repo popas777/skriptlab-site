@@ -16499,7 +16499,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         params.set('tab', nextTab);
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '2');
+        params.set('v', '3');
         updateEmbeddedModuleFrame(frame, 'tuotanto.html', params);
     }
 

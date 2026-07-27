@@ -215,6 +215,21 @@ body {
 
 .step-intro { margin: 0 0 18px; color: var(--muste-70); font-size: 15px; }
 
+.layout-basics {
+  display: grid;
+  gap: 8px;
+  margin: -4px 0 20px;
+  padding: 14px 16px;
+  border: 1px solid var(--raja);
+  border-radius: 14px;
+  background: var(--kortti);
+  color: var(--muste-70);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.layout-basics span::first-letter { color: var(--mustikka); }
+
 /* ---------------------------------------------------------------- lomakkeet */
 
 .field { display: block; margin-bottom: 18px; }

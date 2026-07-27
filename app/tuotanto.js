@@ -78,6 +78,36 @@
     }
   }
 
+  function cachedProjectId() {
+    try {
+      const cached = JSON.parse(localStorage.getItem("skriptlab_manuscript") || "null");
+      return cached && cached.id != null ? String(cached.id) : "";
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function resolveProjectId() {
+    const params = new URLSearchParams(window.location.search);
+    const candidates = [
+      params.get("project"),
+      localStorage.getItem("skriptlab_active_project_id"),
+      cachedProjectId(),
+      projectId,
+    ];
+    const resolved = candidates.find((value) => value != null && String(value).trim() !== "");
+    if (resolved != null) projectId = String(resolved).trim();
+    return projectId;
+  }
+
+  function requireProjectId() {
+    const resolved = resolveProjectId();
+    if (resolved == null || String(resolved).trim() === "") {
+      throw new Error("Valitse käsikirjoitus ensin Käsikirjoitukseni-näkymässä.");
+    }
+    return resolved;
+  }
+
   function decodeDataUrl(dataUrl) {
     try {
       const base64 = String(dataUrl || "").split(",", 2)[1] || "";
@@ -94,6 +124,12 @@
     document.body.appendChild(link);
     link.click();
     link.remove();
+  }
+
+  function downloadText(text, filename) {
+    const url = URL.createObjectURL(new Blob([text || ""], { type: "text/plain;charset=utf-8" }));
+    downloadDataUrl(url, filename);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   function safeFileName(name, extension) {
@@ -150,6 +186,16 @@
       throw new Error(detail || "Pyyntö epäonnistui (" + response.status + ")");
     }
     return response.json();
+  }
+
+  async function apiText(path, options) {
+    const response = await doFetch(API_BASE + path, options);
+    if (!response.ok) {
+      let detail = "";
+      try { detail = (await response.json()).detail || ""; } catch (e) { /* ohitetaan */ }
+      throw new Error(detail || "Pyyntö epäonnistui (" + response.status + ")");
+    }
+    return response.text();
   }
 
   const jsonOptions = (method, body) => ({
@@ -231,8 +277,18 @@
       return { title: demo.project.title, full_text: full,
                word_count: full.split(/\s+/).filter(Boolean).length };
     }
-    return api("/projects/" + projectId + "/book?include_title_page=" + includeTitle +
+    const activeId = requireProjectId();
+    return api("/projects/" + activeId + "/book?include_title_page=" + includeTitle +
                "&include_toc=" + includeToc);
+  }
+
+  async function apiGetBookText() {
+    const includeTitle = $("opt-title-page").checked;
+    const includeToc = $("opt-toc").checked;
+    if (demoMode) return demo.bookText(includeTitle, includeToc);
+    const activeId = requireProjectId();
+    return apiText("/projects/" + activeId + "/book.txt?include_title_page=" + includeTitle +
+                   "&include_toc=" + includeToc);
   }
 
   async function apiRunLayout() {
@@ -248,9 +304,10 @@
         warnings: ["Demotila: PDF ja EPUB vaativat backendin."],
       };
     }
-    return api("/projects/" + projectId + "/layout/run", jsonOptions("POST", {
+    const activeId = requireProjectId();
+    return api("/projects/" + activeId + "/layout/run", jsonOptions("POST", {
       layout_style: selectedSize,
-      hyphenation_level: $("hyphenation-select").value,
+      hyphenation_level: "none",
       include_title_page: $("opt-title-page").checked,
       include_toc: $("opt-toc").checked,
     }));
@@ -258,7 +315,7 @@
 
   async function apiListLayoutAssets() {
     if (demoMode) return [];
-    return api("/projects/" + projectId + "/layout-assets");
+    return api("/projects/" + requireProjectId() + "/layout-assets");
   }
 
   /* ------------------------------------------------------------ välilehdet */
@@ -489,12 +546,14 @@
 
   async function downloadTxt() {
     try {
-      const book = await apiGetBook();
-      const dataUrl = "data:text/plain;charset=utf-8;base64," +
-        btoa(unescape(encodeURIComponent(book.full_text || "")));
-      downloadDataUrl(dataUrl, safeFileName(projectTitle, ".txt"));
+      working(true, "Kootaan TXT-tiedostoa…");
+      const text = await apiGetBookText();
+      downloadText(text, safeFileName(projectTitle, ".txt"));
+      toast("TXT-tiedosto valmis.");
     } catch (error) {
       toast(error.message);
+    } finally {
+      working(false);
     }
   }
 
@@ -621,21 +680,32 @@
     bindEvents();
     renderToolChips();
     renderSizeChips();
+    resolveProjectId();
     projectTitle = cachedProjectTitle(projectId) || "Käsikirjoitus";
     $("project-title").textContent = projectTitle;
     $("status-text").textContent = "Ladataan tietoja…";
     switchTab(tab, false);
     working(true, "Ladataan tietoja…", true);
     try {
-      if (projectId == null) throw new Error("projectId puuttuu");
+      if (projectId == null || String(projectId).trim() === "") {
+        throw new Error("Valitse käsikirjoitus ensin Käsikirjoitukseni-näkymässä.");
+      }
       const project = await api("/projects/" + projectId);
       projectTitle = project.title || "Käsikirjoitus";
     } catch (error) {
-      demoMode = true;
-      projectId = 0;
-      projectTitle = demo.project.title;
-      $("status-text").textContent = "Demotila";
-      toast("Demotila: backendiä ei ole yhdistetty.");
+      if (demoMode) {
+        projectId = 0;
+        projectTitle = demo.project.title;
+        $("status-text").textContent = "Demotila";
+      } else {
+        $("status-text").textContent = "Käsikirjoitusta ei voitu avata";
+        $("book-preview").textContent = error.message;
+        $("btn-download-txt").disabled = true;
+        $("btn-run-layout").disabled = true;
+        toast(error.message);
+        working(false);
+        return;
+      }
     }
     $("project-title").textContent = projectTitle;
     $("status-text").textContent = "Ladataan aineistoja…";
