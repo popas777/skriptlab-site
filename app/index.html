@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=61">
+    <link rel="stylesheet" href="styles.css?v=62">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -417,7 +417,10 @@
                             <span>Lisäohje kehityseditoijalle <small>valinnainen</small></span>
                             <textarea id="development-extra-instructions" rows="4" placeholder="Esim. arvioi erityisesti keskiosan rytmiä, päähenkilön kaarta ja loppuratkaisun uskottavuutta."></textarea>
                         </label>
-                        <button class="btn btn-primary development-primary-action" id="development-run-btn" type="button">✦ Kehityseditointipalaute</button>
+                        <div class="development-action-row">
+                            <button class="btn btn-primary development-primary-action" id="development-run-btn" type="button">✦ Kehityseditointipalaute</button>
+                            <button class="btn btn-secondary development-stop-action hidden" id="development-stop-btn" type="button">■ Pysäytä luonti</button>
+                        </div>
                         <div class="development-summary-list" id="development-summary-list"></div>
 
                         <div class="development-result-block">
@@ -447,7 +450,10 @@
                             <span>Lisäohje projektimuistille <small>valinnainen</small></span>
                             <textarea id="knowledge-extra-instructions" rows="4" placeholder="Esim. kiinnitä erityistä huomiota henkilönnimien muotoihin, aikatasoihin ja historiallisiin faktoihin."></textarea>
                         </label>
-                        <button id="knowledge-extract-btn" class="btn btn-primary development-primary-action" type="button">✦ Luo projektimuisti</button>
+                        <div class="development-action-row">
+                            <button id="knowledge-extract-btn" class="btn btn-primary development-primary-action" type="button">✦ Luo projektimuisti</button>
+                            <button id="knowledge-stop-btn" class="btn btn-secondary development-stop-action hidden" type="button">■ Pysäytä luonti</button>
+                        </div>
                         <div id="knowledge-extraction-progress" class="knowledge-extraction-progress hidden" role="progressbar" aria-label="Projektimuistin poiminnan eteneminen" aria-valuemin="0" aria-valuenow="0" aria-valuemax="1">
                             <div class="knowledge-extraction-progress-track"><span id="knowledge-extraction-progress-bar"></span></div>
                             <p id="knowledge-extraction-progress-text">0/0 osaa käsitelty</p>
@@ -3314,6 +3320,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=107"></script>
+    <script src="app.js?v=108"></script>
 </body>
 </html>

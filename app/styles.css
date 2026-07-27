@@ -1233,6 +1233,30 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     margin-top: 14px;
     padding: 12px 18px;
 }
+.development-simple-card .development-action-row {
+    align-items: center;
+    margin-top: 14px;
+}
+.development-simple-card .development-action-row .development-primary-action {
+    margin-top: 0;
+}
+.development-stop-action {
+    border-color: rgba(248, 113, 113, .38);
+    color: #fca5a5;
+    padding: 12px 18px;
+}
+.development-stop-action:hover:not(:disabled) {
+    border-color: rgba(248, 113, 113, .7);
+    background: rgba(127, 29, 29, .16);
+    color: #fecaca;
+}
+.development-stop-action:disabled {
+    cursor: wait;
+    opacity: .65;
+}
+[data-theme="light"] .development-stop-action {
+    color: #b91c1c;
+}
 .development-result-block {
     margin-top: 22px;
     padding-top: 20px;

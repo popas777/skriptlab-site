@@ -303,6 +303,72 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     let pendingWriteEditorChapterId = null;
     let developmentSceneSuggestions = [];
     let developmentSuggestionsProjectId = null;
+    const activeMultiCallRuns = new Map();
+    const multiCallRunControls = {
+        development_feedback: { start: 'development-run-btn', stop: 'development-stop-btn' },
+        project_memory: { start: 'knowledge-extract-btn', stop: 'knowledge-stop-btn' }
+    };
+
+    function syncMultiCallRunControls(key) {
+        const config = multiCallRunControls[key];
+        if (!config) return;
+        const run = activeMultiCallRuns.get(key);
+        const active = Boolean(run && !run.finished);
+        const startButton = document.getElementById(config.start);
+        const stopButton = document.getElementById(config.stop);
+        if (startButton && active) startButton.disabled = true;
+        if (stopButton) {
+            stopButton.classList.toggle('hidden', !active);
+            stopButton.disabled = Boolean(active && run.stopRequested);
+            stopButton.textContent = active && run.stopRequested ? 'Pysäytetään…' : '■ Pysäytä luonti';
+        }
+    }
+
+    function beginMultiCallRun(key) {
+        const current = activeMultiCallRuns.get(key);
+        if (current && !current.finished) return null;
+        const run = {
+            key,
+            controller: new AbortController(),
+            stopRequested: false,
+            finished: false
+        };
+        activeMultiCallRuns.set(key, run);
+        syncMultiCallRunControls(key);
+        return run;
+    }
+
+    function requestMultiCallRunStop(key) {
+        const run = activeMultiCallRuns.get(key);
+        if (!run || run.finished || run.stopRequested) return;
+        run.stopRequested = true;
+        run.controller.abort();
+        syncMultiCallRunControls(key);
+    }
+
+    function finishMultiCallRun(run) {
+        if (!run) return;
+        run.finished = true;
+        if (activeMultiCallRuns.get(run.key) === run) activeMultiCallRuns.delete(run.key);
+        syncMultiCallRunControls(run.key);
+    }
+
+    function isMultiCallRunActive(key) {
+        const run = activeMultiCallRuns.get(key);
+        return Boolean(run && !run.finished);
+    }
+
+    function isMultiCallRunStopped(error, run) {
+        return Boolean(run?.stopRequested || run?.controller?.signal?.aborted || error?.name === 'AbortError');
+    }
+
+    function throwIfMultiCallRunStopped(run) {
+        if (!run?.stopRequested && !run?.controller?.signal?.aborted) return;
+        const error = new Error('Luonti pysäytettiin.');
+        error.name = 'AbortError';
+        throw error;
+    }
+
     const fullWorkspaceRoles = new Set(['admin', 'test_user']);
     const learningMaterialViews = new Set([
         'view-om-projekti',
@@ -9020,15 +9086,18 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const suggestionSelectAll = document.getElementById('knowledge-suggestions-select-all');
         const suggestionClear = document.getElementById('knowledge-suggestions-clear');
         if (extractButton) {
-            extractButton.disabled = !editable || !(project?.chapters || []).length;
-            extractButton.textContent = knowledgeExtractionProgress?.status === 'partial'
-                ? 'Jatka projektimuistin luontia'
-                : (knowledgeExtractionProgress?.status === 'completed' ? 'Päivitä projektimuisti' : '✦ Luo projektimuisti');
+            extractButton.disabled = isMultiCallRunActive('project_memory') || !editable || !(project?.chapters || []).length;
+            if (!isMultiCallRunActive('project_memory')) {
+                extractButton.textContent = knowledgeExtractionProgress?.status === 'partial'
+                    ? 'Jatka projektimuistin luontia'
+                    : (knowledgeExtractionProgress?.status === 'completed' ? 'Päivitä projektimuisti' : '✦ Luo projektimuisti');
+            }
         }
         if (continuityButton) continuityButton.disabled = !editable || !projectKnowledgeItems.length;
         if (suggestionSelectAll) suggestionSelectAll.disabled = !editable;
         if (suggestionClear) suggestionClear.disabled = !editable;
         if (project && !editable) setKnowledgeStatus('Projektimuisti on katselutilassa.');
+        syncMultiCallRunControls('project_memory');
     }
 
     async function loadKnowledgeWorkspace(showFeedback = true) {
@@ -9570,16 +9639,22 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
             return;
         }
         const button = document.getElementById('knowledge-extract-btn');
+        const run = beginMultiCallRun('project_memory');
+        if (!run) return;
         if (button) button.disabled = true;
         setKnowledgeStatus('Poimitaan käsikirjoituksesta projektitietoja…');
+        let completedKeys = new Set();
+        let failures = [];
+        let manuscript = null;
+        let chunks = [];
         try {
             await ensureKnowledgeWorkspaceLoaded();
             const extraInstructions = document.getElementById('knowledge-extra-instructions')?.value?.trim() || '';
             const development = developmentData();
             development.knowledge_instructions = extraInstructions;
-            const manuscript = knowledgeManuscriptChunks();
+            manuscript = knowledgeManuscriptChunks();
             if (!manuscript.chunks.length) throw new Error('Käsikirjoituksesta ei löytynyt poimittavaa tekstiä.');
-            const chunks = manuscript.chunks.map((text, index) => ({
+            chunks = manuscript.chunks.map((text, index) => ({
                 text,
                 index,
                 key: knowledgeChunkKey(text, index)
@@ -9587,9 +9662,9 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
             const canResume = knowledgeExtractionProgress
                 && ['running', 'partial'].includes(knowledgeExtractionProgress.status)
                 && Number(knowledgeExtractionProgress.total || 0) === chunks.length;
-            const completedKeys = new Set(canResume ? knowledgeExtractionProgress.completed_keys : []);
+            completedKeys = new Set(canResume ? knowledgeExtractionProgress.completed_keys : []);
             const pendingChunks = chunks.filter(chunk => !completedKeys.has(chunk.key));
-            const failures = [];
+            failures = [];
             knowledgeExtractionProgress = {
                 status: 'running',
                 completed_keys: Array.from(completedKeys),
@@ -9605,9 +9680,11 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
                 const response = await apiFetch('/api/edit', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
+                    signal: run.controller.signal,
                     body: JSON.stringify({
                         purpose: 'development_editing',
                         temperature: 0.1,
+                        max_output_tokens: 2200,
                         prompt: buildKnowledgeExtractionPrompt(extraInstructions),
                         text: [
                             `PROJEKTI: ${window.manuscriptData.title || 'Nimetön'}`,
@@ -9624,6 +9701,7 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
             };
 
             for (let start = 0; start < pendingChunks.length; start += 2) {
+                throwIfMultiCallRunStopped(run);
                 const batch = pendingChunks.slice(start, start + 2);
                 const nextNumber = completedKeys.size + 1;
                 setKnowledgeStatus(`Poimitaan projektitietoja · osat ${nextNumber}–${Math.min(nextNumber + batch.length - 1, chunks.length)}/${chunks.length}… Valmiit osat tallennetaan heti.`);
@@ -9633,12 +9711,12 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
                     if (result.status === 'fulfilled') {
                         knowledgeSuggestions = mergeKnowledgeSuggestionLists(knowledgeSuggestions, result.value);
                         completedKeys.add(chunk.key);
-                    } else {
+                    } else if (!isMultiCallRunStopped(result.reason, run)) {
                         failures.push({ key: chunk.key, index: chunk.index, message: networkFailureMessage(result.reason) });
                     }
                 });
                 knowledgeExtractionProgress = {
-                    status: failures.length ? 'partial' : 'running',
+                    status: failures.length || run.stopRequested ? 'partial' : 'running',
                     completed_keys: Array.from(completedKeys),
                     failed_keys: failures.map(item => item.key),
                     total: chunks.length,
@@ -9647,30 +9725,53 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
                 await saveKnowledgeReviewState();
                 renderKnowledgeSuggestions();
                 updateKnowledgeExtractionProgress(completedKeys.size, chunks.length);
+                throwIfMultiCallRunStopped(run);
             }
 
             knowledgeExtractionProgress.status = failures.length || manuscript.omittedPieces ? 'partial' : 'completed';
             knowledgeExtractionProgress.failed_keys = failures.map(item => item.key);
             knowledgeExtractionProgress.updated_at = new Date().toISOString();
             await saveKnowledgeReviewState();
+            throwIfMultiCallRunStopped(run);
             if (!knowledgeSuggestions.length && failures.length) throw new Error(failures[0].message);
             if (!knowledgeSuggestions.length) throw new Error('Poiminta ei palauttanut projektimuistiin tallennettavia tietoja.');
-            const persistence = await acceptKnowledgeSuggestions({ automatic: true });
+            const persistence = await acceptKnowledgeSuggestions({ automatic: true, run });
+            throwIfMultiCallRunStopped(run);
             const retryNote = failures.length ? ` ${failures.length} osaa jäi kesken; jatka projektimuistin luontia yrittääksesi ne uudelleen.` : '';
             setKnowledgeStatus(`${persistence.created} tietokorttia tallennettiin ja ne ovat heti myöhempien työvaiheiden käytössä.${retryNote}${manuscript.omittedPieces ? ` Erittäin pitkästä käsikirjoituksesta jäi ${manuscript.omittedPieces} tekstipalaa seuraavaan ajoon.` : ''}`, Boolean(failures.length || persistence.failures.length));
             if (button) button.textContent = failures.length ? 'Jatka projektimuistin luontia' : 'Päivitä projektimuisti';
             loadUsage();
         } catch (error) {
-            setKnowledgeStatus(networkFailureMessage(error), true);
+            if (isMultiCallRunStopped(error, run)) {
+                if (knowledgeExtractionProgress) {
+                    knowledgeExtractionProgress.status = 'partial';
+                    knowledgeExtractionProgress.completed_keys = Array.from(completedKeys);
+                    knowledgeExtractionProgress.failed_keys = failures.map(item => item.key);
+                    knowledgeExtractionProgress.total = chunks.length || knowledgeExtractionProgress.total || 0;
+                    knowledgeExtractionProgress.updated_at = new Date().toISOString();
+                    await saveKnowledgeReviewState().catch(() => null);
+                    renderKnowledgeSuggestions();
+                    updateKnowledgeExtractionProgress(
+                        completedKeys.size,
+                        knowledgeExtractionProgress.total,
+                        `${completedKeys.size}/${knowledgeExtractionProgress.total} osaa valmiina · luonti pysäytetty`
+                    );
+                }
+                setKnowledgeStatus(`Projektimuistin luonti pysäytettiin. ${completedKeys.size}/${chunks.length || knowledgeExtractionProgress?.total || 0} osaa on tallessa. Voit jatkaa myöhemmin samasta kohdasta.`);
+            } else {
+                setKnowledgeStatus(networkFailureMessage(error), true);
+            }
             if (button) button.textContent = 'Jatka projektimuistin luontia';
             loadUsage();
         } finally {
+            finishMultiCallRun(run);
             if (button) button.disabled = !canEditProject(window.manuscriptData || {});
         }
     }
 
     async function acceptKnowledgeSuggestions(options = {}) {
         const automatic = options?.automatic === true;
+        const run = options?.run || null;
         const project = window.manuscriptData;
         const selected = knowledgeSuggestions.filter(item => (automatic || item.selected) && !isKnowledgeSuggestionDuplicate(item) && item.title.trim());
         if (!project?.id) return { created: 0, failures: [] };
@@ -9688,6 +9789,7 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
         const acceptedIds = new Set();
         const failures = [];
         for (const suggestion of selected) {
+            if (run?.stopRequested) break;
             try {
                 const chapterLabel = knowledgeChapterLabel(suggestion.chapter_custom_id);
                 const response = await apiFetch(`/api/projects/${project.id}/knowledge`, {
@@ -9708,6 +9810,7 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
                 projectKnowledgeItems.push(data);
                 acceptedIds.add(suggestion.id);
             } catch (error) {
+                if (isMultiCallRunStopped(error, run)) break;
                 failures.push(`${suggestion.title}: ${error.message}`);
             }
         }
@@ -9718,7 +9821,7 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
         setKnowledgeStatus(failures.length
             ? `${acceptedIds.size} tietokorttia tallennettiin, ${failures.length} epäonnistui.`
             : `${acceptedIds.size} tietokorttia lisättiin projektimuistiin.`, Boolean(failures.length));
-        return { created: acceptedIds.size, failures };
+        return { created: acceptedIds.size, failures, stopped: Boolean(run?.stopRequested) };
     }
 
     function sanitizeContinuityIssues(rawIssues) {
@@ -10396,11 +10499,16 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (shouldLoadKnowledge) loadKnowledgeWorkspace(false);
         const progress = dev.feedback_progress || {};
         const resumable = ['running', 'partial', 'synthesizing'].includes(progress.status);
+        const runButton = document.getElementById('development-run-btn');
+        if (runButton && !isMultiCallRunActive('development_feedback')) {
+            runButton.textContent = resumable ? '✦ Jatka kehityseditointipalautetta' : '✦ Kehityseditointipalaute';
+        }
         setDevelopmentStatus(data
             ? (resumable
-                ? `Edellinen ajo jäi kesken: ${Number(progress.completed || 0)}/${Number(progress.total || 0)} osaa tallessa. Paina Kehityseditointipalaute jatkaaksesi.`
+                ? `Edellinen ajo jäi kesken: ${Number(progress.completed || 0)}/${Number(progress.total || 0)} osaa tallessa. Paina Jatka kehityseditointipalautetta.`
                 : (dev.feedback_report ? 'Kehityseditointipalaute valmis.' : 'Valmis aloitettavaksi.'))
             : 'Valitse käsikirjoitus ensin.', !data);
+        syncMultiCallRunControls('development_feedback');
     }
 
     async function saveDevelopmentEditingEdits(showStatus = true) {
@@ -10435,6 +10543,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             return;
         }
         const button = document.getElementById('development-run-btn');
+        const run = beginMultiCallRun('development_feedback');
+        if (!run) return;
         if (button) button.disabled = true;
         let dev = null;
         let progress = null;
@@ -10471,6 +10581,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
 
             for (let index = 0; index < chunks.length; index += 1) {
                 if (progress.reports[index]) continue;
+                throwIfMultiCallRunStopped(run);
                 const chunkTitles = chunks[index]
                     .map(entry => structureDisplayTitle(entry.chapter, entry.index) || `Osio ${entry.order + 1}`)
                     .join(', ');
@@ -10480,6 +10591,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 const response = await apiFetch('/api/edit', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
+                    signal: run.controller.signal,
                     body: JSON.stringify({
                         text: developmentChunkInput(chunks[index], index, chunks.length),
                         purpose: 'development_editing',
@@ -10505,8 +10617,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 dev.blueprint_updated_at = progress.updated_at;
                 dev.updated_at = progress.updated_at;
                 await window.saveManuscriptToDB(window.manuscriptData);
+                throwIfMultiCallRunStopped(run);
             }
 
+            throwIfMultiCallRunStopped(run);
             progress.status = 'synthesizing';
             progress.completed = chunks.length;
             progress.updated_at = new Date().toISOString();
@@ -10516,6 +10630,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             const feedbackResponse = await apiFetch('/api/edit', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
+                signal: run.controller.signal,
                 body: JSON.stringify({
                     text: developmentSynthesisInput(progress),
                     purpose: 'development_editing',
@@ -10547,6 +10662,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             await window.saveManuscriptToDB(window.manuscriptData);
             renderDevelopmentSummary();
             loadUsage();
+            if (button) button.textContent = '✦ Kehityseditointipalaute';
             setDevelopmentStatus('Kehityseditointipalaute valmis ja tallennettu.');
         } catch (error) {
             const message = networkFailureMessage(error);
@@ -10558,12 +10674,18 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 dev.feedback_progress = progress;
                 dev.updated_at = progress.updated_at;
                 await window.saveManuscriptToDB(window.manuscriptData).catch(() => null);
-                setDevelopmentStatus(`Ajo keskeytyi, mutta ${progress.completed}/${progress.total} osaa on tallessa. Paina Kehityseditointipalaute uudelleen jatkaaksesi. ${message}`, true);
+                if (isMultiCallRunStopped(error, run)) {
+                    setDevelopmentStatus(`Luonti pysäytettiin. ${progress.completed}/${progress.total} osaa on tallessa. Voit jatkaa myöhemmin samasta kohdasta.`);
+                } else {
+                    setDevelopmentStatus(`Ajo keskeytyi, mutta ${progress.completed}/${progress.total} osaa on tallessa. Voit jatkaa samasta kohdasta. ${message}`, true);
+                }
+                if (button) button.textContent = '✦ Jatka kehityseditointipalautetta';
             } else {
-                setDevelopmentStatus(message, true);
+                setDevelopmentStatus(isMultiCallRunStopped(error, run) ? 'Luonti pysäytettiin. Voit käynnistää sen myöhemmin uudelleen.' : message, !isMultiCallRunStopped(error, run));
             }
             loadUsage();
         } finally {
+            finishMultiCallRun(run);
             if (button) button.disabled = !canEditProject(window.manuscriptData || {});
         }
     }
@@ -11866,6 +11988,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     const structureRejectBtn = document.getElementById('structure-reject-btn');
     const developmentRefreshBtn = document.getElementById('development-refresh-btn');
     const developmentRunBtn = document.getElementById('development-run-btn');
+    const developmentStopBtn = document.getElementById('development-stop-btn');
     const developmentSaveBtn = document.getElementById('development-save-btn');
     const developmentBlueprintBtn = document.getElementById('development-blueprint-btn');
     const developmentFeedbackBtn = document.getElementById('development-feedback-btn');
@@ -12010,6 +12133,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         loadKnowledgeWorkspace(true);
     });
     if (developmentRunBtn) developmentRunBtn.addEventListener('click', runDevelopmentEditing);
+    if (developmentStopBtn) developmentStopBtn.addEventListener('click', () => {
+        requestMultiCallRunStop('development_feedback');
+        setDevelopmentStatus('Pysäytetään luonti ja säilytetään valmiit osat…');
+    });
     if (developmentSaveBtn) developmentSaveBtn.addEventListener('click', () => saveDevelopmentEditingEdits(true));
     if (developmentBlueprintBtn) developmentBlueprintBtn.addEventListener('click', runDevelopmentBlueprint);
     if (developmentFeedbackBtn) developmentFeedbackBtn.addEventListener('click', runDevelopmentFeedback);
@@ -12064,6 +12191,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     document.getElementById('knowledge-cancel-btn')?.addEventListener('click', () => resetKnowledgeForm());
     document.getElementById('knowledge-search')?.addEventListener('input', renderKnowledgeList);
     document.getElementById('knowledge-extract-btn')?.addEventListener('click', extractKnowledgeSuggestions);
+    document.getElementById('knowledge-stop-btn')?.addEventListener('click', () => {
+        requestMultiCallRunStop('project_memory');
+        setKnowledgeStatus('Pysäytetään luonti ja säilytetään valmiit osat…');
+    });
     document.getElementById('knowledge-continuity-btn')?.addEventListener('click', runContinuityCheck);
     document.getElementById('knowledge-suggestions-select-all')?.addEventListener('click', () => {
         knowledgeSuggestions.forEach(item => { item.selected = !isKnowledgeSuggestionDuplicate(item); });
