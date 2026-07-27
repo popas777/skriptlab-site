@@ -10050,6 +10050,115 @@ Säännöt:
         return rows.join('\n\n---\n\n');
     }
 
+    const DEVELOPMENT_CHUNK_SIZE = 2;
+
+    function developmentChapterChunks(chunkSize = DEVELOPMENT_CHUNK_SIZE) {
+        const entries = bodyChapterEntries().map((entry, order) => ({ ...entry, order }));
+        const chunks = [];
+        for (let cursor = 0; cursor < entries.length; cursor += chunkSize) {
+            chunks.push(entries.slice(cursor, cursor + chunkSize));
+        }
+        return chunks;
+    }
+
+    function developmentRunSignature(chunks, brief) {
+        const chapterSignature = chunks.flat().map(({ chapter, index }) => {
+            const text = (chapter.paragraphs || []).join('\n');
+            return knowledgeChunkKey(`${chapter.id || index}|${chapter.title || ''}|${text}`, index);
+        }).join('|');
+        const briefSignature = JSON.stringify({
+            genre: brief.genre || '',
+            target_audience: brief.target_audience || '',
+            feedback_mode: brief.feedback_mode || '',
+            focus_areas: brief.focus_areas || [],
+            support_material: brief.support_material || '',
+            author_questions: brief.author_questions || '',
+            extra_instructions: brief.extra_instructions || ''
+        });
+        return knowledgeChunkKey(`${window.manuscriptData?.id || ''}|${chapterSignature}|${briefSignature}`, chunks.length);
+    }
+
+    function developmentChunkExcerpt(entry) {
+        const text = (entry.chapter.paragraphs || []).join('\n\n').trim();
+        const title = structureDisplayTitle(entry.chapter, entry.index) || `Osio ${entry.order + 1}`;
+        return [
+            `CHAPTER_${String(entry.order + 1).padStart(2, '0')} | lähdeindeksi ${entry.index + 1} | ${title}`,
+            `Sanoja noin: ${countWords(text)}`,
+            'TEKSTIOTE:',
+            compactDevelopmentText(text, 3800)
+        ].join('\n');
+    }
+
+    function buildDevelopmentChunkPrompt(chunkIndex, chunkTotal) {
+        return `Toimi kokeneena kehityseditoijana ja analysoi vain annetut käsikirjoituksen osat. Tämä on osaraportti ${chunkIndex + 1}/${chunkTotal}, joka yhdistetään myöhemmin koko teoksen palautteeksi.
+
+Palauta suomeksi enintään noin 900 sanan Markdown-osaraportti näillä otsikoilla:
+
+# Osaraportti ${chunkIndex + 1}/${chunkTotal}
+## Osioiden tapahtumat ja tehtävä kokonaisuudessa
+## Mikä toimii
+## Kehityskohdat
+## Henkilöt, konflikti ja muutos
+## Rytmi, näkökulma ja lukijan tieto
+## Kohtaukset ja rakenteelliset havainnot
+## Epävarmuudet
+
+Säännöt:
+- Perusta jokainen havainto annettuun tekstiotteeseen tai merkitse se tulkinnaksi.
+- Viittaa osioihin CHAPTER-tunnisteilla ja nimillä.
+- Älä kirjoita vielä koko teoksen loppuraporttia.
+- Älä toista taustatietoja tarpeettomasti.
+- Noudata käyttäjän lisäohjetta, jos sellainen on annettu.`;
+    }
+
+    function developmentChunkInput(chunk, chunkIndex, chunkTotal) {
+        const project = window.manuscriptData;
+        const brief = readDevelopmentBriefFromForm();
+        return [
+            `PROJEKTI: ${project?.title || 'Nimetön'}`,
+            `TEKIJÄ: ${project?.author || 'Tuntematon'}`,
+            `OSARAPORTTI: ${chunkIndex + 1}/${chunkTotal}`,
+            `Palautteen sävy: ${developmentToneLabel(brief.feedback_mode)}`,
+            `Painopisteet: ${brief.focus_areas.length ? brief.focus_areas.join(', ') : 'rakenne, henkilöt, rytmi ja lukijan kokemus'}`,
+            brief.extra_instructions ? `Käyttäjän lisäohje:\n${compactDevelopmentText(brief.extra_instructions, 900)}` : '',
+            '',
+            'AIEMMAN ANALYYSIN TIIVISTETTY KONTEKSTI:',
+            compactDevelopmentText(developmentAnalysisBrief(), 3200) || 'Ei tallennettua analyysiä.',
+            '',
+            'PROJEKTIMUISTIN TIIVISTETTY KONTEKSTI:',
+            compactDevelopmentText(developmentKnowledgeBrief(20), 2200) || 'Ei erillisiä tietokortteja.',
+            '',
+            'KÄSITELTÄVÄT OSIOT:',
+            chunk.map(developmentChunkExcerpt).join('\n\n---\n\n')
+        ].filter(value => value !== '').join('\n');
+    }
+
+    function developmentSynthesisInput(progress) {
+        const project = window.manuscriptData;
+        const brief = readDevelopmentBriefFromForm();
+        const reports = (progress.reports || []).map((report, index) => [
+            `OSARAPORTTI ${index + 1}/${progress.total}`,
+            compactDevelopmentText(report, 1800)
+        ].join('\n')).join('\n\n---\n\n');
+        return [
+            `PROJEKTI: ${project?.title || 'Nimetön'}`,
+            `TEKIJÄ: ${project?.author || 'Tuntematon'}`,
+            `Pituus: noin ${formatNumber(countWords(getFullManuscriptText(project)))} sanaa`,
+            `Palautteen sävy: ${developmentToneLabel(brief.feedback_mode)}`,
+            `Painopisteet: ${brief.focus_areas.length ? brief.focus_areas.join(', ') : 'rakenne, henkilöt, rytmi ja korjaussuunnitelma'}`,
+            brief.extra_instructions ? `Käyttäjän lisäohje:\n${compactDevelopmentText(brief.extra_instructions, 1000)}` : '',
+            '',
+            'AIEMMAN ANALYYSIN TIIVISTELMÄ:',
+            compactDevelopmentText(developmentAnalysisBrief(), 4000) || 'Ei tallennettua analyysiä.',
+            '',
+            'PROJEKTIMUISTIN TIIVISTELMÄ:',
+            compactDevelopmentText(developmentKnowledgeBrief(24), 2600) || 'Ei erillisiä tietokortteja.',
+            '',
+            'LYHYET OSARAPORTIT KOKO KÄSIKIRJOITUKSESTA:',
+            reports
+        ].filter(value => value !== '').join('\n');
+    }
+
     function developmentAnalysisBrief() {
         const analysis = window.manuscriptData?.analysis || {};
         return [
@@ -10141,7 +10250,7 @@ Säännöt:
         const brief = readDevelopmentBriefFromForm();
         return `Toimi Agentti 2:na: kokeneena kehitys- ja rakenne-editoijana.
 
-Saat rakennemallin, validointitiedot, käyttäjän korjaukset ja tekstinäytteitä. Kirjoita konkreettinen, priorisoitu palaute. Palautteen sävy: ${developmentToneLabel(brief.feedback_mode)}.
+Saat koko käsikirjoituksen lyhyet osaraportit, aiemman analyysin, projektimuistin ja käyttäjän lisäohjeen. Yhdistä ne konkreettiseksi, priorisoiduksi palautteeksi ilman tarpeetonta toistoa. Palautteen sävy: ${developmentToneLabel(brief.feedback_mode)}.
 
 Palauta suomeksi Markdown näillä otsikoilla:
 
@@ -10165,6 +10274,7 @@ Palauta suomeksi Markdown näillä otsikoilla:
 ## 17. Yhteenveto
 
 Säännöt:
+- Pidä koko raportti tiiviinä: enintään noin 2 500 sanaa.
 - Älä anna geneerisiä kirjoitusneuvoja.
 - Jokaisessa isossa havainnossa kerro missä se näkyy, miksi se haittaa tai vahvistaa kokonaisuutta ja mitä voisi tehdä.
 - Merkitse epävarmuus näkyviin.
@@ -10243,12 +10353,16 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (!container) return;
         const data = window.manuscriptData;
         const dev = data?.analysis?.development_editing || {};
+        const progress = dev.feedback_progress || {};
         const bodyCount = bodyChapterEntries().length;
         const text = getFullManuscriptText(data);
+        const progressText = ['running', 'partial', 'synthesizing'].includes(progress.status)
+            ? `Kesken · ${Number(progress.completed || 0)}/${Number(progress.total || 0)} osaa tallessa. Jatkuu samasta kohdasta.`
+            : '';
         const items = [
             ['Käsikirjoitus', data ? `${data.title || 'Nimetön'} · ${formatNumber(countWords(text))} sanaa · ${bodyCount || (data.chapters || []).length} osiota` : 'Ei aktiivista käsikirjoitusta.'],
             ['Analyysi', hasSavedAnalysis(data?.analysis) ? 'Tallennettu analyysi käytettävissä.' : 'Varsinaista analyysiä ei ole vielä tallennettu. Moduuli voi silti tehdä alustavan mallin.'],
-            ['Kehityseditointi', dev.feedback_report ? `Valmis · ${dev.feedback_updated_at ? new Date(dev.feedback_updated_at).toLocaleString('fi-FI') : 'tallennettu'}.` : 'Ei vielä tehty.'],
+            ['Kehityseditointipalaute', progressText || (dev.feedback_report ? `Valmis · ${dev.feedback_updated_at ? new Date(dev.feedback_updated_at).toLocaleString('fi-FI') : 'tallennettu'}.` : 'Ei vielä tehty.')],
             ['Projektimuisti', projectKnowledgeItems.length ? `${projectKnowledgeItems.length} automaattisesti tallennettua tietokorttia.` : 'Ei vielä luotu.']
         ];
         container.innerHTML = items.map(([title, value]) => `
@@ -10280,7 +10394,13 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         renderDevelopmentSummary();
         renderKnowledgeWorkspace();
         if (shouldLoadKnowledge) loadKnowledgeWorkspace(false);
-        setDevelopmentStatus(data ? (dev.feedback_report ? 'Kehityseditointi valmis.' : 'Valmis aloitettavaksi.') : 'Valitse käsikirjoitus ensin.', !data);
+        const progress = dev.feedback_progress || {};
+        const resumable = ['running', 'partial', 'synthesizing'].includes(progress.status);
+        setDevelopmentStatus(data
+            ? (resumable
+                ? `Edellinen ajo jäi kesken: ${Number(progress.completed || 0)}/${Number(progress.total || 0)} osaa tallessa. Paina Kehityseditointipalaute jatkaaksesi.`
+                : (dev.feedback_report ? 'Kehityseditointipalaute valmis.' : 'Valmis aloitettavaksi.'))
+            : 'Valitse käsikirjoitus ensin.', !data);
     }
 
     async function saveDevelopmentEditingEdits(showStatus = true) {
@@ -10316,46 +10436,109 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
         const button = document.getElementById('development-run-btn');
         if (button) button.disabled = true;
+        let dev = null;
+        let progress = null;
         try {
             await flushPendingManuscriptEdits();
             await ensureKnowledgeWorkspaceLoaded();
-            const dev = developmentData();
+            dev = developmentData();
             dev.brief = readDevelopmentBriefFromForm();
+            const chunks = developmentChapterChunks();
+            if (!chunks.length) throw new Error('Käsikirjoituksessa ei ole analysoitavia tekstiosioita.');
+            const signature = developmentRunSignature(chunks, dev.brief);
+            const savedProgress = dev.feedback_progress;
+            const canResume = savedProgress
+                && savedProgress.signature === signature
+                && Number(savedProgress.total) === chunks.length
+                && ['running', 'partial', 'synthesizing'].includes(savedProgress.status)
+                && Array.isArray(savedProgress.reports);
+            progress = canResume
+                ? {
+                    ...savedProgress,
+                    reports: Array.from({ length: chunks.length }, (_, index) => String(savedProgress.reports[index] || ''))
+                }
+                : {
+                    status: 'running',
+                    signature,
+                    total: chunks.length,
+                    completed: 0,
+                    reports: Array(chunks.length).fill(''),
+                    started_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                    last_error: ''
+                };
+            dev.feedback_progress = progress;
 
-            setDevelopmentStatus('Luetaan käsikirjoitusta ja muodostetaan toimituksellista mallia…');
-            const blueprintResponse = await apiFetch('/api/edit', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    text: developmentProjectInput(),
-                    purpose: 'development_editing',
-                    temperature: 0.2,
-                    prompt: buildDevelopmentBlueprintPrompt()
-                })
-            });
-            const blueprintPayload = await blueprintResponse.json().catch(() => null);
-            if (!blueprintResponse.ok) throw new Error(blueprintPayload?.detail || 'Käsikirjoituksen mallinnus epäonnistui.');
-            dev.blueprint = blueprintPayload?.edited_text || '';
-            dev.validation_report = developmentValidationFromBlueprint(dev.blueprint);
-            dev.blueprint_updated_at = new Date().toISOString();
+            for (let index = 0; index < chunks.length; index += 1) {
+                if (progress.reports[index]) continue;
+                const chunkTitles = chunks[index]
+                    .map(entry => structureDisplayTitle(entry.chapter, entry.index) || `Osio ${entry.order + 1}`)
+                    .join(', ');
+                progress.status = 'running';
+                progress.updated_at = new Date().toISOString();
+                setDevelopmentStatus(`Kehityseditointipalaute: käsitellään osaa ${index + 1}/${chunks.length} · ${chunkTitles}`);
+                const response = await apiFetch('/api/edit', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        text: developmentChunkInput(chunks[index], index, chunks.length),
+                        purpose: 'development_editing',
+                        temperature: 0.2,
+                        max_output_tokens: 2200,
+                        prompt: buildDevelopmentChunkPrompt(index, chunks.length)
+                    })
+                });
+                const payload = await response.json().catch(() => null);
+                if (!response.ok) throw new Error(payload?.detail || `Osan ${index + 1} käsittely epäonnistui.`);
+                const report = String(payload?.edited_text || '').trim();
+                if (!report) throw new Error(`Osasta ${index + 1} ei saatu palautetta.`);
+                progress.reports[index] = compactDevelopmentText(report, 6000);
+                progress.completed = progress.reports.filter(Boolean).length;
+                progress.status = 'partial';
+                progress.updated_at = new Date().toISOString();
+                progress.last_error = '';
+                dev.blueprint = progress.reports
+                    .map((item, reportIndex) => item ? `# Osaraportti ${reportIndex + 1}/${chunks.length}\n\n${item}` : '')
+                    .filter(Boolean)
+                    .join('\n\n---\n\n');
+                dev.validation_report = developmentValidationFromBlueprint(dev.blueprint);
+                dev.blueprint_updated_at = progress.updated_at;
+                dev.updated_at = progress.updated_at;
+                await window.saveManuscriptToDB(window.manuscriptData);
+            }
 
-            setDevelopmentStatus('Kirjoitetaan kehityseditointipalautetta ja korjaussuunnitelmaa…');
+            progress.status = 'synthesizing';
+            progress.completed = chunks.length;
+            progress.updated_at = new Date().toISOString();
+            dev.feedback_progress = progress;
+            await window.saveManuscriptToDB(window.manuscriptData);
+            setDevelopmentStatus(`Kehityseditointipalaute: yhdistetään ${chunks.length} lyhyttä osaraporttia…`);
             const feedbackResponse = await apiFetch('/api/edit', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
-                    text: buildDevelopmentFeedbackInput(),
+                    text: developmentSynthesisInput(progress),
                     purpose: 'development_editing',
                     temperature: 0.25,
+                    max_output_tokens: 4800,
                     prompt: buildDevelopmentFeedbackPrompt()
                 })
             });
             const feedbackPayload = await feedbackResponse.json().catch(() => null);
             if (!feedbackResponse.ok) throw new Error(feedbackPayload?.detail || 'Kehityseditointipalautteen luonti epäonnistui.');
             dev.feedback_report = feedbackPayload?.edited_text || '';
-            dev.revision_plan = extractMarkdownSection(dev.feedback_report, 'Priorisoitu korjaussuunnitelma') || '';
+            dev.revision_plan = extractMarkdownSection(dev.feedback_report, 'Priorisoitu korjaussuunnitelma') || dev.revision_plan || '';
             dev.feedback_updated_at = new Date().toISOString();
             dev.updated_at = dev.feedback_updated_at;
+            dev.feedback_progress = {
+                status: 'completed',
+                signature,
+                total: chunks.length,
+                completed: chunks.length,
+                started_at: progress.started_at,
+                updated_at: dev.feedback_updated_at,
+                last_error: ''
+            };
 
             const feedback = document.getElementById('development-feedback');
             const plan = document.getElementById('development-plan');
@@ -10364,9 +10547,21 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             await window.saveManuscriptToDB(window.manuscriptData);
             renderDevelopmentSummary();
             loadUsage();
-            setDevelopmentStatus('Kehityseditointi valmis ja tallennettu.');
+            setDevelopmentStatus('Kehityseditointipalaute valmis ja tallennettu.');
         } catch (error) {
-            setDevelopmentStatus(networkFailureMessage(error), true);
+            const message = networkFailureMessage(error);
+            if (dev && progress) {
+                progress.status = 'partial';
+                progress.completed = (progress.reports || []).filter(Boolean).length;
+                progress.updated_at = new Date().toISOString();
+                progress.last_error = message;
+                dev.feedback_progress = progress;
+                dev.updated_at = progress.updated_at;
+                await window.saveManuscriptToDB(window.manuscriptData).catch(() => null);
+                setDevelopmentStatus(`Ajo keskeytyi, mutta ${progress.completed}/${progress.total} osaa on tallessa. Paina Kehityseditointipalaute uudelleen jatkaaksesi. ${message}`, true);
+            } else {
+                setDevelopmentStatus(message, true);
+            }
             loadUsage();
         } finally {
             if (button) button.disabled = !canEditProject(window.manuscriptData || {});
