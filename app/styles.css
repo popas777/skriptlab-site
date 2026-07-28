@@ -8187,6 +8187,8 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 /* Proofreading and finishing */
 #view-oikoluku .editorial-paper-workspace {
     gap: 16px;
+    align-content: start;
+    grid-auto-rows: max-content;
 }
 
 #view-oikoluku .editorial-paper-workspace > .production-workspace-hero {
@@ -8243,7 +8245,11 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 }
 
 #view-oikoluku .proofread-modern .proofread-mode-switch {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-self: start;
     gap: 6px;
+    min-height: 62px;
     padding: 6px;
     border: 1px solid #e4decf;
     border-radius: 14px;
@@ -8251,6 +8257,9 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 }
 
 #view-oikoluku .proofread-modern .proofread-mode-switch button {
+    width: 100%;
+    min-width: 0;
+    height: 48px;
     min-height: 48px;
     border-radius: 10px;
     color: rgba(41, 36, 29, .62);
