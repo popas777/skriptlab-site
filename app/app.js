@@ -10225,6 +10225,9 @@ Säännöt:
     const DEVELOPMENT_FEEDBACK_PROMPT_VERSION = 3;
     const DEVELOPMENT_REQUEST_TIMEOUT_MS = 85000;
     const DEVELOPMENT_REQUEST_ATTEMPTS = 2;
+    const DEVELOPMENT_PARALLEL_CHUNKS = 3;
+    const DEVELOPMENT_SYNTHESIS_REPORT_BUDGET = 36000;
+    const DEVELOPMENT_RETRY_DELAY_MS = 1500;
     const DEVELOPMENT_EDITORIAL_AREAS = [
         'juonen rakenne ja narratiiviset kaaret',
         'hahmojen kehitys ja johdonmukaisuus',
@@ -10328,9 +10331,14 @@ Säännöt:
     function developmentSynthesisInput(progress) {
         const project = window.manuscriptData;
         const brief = readDevelopmentBriefFromForm();
+        const successfulReportCount = Math.max(1, (progress.reports || []).filter(Boolean).length);
+        const perReportLimit = Math.max(
+            700,
+            Math.min(2500, Math.floor(DEVELOPMENT_SYNTHESIS_REPORT_BUDGET / successfulReportCount))
+        );
         const reports = (progress.reports || []).map((report, index) => [
             `OSARAPORTTI ${index + 1}/${progress.total}`,
-            compactDevelopmentText(report, 2500)
+            compactDevelopmentText(report, perReportLimit)
         ].join('\n')).filter((_, index) => Boolean(progress.reports?.[index])).join('\n\n---\n\n');
         const missingReports = (progress.reports || [])
             .map((report, index) => report ? null : index + 1)
@@ -10354,6 +10362,35 @@ Säännöt:
             missingReports.length
                 ? `PUUTTUVAT OSARAPORTIT: ${missingReports.join(', ')}. Älä päättele niiden sisällöstä; merkitse kattavuusrajoitus loppuraporttiin.`
                 : ''
+        ].filter(value => value !== '').join('\n');
+    }
+
+    function developmentFallbackReport(progress, reason = '') {
+        const reports = (progress.reports || []).map((report, index) => {
+            if (!report) return '';
+            return `### Osaraportti ${index + 1}/${progress.total}\n\n${compactDevelopmentText(report, 3200)}`;
+        }).filter(Boolean);
+        const planSections = (progress.reports || []).map((report, index) => {
+            const plan = extractMarkdownSection(report, 'Tärkeimmät kehityskohdat');
+            return plan ? `### Osa ${index + 1}\n${compactDevelopmentText(plan, 1000)}` : '';
+        }).filter(Boolean);
+        return [
+            '# Kehitys- ja rakennepalauteraportti',
+            '',
+            '## 1. Tiivis kokonaisarvio',
+            'Kokoavan loppuraportin mallikutsu ei valmistunut, mutta onnistuneet osaraportit on koottu alle. Voit käyttää niitä heti ja jatkaa myöhemmin vain loppuraportin yhdistämistä.',
+            reason ? `Tekninen huomautus: ${compactDevelopmentText(reason, 600)}` : '',
+            '',
+            '## 6. Rytmi, kohtausrakenne ja osakohtainen palaute',
+            reports.join('\n\n---\n\n'),
+            '',
+            '## 14. Priorisoitu korjaussuunnitelma',
+            planSections.length
+                ? planSections.join('\n\n')
+                : 'Tarkista osaraporttien tärkeimmät kehityskohdat ja priorisoi ensin koko teoksen rakennetta koskevat havainnot.',
+            '',
+            '## 16. Yhteenveto',
+            'Osaraportit ovat tallessa. Loppuraportin yhdistämistä voi jatkaa ilman osien uutta käsittelyä.'
         ].filter(value => value !== '').join('\n');
     }
 
@@ -10607,7 +10644,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         renderKnowledgeWorkspace();
         if (shouldLoadKnowledge) loadKnowledgeWorkspace(false);
         const progress = dev.feedback_progress || {};
-        const resumable = ['running', 'partial', 'synthesizing'].includes(progress.status);
+        const resumable = ['running', 'partial', 'synthesizing', 'synthesis_failed'].includes(progress.status);
         const runButton = document.getElementById('development-run-btn');
         if (runButton && !isMultiCallRunActive('development_feedback')) {
             runButton.textContent = resumable ? '✦ Jatka kehityseditointipalautetta' : '✦ Kehityseditointipalaute';
@@ -10641,9 +10678,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                         text,
                         purpose: 'development_editing',
                         temperature,
-                        max_output_tokens: attempt === 1
-                            ? maxOutputTokens
-                            : Math.max(900, Math.round(maxOutputTokens * 0.75)),
+                        max_output_tokens: maxOutputTokens,
                         prompt
                     })
                 });
@@ -10659,6 +10694,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     : error;
                 if (attempt < DEVELOPMENT_REQUEST_ATTEMPTS) {
                     setDevelopmentStatus(`${retryLabel} ei valmistunut. Yritetään automaattisesti uudelleen (${attempt + 1}/${DEVELOPMENT_REQUEST_ATTEMPTS})…`);
+                    await new Promise(resolve => window.setTimeout(resolve, DEVELOPMENT_RETRY_DELAY_MS * attempt));
+                    throwIfMultiCallRunStopped(run);
                 }
             } finally {
                 window.clearTimeout(timeout);
@@ -10717,7 +10754,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             const canResume = savedProgress
                 && savedProgress.signature === signature
                 && Number(savedProgress.total) === chunks.length
-                && ['running', 'partial', 'synthesizing'].includes(savedProgress.status)
+                && ['running', 'partial', 'synthesizing', 'synthesis_failed'].includes(savedProgress.status)
                 && Array.isArray(savedProgress.reports);
             progress = canResume
                 ? {
@@ -10737,46 +10774,55 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 };
             dev.feedback_progress = progress;
 
-            for (let index = 0; index < chunks.length; index += 1) {
-                if (progress.reports[index]) continue;
+            const pendingIndexes = chunks
+                .map((_, index) => progress.reports[index] ? null : index)
+                .filter(index => index !== null);
+            progress.parallel_chunks = Math.min(DEVELOPMENT_PARALLEL_CHUNKS, Math.max(1, pendingIndexes.length));
+
+            for (let cursor = 0; cursor < pendingIndexes.length; cursor += DEVELOPMENT_PARALLEL_CHUNKS) {
                 throwIfMultiCallRunStopped(run);
-                const chunkTitles = chunks[index]
-                    .map(entry => structureDisplayTitle(entry.chapter, entry.index) || `Osio ${entry.order + 1}`)
-                    .join(', ');
+                const batchIndexes = pendingIndexes.slice(cursor, cursor + DEVELOPMENT_PARALLEL_CHUNKS);
+                const batchLabels = batchIndexes.map(index => index + 1).join(', ');
                 progress.status = 'running';
                 progress.updated_at = new Date().toISOString();
-                setDevelopmentStatus(`Kehityseditointipalaute: käsitellään osaa ${index + 1}/${chunks.length} · ${chunkTitles}`);
-                let report = '';
-                try {
-                    report = await requestDevelopmentEdit({
-                        text: developmentChunkInput(chunks[index], index, chunks.length),
-                        temperature: 0.2,
-                        maxOutputTokens: 1400,
-                        prompt: buildDevelopmentChunkPrompt(index, chunks.length),
-                        retryLabel: `Osan ${index + 1}/${chunks.length} käsittely`
-                    }, run);
-                } catch (error) {
-                    if (run.stopRequested || run.controller.signal.aborted) throw error;
-                    progress.failures = Array.isArray(progress.failures)
-                        ? progress.failures
-                        : Array(chunks.length).fill('');
-                    progress.failures[index] = networkFailureMessage(error);
-                    progress.status = 'partial';
-                    progress.completed = progress.reports.filter(Boolean).length;
-                    progress.updated_at = new Date().toISOString();
-                    progress.last_error = `Osa ${index + 1}: ${progress.failures[index]}`;
-                    dev.feedback_progress = progress;
-                    dev.updated_at = progress.updated_at;
-                    await window.saveManuscriptToDB(window.manuscriptData);
-                    setDevelopmentStatus(`Osa ${index + 1}/${chunks.length} jäi kahden yrityksen jälkeen väliin. Jatketaan muihin osiin…`, true);
-                    continue;
-                }
-                progress.reports[index] = compactDevelopmentText(report, 6000);
-                if (Array.isArray(progress.failures)) progress.failures[index] = '';
+                setDevelopmentStatus(
+                    `Kehityseditointipalaute: käsitellään rinnakkain osia ${batchLabels}/${chunks.length} `
+                    + `(${progress.completed || 0}/${chunks.length} valmiina)`
+                );
+                const batchResults = await Promise.all(batchIndexes.map(async index => {
+                    try {
+                        const report = await requestDevelopmentEdit({
+                            text: developmentChunkInput(chunks[index], index, chunks.length),
+                            temperature: 0.2,
+                            maxOutputTokens: 1400,
+                            prompt: buildDevelopmentChunkPrompt(index, chunks.length),
+                            retryLabel: `Osan ${index + 1}/${chunks.length} käsittely`
+                        }, run);
+                        return { index, report, error: null };
+                    } catch (error) {
+                        if (run.stopRequested || run.controller.signal.aborted) throw error;
+                        return { index, report: '', error };
+                    }
+                }));
+
+                progress.failures = Array.isArray(progress.failures)
+                    ? Array.from({ length: chunks.length }, (_, index) => String(progress.failures[index] || ''))
+                    : Array(chunks.length).fill('');
+                const batchErrors = [];
+                batchResults.forEach(({ index, report, error }) => {
+                    if (report) {
+                        progress.reports[index] = compactDevelopmentText(report, 6000);
+                        progress.failures[index] = '';
+                        return;
+                    }
+                    const message = networkFailureMessage(error);
+                    progress.failures[index] = message;
+                    batchErrors.push(`Osa ${index + 1}: ${message}`);
+                });
                 progress.completed = progress.reports.filter(Boolean).length;
                 progress.status = 'partial';
                 progress.updated_at = new Date().toISOString();
-                progress.last_error = '';
+                progress.last_error = batchErrors.join(' · ');
                 dev.blueprint = progress.reports
                     .map((item, reportIndex) => item ? `# Osaraportti ${reportIndex + 1}/${chunks.length}\n\n${item}` : '')
                     .filter(Boolean)
@@ -10786,6 +10832,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 dev.updated_at = progress.updated_at;
                 await window.saveManuscriptToDB(window.manuscriptData);
                 throwIfMultiCallRunStopped(run);
+                setDevelopmentStatus(batchErrors.length
+                    ? `${progress.completed}/${chunks.length} osaraporttia tallessa. ${batchErrors.length} osaa jäi tässä erässä väliin; jatketaan muihin.`
+                    : `${progress.completed}/${chunks.length} osaraporttia tallessa.`, false);
             }
 
             throwIfMultiCallRunStopped(run);
@@ -10797,13 +10846,20 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             dev.feedback_progress = progress;
             await window.saveManuscriptToDB(window.manuscriptData);
             setDevelopmentStatus(`Kehityseditointipalaute: yhdistetään ${successfulReports} valmistunutta osaraporttia…`);
-            dev.feedback_report = await requestDevelopmentEdit({
-                text: developmentSynthesisInput(progress),
-                temperature: 0.25,
-                maxOutputTokens: 3200,
-                prompt: buildDevelopmentFeedbackPrompt(),
-                retryLabel: 'Loppuraportin yhdistäminen'
-            }, run);
+            let synthesisWarning = '';
+            try {
+                dev.feedback_report = await requestDevelopmentEdit({
+                    text: developmentSynthesisInput(progress),
+                    temperature: 0.25,
+                    maxOutputTokens: 3200,
+                    prompt: buildDevelopmentFeedbackPrompt(),
+                    retryLabel: 'Loppuraportin yhdistäminen'
+                }, run);
+            } catch (error) {
+                if (isMultiCallRunStopped(error, run)) throw error;
+                synthesisWarning = networkFailureMessage(error);
+                dev.feedback_report = developmentFallbackReport(progress, synthesisWarning);
+            }
             dev.revision_plan = extractMarkdownSection(dev.feedback_report, 'Priorisoitu korjaussuunnitelma') || dev.revision_plan || '';
             dev.feedback_prompt_version = DEVELOPMENT_FEEDBACK_PROMPT_VERSION;
             dev.feedback_updated_at = new Date().toISOString();
@@ -10811,17 +10867,26 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             const failedChunks = (progress.reports || [])
                 .map((report, index) => report ? null : index + 1)
                 .filter(Boolean);
-            dev.feedback_progress = {
-                status: failedChunks.length ? 'completed_with_warnings' : 'completed',
-                prompt_version: DEVELOPMENT_FEEDBACK_PROMPT_VERSION,
-                signature,
-                total: chunks.length,
-                completed: successfulReports,
-                failed_chunks: failedChunks,
-                started_at: progress.started_at,
-                updated_at: dev.feedback_updated_at,
-                last_error: ''
-            };
+            dev.feedback_progress = synthesisWarning
+                ? {
+                    ...progress,
+                    status: 'synthesis_failed',
+                    completed: successfulReports,
+                    failed_chunks: failedChunks,
+                    updated_at: dev.feedback_updated_at,
+                    last_error: synthesisWarning
+                }
+                : {
+                    status: failedChunks.length ? 'completed_with_warnings' : 'completed',
+                    prompt_version: DEVELOPMENT_FEEDBACK_PROMPT_VERSION,
+                    signature,
+                    total: chunks.length,
+                    completed: successfulReports,
+                    failed_chunks: failedChunks,
+                    started_at: progress.started_at,
+                    updated_at: dev.feedback_updated_at,
+                    last_error: ''
+                };
 
             const feedback = document.getElementById('development-feedback');
             const plan = document.getElementById('development-plan');
@@ -10830,10 +10895,18 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             await window.saveManuscriptToDB(window.manuscriptData);
             renderDevelopmentSummary();
             loadUsage();
-            if (button) button.textContent = '✦ Kehityseditointipalaute';
-            setDevelopmentStatus(failedChunks.length
-                ? `Kehityseditointipalaute valmis ja tallennettu. ${failedChunks.length} osaa jäi väliin; kattavuusrajoitus on huomioitu raportissa.`
-                : 'Kehityseditointipalaute valmis ja tallennettu.', Boolean(failedChunks.length));
+            if (synthesisWarning) {
+                if (button) button.textContent = '✦ Jatka loppuraportin yhdistämistä';
+                setDevelopmentStatus(
+                    `Osaraportit (${successfulReports}/${chunks.length}) ja niistä koottu vararaportti on tallennettu. `
+                    + 'Voit jatkaa myöhemmin vain loppuraportin yhdistämistä.'
+                );
+            } else {
+                if (button) button.textContent = '✦ Kehityseditointipalaute';
+                setDevelopmentStatus(failedChunks.length
+                    ? `Kehityseditointipalaute valmis ja tallennettu. ${failedChunks.length} osaa jäi väliin; kattavuusrajoitus on huomioitu raportissa.`
+                    : 'Kehityseditointipalaute valmis ja tallennettu.', Boolean(failedChunks.length));
+            }
         } catch (error) {
             const message = networkFailureMessage(error);
             if (dev && progress) {
