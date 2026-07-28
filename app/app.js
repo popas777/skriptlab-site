@@ -10222,7 +10222,9 @@ Säännöt:
     }
 
     const DEVELOPMENT_CHUNK_SIZE = 2;
-    const DEVELOPMENT_FEEDBACK_PROMPT_VERSION = 2;
+    const DEVELOPMENT_FEEDBACK_PROMPT_VERSION = 3;
+    const DEVELOPMENT_REQUEST_TIMEOUT_MS = 85000;
+    const DEVELOPMENT_REQUEST_ATTEMPTS = 2;
     const DEVELOPMENT_EDITORIAL_AREAS = [
         'juonen rakenne ja narratiiviset kaaret',
         'hahmojen kehitys ja johdonmukaisuus',
@@ -10277,7 +10279,7 @@ Säännöt:
 Tutki soveltuvin osin nämä arviointialueet:
 ${DEVELOPMENT_EDITORIAL_AREAS.map(area => `- ${area}`).join('\n')}
 
-Palauta suomeksi enintään noin 900 sanan Markdown-osaraportti näillä otsikoilla:
+Palauta suomeksi enintään noin 600 sanan Markdown-osaraportti näillä otsikoilla:
 
 # Osaraportti ${chunkIndex + 1}/${chunkTotal}
 ## Osioiden tapahtumat ja tehtävä kokonaisuudessa
@@ -10329,7 +10331,10 @@ Säännöt:
         const reports = (progress.reports || []).map((report, index) => [
             `OSARAPORTTI ${index + 1}/${progress.total}`,
             compactDevelopmentText(report, 2500)
-        ].join('\n')).join('\n\n---\n\n');
+        ].join('\n')).filter((_, index) => Boolean(progress.reports?.[index])).join('\n\n---\n\n');
+        const missingReports = (progress.reports || [])
+            .map((report, index) => report ? null : index + 1)
+            .filter(Boolean);
         return [
             `PROJEKTI: ${project?.title || 'Nimetön'}`,
             `TEKIJÄ: ${project?.author || 'Tuntematon'}`,
@@ -10345,7 +10350,10 @@ Säännöt:
             compactDevelopmentText(developmentKnowledgeBrief(24), 2600) || 'Ei erillisiä tietokortteja.',
             '',
             'LYHYET OSARAPORTIT KOKO KÄSIKIRJOITUKSESTA:',
-            reports
+            reports,
+            missingReports.length
+                ? `PUUTTUVAT OSARAPORTIT: ${missingReports.join(', ')}. Älä päättele niiden sisällöstä; merkitse kattavuusrajoitus loppuraporttiin.`
+                : ''
         ].filter(value => value !== '').join('\n');
     }
 
@@ -10474,7 +10482,7 @@ Palauta suomeksi Markdown näillä otsikoilla:
 ## 16. Yhteenveto
 
 Säännöt:
-- Pidä koko raportti tiiviinä: enintään noin 2 500 sanaa.
+- Pidä koko raportti tiiviinä: enintään noin 1 800 sanaa.
 - Älä anna geneerisiä kirjoitusneuvoja.
 - Jokaisessa isossa havainnossa kerro missä se näkyy, miksi se haittaa tai vahvistaa kokonaisuutta ja mitä voisi tehdä.
 - Erota paikallinen tekstihavainto koko teosta koskevasta systeemisestä ongelmasta.
@@ -10612,6 +10620,54 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         syncMultiCallRunControls('development_feedback');
     }
 
+    async function requestDevelopmentEdit({ text, prompt, temperature, maxOutputTokens, retryLabel }, run) {
+        let lastError = null;
+        for (let attempt = 1; attempt <= DEVELOPMENT_REQUEST_ATTEMPTS; attempt += 1) {
+            throwIfMultiCallRunStopped(run);
+            const controller = new AbortController();
+            let timedOut = false;
+            const stopRequest = () => controller.abort();
+            run.controller.signal.addEventListener('abort', stopRequest, { once: true });
+            const timeout = window.setTimeout(() => {
+                timedOut = true;
+                controller.abort();
+            }, DEVELOPMENT_REQUEST_TIMEOUT_MS);
+            try {
+                const response = await apiFetch('/api/edit', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    signal: controller.signal,
+                    body: JSON.stringify({
+                        text,
+                        purpose: 'development_editing',
+                        temperature,
+                        max_output_tokens: attempt === 1
+                            ? maxOutputTokens
+                            : Math.max(900, Math.round(maxOutputTokens * 0.75)),
+                        prompt
+                    })
+                });
+                const payload = await response.json().catch(() => null);
+                if (!response.ok) throw new Error(payload?.detail || `${retryLabel} epäonnistui.`);
+                const result = String(payload?.edited_text || '').trim();
+                if (!result) throw new Error(`${retryLabel} ei palauttanut sisältöä.`);
+                return result;
+            } catch (error) {
+                if (run.stopRequested || run.controller.signal.aborted) throw error;
+                lastError = timedOut
+                    ? new Error(`${retryLabel} aikakatkaistiin ${Math.round(DEVELOPMENT_REQUEST_TIMEOUT_MS / 1000)} sekunnin jälkeen.`)
+                    : error;
+                if (attempt < DEVELOPMENT_REQUEST_ATTEMPTS) {
+                    setDevelopmentStatus(`${retryLabel} ei valmistunut. Yritetään automaattisesti uudelleen (${attempt + 1}/${DEVELOPMENT_REQUEST_ATTEMPTS})…`);
+                }
+            } finally {
+                window.clearTimeout(timeout);
+                run.controller.signal.removeEventListener('abort', stopRequest);
+            }
+        }
+        throw lastError || new Error(`${retryLabel} epäonnistui.`);
+    }
+
     async function saveDevelopmentEditingEdits(showStatus = true) {
         if (!window.manuscriptData) {
             setDevelopmentStatus('Valitse käsikirjoitus ensin.', true);
@@ -10690,23 +10746,33 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 progress.status = 'running';
                 progress.updated_at = new Date().toISOString();
                 setDevelopmentStatus(`Kehityseditointipalaute: käsitellään osaa ${index + 1}/${chunks.length} · ${chunkTitles}`);
-                const response = await apiFetch('/api/edit', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    signal: run.controller.signal,
-                    body: JSON.stringify({
+                let report = '';
+                try {
+                    report = await requestDevelopmentEdit({
                         text: developmentChunkInput(chunks[index], index, chunks.length),
-                        purpose: 'development_editing',
                         temperature: 0.2,
-                        max_output_tokens: 2200,
-                        prompt: buildDevelopmentChunkPrompt(index, chunks.length)
-                    })
-                });
-                const payload = await response.json().catch(() => null);
-                if (!response.ok) throw new Error(payload?.detail || `Osan ${index + 1} käsittely epäonnistui.`);
-                const report = String(payload?.edited_text || '').trim();
-                if (!report) throw new Error(`Osasta ${index + 1} ei saatu palautetta.`);
+                        maxOutputTokens: 1400,
+                        prompt: buildDevelopmentChunkPrompt(index, chunks.length),
+                        retryLabel: `Osan ${index + 1}/${chunks.length} käsittely`
+                    }, run);
+                } catch (error) {
+                    if (run.stopRequested || run.controller.signal.aborted) throw error;
+                    progress.failures = Array.isArray(progress.failures)
+                        ? progress.failures
+                        : Array(chunks.length).fill('');
+                    progress.failures[index] = networkFailureMessage(error);
+                    progress.status = 'partial';
+                    progress.completed = progress.reports.filter(Boolean).length;
+                    progress.updated_at = new Date().toISOString();
+                    progress.last_error = `Osa ${index + 1}: ${progress.failures[index]}`;
+                    dev.feedback_progress = progress;
+                    dev.updated_at = progress.updated_at;
+                    await window.saveManuscriptToDB(window.manuscriptData);
+                    setDevelopmentStatus(`Osa ${index + 1}/${chunks.length} jäi kahden yrityksen jälkeen väliin. Jatketaan muihin osiin…`, true);
+                    continue;
+                }
                 progress.reports[index] = compactDevelopmentText(report, 6000);
+                if (Array.isArray(progress.failures)) progress.failures[index] = '';
                 progress.completed = progress.reports.filter(Boolean).length;
                 progress.status = 'partial';
                 progress.updated_at = new Date().toISOString();
@@ -10723,37 +10789,35 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             }
 
             throwIfMultiCallRunStopped(run);
+            const successfulReports = progress.reports.filter(Boolean).length;
+            if (!successfulReports) throw new Error('Yhtään osaraporttia ei saatu valmiiksi. Kokeile myöhemmin uudelleen.');
             progress.status = 'synthesizing';
-            progress.completed = chunks.length;
+            progress.completed = successfulReports;
             progress.updated_at = new Date().toISOString();
             dev.feedback_progress = progress;
             await window.saveManuscriptToDB(window.manuscriptData);
-            setDevelopmentStatus(`Kehityseditointipalaute: yhdistetään ${chunks.length} lyhyttä osaraporttia…`);
-            const feedbackResponse = await apiFetch('/api/edit', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                signal: run.controller.signal,
-                body: JSON.stringify({
-                    text: developmentSynthesisInput(progress),
-                    purpose: 'development_editing',
-                    temperature: 0.25,
-                    max_output_tokens: 4800,
-                    prompt: buildDevelopmentFeedbackPrompt()
-                })
-            });
-            const feedbackPayload = await feedbackResponse.json().catch(() => null);
-            if (!feedbackResponse.ok) throw new Error(feedbackPayload?.detail || 'Kehityseditointipalautteen luonti epäonnistui.');
-            dev.feedback_report = feedbackPayload?.edited_text || '';
+            setDevelopmentStatus(`Kehityseditointipalaute: yhdistetään ${successfulReports} valmistunutta osaraporttia…`);
+            dev.feedback_report = await requestDevelopmentEdit({
+                text: developmentSynthesisInput(progress),
+                temperature: 0.25,
+                maxOutputTokens: 3200,
+                prompt: buildDevelopmentFeedbackPrompt(),
+                retryLabel: 'Loppuraportin yhdistäminen'
+            }, run);
             dev.revision_plan = extractMarkdownSection(dev.feedback_report, 'Priorisoitu korjaussuunnitelma') || dev.revision_plan || '';
             dev.feedback_prompt_version = DEVELOPMENT_FEEDBACK_PROMPT_VERSION;
             dev.feedback_updated_at = new Date().toISOString();
             dev.updated_at = dev.feedback_updated_at;
+            const failedChunks = (progress.reports || [])
+                .map((report, index) => report ? null : index + 1)
+                .filter(Boolean);
             dev.feedback_progress = {
-                status: 'completed',
+                status: failedChunks.length ? 'completed_with_warnings' : 'completed',
                 prompt_version: DEVELOPMENT_FEEDBACK_PROMPT_VERSION,
                 signature,
                 total: chunks.length,
-                completed: chunks.length,
+                completed: successfulReports,
+                failed_chunks: failedChunks,
                 started_at: progress.started_at,
                 updated_at: dev.feedback_updated_at,
                 last_error: ''
@@ -10767,7 +10831,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             renderDevelopmentSummary();
             loadUsage();
             if (button) button.textContent = '✦ Kehityseditointipalaute';
-            setDevelopmentStatus('Kehityseditointipalaute valmis ja tallennettu.');
+            setDevelopmentStatus(failedChunks.length
+                ? `Kehityseditointipalaute valmis ja tallennettu. ${failedChunks.length} osaa jäi väliin; kattavuusrajoitus on huomioitu raportissa.`
+                : 'Kehityseditointipalaute valmis ja tallennettu.', Boolean(failedChunks.length));
         } catch (error) {
             const message = networkFailureMessage(error);
             if (dev && progress) {
