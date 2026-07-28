@@ -935,9 +935,12 @@
       ["completed", "reviewed"].includes(item.status) && String(item.translated_text || "").trim()
     );
     const marketing = marketingStageState(analysis);
+    const manuscriptReady = projectHasText();
     return [
       { id: "kasikirjoitus", num: 1, name: "Työpöytäeditori", desc: (project.chapters || []).length + " tekstiosiota",
-        status: projectStageStatus(projectHasText(), false), moduleView: "view-kirjoita-editoi" },
+        status: projectStageStatus(manuscriptReady, false),
+        statusLabel: manuscriptReady ? "Käsikirjoitus ladattu" : "",
+        moduleView: "view-kirjoita-editoi" },
       { id: "analyysi", num: 2, name: "Analyysi", desc: "Arvio, synopsis ja metatiedot",
         status: projectStageStatus(analysisDone, analysisProgress), moduleView: "view-analyysi" },
       { id: "kehityseditointi", num: 3, name: "Projektimuisti ja kehityspalaute", desc: developmentDescription,
@@ -995,7 +998,7 @@
       btn.className = "path-step is-" + step.status;
       btn.innerHTML =
         '<span class="step-name"><span class="step-num">' + step.num + "</span>" + escapeHtml(step.name) + "</span>" +
-        '<span class="step-status">' + escapeHtml(projectStageStatusLabel(step.status)) + "</span>" +
+        '<span class="step-status">' + escapeHtml(step.statusLabel || projectStageStatusLabel(step.status)) + "</span>" +
         '<span class="step-desc">' + escapeHtml(step.desc) + "</span>";
       btn.addEventListener("click", () => openPathStep(step));
       path.appendChild(btn);
