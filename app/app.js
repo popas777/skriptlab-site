@@ -380,10 +380,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         'view-om-kokonaisuus',
         'view-om-vienti'
     ]);
-    const writerViews = new Set(['view-kirjani', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-analyysi', 'view-kehityseditointi', 'view-ai-tyonkulku', 'view-viimeistely', 'view-kirja', 'view-julkaisupaketti', 'view-monikielinen-julkaisu', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-kaannokset', 'view-elamakerta']);
-    const betaCoreViews = new Set(['view-kirjani', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-analyysi', 'view-kehityseditointi', 'view-ai-tyonkulku', 'view-viimeistely', 'view-kirja', 'view-julkaisupaketti', 'view-monikielinen-julkaisu', 'view-julkaise', 'view-oikoluku', 'view-muut-toiminnot', 'view-kuvitus', 'view-tuotetiedot', 'view-markkinointi', 'view-audio']);
+    const writerViews = new Set(['view-kirjani', 'view-analyysi', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-kirja', 'view-julkaisupaketti', 'view-viimeistely']);
+    const betaCoreViews = new Set([...writerViews, 'view-monikielinen-julkaisu', 'view-markkinointi']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset', 'view-kaannostyotila']);
-    const biographyViews = new Set(['view-kirjani', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-ai-tyonkulku', 'view-viimeistely', 'view-elamakerta', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-muut-toiminnot', 'view-markkinointi', 'view-audio', 'view-kirja', 'view-julkaisupaketti', 'view-julkaise']);
+    const biographyViews = new Set(['view-kirjani', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-ai-tyonkulku', 'view-viimeistely', 'view-elamakerta', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-markkinointi', 'view-audio', 'view-kirja', 'view-julkaisupaketti', 'view-julkaise']);
     const accessModuleViews = {
         manuscripts: ['view-kirjani'],
         analysis: ['view-analyysi'],
@@ -392,7 +392,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         write: ['view-mobiilieditori'],
         editing: ['view-mobiilieditori'],
         proofread: ['view-oikoluku'],
-        support_materials: ['view-muut-toiminnot'],
+        support_materials: ['view-kirja'],
         cover_illustration: ['view-kuvitus'],
         book_layout: ['view-kirja', 'view-taitto'],
         publication_package: ['view-julkaisupaketti'],
@@ -4059,20 +4059,21 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     if (publisherDemoMode) {
         const demoNavConfig = [
             ['view-kirjani', 'Yleiskuva'],
-            ['view-analyysi', 'Analyysi'],
-            ['view-kehityseditointi', 'Kehityseditointi ja projektimuisti'],
+            ['view-analyysi', 'Analyysi ja projektimuisti'],
+            ['view-kehityseditointi', 'Valinnainen kehityspalaute'],
             ['view-kirjoita-editoi', 'Työpöytäeditori'],
             ['view-oikoluku', 'Oikoluku ja viimeistely'],
-            ['view-muut-toiminnot', 'Oheisaineistot'],
-            ['view-tuotetiedot', 'Tuotetiedot'],
-            ['view-kuvitus', 'Kansi ja kuvitus'],
-            ['view-kirja', 'Valmis kirja ja taitto'],
+            ['view-kuvitus', 'Kansi'],
+            ['view-kirja', 'Tuotanto ja taitto'],
             ['view-julkaisupaketti', 'Julkaisupaketti'],
             ['view-monikielinen-julkaisu', 'Monikielinen julkaisu'],
-            ['view-markkinointi', 'Kampanjastudio'],
-            ['view-viimeistely', 'Versiohistoria']
+            ['view-markkinointi', 'Kampanjastudio']
         ];
+        const visibleDemoViews = new Set(demoNavConfig.map(([viewId]) => viewId));
         const navMenu = document.getElementById('nav-menu');
+        navItems.forEach(item => {
+            if (!visibleDemoViews.has(item.dataset.view)) item.hidden = true;
+        });
         demoNavConfig.forEach(([viewId, label], index) => {
             const item = document.querySelector(`#nav-menu li[data-view="${viewId}"]`);
             if (!item) return;
@@ -4091,6 +4092,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         viewId = canonicalViewId(viewId);
         if (viewId === 'view-rakenne') return 'view-analyysi';
         if (viewId === 'view-taitto') return 'view-kirja';
+        if (viewId === 'view-muut-toiminnot') return 'view-kirja';
         if (viewId === 'view-suomentaja') return 'view-kaannokset';
         return viewId;
     }
@@ -4136,6 +4138,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             viewId = 'view-kirja';
             activeNavViewId = viewId;
         }
+        if (viewId === 'view-muut-toiminnot') {
+            viewId = 'view-kirja';
+            activeNavViewId = viewId;
+        }
         if (viewId === 'view-kaannokset' && isViewAllowed(viewId)) {
             setTranslationUiMode('assistant');
             viewId = 'view-suomentaja';
@@ -4171,9 +4177,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         if (viewId === 'view-kirjoita-editoi') {
             refreshWriteEditorFrame();
-        }
-        if (viewId === 'view-muut-toiminnot') {
-            refreshTuotantoFrame(viewId, requestedViewId);
         }
         if (viewId === 'view-viimeistely') {
             renderVersionsView();
@@ -9108,7 +9111,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         if (!filtered.length) {
             const message = projectKnowledgeItems.length ? 'Hakua tai suodatinta vastaavia kortteja ei löytynyt.' : 'Projektimuistissa ei ole vielä merkintöjä.';
-            list.innerHTML = `<div class="knowledge-empty"><strong>${escapeHtml(message)}</strong><span>Luo projektimuisti yhdellä painalluksella. Uusi ajo täydentää puuttuvia tietoja.</span></div>`;
+            list.innerHTML = `<div class="knowledge-empty"><strong>${escapeHtml(message)}</strong><span>Analyysi luo karkean muistin automaattisesti. Tarkempi ajo täydentää puuttuvia tietoja.</span></div>`;
             return;
         }
         list.innerHTML = filtered.map(knowledgeCardHtml).join('');
@@ -9155,7 +9158,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             if (!isMultiCallRunActive('project_memory')) {
                 extractButton.textContent = knowledgeExtractionProgress?.status === 'partial'
                     ? 'Jatka projektimuistin luontia'
-                    : (knowledgeExtractionProgress?.status === 'completed' ? 'Päivitä projektimuisti' : '✦ Luo projektimuisti');
+                    : (knowledgeExtractionProgress?.status === 'completed' ? 'Päivitä projektimuisti' : '✦ Tarkenna projektimuistia');
             }
         }
         if (continuityButton) continuityButton.disabled = !editable || !projectKnowledgeItems.length;
@@ -10564,7 +10567,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             ['Käsikirjoitus', data ? `${data.title || 'Nimetön'} · ${formatNumber(countWords(text))} sanaa · ${bodyCount || (data.chapters || []).length} osiota` : 'Ei aktiivista käsikirjoitusta.'],
             ['Analyysi', hasSavedAnalysis(data?.analysis) ? 'Tallennettu analyysi käytettävissä.' : 'Varsinaista analyysiä ei ole vielä tallennettu. Moduuli voi silti tehdä alustavan mallin.'],
             ['Kehityseditointipalaute', progressText || (dev.feedback_report ? `Valmis · ${dev.feedback_updated_at ? new Date(dev.feedback_updated_at).toLocaleString('fi-FI') : 'tallennettu'}.` : 'Ei vielä tehty.')],
-            ['Projektimuisti', projectKnowledgeItems.length ? `${projectKnowledgeItems.length} automaattisesti tallennettua tietokorttia.` : 'Ei vielä luotu.']
+            ['Projektimuisti', projectKnowledgeItems.length ? `${projectKnowledgeItems.length} tietokorttia editorin käytettävissä.` : 'Ei vielä luotu.']
         ];
         container.innerHTML = items.map(([title, value]) => `
             <div class="development-summary-item">
@@ -10580,8 +10583,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const data = window.manuscriptData;
         const dev = data?.analysis?.development_editing || {};
         current.textContent = data
-            ? `Käsikirjoitus: ${data.title || 'Nimetön'} · kehityseditointi ja yhteinen projektimuisti`
-            : 'Valitse käsikirjoitus ja luo kehityspalaute sekä projektimuisti.';
+            ? `Käsikirjoitus: ${data.title || 'Nimetön'} · analyysin projektimuisti on editorin käytössä, kehityspalaute on valinnainen`
+            : 'Valitse käsikirjoitus. Analyysi luo projektimuistin automaattisesti, ja kehityspalaute on valinnainen.';
         writeDevelopmentBriefToForm(dev.brief || {});
         const knowledgeInstructions = document.getElementById('knowledge-extra-instructions');
         const feedback = document.getElementById('development-feedback');
@@ -16743,7 +16746,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (step) params.set('step', step);
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '9');
+        params.set('v', '10');
         const reloaded = updateEmbeddedModuleFrame(frame, 'manuskripti.html', params);
         if (!reloaded && frame.contentWindow) {
             frame.contentWindow.postMessage({ type: 'skriptlab:refresh-workflow-status' }, window.location.origin);
@@ -16770,7 +16773,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (projectId) params.set('project', projectId);
         if (pendingWriteEditorChapterId) params.set('chapter', pendingWriteEditorChapterId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '8');
+        params.set('v', '9');
         updateEmbeddedModuleFrame(frame, 'kirjoita-editoi.html', params);
         pendingWriteEditorChapterId = null;
     }
@@ -16785,8 +16788,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
 
     function refreshTuotantoFrame(viewId = currentViewId, requestedViewId = null) {
         const frameId = {
-            'view-kirja': 'tuotanto-frame-kirja',
-            'view-muut-toiminnot': 'tuotanto-frame-aineistot'
+            'view-kirja': 'tuotanto-frame-kirja'
         }[viewId];
         if (!frameId) return;
         const frame = document.getElementById(frameId);

@@ -89,12 +89,17 @@
     </div>
   </header>
   <div class="step-body">
-    <p class="step-intro">Tekoäly lukee koko käsikirjoituksen ja tuottaa kustannustoimittajan analyysin sekä metatiedot. Pitkä teksti käsitellään osissa.</p>
+    <p class="step-intro">Tekoäly lukee koko käsikirjoituksen, tuottaa kustannustoimittajan analyysin ja kokoaa samalla karkean projektimuistin editorin käyttöön. Pitkä teksti käsitellään osissa.</p>
 
     <div class="progress-card" id="analysis-progress" hidden>
       <p class="progress-label" id="analysis-progress-label">Analyysi jonossa…</p>
       <div class="progress-track"><div class="progress-fill" id="analysis-progress-fill"></div></div>
       <p class="hint" id="analysis-progress-detail"></p>
+    </div>
+
+    <div class="progress-card analysis-memory-card" id="analysis-memory-summary" hidden>
+      <p class="progress-label">Projektimuistin luonnos</p>
+      <p class="hint" id="analysis-memory-summary-text"></p>
     </div>
 
     <div class="empty" id="analysis-empty">Analyysiä ei ole vielä ajettu.</div>
@@ -103,7 +108,8 @@
   </div>
   <footer class="step-actions">
     <button class="btn btn-ai" id="btn-run-analysis">✦ Aja analyysi</button>
-    <button class="btn btn-primary" id="btn-open-development">Jatka kehityseditointiin</button>
+    <button class="btn btn-ghost" id="btn-open-development">Valinnainen kehityspalaute</button>
+    <button class="btn btn-primary" id="btn-open-editor">Jatka editoriin</button>
   </footer>
 </section>
 
@@ -201,6 +207,6 @@
     };
   })();
 </script>
-<script src="manuskripti.js?v=11"></script>
+<script src="manuskripti.js?v=12"></script>
 </body>
 </html>

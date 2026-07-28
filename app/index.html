@@ -72,12 +72,11 @@
                 <ul id="nav-menu">
                     <li class="active" data-view="view-kirjani">Käsikirjoitukseni</li>
                     <li data-view="view-analyysi">Analyysi</li>
-                    <li data-view="view-kehityseditointi">Kehityseditointi ja projektimuisti</li>
+                    <li data-view="view-kehityseditointi">Projektimuisti ja kehityspalaute</li>
                     <li data-view="view-kirjoita-editoi">Kirjoita ja editoi</li>
                     <li data-view="view-mobiilieditori">Mobiili-editori</li>
                     <li data-view="view-oikoluku">Oikoluku ja viimeistely</li>
-                    <li data-view="view-muut-toiminnot">Oheisaineistot</li>
-                    <li data-view="view-kuvitus">Kansi ja kuvitus</li>
+                    <li data-view="view-kuvitus">Kansi</li>
                     <li data-view="view-kirja">Valmis kirja & taitto</li>
                     <li data-view="view-julkaisupaketti">Julkaisupaketti</li>
                     <li data-view="view-monikielinen-julkaisu">Monikielinen julkaisu</li>
@@ -169,7 +168,7 @@
                         </p>
                         <div class="publisher-demo-facts" aria-label="Demokirjan valmiustiedot">
                             <span>13 tekstiosaa</span>
-                            <span>839/839 kappaletta tarkastettu</span>
+                            <span>839/839 lähdekohtaa tarkastettu</span>
                             <span>0 avointa kohtaa</span>
                         </div>
                     </div>
@@ -185,7 +184,7 @@
                     id="manuskripti-frame-kirjani"
                     class="manuskripti-frame"
                     title="Käsikirjoitukseni"
-                    src="manuskripti.html?v=9"
+                    src="manuskripti.html?v=10"
                     loading="lazy"
                 ></iframe>
                 <div id="legacy-kirjani-view" hidden aria-hidden="true">
@@ -348,7 +347,7 @@
                     id="manuskripti-frame-rakenne"
                     class="manuskripti-frame"
                     title="Rakenne"
-                    src="manuskripti.html?step=rakenne&v=9"
+                    src="manuskripti.html?step=rakenne&v=10"
                     loading="lazy"
                 ></iframe>
                 <div id="legacy-rakenne-view" hidden aria-hidden="true">
@@ -394,8 +393,8 @@
                 <div class="header">
                     <div class="header-info">
                         <p class="eyebrow">Toimituksellinen työvaihe</p>
-                        <h2>Kehityseditointi ja projektimuisti</h2>
-                        <p id="development-current-project">Valitse käsikirjoitus ja luo kehityspalaute sekä myöhemmissä vaiheissa käytettävä projektimuisti.</p>
+                        <h2>Projektimuisti ja kehityspalaute</h2>
+                        <p id="development-current-project">Analyysi luo editorille karkean projektimuistin automaattisesti. Tässä valinnaisessa työvaiheessa voit pyytää laajan kehityseditointipalautteen ja tarkentaa muistia.</p>
                     </div>
                     <div class="header-actions">
                         <button class="btn btn-secondary" id="development-refresh-btn" type="button">Päivitä</button>
@@ -446,13 +445,13 @@
                             </div>
                             <p id="knowledge-status" class="knowledge-status" role="status" aria-live="polite"></p>
                         </div>
-                        <p class="development-simple-lead">Luo henkilöistä, paikoista, aikajanasta ja pysyvistä faktoista projektimuisti, jota kirjoitusavustin, editointi ja käännökset käyttävät automaattisesti.</p>
+                        <p class="development-simple-lead">Analyysin luoma karkea projektimuisti on jo kirjoitusavustimen käytössä. Voit tässä täydentää henkilöitä, paikkoja, aikajanaa ja pysyviä faktoja tarkemmalla poiminnalla.</p>
                         <label class="development-simple-prompt" for="knowledge-extra-instructions">
                             <span>Lisäohje projektimuistille <small>valinnainen</small></span>
                             <textarea id="knowledge-extra-instructions" rows="4" placeholder="Esim. kiinnitä erityistä huomiota henkilönnimien muotoihin, aikatasoihin ja historiallisiin faktoihin."></textarea>
                         </label>
                         <div class="development-action-row">
-                            <button id="knowledge-extract-btn" class="btn btn-primary development-primary-action" type="button">✦ Luo projektimuisti</button>
+                            <button id="knowledge-extract-btn" class="btn btn-primary development-primary-action" type="button">✦ Tarkenna projektimuistia</button>
                             <button id="knowledge-stop-btn" class="btn btn-secondary development-stop-action hidden" type="button">■ Pysäytä luonti</button>
                         </div>
                         <div id="knowledge-extraction-progress" class="knowledge-extraction-progress hidden" role="progressbar" aria-label="Projektimuistin poiminnan eteneminen" aria-valuemin="0" aria-valuenow="0" aria-valuemax="1">
@@ -480,7 +479,7 @@
                     id="kirjoita-editoi-frame"
                     class="tyosto-frame"
                     title="Kirjoita ja editoi"
-                    src="kirjoita-editoi.html?v=8"
+                    src="kirjoita-editoi.html?v=9"
                     loading="lazy"
                 ></iframe>
             </div>
@@ -1175,7 +1174,7 @@
                         <select id="publication-package-cover-select">
                             <option value="">Ei kansikuvaa paketissa</option>
                         </select>
-                        <button class="btn btn-secondary" id="publication-package-open-cover-btn" type="button">Avaa Kansi ja kuvitus</button>
+                        <button class="btn btn-secondary" id="publication-package-open-cover-btn" type="button">Avaa Kansi</button>
                     </section>
 
                     <section class="card glass-panel publication-package-contents-card">
@@ -1521,7 +1520,7 @@
                     <div class="timeline-item">
                         <div class="timeline-marker"></div>
                         <div class="timeline-content">
-                            <h4>Kansi ja kuvitus valmis</h4>
+                            <h4>Kansi valmis</h4>
                             <p>Odottaa käsikirjoituksen viimeisteltyä versiota.</p>
                         </div>
                     </div>
@@ -1562,7 +1561,7 @@
                     id="manuskripti-frame-analyysi"
                     class="manuskripti-frame"
                     title="Analyysi"
-                    src="manuskripti.html?step=analyysi&v=9"
+                    src="manuskripti.html?step=analyysi&v=10"
                     loading="lazy"
                 ></iframe>
                 <div id="legacy-analyysi-view" hidden aria-hidden="true">
@@ -1798,7 +1797,7 @@
                 <header class="production-workspace-hero cover-workspace-hero">
                     <div class="production-workspace-hero-copy">
                         <p class="production-workspace-eyebrow">KANSI-STUDIO · KUVASTA PAINOAINEISTOKSI</p>
-	                    <h2>Kansi ja kuvitus</h2>
+	                    <h2>Kansi</h2>
                         <p id="illustration-current-project">Käsikirjoitus: [Ei aktiivista teosta]</p>
                     </div>
                     <div class="production-workspace-hero-status">
@@ -1988,7 +1987,7 @@
                     </section>
                 </div>
 
-                <div class="illustration-section">
+                <div class="illustration-section hidden" aria-hidden="true">
                     <h3 style="margin-bottom: 20px; color: var(--text-primary);">Sisäkuvitukset</h3>
                     <div class="card glass-panel" style="display: flex; gap: 32px; align-items:flex-start; flex-wrap: wrap;">
                         <div style="flex:1; min-width: 250px;">
@@ -3337,76 +3336,10 @@
                 </section>
             </div>
 
-            <!-- 11.5 VIEW: OHEISAINEISTOT -->
-            <div id="view-muut-toiminnot" class="view-section hidden">
-                <iframe
-                    id="tuotanto-frame-aineistot"
-                    class="tuotanto-frame"
-                    title="Oheisaineistot"
-                    src="tuotanto.html?tab=aineistot&v=3"
-                    loading="lazy"
-                ></iframe>
-                <div class="header">
-                    <div class="header-info">
-                        <h2>Oheisaineistot</h2>
-                        <p id="misc-current-project">Valitse käsikirjoitus ja oheisaineiston tyyppi.</p>
-                    </div>
-                </div>
-                <div class="grid-cards" style="grid-template-columns: minmax(280px, 420px) minmax(0, 1fr); align-items:start;">
-                    <div class="card glass-panel">
-                        <h3>Oheisaineiston asetukset</h3>
-                        <div class="settings-row">
-                            <label>Käsikirjoitus</label>
-                            <select id="misc-project-select"></select>
-                        </div>
-                        <div class="settings-row">
-                            <label>Oheisaineisto</label>
-                            <select id="misc-tool-select">
-                                <option value="title_page">Nimiölehti</option>
-                                <option value="copyright_page">Copysivu</option>
-                                <option value="table_of_contents">Sisällysluettelo</option>
-                                <option value="character_index">Henkilöhakemisto</option>
-                                <option value="place_index">Paikkahakemisto</option>
-                                <option value="subject_index">Asiahakemisto</option>
-                                <option value="bibliography">Lähdeluettelo</option>
-                            </select>
-                        </div>
-                        <div class="settings-row">
-                            <label>Malli</label>
-                            <select id="misc-model-select"></select>
-                        </div>
-                        <div class="settings-row">
-                            <label>Lisäohje</label>
-                            <textarea id="misc-instructions" placeholder="Esim. tee lyhyt versio, huomioi lastenromaanin lukija tai jätä epävarmat nimet pois." style="width:100%; min-height:110px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:12px; font-family:inherit; line-height:1.5;"></textarea>
-                        </div>
-                        <button class="btn btn-primary" id="misc-run-btn">Muodosta oheisaineisto</button>
-                        <p id="misc-tool-note" style="font-size:12px; color:var(--text-secondary); margin-top:12px; line-height:1.5;">Nimiölehti ja sisällysluettelo muodostetaan suoraan käsikirjoituksesta. Hakemistot, lähdeluettelo ja copysivu käyttävät mallia, mutta niille on yksinkertainen varatuloste, jos mallipalvelu ei vastaa.</p>
-                    </div>
-                    <div class="card glass-panel">
-                        <h3 id="misc-result-title">Tulokset</h3>
-                        <div id="misc-status" style="font-size:13px; color:var(--text-secondary); margin:10px 0 14px;">Ei tulosta vielä.</div>
-                        <div id="misc-timer" class="hidden" style="margin:8px 0 16px; font-size:30px; font-weight:600; color:var(--ai-gradient-start);">0:00</div>
-                        <textarea id="misc-output" style="width:100%; min-height:480px; resize:vertical; background:rgba(0,0,0,0.24); border:1px solid var(--border-color); color:var(--text-primary); border-radius:8px; padding:14px; font-family:Georgia,serif; line-height:1.65;" placeholder="Tulokset näkyvät tässä ja niitä voi muokata ennen kopiointia tai lataamista."></textarea>
-                        <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
-                            <button class="btn btn-secondary" id="misc-copy-btn">Kopioi</button>
-                            <button class="btn btn-secondary" id="misc-download-btn">Lataa TXT</button>
-                            <button class="btn btn-secondary" id="misc-save-btn">Tallenna aineisto</button>
-                            <button class="btn btn-primary" id="misc-save-book-btn">Tallenna ja näytä valmiissa kirjassa</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="card glass-panel" style="margin-top:18px;">
-                    <h3>Tallennetut oheisaineistot</h3>
-                    <p style="font-size:13px; color:var(--text-secondary); margin:8px 0 14px;">Voit säilyttää aineistot erillään tai liittää ne Valmis kirja -näkymän loppuun.</p>
-                    <div id="misc-saved-list" class="grid-cards" style="grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));"></div>
-                    <p id="misc-saved-empty" style="color:var(--text-secondary);">Ei vielä tallennettuja oheisaineistoja.</p>
-                </div>
-            </div>
-
         </main>
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=114"></script>
+    <script src="app.js?v=115"></script>
 </body>
 </html>

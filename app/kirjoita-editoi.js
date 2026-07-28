@@ -699,8 +699,12 @@
 
   function memoryDetailsText(item) {
     const details = item && item.details && typeof item.details === "object" ? item.details : {};
+    const internalKeys = new Set([
+      "auto_generated", "source", "memory_key", "analysis_fields", "generated_at",
+      "user_modified", "reviewed", "demo_source"
+    ]);
     return Object.entries(details)
-      .filter(([, value]) => value != null && value !== "" && (!Array.isArray(value) || value.length))
+      .filter(([key, value]) => !internalKeys.has(key) && value != null && value !== "" && (!Array.isArray(value) || value.length))
       .slice(0, 8)
       .map(([key, value]) => key + ": " + (Array.isArray(value) ? value.join(", ") : String(value)))
       .join(" · ");

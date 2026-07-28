@@ -805,6 +805,14 @@ button:focus-visible {
   box-shadow: var(--shadow);
 }
 
+.analysis-memory-card {
+  background: var(--valmis-vaalea);
+  border-color: rgba(31, 138, 76, 0.28);
+}
+
+.analysis-memory-card .progress-label { color: var(--valmis); }
+.analysis-memory-card .hint { margin: 0; color: var(--muste-70); }
+
 .progress-label { margin: 0 0 10px; font-family: var(--display); font-size: 16px; color: var(--mustikka); }
 
 .progress-track { height: 6px; border-radius: 3px; background: var(--paperi-tumma); overflow: hidden; }

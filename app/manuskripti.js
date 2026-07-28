@@ -915,8 +915,13 @@
     const analysisProgress = !analysisDone && Boolean(analysis.analysis_status || hasSavedAnalysis(analysis));
     const feedbackDone = Boolean(String(development.feedback_report || "").trim());
     const memoryDone = (projectStageAssets.knowledge || []).length > 0;
-    const developmentDone = feedbackDone && memoryDone;
+    const developmentDone = memoryDone;
     const developmentStarted = Boolean(feedbackDone || memoryDone || development.blueprint || development.updated_at);
+    const developmentDescription = feedbackDone
+      ? "Projektimuisti ja kehityspalaute valmiina"
+      : memoryDone
+        ? "Projektimuisti valmis · palaute valinnainen"
+        : "Projektimuisti syntyy analyysistä · palaute valinnainen";
     const proofreadDone = Boolean(analysis.finishing && typeof analysis.finishing === "object")
       || workflowState.proofread?.status === "done";
     const proofreadStarted = proofreadDone || workflowState.proofread?.status === "progress";
@@ -935,23 +940,19 @@
         status: projectStageStatus(projectHasText(), false), moduleView: "view-kirjoita-editoi" },
       { id: "analyysi", num: 2, name: "Analyysi", desc: "Arvio, synopsis ja metatiedot",
         status: projectStageStatus(analysisDone, analysisProgress), moduleView: "view-analyysi" },
-      { id: "kehityseditointi", num: 3, name: "Kehityseditointi ja projektimuisti", desc: "Palaute ja jatkuvuustiedot",
+      { id: "kehityseditointi", num: 3, name: "Projektimuisti ja kehityspalaute", desc: developmentDescription,
         status: projectStageStatus(developmentDone, developmentStarted), moduleView: "view-kehityseditointi" },
       { id: "oikoluku", num: 4, name: "Oikoluku ja viimeistely", desc: "Kielenhuolto ja viimeistelty versio",
         status: projectStageStatus(proofreadDone, proofreadStarted), moduleView: "view-oikoluku" },
-      { id: "oheisaineistot", num: 5, name: "Oheisaineistot", desc: "Copysivu, hakemistot ja etuaineistot",
-        status: projectStageStatus(hasMiscAssets(), false), moduleView: "view-muut-toiminnot" },
-      { id: "tuotetiedot", num: 6, name: "Tuotetiedot", desc: "Metadata, oikeudet ja avainsanat",
-        status: projectStageStatus(productDone, productStarted), moduleView: "view-tuotetiedot" },
-      { id: "kansi", num: 7, name: "Kansi ja kuvitus", desc: "Etukansi, selkä, takakansi ja leikkuuvarat",
+      { id: "kansi", num: 5, name: "Kansi", desc: "Etukansi, selkä, takakansi ja leikkuuvarat",
         status: projectStageStatus(hasFullCoverAssets(), hasCoverAssets() || coverPromptStarted), moduleView: "view-kuvitus" },
-      { id: "taitto", num: 8, name: "Valmis kirja ja taitto", desc: "PDF, EPUB ja tuotantotiedostot",
-        status: projectStageStatus(hasLayoutAssets(), false), moduleView: "view-kirja" },
-      { id: "julkaisupaketti", num: 9, name: "Julkaisupaketti", desc: "Lukittu lähde ja toimituspaketti",
+      { id: "taitto", num: 6, name: "Tuotanto ja taitto", desc: productDone ? "Tuotetiedot, PDF, EPUB ja taittotiedostot" : "Täydennä tuotetiedot ja muodosta taittotiedostot",
+        status: projectStageStatus(hasLayoutAssets() && productDone, hasLayoutAssets() || productStarted || hasMiscAssets()), moduleView: "view-kirja" },
+      { id: "julkaisupaketti", num: 7, name: "Julkaisupaketti", desc: "Lukittu lähde ja toimituspaketti",
         status: projectStageStatus(Boolean(projectStageAssets.publication?.latest_package), false), moduleView: "view-julkaisupaketti" },
-      { id: "monikielinen", num: 10, name: "Monikielinen julkaisu", desc: "Käännös ja tarkastettu kieliversio",
+      { id: "monikielinen", num: 8, name: "Monikielinen julkaisu", desc: "Käännös ja tarkastettu kieliversio",
         status: projectStageStatus(translationDone, translations.length > 0), moduleView: "view-monikielinen-julkaisu" },
-      { id: "markkinointi", num: 11, name: "Kampanjastudio", desc: "Konsepti, kanavatekstit ja kampanjapaketti",
+      { id: "markkinointi", num: 9, name: "Kampanjastudio", desc: "Konsepti, kanavatekstit ja kampanjapaketti",
         status: projectStageStatus(marketing.done, marketing.started), moduleView: "view-markkinointi" },
     ];
   }
@@ -1105,6 +1106,14 @@
     const analysis = project.analysis || {};
     const container = $("analysis-sections");
     container.innerHTML = "";
+    const memoryItems = (projectStageAssets.knowledge || []).filter((item) =>
+      item.details?.source === "analysis" && item.details?.auto_generated
+    );
+    const memorySummary = $("analysis-memory-summary");
+    memorySummary.hidden = memoryItems.length === 0;
+    $("analysis-memory-summary-text").textContent = memoryItems.length
+      ? `Analyysi loi ${memoryItems.length} tarkistettavaa tietokorttia. Editorin avustin käyttää niitä heti; voit tarkentaa niitä valinnaisessa kehityseditointiosiossa.`
+      : "";
     const hasAny = ANALYSIS_SECTIONS.concat(META_SECTIONS).some(([field]) => analysis[field]);
     $("analysis-empty").hidden = hasAny;
 
@@ -1205,10 +1214,15 @@
           if (job.status === "failed") {
             toast("Analyysi epäonnistui: " + ((job.errors || [])[0] || "tuntematon virhe"));
           } else {
-            project = await apiGetProject(project.id);
+            await refreshWorkflowStatus();
             renderAnalysis();
             renderProject();
-            toast(job.status === "partial" ? "Analyysi valmistui osittain." : "Analyysi valmis.");
+            const memoryCount = (projectStageAssets.knowledge || []).filter((item) =>
+              item.details?.source === "analysis" && item.details?.auto_generated
+            ).length;
+            toast(job.status === "partial"
+              ? `Analyysi valmistui osittain. Projektimuistissa on ${memoryCount} luonnosta.`
+              : `Analyysi valmis. Projektimuistiin luotiin ${memoryCount} luonnosta.`);
           }
         }
       } catch (error) {
@@ -1376,6 +1390,9 @@
     $("btn-run-analysis").addEventListener("click", runAnalysis);
     $("btn-open-development").addEventListener("click", () => {
       notifyParent("skriptlab:open-module", { viewId: "view-kehityseditointi" });
+    });
+    $("btn-open-editor").addEventListener("click", () => {
+      notifyParent("skriptlab:open-module", { viewId: "view-kirjoita-editoi" });
     });
     $("btn-rule-proposal").addEventListener("click", () => createProposal(false));
     $("btn-ai-proposal").addEventListener("click", () => createProposal(true));
