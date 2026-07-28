@@ -8083,6 +8083,21 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     line-height: 1.6;
 }
 
+#view-kehityseditointi .development-scope-note {
+    margin: -6px 0 20px;
+    padding: 12px 14px;
+    border: 1px solid rgba(67, 64, 110, .16);
+    border-radius: 10px;
+    background: #f6f2ea;
+    color: rgba(41, 36, 29, .7);
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+#view-kehityseditointi .development-scope-note strong {
+    color: #43406e;
+}
+
 #view-kehityseditointi .development-simple-prompt > span {
     color: #29241d;
 }

@@ -10219,6 +10219,16 @@ Säännöt:
     }
 
     const DEVELOPMENT_CHUNK_SIZE = 2;
+    const DEVELOPMENT_FEEDBACK_PROMPT_VERSION = 2;
+    const DEVELOPMENT_EDITORIAL_AREAS = [
+        'juonen rakenne ja narratiiviset kaaret',
+        'hahmojen kehitys ja johdonmukaisuus',
+        'tarinan rytmitys ja kohtausten tehtävät',
+        'vuoropuhelun tasapaino ja tehokkuus',
+        'teemat ja tunneresonanssi',
+        'genrekonventiot ja vertailu menestyneiden teosten lukijakokemukseen',
+        'luettavuus, kliseet, toistuvat ilmaukset ja toistuvat tekniset ongelmat'
+    ];
 
     function developmentChapterChunks(chunkSize = DEVELOPMENT_CHUNK_SIZE) {
         const entries = bodyChapterEntries().map((entry, order) => ({ ...entry, order }));
@@ -10235,6 +10245,7 @@ Säännöt:
             return knowledgeChunkKey(`${chapter.id || index}|${chapter.title || ''}|${text}`, index);
         }).join('|');
         const briefSignature = JSON.stringify({
+            prompt_version: DEVELOPMENT_FEEDBACK_PROMPT_VERSION,
             genre: brief.genre || '',
             target_audience: brief.target_audience || '',
             feedback_mode: brief.feedback_mode || '',
@@ -10260,20 +10271,28 @@ Säännöt:
     function buildDevelopmentChunkPrompt(chunkIndex, chunkTotal) {
         return `Toimi kokeneena kehityseditoijana ja analysoi vain annetut käsikirjoituksen osat. Tämä on osaraportti ${chunkIndex + 1}/${chunkTotal}, joka yhdistetään myöhemmin koko teoksen palautteeksi.
 
+Tutki soveltuvin osin nämä arviointialueet:
+${DEVELOPMENT_EDITORIAL_AREAS.map(area => `- ${area}`).join('\n')}
+
 Palauta suomeksi enintään noin 900 sanan Markdown-osaraportti näillä otsikoilla:
 
 # Osaraportti ${chunkIndex + 1}/${chunkTotal}
 ## Osioiden tapahtumat ja tehtävä kokonaisuudessa
 ## Mikä toimii
-## Kehityskohdat
-## Henkilöt, konflikti ja muutos
-## Rytmi, näkökulma ja lukijan tieto
-## Kohtaukset ja rakenteelliset havainnot
+## Juoni, kausaalisuus ja narratiiviset kaaret
+## Hahmot, konflikti, muutos ja johdonmukaisuus
+## Rytmi, kohtaukset, näkökulma ja lukijan tieto
+## Dialogi, teemat ja tunneresonanssi
+## Genre, luettavuus ja toistuvat ilmiöt
+## Tärkeimmät kehityskohdat
 ## Epävarmuudet
 
 Säännöt:
 - Perusta jokainen havainto annettuun tekstiotteeseen tai merkitse se tulkinnaksi.
 - Viittaa osioihin CHAPTER-tunnisteilla ja nimillä.
+- Arvioi dialogia vain, jos otteessa on sitä riittävästi.
+- Raportoi luettavuudesta, kliseistä, toistuvista ilmauksista ja teknisistä ongelmista vain toistuvat tai rakenteellisesti merkittävät ilmiöt; yksittäiset kielivirheet kuuluvat oikolukuun.
+- Tunnista genreä koskevat signaalit, mutta jätä koko teoksen markkinavertailu loppuraporttiin.
 - Älä kirjoita vielä koko teoksen loppuraporttia.
 - Älä toista taustatietoja tarpeettomasti.
 - Noudata käyttäjän lisäohjetta, jos sellainen on annettu.`;
@@ -10306,14 +10325,14 @@ Säännöt:
         const brief = readDevelopmentBriefFromForm();
         const reports = (progress.reports || []).map((report, index) => [
             `OSARAPORTTI ${index + 1}/${progress.total}`,
-            compactDevelopmentText(report, 1800)
+            compactDevelopmentText(report, 2500)
         ].join('\n')).join('\n\n---\n\n');
         return [
             `PROJEKTI: ${project?.title || 'Nimetön'}`,
             `TEKIJÄ: ${project?.author || 'Tuntematon'}`,
             `Pituus: noin ${formatNumber(countWords(getFullManuscriptText(project)))} sanaa`,
             `Palautteen sävy: ${developmentToneLabel(brief.feedback_mode)}`,
-            `Painopisteet: ${brief.focus_areas.length ? brief.focus_areas.join(', ') : 'rakenne, henkilöt, rytmi ja korjaussuunnitelma'}`,
+            `Painopisteet: ${brief.focus_areas.length ? brief.focus_areas.join(', ') : DEVELOPMENT_EDITORIAL_AREAS.join(', ')}`,
             brief.extra_instructions ? `Käyttäjän lisäohje:\n${compactDevelopmentText(brief.extra_instructions, 1000)}` : '',
             '',
             'AIEMMAN ANALYYSIN TIIVISTELMÄ:',
@@ -10398,7 +10417,15 @@ Kirjoita jokainen havaittu kohtaus täsmälleen tällä rakenteella:
 - Varmuus: [varmistettu havainto / perusteltu tulkinta / epävarma tulkinta]
 Jos kohtauksen funktio tai konflikti ei selviä, sano se kentässä suoraan.
 ## Hahmokartta ja hahmojen funktiot
-## Teemakartta
+Kirjaa keskeisten hahmojen tavoite, muutos, narratiivinen tehtävä sekä mahdolliset johdonmukaisuusriskit.
+## Juonen rakenne ja narratiiviset kaaret
+Tunnista pääjuoni, merkittävät sivukaaret, käännekohdat, kausaaliset ketjut ja avoimeksi jäävät lupaukset.
+## Teema- ja tunneresonanssikartta
+## Rytmi-, kohtaus- ja dialogikartta
+Tunnista rytmin tihentymät ja laskut, kohtausten tehtävät sekä dialogin ja muun kerronnan tasapaino.
+## Genre- ja lukijaodotusten signaalit
+## Luettavuuden ja toistuvien ilmiöiden kartta
+Kirjaa vain systeemiset tai toistuvat havainnot: kliseet, toistuvat ilmaukset, epäselvät rakenteet ja tekniset ongelmaryhmät.
 ## Lukijan tiedon eteneminen
 ## Näkökulmat ja aikatasot
 ## Rakenteellisten riskien rekisteri
@@ -10420,34 +10447,40 @@ Säännöt:
 
 Saat koko käsikirjoituksen lyhyet osaraportit, aiemman analyysin, projektimuistin ja käyttäjän lisäohjeen. Yhdistä ne konkreettiseksi, priorisoiduksi palautteeksi ilman tarpeetonta toistoa. Palautteen sävy: ${developmentToneLabel(brief.feedback_mode)}.
 
+Arvioi soveltuvin osin kaikki seuraavat alueet. Jos aineisto ei riitä jonkin alueen luotettavaan arviointiin, sano se suoraan sen sijaan, että täyttäisit osion geneerisillä neuvoilla:
+${DEVELOPMENT_EDITORIAL_AREAS.map(area => `- ${area}`).join('\n')}
+
 Palauta suomeksi Markdown näillä otsikoilla:
 
 # Kehitys- ja rakennepalauteraportti
 ## 1. Tiivis kokonaisarvio
-## 2. Teoksen tulkittu lupaus
+## 2. Teoksen lupaus, genre ja tavoiteltu lukija
 ## 3. Mikä toimii parhaiten
 ## 4. Suurimmat kehityskohdat
-## 5. Rakenne ja rytmi
-## 6. Osakohtainen palaute
-## 7. Lukukohtaiset havainnot
-## 8. Päähenkilön kaari
-## 9. Sivuhahmot
-## 10. Konflikti ja panokset
-## 11. Teemat ja motiivit
-## 12. Aikatasot ja näkökulma
-## 13. Lukijan tiedon eteneminen
-## 14. Loppuratkaisun toimivuus
-## 15. Priorisoitu korjaussuunnitelma
-## 16. Kysymykset kirjailijalle
-## 17. Yhteenveto
+## 5. Juonen rakenne ja narratiiviset kaaret
+## 6. Rytmi, kohtausrakenne ja osakohtainen palaute
+## 7. Hahmojen kehitys ja johdonmukaisuus
+## 8. Konflikti, panokset, näkökulma ja lukijan tieto
+## 9. Vuoropuhelun tasapaino ja tehokkuus
+## 10. Teemat, motiivit ja tunneresonanssi
+## 11. Genrekonventiot ja markkina-asemointi
+## 12. Luettavuus, kliseet, toistuvat ilmaukset ja tekniset ilmiöt
+## 13. Loppuratkaisun toimivuus
+## 14. Priorisoitu korjaussuunnitelma
+## 15. Kysymykset kirjailijalle
+## 16. Yhteenveto
 
 Säännöt:
 - Pidä koko raportti tiiviinä: enintään noin 2 500 sanaa.
 - Älä anna geneerisiä kirjoitusneuvoja.
 - Jokaisessa isossa havainnossa kerro missä se näkyy, miksi se haittaa tai vahvistaa kokonaisuutta ja mitä voisi tehdä.
+- Erota paikallinen tekstihavainto koko teosta koskevasta systeemisestä ongelmasta.
+- Nosta dialogista esiin sekä sen osuus kerronnasta että sen tehtävä, erottuvuus, alateksti ja vaikutus kohtauksen liikkeeseen.
+- Vertaa teosta genrekonventioihin ja bestseller-tasoiseen lukijakokemukseen. Nimeä 1–3 tunnettua vertailuteosta vain, jos genre ja vertailuperuste ovat riittävän selvät. Älä keksi myyntilukuja, sijoituksia tai ajankohtaista bestseller-statusta.
+- Käsittele kliseet, toistuvat lauseet ja tekniset elementit kehityseditoinnissa vain, kun ne muodostavat toistuvan mallin. Jätä yksittäiset oikeinkirjoitusvirheet oikolukuvaiheeseen.
 - Merkitse epävarmuus näkyviin.
 - Älä pakota käsikirjoitusta yhteen dramaturgiseen kaavaan.
-- Keskity painopisteisiin: ${brief.focus_areas.length ? brief.focus_areas.join(', ') : 'rakenne, henkilöt, rytmi ja korjaussuunnitelma'}.
+- Keskity painopisteisiin: ${brief.focus_areas.length ? brief.focus_areas.join(', ') : DEVELOPMENT_EDITORIAL_AREAS.join(', ')}.
 ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compactDevelopmentText(brief.extra_instructions, 1200)}` : ''}`;
     }
 
@@ -10634,6 +10667,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 }
                 : {
                     status: 'running',
+                    prompt_version: DEVELOPMENT_FEEDBACK_PROMPT_VERSION,
                     signature,
                     total: chunks.length,
                     completed: 0,
@@ -10708,10 +10742,12 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             if (!feedbackResponse.ok) throw new Error(feedbackPayload?.detail || 'Kehityseditointipalautteen luonti epäonnistui.');
             dev.feedback_report = feedbackPayload?.edited_text || '';
             dev.revision_plan = extractMarkdownSection(dev.feedback_report, 'Priorisoitu korjaussuunnitelma') || dev.revision_plan || '';
+            dev.feedback_prompt_version = DEVELOPMENT_FEEDBACK_PROMPT_VERSION;
             dev.feedback_updated_at = new Date().toISOString();
             dev.updated_at = dev.feedback_updated_at;
             dev.feedback_progress = {
                 status: 'completed',
+                prompt_version: DEVELOPMENT_FEEDBACK_PROMPT_VERSION,
                 signature,
                 total: chunks.length,
                 completed: chunks.length,
