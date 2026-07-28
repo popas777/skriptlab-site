@@ -8757,6 +8757,35 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     display: none;
 }
 
+.audio-sample-meta {
+    margin: 10px 0 0;
+    padding: 10px 12px;
+    border: 1px solid rgba(67, 64, 110, .18);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, .72);
+    color: rgba(41, 36, 29, .72);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+.audio-sample-meta::before {
+    content: "✓";
+    display: inline-grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    margin-right: 7px;
+    border-radius: 50%;
+    background: #43406e;
+    color: #fff;
+    font-size: 11px;
+}
+
+.audio-sample-meta.hidden {
+    display: none;
+}
+
 @media (max-width: 700px) {
     .audio-modern-workspace .audio-tts-lab {
         padding: 16px;

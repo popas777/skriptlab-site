@@ -11308,6 +11308,28 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         return `Tallennettu ${date.toLocaleString('fi-FI', { dateStyle: 'short', timeStyle: 'short' })}`;
     }
 
+    function renderAudioSampleMeta(elementId, preview) {
+        const element = document.getElementById(elementId);
+        if (!element) return;
+        if (!preview || typeof preview !== 'object') {
+            element.textContent = '';
+            element.classList.add('hidden');
+            return;
+        }
+        const createdAt = new Date(preview.created_at || '');
+        const createdLabel = Number.isNaN(createdAt.getTime())
+            ? 'luontiaika ei saatavilla'
+            : createdAt.toLocaleString('fi-FI', { dateStyle: 'short', timeStyle: 'medium' });
+        const details = [
+            `Viimeisin näyte ${createdLabel}`,
+            preview.provider_name || preview.provider,
+            `malli ${preview.model_name || preview.model_id || 'ei tiedossa'}`,
+            preview.voice_name ? `ääni ${preview.voice_name}` : ''
+        ].filter(Boolean);
+        element.textContent = details.join(' · ');
+        element.classList.remove('hidden');
+    }
+
     async function persistAudioData(audio, successMessage) {
         if (!window.manuscriptData?.id) throw new Error('Valitse tallennettu käsikirjoitus ensin.');
         const res = await apiFetch(`/api/projects/${window.manuscriptData.id}/metadata`, {
@@ -11373,6 +11395,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     function applySavedGeminiTtsSettings() {
         const saved = audioDataFromAnalysis().gemini_voice;
         if (!saved || typeof saved !== 'object') {
+            renderAudioSampleMeta('audio-gemini-sample-meta', null);
             renderGeminiTtsMeta();
             return;
         }
@@ -11388,14 +11411,16 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 select.value = value;
             }
         });
+        renderAudioSampleMeta('audio-gemini-sample-meta', saved.last_preview);
         renderGeminiTtsMeta();
     }
 
-    async function persistGeminiTtsSettings() {
+    async function persistGeminiTtsSettings(lastPreview = null) {
         if (!window.manuscriptData?.id) return;
         const modelId = document.getElementById('audio-gemini-model-select')?.value || '';
         const model = geminiTtsModels.find(item => item.model_name === modelId);
         if (!model) return;
+        const previousSettings = audioDataFromAnalysis().gemini_voice;
         const audio = {
             ...audioDataFromAnalysis(),
             gemini_voice: {
@@ -11404,6 +11429,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 model_name: model.display_name,
                 voice_name: document.getElementById('audio-gemini-voice-select')?.value || 'Kore',
                 delivery: document.getElementById('audio-gemini-delivery-select')?.value || 'natural',
+                last_preview: lastPreview || previousSettings?.last_preview || null,
                 updated_at: new Date().toISOString()
             },
             updated_at: new Date().toISOString()
@@ -11493,7 +11519,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
 
     function applySavedAudioVoiceSettings() {
         const saved = audioDataFromAnalysis().voice;
-        if (!saved || typeof saved !== 'object') return;
+        if (!saved || typeof saved !== 'object') {
+            renderAudioSampleMeta('audio-eleven-sample-meta', null);
+            return;
+        }
         const voiceSelect = document.getElementById('audio-voice-select');
         const modelSelect = document.getElementById('audio-tts-model-select');
         const deliverySelect = document.getElementById('audio-delivery-select');
@@ -11510,13 +11539,15 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 select.value = value;
             }
         });
+        renderAudioSampleMeta('audio-eleven-sample-meta', saved.last_preview);
         renderAudioVoiceMeta();
     }
 
-    async function persistAudioVoiceSettings() {
+    async function persistAudioVoiceSettings(lastPreview = null) {
         const voiceSelect = document.getElementById('audio-voice-select');
         const selectedVoice = elevenLabsVoices.find(voice => voice.voice_id === voiceSelect?.value);
         if (!window.manuscriptData?.id || !selectedVoice) return;
+        const previousSettings = audioDataFromAnalysis().voice;
         const audio = {
             ...audioDataFromAnalysis(),
             voice: {
@@ -11526,6 +11557,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 model_id: document.getElementById('audio-tts-model-select')?.value || 'eleven_multilingual_v2',
                 delivery: document.getElementById('audio-delivery-select')?.value || 'natural',
                 speed: Number(document.getElementById('audio-rate-select')?.value || 1),
+                last_preview: lastPreview || previousSettings?.last_preview || null,
                 updated_at: new Date().toISOString()
             },
             updated_at: new Date().toISOString()
@@ -12014,7 +12046,16 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             player.src = geminiAudioObjectUrl;
             player.classList.remove('hidden');
             player.onended = () => setAudioStatus('Gemini TTS -testinäyte päättyi.');
-            await persistGeminiTtsSettings();
+            const preview = {
+                created_at: res.headers.get('X-Audio-Created-At') || new Date().toISOString(),
+                provider: 'gemini',
+                provider_name: 'Gemini TTS',
+                model_id: res.headers.get('X-Audio-Model') || model.model_name,
+                model_name: model.display_name,
+                voice_name: res.headers.get('X-Audio-Voice') || voiceName
+            };
+            renderAudioSampleMeta('audio-gemini-sample-meta', preview);
+            await persistGeminiTtsSettings(preview);
             try {
                 await player.play();
                 setAudioStatus(`${audioChapterTitle(currentAudioChapterEntry())}: Gemini TTS -testinäytettä toistetaan.`);
@@ -12065,6 +12106,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
         const button = document.getElementById('audio-test-voice-btn');
         const selectedVoice = elevenLabsVoices.find(voice => voice.voice_id === selectedVoiceId);
+        const selectedModel = document.getElementById('audio-tts-model-select');
+        const modelId = selectedModel?.value || 'eleven_multilingual_v2';
+        const modelName = selectedModel?.selectedOptions?.[0]?.textContent?.trim() || modelId;
         stopAudioVoice(false);
         if (button) button.disabled = true;
         setAudioStatus(`Luodaan lukijaäänellä ${selectedVoice?.name || 'valittu ääni'} lyhyt testinäyte ElevenLabsissa...`);
@@ -12076,7 +12120,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     project_id: window.manuscriptData.id,
                     voice_id: selectedVoiceId,
                     text,
-                    model_id: document.getElementById('audio-tts-model-select')?.value || 'eleven_multilingual_v2',
+                    model_id: modelId,
                     delivery: document.getElementById('audio-delivery-select')?.value || 'natural',
                     speed: Number(document.getElementById('audio-rate-select')?.value || 1)
                 })
@@ -12096,7 +12140,16 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             player.src = elevenLabsAudioObjectUrl;
             player.classList.remove('hidden');
             player.onended = () => setAudioStatus('ElevenLabs-testinäyte päättyi.');
-            await persistAudioVoiceSettings();
+            const preview = {
+                created_at: res.headers.get('X-Audio-Created-At') || new Date().toISOString(),
+                provider: 'elevenlabs',
+                provider_name: 'ElevenLabs',
+                model_id: res.headers.get('X-Audio-Model') || modelId,
+                model_name: modelName,
+                voice_name: selectedVoice?.name || selectedVoiceId
+            };
+            renderAudioSampleMeta('audio-eleven-sample-meta', preview);
+            await persistAudioVoiceSettings(preview);
             try {
                 await player.play();
                 setAudioStatus(`${audioChapterTitle(currentAudioChapterEntry())}: ElevenLabs-testinäytettä toistetaan.`);
