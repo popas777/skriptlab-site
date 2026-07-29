@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=72">
+    <link rel="stylesheet" href="styles.css?v=75">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -56,6 +56,14 @@
             </div>
         </div>
         <div class="top-bar-right">
+            <button class="help-agent-toggle" id="help-agent-toggle" type="button" aria-label="Avaa ohjeagentti" aria-controls="help-agent-panel" aria-expanded="false" aria-haspopup="dialog" title="Avaa ohjeagentti">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path d="M8.5 19.5 4 21l1.5-4.5A8 8 0 1 1 8.5 19.5Z"></path>
+                    <path d="M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01" stroke-linecap="round" stroke-width="2.4"></path>
+                </svg>
+                <span class="help-agent-toggle-label">Ohjeagentti</span>
+                <span class="help-agent-online-dot" aria-hidden="true"></span>
+            </button>
             <button class="icon-btn text-btn" id="feedback-open-btn" type="button" title="Anna palautetta nykyisestä moduulista">Anna palautetta</button>
             <a href="admin.html" class="icon-btn text-btn hidden" id="admin-link" title="Admin-paneeli" style="text-decoration:none;">Admin</a>
             <button class="icon-btn text-btn" id="toggle-lang" title="Käyttöliittymän kieli">FI</button>
@@ -64,6 +72,51 @@
             <a href="login.html" class="icon-btn text-btn" id="logout-link" title="Kirjaudu ulos" style="text-decoration:none;">Kirjaudu ulos</a>
         </div>
     </nav>
+
+    <div class="help-agent-backdrop hidden" id="help-agent-backdrop" aria-hidden="true"></div>
+    <section class="help-agent-panel glass-panel hidden" id="help-agent-panel" role="dialog" aria-modal="false" aria-labelledby="help-agent-title" aria-hidden="true">
+        <header class="help-agent-header">
+            <div class="help-agent-identity">
+                <span class="help-agent-avatar" aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M8.5 19.5 4 21l1.5-4.5A8 8 0 1 1 8.5 19.5Z"></path>
+                        <path d="M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01" stroke-linecap="round" stroke-width="2.4"></path>
+                    </svg>
+                </span>
+                <div>
+                    <h2 id="help-agent-title">SkriptLab-ohje</h2>
+                    <p id="help-agent-context">Valmis auttamaan tässä näkymässä</p>
+                </div>
+            </div>
+            <div class="help-agent-header-actions">
+                <button class="help-agent-header-btn" id="help-agent-clear" type="button" title="Tyhjennä keskustelu">Tyhjennä</button>
+                <button class="help-agent-close" id="help-agent-close" type="button" aria-label="Sulje ohjeagentti" title="Sulje ohjeagentti">×</button>
+            </div>
+        </header>
+
+        <div class="help-agent-thread" id="help-agent-thread" role="log" aria-label="Ohjeagentin keskustelu" aria-live="off"></div>
+        <span class="sr-only" id="help-agent-announcer" aria-live="polite" aria-atomic="true"></span>
+
+        <div class="help-agent-suggestions" id="help-agent-suggestions" aria-label="Valmiit kysymykset">
+            <button type="button" data-help-question="Mitä tässä näkymässä voi tehdä?">Mitä tässä voi tehdä?</button>
+            <button type="button" data-help-question="Mikä olisi luonteva seuraava vaihe?">Mikä seuraavaksi?</button>
+            <button type="button" data-help-question="Mistä minun kannattaa aloittaa?">Mistä aloitan?</button>
+        </div>
+
+        <form class="help-agent-form" id="help-agent-form">
+            <label class="sr-only" for="help-agent-input">Kysy SkriptLabin käytöstä</label>
+            <textarea id="help-agent-input" rows="2" maxlength="3000" placeholder="Kysy sovelluksen käytöstä…"></textarea>
+            <button class="help-agent-send" id="help-agent-send" type="submit" aria-label="Lähetä viesti" title="Lähetä viesti">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path d="m5 12 14-7-4 14-3-6-7-1Z" stroke-linejoin="round"></path>
+                </svg>
+            </button>
+        </form>
+        <div class="help-agent-footer">
+            <span id="help-agent-status" role="status" aria-live="polite">Enter lähettää · Shift+Enter rivinvaihto</span>
+            <span>Ei lue käsikirjoitustasi</span>
+        </div>
+    </section>
 
     <div class="app-wrapper" id="app-wrapper">
         <aside class="sidebar glass-panel" id="sidebar">
@@ -78,7 +131,7 @@
                     <li data-view="view-oikoluku">Oikoluku ja viimeistely</li>
                     <li data-view="view-kuvitus">Kansi</li>
                     <li data-view="view-kirja">Valmis kirja & taitto</li>
-                    <li data-view="view-julkaisupaketti">Julkaisupaketti</li>
+                    <li data-view="view-julkaisupaketti">Tiedostopaketti</li>
                     <li data-view="view-monikielinen-julkaisu">Monikielinen julkaisu</li>
                     <li data-view="view-julkaise">Julkaise</li>
                     <li data-view="view-ai-tyonkulku">AI-työnkulku</li>
@@ -1131,14 +1184,14 @@
                 </div>
             </div>
 
-            <!-- 1.6 VIEW: JULKAISUPAKETTI -->
+            <!-- 1.6 VIEW: TIEDOSTOPAKETTI -->
             <div id="view-julkaisupaketti" class="view-section hidden">
                 <div class="publication-package-hero">
                     <div class="publication-package-hero-copy">
                         <span class="publication-package-eyebrow">Yksi lukittu lähde · kaikki toimitusformaatit</span>
-                        <h2>Julkaisupaketti</h2>
+                        <h2>Tiedostopaketti</h2>
                         <p id="publication-package-current-project">Käsikirjoitus: [Ei aktiivista teosta]</p>
-                        <div class="publication-package-stats" aria-label="Julkaisupaketin yhteenveto">
+                        <div class="publication-package-stats" aria-label="Tiedostopaketin yhteenveto">
                             <div><strong id="publication-package-word-count">0</strong><span>sanaa</span></div>
                             <div><strong id="publication-package-version">V0</strong><span>uusin versio</span></div>
                             <div><strong>3</strong><span>julkaisuformaattia</span></div>
@@ -1146,7 +1199,7 @@
                     </div>
                     <div class="publication-package-hero-action">
                         <span class="publication-package-lock">Lähdeversio lukitaan automaattisesti</span>
-                        <button class="btn btn-primary publication-package-build-btn" id="publication-package-build-btn" type="button">Muodosta julkaisupaketti</button>
+                        <button class="btn btn-primary publication-package-build-btn" id="publication-package-build-btn" type="button">Muodosta tiedostopaketti</button>
                         <p id="publication-package-status" role="status">Tarkistetaan paketin valmius…</p>
                     </div>
                 </div>
@@ -1233,7 +1286,7 @@
                     <div class="publication-package-result-copy">
                         <span id="publication-package-result-version">V0</span>
                         <div>
-                            <h3 id="publication-package-result-title">Julkaisupaketti</h3>
+                            <h3 id="publication-package-result-title">Tiedostopaketti</h3>
                             <p id="publication-package-result-detail">PDF, EPUB, DOCX, kansi ja tuotetiedot samassa ZIP-paketissa.</p>
                         </div>
                     </div>
@@ -1248,7 +1301,7 @@
             <div id="view-monikielinen-julkaisu" class="view-section hidden">
                 <div class="multilingual-publication-hero">
                     <div class="multilingual-publication-hero-copy">
-                        <span class="multilingual-publication-eyebrow">Julkaisupaketti → kieliversiot</span>
+                        <span class="multilingual-publication-eyebrow">Tiedostopaketti → kieliversiot</span>
                         <h2>Yksi kirja.<br><span>Useita markkinoita.</span></h2>
                         <p id="multilingual-publication-current-project">Valitse käsikirjoitus, josta kieliversiot muodostetaan.</p>
                         <div class="multilingual-publication-stats" aria-label="Monikielisen julkaisun yhteenveto">
@@ -1268,7 +1321,7 @@
                 <section class="multilingual-publication-flow" aria-label="Kieliversion julkaisupolku">
                     <article class="multilingual-publication-flow-step" id="multilingual-flow-source">
                         <span>01</span>
-                        <div><strong>Lukittu lähde</strong><small id="multilingual-flow-source-detail">Tarkistetaan julkaisupakettia…</small></div>
+                        <div><strong>Lukittu lähde</strong><small id="multilingual-flow-source-detail">Tarkistetaan tiedostopakettia…</small></div>
                     </article>
                     <i aria-hidden="true">→</i>
                     <article class="multilingual-publication-flow-step" id="multilingual-flow-translation">
@@ -1329,7 +1382,7 @@
                         </div>
                         <div class="multilingual-release-proof">
                             <strong id="multilingual-release-proof-title">Jäljitettävä lähtöaineisto</strong>
-                            <p id="multilingual-release-proof-detail">Muodosta ensin Julkaisupaketti, jotta kieliversio voidaan sitoa näkyvään lähdeversioon.</p>
+                            <p id="multilingual-release-proof-detail">Muodosta ensin Tiedostopaketti, jotta kieliversio voidaan sitoa näkyvään lähdeversioon.</p>
                         </div>
                     </aside>
                 </div>
@@ -3325,13 +3378,22 @@
                             <aside id="translation-workspace-file-list" class="translation-workspace-file-list" aria-label="Käännöstyötilan tiedostot">
                                 <p class="card-meta">Ei tiedostoja.</p>
                             </aside>
-                            <textarea
-                                id="translation-workspace-file-content"
-                                class="translation-workspace-file-content"
-                                readonly
-                                spellcheck="false"
-                                aria-label="Valitun työtiedoston sisältö"
-                            >Valitse tiedosto vasemmalta.</textarea>
+                            <div class="translation-workspace-file-editor">
+                                <div class="translation-workspace-file-editor-actions">
+                                    <span id="translation-workspace-file-edit-status" class="card-meta" aria-live="polite">Valitse tiedosto vasemmalta.</span>
+                                    <button id="translation-workspace-file-save-btn" class="btn btn-primary hidden" type="button" disabled>Tallenna tiedosto</button>
+                                    <button id="translation-workspace-file-rerun-translation-btn" class="btn btn-secondary hidden" type="button" disabled>Aja käännös uudelleen</button>
+                                    <button id="translation-workspace-file-rerun-review-btn" class="btn btn-secondary hidden" type="button" disabled>Aja tarkastus uudelleen</button>
+                                </div>
+                                <textarea
+                                    id="translation-workspace-file-content"
+                                    class="translation-workspace-file-content"
+                                    readonly
+                                    maxlength="50000"
+                                    spellcheck="false"
+                                    aria-label="Valitun työtiedoston sisältö"
+                                >Valitse tiedosto vasemmalta.</textarea>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -3341,6 +3403,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=120"></script>
+    <script src="app.js?v=123"></script>
 </body>
 </html>
