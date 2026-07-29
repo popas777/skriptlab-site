@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=69">
+    <link rel="stylesheet" href="styles.css?v=70">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -100,6 +100,10 @@
                     <li data-view="view-om-kokonaisuus">OM - Kokonaisuus</li>
                     <li data-view="view-om-vienti">OM - Katselu ja tulostus</li>
                 </ul>
+                <button class="sidebar-more-button" id="nav-show-more" type="button" aria-controls="nav-menu" aria-expanded="false" hidden>
+                    <span>Näytä lisää</span>
+                    <span class="sidebar-more-chevron" aria-hidden="true">⌄</span>
+                </button>
             </nav>
             <div class="ai-meta-box">
                 <h3 id="sidebar-current-title">Ei käsikirjoitusta</h3>
@@ -1666,22 +1670,19 @@
                 <div class="proofread-modern editorial-paper-workspace">
                     <header class="production-workspace-hero proofread-step-header">
                         <div class="production-workspace-hero-copy grow">
-                            <p class="production-workspace-eyebrow">KIELENHUOLTO · 01–03</p>
+                            <p class="production-workspace-eyebrow">Oikoluku ja viimeistely</p>
                             <h2 id="proofread-project-title">Ei aktiivista teosta</h2>
-                            <p>Vie käsikirjoitus ehdotuksista painovalmiiksi hallitussa kolmivaiheisessa työnkulussa.</p>
                         </div>
-                        <div class="production-workspace-hero-status">
-                            <span>TYÖTILA</span>
-                            <strong>Oikoluku → tarkistus → viimeistely</strong>
-                            <p class="hint" id="proofread-status-text" role="status" aria-live="polite"></p>
-                        </div>
+                        <p class="hint proofread-inline-status" id="proofread-status-text" role="status" aria-live="polite"></p>
                     </header>
 
                     <div class="mode-switch proofread-mode-switch" role="tablist" aria-label="Työvaiheet">
-                        <button id="tab-oikoluku" class="proofread-tab is-active" data-proofread-panel="oikoluku" role="tab" type="button"><span>01</span> Oikoluku</button>
-                        <button id="tab-tarkistus" class="proofread-tab" data-proofread-panel="tarkistus" role="tab" type="button"><span>02</span> Tarkistus</button>
-                        <button id="tab-viimeistely" class="proofread-tab" data-proofread-panel="viimeistely" role="tab" type="button"><span>03</span> Viimeistely</button>
+                        <button id="tab-oikoluku" class="proofread-tab is-active" data-proofread-panel="oikoluku" role="tab" type="button">Oikoluku</button>
+                        <button id="tab-tarkistus" class="proofread-tab" data-proofread-panel="tarkistus" role="tab" type="button">Tarkistus</button>
+                        <button id="tab-viimeistely" class="proofread-tab" data-proofread-panel="viimeistely" role="tab" type="button">Viimeistely</button>
                     </div>
+
+                    <p class="step-intro proofread-workspace-intro">Vie käsikirjoitus ehdotuksista painovalmiiksi hallitussa kolmivaiheisessa työnkulussa.</p>
 
                     <section id="panel-oikoluku" class="proofread-panel">
                         <div class="chapter-bar">
@@ -3340,6 +3341,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=117"></script>
+    <script src="app.js?v=118"></script>
 </body>
 </html>

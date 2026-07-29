@@ -548,8 +548,19 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 .logo { font-size: 24px; margin-bottom: 24px; padding-left: 8px;}
 .logo .accent { color: var(--accent-color); }
 
+.sidebar-nav {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    flex-direction: column;
+}
 .sidebar nav ul {
-    list-style: none; overflow-y: auto; flex: 1; margin-bottom: 16px; scrollbar-width: thin;
+    min-height: 0;
+    list-style: none;
+    overflow-y: auto;
+    flex: 1 1 auto;
+    margin-bottom: 8px;
+    scrollbar-width: thin;
 }
 .sidebar nav li {
     padding: 10px 14px; margin-bottom: 4px; border-radius: 8px; color: var(--text-secondary);
@@ -557,6 +568,40 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 }
 .sidebar nav li:hover { background: rgba(121, 192, 255, 0.05); color: var(--text-primary); }
 .sidebar nav li.active { background: rgba(121, 192, 255, 0.1); color: var(--accent-color); font-weight: 500; }
+.sidebar nav li.module-overflow-hidden { display: none !important; }
+
+.sidebar-more-button {
+    display: flex;
+    flex: none;
+    width: 100%;
+    min-height: 42px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 13px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: rgba(121, 192, 255, 0.055);
+    color: var(--accent-color);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 650;
+    cursor: pointer;
+}
+.sidebar-more-button:hover {
+    border-color: color-mix(in srgb, var(--accent-color) 34%, var(--border-color));
+    background: rgba(121, 192, 255, 0.1);
+    color: var(--text-primary);
+}
+.sidebar-more-chevron {
+    font-size: 18px;
+    line-height: 1;
+    transition: transform .2s ease;
+}
+.sidebar-more-button[aria-expanded="true"] .sidebar-more-chevron {
+    transform: rotate(180deg);
+}
+.sidebar-more-button[hidden] { display: none !important; }
 
 .ai-meta-box {
     margin-top: auto; background: rgba(16, 185, 129, 0.05);
@@ -8200,19 +8245,25 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 
 /* Proofreading and finishing */
 #view-oikoluku .editorial-paper-workspace {
-    gap: 16px;
+    gap: 0;
     align-content: start;
     grid-auto-rows: max-content;
 }
 
 #view-oikoluku .editorial-paper-workspace > .production-workspace-hero {
-    display: block;
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
     overflow: visible;
     margin-bottom: 0;
     padding: 8px 0 4px;
     border: 0;
     border-radius: 0;
-    background: transparent;
+    background: #fbf9f4;
     box-shadow: none;
 }
 
@@ -8220,35 +8271,22 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     display: none;
 }
 
-#view-oikoluku .production-workspace-hero-copy > p:not(.production-workspace-eyebrow) {
-    max-width: 540px;
-    margin-top: 8px;
+#view-oikoluku .proofread-inline-status {
+    flex: 0 1 220px;
+    max-width: 220px;
+    margin: 0;
+    color: rgba(41, 36, 29, .45);
+    font-size: 13px;
+    line-height: 1.4;
+    text-align: right;
+}
+
+#view-oikoluku .proofread-workspace-intro {
+    width: min(100%, 640px);
+    margin: 0 auto 18px;
     color: rgba(41, 36, 29, .7);
     font-size: 15px;
-}
-
-#view-oikoluku .production-workspace-hero-status {
-    min-height: 0;
-    margin-top: 16px;
-    padding: 14px 16px;
-    border: 1px solid #e4decf;
-    border-radius: 12px;
-    background: #fff;
-    box-shadow: 0 1px 2px rgba(41, 36, 29, .05), 0 6px 20px rgba(41, 36, 29, .06);
-    backdrop-filter: none;
-}
-
-#view-oikoluku .production-workspace-hero-status > span {
-    color: #43406e;
-}
-
-#view-oikoluku .production-workspace-hero-status > strong {
-    color: #29241d;
-}
-
-#view-oikoluku .production-workspace-hero-status > p,
-#view-oikoluku .production-workspace-hero-status .hint {
-    color: rgba(41, 36, 29, .62);
+    line-height: 1.55;
 }
 
 #view-oikoluku .proofread-mode-switch,
@@ -8259,44 +8297,42 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 }
 
 #view-oikoluku .proofread-modern .proofread-mode-switch {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    display: flex;
     align-self: start;
-    gap: 6px;
-    min-height: 62px;
-    padding: 6px;
+    gap: 0;
+    min-height: 50px;
+    margin-top: 14px;
+    margin-bottom: 14px;
+    padding: 3px;
     border: 1px solid #e4decf;
-    border-radius: 14px;
+    border-radius: 999px;
     background: #f1ede3;
 }
 
 #view-oikoluku .proofread-modern .proofread-mode-switch button {
-    width: 100%;
+    flex: 1;
     min-width: 0;
-    height: 48px;
-    min-height: 48px;
-    border-radius: 10px;
-    color: rgba(41, 36, 29, .62);
-}
-
-#view-oikoluku .proofread-modern .proofread-mode-switch button span {
-    border: 1px solid rgba(67, 64, 110, .2);
-    background: #fff;
-    color: #43406e;
+    min-height: 42px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: rgba(41, 36, 29, .45);
+    font-size: 14px;
+    font-weight: 600;
 }
 
 #view-oikoluku .proofread-modern .proofread-mode-switch button.is-active {
     background: #fff;
-    color: #29241d;
+    color: #43406e;
     box-shadow: 0 1px 2px rgba(41, 36, 29, .06), 0 5px 14px rgba(41, 36, 29, .07);
 }
 
 #view-oikoluku .proofread-panel:not(.hidden) {
-    padding: 20px;
-    border: 1px solid #e4decf;
-    border-radius: 16px;
-    background: #fff;
-    box-shadow: 0 1px 2px rgba(41, 36, 29, .05), 0 6px 20px rgba(41, 36, 29, .06);
+    padding: 0 0 20px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
 }
 
 #view-oikoluku .proofread-modern .nav-arrow,
@@ -8369,6 +8405,22 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     border-color: #e4decf;
     background: #fff;
     color: #29241d;
+}
+
+@media (max-width: 700px) {
+    #view-oikoluku .editorial-paper-workspace > .production-workspace-hero {
+        position: static;
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 6px;
+    }
+    #view-oikoluku .proofread-inline-status {
+        max-width: none;
+        text-align: left;
+    }
+    #view-oikoluku .proofread-modern .proofread-mode-switch button {
+        font-size: 13px;
+    }
 }
 
 /* Product metadata */

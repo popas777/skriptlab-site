@@ -4055,6 +4055,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     // --- 2. SPA Navigation Logic ---
     const navItems = document.querySelectorAll('#nav-menu li[data-view]');
+    const navShowMoreButton = document.getElementById('nav-show-more');
     const views = document.querySelectorAll('.view-section');
     if (publisherDemoMode) {
         const demoNavConfig = [
@@ -4116,6 +4117,44 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
     });
 
+    const MODULE_MENU_COLLAPSED_LIMIT = 7;
+    let moduleMenuExpanded = false;
+
+    function refreshModuleMenuOverflow() {
+        const navMenu = document.getElementById('nav-menu');
+        if (!navMenu || !navShowMoreButton) return;
+        const availableItems = Array.from(navMenu.querySelectorAll('li[data-view]'))
+            .filter(item => !item.hidden);
+        const hasOverflow = availableItems.length > MODULE_MENU_COLLAPSED_LIMIT;
+        const collapsedVisibleItems = new Set(availableItems.slice(0, MODULE_MENU_COLLAPSED_LIMIT));
+        const activeItem = availableItems.find(item => item.classList.contains('active'));
+        if (!moduleMenuExpanded && activeItem && !collapsedVisibleItems.has(activeItem)) {
+            collapsedVisibleItems.delete(availableItems[MODULE_MENU_COLLAPSED_LIMIT - 1]);
+            collapsedVisibleItems.add(activeItem);
+        }
+        availableItems.forEach(item => {
+            item.classList.toggle(
+                'module-overflow-hidden',
+                hasOverflow && !moduleMenuExpanded && !collapsedVisibleItems.has(item)
+            );
+        });
+        navShowMoreButton.hidden = !hasOverflow;
+        navShowMoreButton.setAttribute('aria-expanded', String(moduleMenuExpanded));
+        const label = navShowMoreButton.querySelector('span');
+        if (label) label.textContent = moduleMenuExpanded ? 'Näytä vähemmän' : 'Näytä lisää';
+        navShowMoreButton.title = moduleMenuExpanded
+            ? 'Piilota harvemmin käytetyt moduulit'
+            : `Näytä kaikki ${availableItems.length} moduulia`;
+    }
+
+    if (navShowMoreButton) {
+        navShowMoreButton.addEventListener('click', () => {
+            moduleMenuExpanded = !moduleMenuExpanded;
+            refreshModuleMenuOverflow();
+        });
+    }
+    refreshModuleMenuOverflow();
+
     function setBookTab(panelId = 'book-preview-tab') {
         document.querySelectorAll('.book-tab').forEach(button => {
             button.classList.toggle('active', button.dataset.bookPanel === panelId);
@@ -4166,6 +4205,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 item.classList.remove('active');
             }
         });
+        refreshModuleMenuOverflow();
         if (viewId === 'view-kirja') {
             refreshTuotantoFrame(viewId, requestedViewId);
         }
