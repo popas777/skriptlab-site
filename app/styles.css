@@ -8055,7 +8055,7 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 .editorial-paper-workspace .product-section-card h3,
 .editorial-paper-workspace .development-result-block h3,
 .editorial-paper-workspace .knowledge-list-heading h3 {
-    font-family: "Fraunces", Georgia, serif;
+    font-family: "Outfit", "Segoe UI", sans-serif;
     font-weight: 600;
     color: #29241d;
 }

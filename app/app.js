@@ -4062,7 +4062,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const demoNavConfig = [
             ['view-kirjani', 'Yleiskuva'],
             ['view-analyysi', 'Analyysi ja projektimuisti'],
-            ['view-kehityseditointi', 'Valinnainen kehityspalaute'],
+            ['view-kehityseditointi', 'Kehityspalaute'],
             ['view-kirjoita-editoi', 'Työpöytäeditori'],
             ['view-oikoluku', 'Oikoluku ja viimeistely'],
             ['view-kuvitus', 'Kansi'],
@@ -16931,7 +16931,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (step) params.set('step', step);
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '10');
+        params.set('v', '11');
         const reloaded = updateEmbeddedModuleFrame(frame, 'manuskripti.html', params);
         if (!reloaded && frame.contentWindow) {
             frame.contentWindow.postMessage({ type: 'skriptlab:refresh-workflow-status' }, window.location.origin);

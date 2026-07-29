@@ -26,7 +26,7 @@
   --virhe: #A33B2E;
   --radius: 16px;
   --radius-s: 10px;
-  --display: "Fraunces", Georgia, serif;
+  --display: "Outfit", "Segoe UI", sans-serif;
   --body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --shadow: 0 1px 2px rgba(41, 36, 29, 0.05), 0 6px 20px rgba(41, 36, 29, 0.06);
 }

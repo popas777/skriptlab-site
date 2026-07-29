@@ -943,7 +943,7 @@
         moduleView: "view-kirjoita-editoi" },
       { id: "analyysi", num: 2, name: "Analyysi", desc: "Arvio, synopsis ja metatiedot",
         status: projectStageStatus(analysisDone, analysisProgress), moduleView: "view-analyysi" },
-      { id: "kehityseditointi", num: 3, name: "Projektimuisti ja kehityspalaute", desc: developmentDescription,
+      { id: "kehityseditointi", num: 3, name: "Kehityspalaute", desc: developmentDescription,
         status: projectStageStatus(developmentDone, developmentStarted), moduleView: "view-kehityseditointi" },
       { id: "oikoluku", num: 4, name: "Oikoluku ja viimeistely", desc: "Kielenhuolto ja viimeistelty versio",
         status: projectStageStatus(proofreadDone, proofreadStarted), moduleView: "view-oikoluku" },
