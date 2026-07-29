@@ -4056,6 +4056,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     // --- 2. SPA Navigation Logic ---
     const navItems = document.querySelectorAll('#nav-menu li[data-view]');
     const navShowMoreButton = document.getElementById('nav-show-more');
+    const sidebarNav = navShowMoreButton?.closest('.sidebar-nav');
     const views = document.querySelectorAll('.view-section');
     if (publisherDemoMode) {
         const demoNavConfig = [
@@ -4126,23 +4127,28 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const availableItems = Array.from(navMenu.querySelectorAll('li[data-view]'))
             .filter(item => !item.hidden);
         const hasOverflow = availableItems.length > MODULE_MENU_COLLAPSED_LIMIT;
+        if (!hasOverflow) moduleMenuExpanded = false;
+        const showExpandedMenu = hasOverflow && moduleMenuExpanded;
         const collapsedVisibleItems = new Set(availableItems.slice(0, MODULE_MENU_COLLAPSED_LIMIT));
         const activeItem = availableItems.find(item => item.classList.contains('active'));
-        if (!moduleMenuExpanded && activeItem && !collapsedVisibleItems.has(activeItem)) {
+        if (!showExpandedMenu && activeItem && !collapsedVisibleItems.has(activeItem)) {
             collapsedVisibleItems.delete(availableItems[MODULE_MENU_COLLAPSED_LIMIT - 1]);
             collapsedVisibleItems.add(activeItem);
         }
         availableItems.forEach(item => {
             item.classList.toggle(
                 'module-overflow-hidden',
-                hasOverflow && !moduleMenuExpanded && !collapsedVisibleItems.has(item)
+                hasOverflow && !showExpandedMenu && !collapsedVisibleItems.has(item)
             );
         });
+        sidebarNav?.classList.toggle('has-overflow', hasOverflow);
+        sidebarNav?.classList.toggle('is-expanded', showExpandedMenu);
+        sidebar?.classList.toggle('module-menu-open', showExpandedMenu);
         navShowMoreButton.hidden = !hasOverflow;
-        navShowMoreButton.setAttribute('aria-expanded', String(moduleMenuExpanded));
+        navShowMoreButton.setAttribute('aria-expanded', String(showExpandedMenu));
         const label = navShowMoreButton.querySelector('span');
-        if (label) label.textContent = moduleMenuExpanded ? 'Näytä vähemmän' : 'Näytä lisää';
-        navShowMoreButton.title = moduleMenuExpanded
+        if (label) label.textContent = showExpandedMenu ? 'Näytä vähemmän' : 'Näytä lisää';
+        navShowMoreButton.title = showExpandedMenu
             ? 'Piilota harvemmin käytetyt moduulit'
             : `Näytä kaikki ${availableItems.length} moduulia`;
     }
