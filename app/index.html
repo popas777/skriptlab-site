@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=77">
+    <link rel="stylesheet" href="styles.css?v=78">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -2512,6 +2512,33 @@
                             <button class="btn btn-secondary" id="audio-production-package-btn" type="button">Lataa lukupaketti</button>
                         </div>
                     </article>
+
+                    <article class="card glass-panel audio-production-chunk-review">
+                        <div class="audio-production-chunk-review-heading">
+                            <div>
+                                <p class="audio-eyebrow">Ennen tuotantoa</p>
+                                <h3>Tarkista tuotantoon lähetettävä aineisto</h3>
+                                <p>Näet kaikki mallille lähetettävät palat ja voit muokata tekstiä, jaksotusta sekä järjestystä.</p>
+                            </div>
+                            <button class="btn btn-secondary" id="audio-production-chunks-toggle" type="button" aria-expanded="false" aria-controls="audio-production-chunks-panel" disabled>Tarkastele ja muokkaa paloja</button>
+                        </div>
+                        <div id="audio-production-chunks-panel" class="audio-production-chunks-panel hidden">
+                            <div class="audio-production-chunk-toolbar">
+                                <div>
+                                    <strong id="audio-production-chunks-summary">Paloja ei ole vielä ladattu.</strong>
+                                    <span id="audio-production-chunks-limits">Valitse tuotantomalli ja lukijaääni.</span>
+                                </div>
+                                <div class="audio-production-chunk-toolbar-actions">
+                                    <button class="btn btn-secondary" id="audio-production-chunk-add-intro" type="button">Lisää pala alkuun</button>
+                                    <button class="btn btn-secondary" id="audio-production-chunks-estimate" type="button">Päivitä arvio</button>
+                                    <button class="btn btn-secondary" id="audio-production-chunks-reset" type="button">Palauta automaattinen jako</button>
+                                </div>
+                            </div>
+                            <p class="audio-production-chunk-help">Voit lisätä alkuun esimerkiksi äänikirjan lukijan tiedot. “Jaa tästä” katkaisee palan tekstikohdistimen kohdalta; ilman kohdistinta jako tehdään läheltä palan keskikohtaa.</p>
+                            <p id="audio-production-chunks-status" class="audio-production-chunks-status" role="status" aria-live="polite"></p>
+                            <div id="audio-production-chunks-list" class="audio-production-chunks-list" aria-label="Äänikirjan tuotantopalat"></div>
+                        </div>
+                    </article>
                 </section>
 
                 <section id="audio-legacy-panel" class="audio-workspace-panel hidden" role="tabpanel">
@@ -3513,6 +3540,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=130"></script>
+    <script src="app.js?v=131"></script>
 </body>
 </html>

@@ -6448,6 +6448,131 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     justify-content: flex-end;
     margin-top: 0;
 }
+.audio-production-chunk-review {
+    margin-top: 16px;
+    padding: 22px;
+}
+.audio-production-chunk-review-heading,
+.audio-production-chunk-toolbar,
+.audio-production-chunk-card-heading,
+.audio-production-chunk-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.audio-production-chunk-review-heading,
+.audio-production-chunk-toolbar,
+.audio-production-chunk-card-heading {
+    justify-content: space-between;
+}
+.audio-production-chunk-review-heading h3 {
+    margin: 0;
+    font-size: 19px;
+}
+.audio-production-chunk-review-heading > div > p:last-child {
+    max-width: 700px;
+    margin: 6px 0 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.55;
+}
+.audio-production-chunks-panel {
+    margin-top: 20px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border-color);
+}
+.audio-production-chunks-panel.hidden {
+    display: none;
+}
+.audio-production-chunk-toolbar > div:first-child {
+    display: grid;
+    gap: 4px;
+}
+.audio-production-chunk-toolbar strong {
+    color: var(--text-primary);
+    font-size: 13px;
+}
+.audio-production-chunk-toolbar span,
+.audio-production-chunk-help,
+.audio-production-chunks-status {
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.5;
+}
+.audio-production-chunk-toolbar-actions,
+.audio-production-chunk-card-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.audio-production-chunk-toolbar-actions .btn,
+.audio-production-chunk-card-actions .btn {
+    min-height: 34px;
+    padding: 7px 10px;
+    font-size: 11px;
+}
+.audio-production-chunk-card-actions .btn.is-danger {
+    color: #fca5a5;
+}
+.audio-production-chunk-help {
+    margin: 14px 0 0;
+}
+.audio-production-chunks-status {
+    min-height: 17px;
+    margin: 8px 0 0;
+}
+.audio-production-chunks-status.is-error {
+    color: #ef9a9a;
+}
+.audio-production-chunks-list {
+    display: grid;
+    gap: 12px;
+    margin-top: 14px;
+}
+.audio-production-chunk-card {
+    display: grid;
+    gap: 7px;
+    padding: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .035);
+}
+.audio-production-chunk-card.is-invalid {
+    border-color: rgba(248, 113, 113, .7);
+    box-shadow: 0 0 0 1px rgba(248, 113, 113, .12);
+}
+.audio-production-chunk-card-heading strong,
+.audio-production-chunk-card label {
+    color: var(--text-primary);
+    font-size: 11px;
+    font-weight: 750;
+}
+.audio-production-chunk-meta {
+    color: var(--text-secondary);
+    font-size: 10px;
+}
+.audio-production-chunk-card input,
+.audio-production-chunk-card textarea {
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: 9px;
+    background: rgba(0, 0, 0, .12);
+    color: var(--text-primary);
+    font: inherit;
+}
+.audio-production-chunk-card input {
+    min-height: 38px;
+    padding: 8px 10px;
+}
+.audio-production-chunk-card textarea {
+    min-height: 140px;
+    padding: 11px;
+    line-height: 1.6;
+    resize: vertical;
+}
+.audio-production-chunk-card-actions {
+    margin-top: 3px;
+}
 .audio-main-tabs,
 .audio-output-tabs {
     display: flex;
@@ -6669,6 +6794,15 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     .audio-production-result-actions .btn {
         flex: 1 1 170px;
     }
+    .audio-production-chunk-review-heading,
+    .audio-production-chunk-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+    .audio-production-chunk-review-heading > .btn,
+    .audio-production-chunk-toolbar-actions .btn {
+        flex: 1 1 170px;
+    }
     .audio-large-textarea {
         min-height: 300px;
         height: 42vh;
@@ -6702,6 +6836,15 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 }
 .app-wrapper.mobile-simulate .audio-production-result-actions {
     justify-content: flex-start;
+}
+.app-wrapper.mobile-simulate .audio-production-chunk-review-heading,
+.app-wrapper.mobile-simulate .audio-production-chunk-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+}
+.app-wrapper.mobile-simulate .audio-production-chunk-review-heading > .btn,
+.app-wrapper.mobile-simulate .audio-production-chunk-toolbar-actions .btn {
+    flex: 1 1 170px;
 }
 .app-wrapper.mobile-simulate .audio-large-textarea {
     min-height: 300px;
@@ -9392,7 +9535,8 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 .audio-modern-workspace .audio-single-editor h3,
 .audio-modern-workspace .audio-production-heading h3,
 .audio-modern-workspace .audio-production-progress-heading h3,
-.audio-modern-workspace .audio-production-result h3 {
+.audio-modern-workspace .audio-production-result h3,
+.audio-modern-workspace .audio-production-chunk-review h3 {
     color: #29241d;
     font-family: "Fraunces", Georgia, serif;
     font-weight: 600;
@@ -9413,6 +9557,11 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 .audio-modern-workspace .audio-production-status,
 .audio-modern-workspace .audio-production-progress-copy,
 .audio-modern-workspace .audio-production-result-copy p:last-child,
+.audio-modern-workspace .audio-production-chunk-review-heading > div > p:last-child,
+.audio-modern-workspace .audio-production-chunk-toolbar span,
+.audio-modern-workspace .audio-production-chunk-help,
+.audio-modern-workspace .audio-production-chunks-status,
+.audio-modern-workspace .audio-production-chunk-meta,
 .audio-modern-workspace .audio-production-unit small,
 .audio-modern-workspace .audio-production-unit em,
 .audio-modern-workspace .audio-production-empty-units {
@@ -9427,15 +9576,40 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 }
 
 .audio-modern-workspace .audio-production-estimates > div,
-.audio-modern-workspace .audio-production-unit {
+.audio-modern-workspace .audio-production-unit,
+.audio-modern-workspace .audio-production-chunk-card {
     border-color: #e4decf;
     background: #fffdf9;
 }
 
 .audio-modern-workspace .audio-production-estimates strong,
 .audio-modern-workspace .audio-production-unit strong,
-.audio-modern-workspace .audio-production-progress-copy strong {
+.audio-modern-workspace .audio-production-progress-copy strong,
+.audio-modern-workspace .audio-production-chunk-toolbar strong,
+.audio-modern-workspace .audio-production-chunk-card-heading strong,
+.audio-modern-workspace .audio-production-chunk-card label {
     color: #29241d;
+}
+
+.audio-modern-workspace .audio-production-chunks-panel,
+.audio-modern-workspace .audio-production-chunk-card input,
+.audio-modern-workspace .audio-production-chunk-card textarea {
+    border-color: #e4decf;
+}
+
+.audio-modern-workspace .audio-production-chunk-card input,
+.audio-modern-workspace .audio-production-chunk-card textarea {
+    background: #fff;
+    color: #29241d;
+}
+
+.audio-modern-workspace .audio-production-chunk-card.is-invalid {
+    border-color: #c96658;
+}
+
+.audio-modern-workspace .audio-production-chunks-status.is-error,
+.audio-modern-workspace .audio-production-chunk-card-actions .btn.is-danger {
+    color: #8b3126;
 }
 
 .audio-modern-workspace .audio-production-estimates span {
