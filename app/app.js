@@ -387,7 +387,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         'view-om-kokonaisuus',
         'view-om-vienti'
     ]);
-    const writerViews = new Set(['view-kirjani', 'view-analyysi', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-kirja', 'view-julkaisupaketti', 'view-viimeistely']);
+    const writerViews = new Set(['view-kirjani', 'view-analyysi', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-kirja', 'view-julkaisupaketti', 'view-audio', 'view-viimeistely']);
     const betaCoreViews = new Set([...writerViews, 'view-monikielinen-julkaisu', 'view-markkinointi']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset', 'view-kaannostyotila']);
     const biographyViews = new Set(['view-kirjani', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-ai-tyonkulku', 'view-viimeistely', 'view-elamakerta', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-markkinointi', 'view-audio', 'view-kirja', 'view-julkaisupaketti', 'view-julkaise']);
@@ -11387,7 +11387,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 { id: 'marketing', title: 'Markkinointiaineistot', detail: 'Luodaan lyhyt ja pitkä kuvaus, some-tekstit, videokäsikirjoitus ja hashtagit.', status: 'pending' },
                 { id: 'covers', title: 'Kansi ja kuvitus', detail: 'Luodaan etukannen ja takakannen luonnokset analyysin perusteella.', status: 'pending' }
             );
-            steps.push({ id: 'audio', title: 'Audio (Äänikirja)', detail: 'Äänikirja on raskaan työnkulun viimeinen tuotantovaihe ja edellyttää äänen valintaa.', status: 'pending' });
+            steps.push({ id: 'audio', title: 'Audiotuotanto', detail: 'Äänikirjan tuotanto on työnkulun viimeinen vaihe ja edellyttää äänen valintaa.', status: 'pending' });
         }
         return steps;
     }
@@ -11690,9 +11690,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     }
 
     function runWorkflowAudioPlaceholder() {
-        setWorkflowStep('audio', 'running', 'Audio (Äänikirja) merkitään viimeiseksi tuotantovaiheeksi.');
+        setWorkflowStep('audio', 'running', 'Audiotuotanto valmistellaan viimeiseksi tuotantovaiheeksi.');
         renderAudioView();
-        setWorkflowStep('audio', 'done', 'Audio (Äänikirja) edellyttää äänen valintaa. Sanaston, ääntämisohjeet sekä alku- ja loppusanat voi valmistella Audio-osiossa.');
+        setWorkflowStep('audio', 'done', 'Valitse Audiotuotannossa malli ja ääni, tarkista arviot ja käynnistä koko kirjan tuotanto.');
     }
 
     let audioSelectedChapterIndex = null;
@@ -11706,6 +11706,891 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     let elevenLabsVoices = [];
     let elevenLabsVoicesLoaded = false;
     let elevenLabsAudioObjectUrl = '';
+    let audioProductionModels = [];
+    let audioProductionVoices = [];
+    let audioProductionOptionsPayload = null;
+    let audioProductionCurrent = null;
+    let audioProductionEstimate = null;
+    let audioProductionLoadedProjectId = null;
+    let audioProductionInitializationProjectId = null;
+    let audioProductionPollTimer = null;
+    let audioProductionPollGeneration = 0;
+    let audioProductionEstimateTimer = null;
+    let audioProductionEstimateGeneration = 0;
+    let audioProductionPlayerLoadedId = null;
+    let audioProductionPlayerLoadingId = null;
+
+    const AUDIO_PRODUCTION_ACTIVE_STATUSES = new Set([
+        'queued',
+        'pending',
+        'running',
+        'processing',
+        'generating',
+        'assembling',
+        'combining'
+    ]);
+    const AUDIO_PRODUCTION_RESUMABLE_STATUSES = new Set([
+        'partial',
+        'failed',
+        'paused',
+        'cancelled',
+        'interrupted'
+    ]);
+
+    function audioProductionStatusValue(production) {
+        return String(production?.status || '').trim().toLowerCase();
+    }
+
+    function audioProductionIsActive(production = audioProductionCurrent) {
+        return AUDIO_PRODUCTION_ACTIVE_STATUSES.has(audioProductionStatusValue(production));
+    }
+
+    function audioProductionCanResume(production = audioProductionCurrent) {
+        return Boolean(production?.id && AUDIO_PRODUCTION_RESUMABLE_STATUSES.has(audioProductionStatusValue(production)));
+    }
+
+    function audioProductionIsComplete(production = audioProductionCurrent) {
+        return ['completed', 'complete', 'ready'].includes(audioProductionStatusValue(production));
+    }
+
+    function audioProductionResponseRecord(payload) {
+        if (!payload || typeof payload !== 'object') return null;
+        return payload.production || payload.job || payload.data || payload;
+    }
+
+    function setAudioProductionStatus(message, isError = false) {
+        const status = document.getElementById('audio-production-status');
+        if (!status) return;
+        status.textContent = message || '';
+        status.classList.toggle('is-error', isError);
+    }
+
+    function audioProductionProviderLabel(provider) {
+        const value = String(provider || '').trim().toLowerCase();
+        if (value === 'gemini' || value === 'google') return 'Gemini';
+        if (value === 'elevenlabs') return 'ElevenLabs';
+        if (value === 'openai') return 'OpenAI';
+        return value ? value.charAt(0).toUpperCase() + value.slice(1) : 'TTS';
+    }
+
+    function audioProductionOptionKey(provider, id) {
+        return `${encodeURIComponent(String(provider || ''))}::${encodeURIComponent(String(id || ''))}`;
+    }
+
+    function audioProductionProviderEntries(payload) {
+        const providers = payload?.providers || payload?.options?.providers || payload?.data?.providers || [];
+        if (Array.isArray(providers)) return providers;
+        if (providers && typeof providers === 'object') {
+            return Object.entries(providers).map(([provider, value]) => ({
+                provider,
+                ...(value && typeof value === 'object' ? value : {})
+            }));
+        }
+        return [];
+    }
+
+    function normalizeAudioProductionOptions(payload) {
+        const models = [];
+        const voices = [];
+        const seenModels = new Set();
+        const seenVoices = new Set();
+
+        const addVoice = (value, fallbackProvider = '') => {
+            const item = typeof value === 'string' ? { voice_id: value, name: value } : value;
+            if (!item || typeof item !== 'object') return;
+            const provider = String(item.provider || item.provider_id || fallbackProvider || '').trim().toLowerCase();
+            const id = String(item.voice_id || item.id || item.voice_name || item.name || '').trim();
+            if (!id) return;
+            const key = audioProductionOptionKey(provider, id);
+            if (seenVoices.has(key)) return;
+            seenVoices.add(key);
+            voices.push({
+                provider,
+                voice_id: id,
+                voice_name: String(item.voice_name || item.name || id).trim(),
+                display_name: String(item.display_name || item.name || item.voice_name || id).trim(),
+                description: String(item.description || item.summary || '').trim(),
+                preview_url: String(item.preview_url || item.previewUrl || '').trim(),
+                is_default: Boolean(item.is_default || item.default),
+                disabled: item.enabled === false || item.available === false || item.configured === false
+            });
+        };
+
+        const addModel = (value, fallbackProvider = '') => {
+            const item = typeof value === 'string' ? { model_id: value, name: value } : value;
+            if (!item || typeof item !== 'object') return;
+            const provider = String(item.provider || item.provider_id || fallbackProvider || '').trim().toLowerCase();
+            const id = String(item.model_id || item.model_name || item.id || item.name || '').trim();
+            if (!id) return;
+            const key = audioProductionOptionKey(provider, id);
+            if (!seenModels.has(key)) {
+                seenModels.add(key);
+                models.push({
+                    provider,
+                    model_id: id,
+                    display_name: String(item.display_name || item.name || item.model_name || id).trim(),
+                    description: String(item.description || item.summary || item.price_note || '').trim(),
+                    is_default: Boolean(item.is_default || item.default || item.recommended),
+                    disabled: item.enabled === false || item.available === false || item.configured === false
+                });
+            }
+            (Array.isArray(item.voices) ? item.voices : []).forEach(voice => addVoice(voice, provider));
+        };
+
+        const roots = [payload, payload?.options, payload?.data].filter(value => value && typeof value === 'object');
+        roots.forEach(root => {
+            (Array.isArray(root.models) ? root.models : []).forEach(model => addModel(model, root.provider));
+            (Array.isArray(root.voices) ? root.voices : []).forEach(voice => addVoice(voice, root.provider));
+        });
+        audioProductionProviderEntries(payload).forEach(providerEntry => {
+            const provider = String(providerEntry.provider || providerEntry.id || providerEntry.name || '').trim().toLowerCase();
+            (Array.isArray(providerEntry.models) ? providerEntry.models : []).forEach(model => addModel(model, provider));
+            (Array.isArray(providerEntry.voices) ? providerEntry.voices : []).forEach(voice => addVoice(voice, provider));
+        });
+        return { models, voices };
+    }
+
+    function currentAudioProductionModel() {
+        const select = document.getElementById('audio-production-model-select');
+        return audioProductionModels.find(model => audioProductionOptionKey(model.provider, model.model_id) === select?.value) || null;
+    }
+
+    function currentAudioProductionVoice() {
+        const select = document.getElementById('audio-production-voice-select');
+        return audioProductionVoices.find(voice => audioProductionOptionKey(voice.provider, voice.voice_id) === select?.value) || null;
+    }
+
+    function audioProductionPayload() {
+        const model = currentAudioProductionModel();
+        const voice = currentAudioProductionVoice();
+        if (!window.manuscriptData?.id || !model || !voice || (model.provider && voice.provider && model.provider !== voice.provider)) return null;
+        return {
+            project_id: window.manuscriptData.id,
+            provider: model.provider || voice.provider,
+            model_id: model.model_id,
+            voice_id: voice.voice_id,
+            voice_name: voice.voice_name || voice.display_name || voice.voice_id
+        };
+    }
+
+    function audioProductionPreferredModelKey() {
+        const currentProvider = String(audioProductionCurrent?.provider || '').trim().toLowerCase();
+        const currentModel = String(audioProductionCurrent?.model_id || audioProductionCurrent?.model_name || '').trim();
+        if (currentModel) return audioProductionOptionKey(currentProvider, currentModel);
+        const configured = audioProductionOptionsPayload?.default_model;
+        if (configured && typeof configured === 'object') {
+            return audioProductionOptionKey(configured.provider || audioProductionOptionsPayload?.default_provider, configured.model_id || configured.model_name || configured.id);
+        }
+        const configuredId = String(audioProductionOptionsPayload?.default_model_id || configured || '').trim();
+        if (configuredId) return audioProductionOptionKey(audioProductionOptionsPayload?.default_provider || '', configuredId);
+        const fallback = audioProductionModels.find(model => model.is_default && !model.disabled) || audioProductionModels.find(model => !model.disabled);
+        return fallback ? audioProductionOptionKey(fallback.provider, fallback.model_id) : '';
+    }
+
+    function audioProductionPreferredVoiceKey(provider = '') {
+        const currentProvider = String(audioProductionCurrent?.provider || provider || '').trim().toLowerCase();
+        const currentVoice = String(audioProductionCurrent?.voice_id || audioProductionCurrent?.voice_name || '').trim();
+        if (currentVoice) return audioProductionOptionKey(currentProvider, currentVoice);
+        const configured = audioProductionOptionsPayload?.default_voice;
+        if (configured && typeof configured === 'object') {
+            return audioProductionOptionKey(configured.provider || provider, configured.voice_id || configured.voice_name || configured.id);
+        }
+        const configuredId = String(audioProductionOptionsPayload?.default_voice_id || configured || '').trim();
+        if (configuredId) return audioProductionOptionKey(audioProductionOptionsPayload?.default_provider || provider, configuredId);
+        const candidates = audioProductionVoices.filter(voice => !provider || voice.provider === provider);
+        const fallback = candidates.find(voice => voice.is_default && !voice.disabled) || candidates.find(voice => !voice.disabled);
+        return fallback ? audioProductionOptionKey(fallback.provider, fallback.voice_id) : '';
+    }
+
+    function renderAudioProductionVoiceDescription() {
+        const voice = currentAudioProductionVoice();
+        const description = document.getElementById('audio-production-voice-description');
+        const previewButton = document.getElementById('audio-production-preview-btn');
+        if (description) {
+            description.textContent = voice
+                ? `${voice.display_name}${voice.description ? ` — ${voice.description}` : ''}`
+                : 'Valitse lukijaääni.';
+        }
+        if (previewButton) previewButton.disabled = !voice?.preview_url || audioProductionIsActive();
+    }
+
+    function renderAudioProductionVoices(preferredKey = '') {
+        const select = document.getElementById('audio-production-voice-select');
+        const model = currentAudioProductionModel();
+        if (!select) return;
+        const previous = select.value;
+        const voices = audioProductionVoices.filter(voice => !model?.provider || voice.provider === model.provider);
+        select.innerHTML = '';
+        if (!voices.length) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = 'Ei käytettävissä olevia ääniä';
+            select.appendChild(option);
+            select.disabled = true;
+            renderAudioProductionVoiceDescription();
+            syncAudioProductionControls();
+            return;
+        }
+        voices.forEach(voice => {
+            const option = document.createElement('option');
+            option.value = audioProductionOptionKey(voice.provider, voice.voice_id);
+            option.textContent = `${voice.display_name} · ${audioProductionProviderLabel(voice.provider)}`;
+            option.disabled = voice.disabled;
+            select.appendChild(option);
+        });
+        const preferred = preferredKey
+            || (voices.some(voice => audioProductionOptionKey(voice.provider, voice.voice_id) === previous) ? previous : '')
+            || audioProductionPreferredVoiceKey(model?.provider || '');
+        if (preferred && voices.some(voice => audioProductionOptionKey(voice.provider, voice.voice_id) === preferred && !voice.disabled)) {
+            select.value = preferred;
+        } else {
+            const first = voices.find(voice => !voice.disabled);
+            select.value = first ? audioProductionOptionKey(first.provider, first.voice_id) : '';
+        }
+        select.disabled = audioProductionIsActive() || !select.value;
+        renderAudioProductionVoiceDescription();
+        syncAudioProductionControls();
+    }
+
+    function renderAudioProductionModels() {
+        const select = document.getElementById('audio-production-model-select');
+        if (!select) return;
+        const previous = select.value;
+        select.innerHTML = '';
+        if (!audioProductionModels.length) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = 'Ei käytettävissä olevia tuotantomalleja';
+            select.appendChild(option);
+            select.disabled = true;
+            renderAudioProductionVoices();
+            return;
+        }
+        audioProductionModels.forEach(model => {
+            const option = document.createElement('option');
+            option.value = audioProductionOptionKey(model.provider, model.model_id);
+            option.textContent = `${model.display_name} · ${audioProductionProviderLabel(model.provider)}`;
+            option.disabled = model.disabled;
+            select.appendChild(option);
+        });
+        const preferred = audioProductionModels.some(model => audioProductionOptionKey(model.provider, model.model_id) === previous && !model.disabled)
+            ? previous
+            : audioProductionPreferredModelKey();
+        if (preferred && audioProductionModels.some(model => audioProductionOptionKey(model.provider, model.model_id) === preferred && !model.disabled)) {
+            select.value = preferred;
+        } else {
+            const first = audioProductionModels.find(model => !model.disabled);
+            select.value = first ? audioProductionOptionKey(first.provider, first.model_id) : '';
+        }
+        select.disabled = audioProductionIsActive() || !select.value;
+        renderAudioProductionVoices();
+    }
+
+    function audioProductionEstimateSource(payload) {
+        if (!payload || typeof payload !== 'object') return {};
+        const nested = payload.estimate || payload.estimates || {};
+        return { ...payload, ...(nested && typeof nested === 'object' ? nested : {}) };
+    }
+
+    function firstAudioProductionNumber(source, keys) {
+        for (const key of keys) {
+            const value = source?.[key];
+            if (value === null || value === undefined || value === '') continue;
+            const number = Number(value);
+            if (Number.isFinite(number)) return number;
+        }
+        return null;
+    }
+
+    function audioProductionDurationSeconds(source, secondKeys, minuteKeys = []) {
+        const seconds = firstAudioProductionNumber(source, secondKeys);
+        if (seconds !== null) return seconds;
+        const minutes = firstAudioProductionNumber(source, minuteKeys);
+        return minutes === null ? null : minutes * 60;
+    }
+
+    function formatAudioProductionCost(source) {
+        const label = String(source?.estimated_cost_label || source?.cost_label || '').trim();
+        if (label) return label;
+        const value = firstAudioProductionNumber(source, [
+            'estimated_cost_eur',
+            'cost_estimate_eur',
+            'estimated_cost',
+            'cost_eur',
+            'cost'
+        ]);
+        if (value === null) return '–';
+        const currency = String(source?.currency || 'EUR').trim().toUpperCase() || 'EUR';
+        try {
+            return new Intl.NumberFormat('fi-FI', {
+                style: 'currency',
+                currency,
+                minimumFractionDigits: value < 1 ? 2 : 2,
+                maximumFractionDigits: value < 1 ? 3 : 2
+            }).format(value);
+        } catch (err) {
+            return `${value.toFixed(2)} ${currency}`;
+        }
+    }
+
+    function renderAudioProductionEstimate(payload, message = '') {
+        const source = audioProductionEstimateSource(payload);
+        if (Object.keys(source).length) audioProductionEstimate = source;
+        const unitCount = firstAudioProductionNumber(source, ['total_segments', 'segments_count', 'segment_count', 'chapters_count']);
+        const audioSeconds = audioProductionDurationSeconds(
+            source,
+            ['estimated_audio_duration_seconds', 'estimated_audio_seconds', 'audio_duration_seconds', 'audiobook_duration_seconds'],
+            ['estimated_audio_duration_minutes', 'audio_duration_minutes', 'audiobook_duration_minutes']
+        );
+        const creationSeconds = audioProductionDurationSeconds(
+            source,
+            ['estimated_generation_seconds', 'estimated_processing_seconds', 'estimated_creation_seconds', 'estimated_seconds'],
+            ['estimated_generation_minutes', 'estimated_processing_minutes', 'estimated_creation_minutes']
+        );
+        const unit = document.getElementById('audio-production-unit-count');
+        const duration = document.getElementById('audio-production-duration-estimate');
+        const creation = document.getElementById('audio-production-time-estimate');
+        const cost = document.getElementById('audio-production-cost-estimate');
+        const status = document.getElementById('audio-production-estimate-status');
+        if (unit) unit.textContent = formatNumber(unitCount === null ? audioChapterEntries().length : unitCount);
+        if (duration) duration.textContent = source.estimated_audio_duration_label || (audioSeconds === null ? '–' : formatDuration(audioSeconds));
+        if (creation) creation.textContent = source.estimated_generation_label || source.estimated_processing_label || (creationSeconds === null ? '–' : formatDuration(creationSeconds));
+        if (cost) cost.textContent = formatAudioProductionCost(source);
+        if (status) {
+            const warnings = Array.isArray(source.warnings)
+                ? source.warnings.filter(Boolean).join(' ')
+                : String(source.warning || source.warnings || '').trim();
+            const estimateNote = String(source.cost_disclaimer || source.cost_basis || '').trim();
+            status.textContent = message
+                || warnings
+                || estimateNote
+                || (Object.keys(source).length ? 'Arvio perustuu nykyiseen käsikirjoitukseen ja valittuun malliin.' : 'Valitse malli ja ääni, niin tuotantoarvio päivittyy.');
+            status.classList.remove('is-error');
+        }
+    }
+
+    function audioProductionLanguageData() {
+        const analysis = window.manuscriptData?.analysis || {};
+        const code = String(
+            audioProductionOptionsPayload?.language_code
+            || analysis.target_language
+            || analysis.source_language
+            || analysis.language
+            || 'fi'
+        ).trim().toLowerCase() || 'fi';
+        const labels = {
+            fi: 'Suomi', sv: 'Ruotsi', en: 'Englanti', de: 'Saksa', et: 'Viro',
+            fr: 'Ranska', es: 'Espanja', it: 'Italia', ar: 'Arabia', ru: 'Venäjä', sme: 'Pohjoissaame'
+        };
+        return {
+            code,
+            label: String(
+                audioProductionOptionsPayload?.language_label
+                || analysis.target_language_label
+                || labels[code]
+                || code.toUpperCase()
+            ).trim()
+        };
+    }
+
+    function renderAudioProductionLanguage() {
+        const element = document.getElementById('audio-production-language');
+        if (!element) return;
+        const language = audioProductionLanguageData();
+        element.textContent = `${language.code.toUpperCase()} · ${language.label.toLocaleUpperCase('fi-FI')}`;
+    }
+
+    function audioProductionStatusLabel(status) {
+        return ({
+            queued: 'JONOSSA',
+            pending: 'ODOTTAA',
+            running: 'KÄYNNISSÄ',
+            processing: 'KÄYNNISSÄ',
+            generating: 'LUODAAN',
+            assembling: 'YHDISTETÄÄN',
+            combining: 'YHDISTETÄÄN',
+            completed: 'VALMIS',
+            complete: 'VALMIS',
+            ready: 'VALMIS',
+            partial: 'OSITTAIN VALMIS',
+            failed: 'EPÄONNISTUI',
+            paused: 'KESKEYTETTY',
+            cancelled: 'KESKEYTETTY',
+            interrupted: 'KESKEYTETTY'
+        })[String(status || '').toLowerCase()] || 'ODOTTAA';
+    }
+
+    function renderAudioProductionSegments(production) {
+        const list = document.getElementById('audio-production-unit-list');
+        if (!list) return;
+        const segments = Array.isArray(production?.segments) ? production.segments : [];
+        if (!segments.length) {
+            list.innerHTML = '<p class="audio-production-empty-units">Tuotanto-osien tarkemmat tilat päivittyvät ajon käynnistyessä.</p>';
+            return;
+        }
+        list.innerHTML = segments.map((segment, index) => {
+            const status = String(segment?.status || 'pending').trim().toLowerCase();
+            const title = segment?.section_title || segment?.chapter_title || segment?.title || segment?.label || `Osa ${index + 1}`;
+            const detail = segment?.error || segment?.message || segment?.duration_label || '';
+            const icon = ['completed', 'complete', 'ready'].includes(status) ? '✓' : status === 'failed' ? '!' : audioProductionIsActive({ status }) ? '…' : String(index + 1);
+            return `<div class="audio-production-unit is-${escapeHtml(status.replace(/[^a-z0-9_-]/g, ''))}">
+                <span class="audio-production-unit-icon">${escapeHtml(icon)}</span>
+                <span><strong>${escapeHtml(title)}</strong>${detail ? `<small>${escapeHtml(detail)}</small>` : ''}</span>
+                <em>${escapeHtml(audioProductionStatusLabel(status))}</em>
+            </div>`;
+        }).join('');
+    }
+
+    function clearAudioProductionPlayer() {
+        const player = document.getElementById('audio-production-player');
+        if (player) {
+            player.pause();
+            player.removeAttribute('src');
+            player.load();
+        }
+        audioProductionPlayerLoadedId = null;
+        audioProductionPlayerLoadingId = null;
+    }
+
+    function resolveAudioProductionAssetUrl(value) {
+        const rawUrl = String(value || '').trim();
+        if (!rawUrl) throw new Error('Palvelin ei palauttanut suojattua tiedostolinkkiä.');
+        try {
+            return new URL(rawUrl, `${String(API_BASE_URL).replace(/\/+$/, '')}/`).href;
+        } catch (err) {
+            throw new Error('Palvelin palautti virheellisen tiedostolinkin.');
+        }
+    }
+
+    async function requestAudioProductionAssetLink(productionId, kind) {
+        const response = await apiFetch(
+            `/api/audio/productions/${productionId}/asset-link?kind=${encodeURIComponent(kind)}`,
+            { method: 'POST' }
+        );
+        const data = await response.json().catch(() => null);
+        if (!response.ok) {
+            throw new Error(data?.detail || 'Suojatun tiedostolinkin luominen epäonnistui.');
+        }
+        return resolveAudioProductionAssetUrl(data?.url);
+    }
+
+    async function ensureAudioProductionPlayer(production) {
+        const productionId = production?.id;
+        const player = document.getElementById('audio-production-player');
+        if (!productionId || !player || audioProductionPlayerLoadedId === String(productionId) || audioProductionPlayerLoadingId === String(productionId)) return;
+        audioProductionPlayerLoadingId = String(productionId);
+        try {
+            player.src = await requestAudioProductionAssetLink(productionId, 'audio');
+            audioProductionPlayerLoadedId = String(productionId);
+        } catch (err) {
+            console.warn('Äänikirjan soittimen lataaminen epäonnistui.', err);
+            setAudioProductionStatus('Äänikirja on valmis, mutta soittimen suojattua linkkiä ei saatu ladattua. Päivitä tila ja yritä uudelleen.', true);
+        } finally {
+            audioProductionPlayerLoadingId = null;
+        }
+    }
+
+    function syncAudioProductionControls() {
+        const modelSelect = document.getElementById('audio-production-model-select');
+        const voiceSelect = document.getElementById('audio-production-voice-select');
+        const startButton = document.getElementById('audio-production-start-btn');
+        const resumeButton = document.getElementById('audio-production-resume-btn');
+        const refreshButton = document.getElementById('audio-production-refresh-btn');
+        const active = audioProductionIsActive();
+        const hasProject = Boolean(window.manuscriptData?.id);
+        const hasSelection = Boolean(currentAudioProductionModel() && currentAudioProductionVoice());
+        if (modelSelect) modelSelect.disabled = active || !hasProject || !audioProductionModels.some(model => !model.disabled);
+        if (voiceSelect) voiceSelect.disabled = active || !hasProject || !currentAudioProductionVoice();
+        if (startButton) {
+            startButton.disabled = active || !hasProject || !hasSelection;
+            startButton.textContent = audioProductionIsComplete() ? 'Luo uusi äänikirja' : active ? 'Tuotanto käynnissä…' : 'Luo äänikirja';
+        }
+        if (resumeButton) {
+            resumeButton.classList.toggle('hidden', !audioProductionCanResume());
+            resumeButton.disabled = active;
+        }
+        if (refreshButton) refreshButton.disabled = !hasProject;
+        renderAudioProductionVoiceDescription();
+    }
+
+    function renderAudioProduction(production) {
+        audioProductionCurrent = production && typeof production === 'object' ? production : null;
+        if (audioProductionCurrent) renderAudioProductionEstimate(audioProductionCurrent);
+        const progress = document.getElementById('audio-production-progress');
+        const progressBar = document.getElementById('audio-production-progress-bar');
+        const progressText = document.getElementById('audio-production-progress-text');
+        const currentSection = document.getElementById('audio-production-current-section');
+        const progressTitle = document.getElementById('audio-production-progress-title');
+        const state = document.getElementById('audio-production-state');
+        const result = document.getElementById('audio-production-result');
+        const resultDetail = document.getElementById('audio-production-result-detail');
+        const downloadButton = document.getElementById('audio-production-download-btn');
+        const packageButton = document.getElementById('audio-production-package-btn');
+
+        if (!audioProductionCurrent?.id) {
+            if (progress) progress.classList.add('hidden');
+            if (result) result.classList.add('hidden');
+            setAudioProductionStatus(window.manuscriptData?.id
+                ? 'Valitse tuotantomalli ja lukijaääni. Yksi painallus käynnistää koko kirjan tuotannon.'
+                : 'Valitse käsikirjoitus aloittaaksesi.');
+            syncAudioProductionControls();
+            return;
+        }
+
+        const status = audioProductionStatusValue(audioProductionCurrent);
+        const total = Math.max(0, Number(audioProductionCurrent.total_segments || audioProductionCurrent.segments_count || 0));
+        const completed = Math.max(0, Number(audioProductionCurrent.completed_segments || 0));
+        const explicitPercent = Number(audioProductionCurrent.progress_percent);
+        const percent = Number.isFinite(explicitPercent)
+            ? Math.max(0, Math.min(100, explicitPercent))
+            : total > 0
+                ? Math.max(0, Math.min(100, Math.round((completed / total) * 100)))
+                : audioProductionIsComplete(audioProductionCurrent) ? 100 : 0;
+        if (progress) {
+            progress.classList.remove('hidden');
+            progress.setAttribute('aria-valuenow', String(percent));
+        }
+        if (progressBar) progressBar.style.width = `${percent}%`;
+        if (progressText) progressText.textContent = `${formatNumber(completed)} / ${formatNumber(total)} osaa valmiina · ${Math.round(percent)} %`;
+        if (currentSection) {
+            currentSection.textContent = audioProductionCurrent.current_section_title
+                ? `Työn alla: ${audioProductionCurrent.current_section_title}`
+                : audioProductionIsComplete(audioProductionCurrent) ? 'Kaikki osat on yhdistetty.' : 'Valmistellaan seuraavaa tuotanto-osaa…';
+        }
+        if (progressTitle) progressTitle.textContent = audioProductionIsComplete(audioProductionCurrent)
+            ? 'Äänikirja on valmis'
+            : audioProductionCanResume(audioProductionCurrent) ? 'Tuotanto tarvitsee jatkamisen' : 'Äänikirjaa valmistellaan';
+        if (state) {
+            state.textContent = audioProductionStatusLabel(status);
+            state.className = `audio-production-state is-${status.replace(/[^a-z0-9_-]/g, '')}`;
+        }
+        renderAudioProductionSegments(audioProductionCurrent);
+
+        const outputReady = audioProductionIsComplete(audioProductionCurrent) || Boolean(audioProductionCurrent.audio_url || audioProductionCurrent.audio_ready);
+        if (result) result.classList.toggle('hidden', !outputReady);
+        if (resultDetail && outputReady) {
+            const model = audioProductionCurrent.model_name || audioProductionCurrent.model_id || currentAudioProductionModel()?.display_name || '';
+            const voice = audioProductionCurrent.voice_name || currentAudioProductionVoice()?.display_name || '';
+            resultDetail.textContent = [
+                'Yhdistetty äänitiedosto on valmis.',
+                model ? `Malli: ${model}.` : '',
+                voice ? `Lukijaääni: ${voice}.` : ''
+            ].filter(Boolean).join(' ');
+        }
+        if (downloadButton) downloadButton.disabled = !outputReady;
+        if (packageButton) packageButton.disabled = !outputReady && !audioProductionCurrent.package_url;
+
+        if (audioProductionIsComplete(audioProductionCurrent)) {
+            setAudioProductionStatus('Audiotuotanto on valmis. Voit kuunnella tai ladata yhdistetyn äänikirjan.');
+            ensureAudioProductionPlayer(audioProductionCurrent);
+        } else if (audioProductionCanResume(audioProductionCurrent)) {
+            const detail = audioProductionCurrent.error || audioProductionCurrent.message || 'Kaikkia osia ei saatu valmiiksi.';
+            setAudioProductionStatus(`${detail} Voit jatkaa tuotantoa valmiista osista.`, status === 'failed');
+        } else {
+            setAudioProductionStatus(audioProductionCurrent.message || `${audioProductionStatusLabel(status)} · ${completed}/${total || '?'} osaa valmiina.`);
+        }
+        syncAudioProductionControls();
+    }
+
+    function stopAudioProductionPolling() {
+        audioProductionPollGeneration += 1;
+        if (audioProductionPollTimer) window.clearTimeout(audioProductionPollTimer);
+        audioProductionPollTimer = null;
+    }
+
+    function startAudioProductionPolling(productionId) {
+        if (!productionId) return;
+        stopAudioProductionPolling();
+        const generation = audioProductionPollGeneration;
+        const projectId = String(window.manuscriptData?.id || '');
+        const poll = async () => {
+            if (generation !== audioProductionPollGeneration || String(window.manuscriptData?.id || '') !== projectId) return;
+            try {
+                const response = await apiFetch(`/api/audio/productions/${productionId}`);
+                const data = await response.json().catch(() => null);
+                if (!response.ok) throw new Error(data?.detail || 'Audiotuotannon tilan haku epäonnistui.');
+                const production = audioProductionResponseRecord(data);
+                if (generation !== audioProductionPollGeneration) return;
+                renderAudioProduction(production);
+                if (!audioProductionIsActive(production)) return;
+            } catch (err) {
+                if (generation !== audioProductionPollGeneration) return;
+                setAudioProductionStatus(`${err.message} Tilan hakua yritetään uudelleen.`, true);
+            }
+            audioProductionPollTimer = window.setTimeout(poll, 3000);
+        };
+        poll();
+    }
+
+    async function loadLatestAudioProduction(projectId = window.manuscriptData?.id) {
+        if (!projectId) {
+            renderAudioProduction(null);
+            return null;
+        }
+        try {
+            const response = await apiFetch(`/api/audio/productions/latest?project_id=${encodeURIComponent(projectId)}`);
+            if (response.status === 404 || response.status === 204) {
+                renderAudioProduction(null);
+                return null;
+            }
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'Viimeisimmän audiotuotannon lataaminen epäonnistui.');
+            if (String(window.manuscriptData?.id || '') !== String(projectId)) return null;
+            const production = audioProductionResponseRecord(data);
+            if (!production?.id) {
+                renderAudioProduction(null);
+                return null;
+            }
+            renderAudioProduction(production);
+            renderAudioProductionModels();
+            if (audioProductionIsActive(production)) startAudioProductionPolling(production.id);
+            return production;
+        } catch (err) {
+            if (String(window.manuscriptData?.id || '') === String(projectId)) {
+                setAudioProductionStatus(err.message, true);
+            }
+            return null;
+        }
+    }
+
+    async function loadAudioProductionOptions(projectId = window.manuscriptData?.id) {
+        const modelSelect = document.getElementById('audio-production-model-select');
+        const voiceSelect = document.getElementById('audio-production-voice-select');
+        if (!projectId) return false;
+        if (modelSelect) {
+            modelSelect.disabled = true;
+            modelSelect.innerHTML = '<option value="">Ladataan tuotantomalleja…</option>';
+        }
+        if (voiceSelect) {
+            voiceSelect.disabled = true;
+            voiceSelect.innerHTML = '<option value="">Ladataan lukijaääniä…</option>';
+        }
+        try {
+            const response = await apiFetch(`/api/audio/productions/options?project_id=${encodeURIComponent(projectId)}`);
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'Audiotuotannon mallien ja äänten lataaminen epäonnistui.');
+            if (String(window.manuscriptData?.id || '') !== String(projectId)) return false;
+            audioProductionOptionsPayload = data || {};
+            const normalized = normalizeAudioProductionOptions(audioProductionOptionsPayload);
+            audioProductionModels = normalized.models;
+            audioProductionVoices = normalized.voices;
+            renderAudioProductionLanguage();
+            renderAudioProductionModels();
+            const warnings = Array.isArray(audioProductionOptionsPayload.warnings)
+                ? audioProductionOptionsPayload.warnings.filter(Boolean).join(' ')
+                : String(audioProductionOptionsPayload.warnings || '').trim();
+            if (warnings) setAudioProductionStatus(warnings, !audioProductionModels.some(model => !model.disabled));
+            return true;
+        } catch (err) {
+            audioProductionModels = [];
+            audioProductionVoices = [];
+            if (modelSelect) modelSelect.innerHTML = '<option value="">Mallien lataaminen epäonnistui</option>';
+            if (voiceSelect) voiceSelect.innerHTML = '<option value="">Äänten lataaminen epäonnistui</option>';
+            setAudioProductionStatus(err.message, true);
+            syncAudioProductionControls();
+            return false;
+        }
+    }
+
+    async function loadAudioProductionEstimate() {
+        const payload = audioProductionPayload();
+        const status = document.getElementById('audio-production-estimate-status');
+        if (!payload) {
+            renderAudioProductionEstimate(null);
+            return null;
+        }
+        const generation = ++audioProductionEstimateGeneration;
+        if (status) {
+            status.textContent = 'Lasketaan tuotannon kestoa ja kustannusta…';
+            status.classList.remove('is-error');
+        }
+        try {
+            const response = await apiFetch('/api/audio/productions/estimate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'Audiotuotannon arvion laskeminen epäonnistui.');
+            if (generation !== audioProductionEstimateGeneration) return null;
+            renderAudioProductionEstimate(data);
+            return data;
+        } catch (err) {
+            if (generation !== audioProductionEstimateGeneration) return null;
+            if (status) {
+                status.textContent = err.message;
+                status.classList.add('is-error');
+            }
+            return null;
+        }
+    }
+
+    function scheduleAudioProductionEstimate() {
+        audioProductionEstimateGeneration += 1;
+        if (audioProductionEstimateTimer) window.clearTimeout(audioProductionEstimateTimer);
+        audioProductionEstimateTimer = window.setTimeout(() => loadAudioProductionEstimate(), 250);
+    }
+
+    async function initializeAudioProductionWorkspace(force = false) {
+        const projectId = window.manuscriptData?.id;
+        renderAudioProductionLanguage();
+        if (!projectId) {
+            audioProductionLoadedProjectId = null;
+            audioProductionInitializationProjectId = null;
+            stopAudioProductionPolling();
+            clearAudioProductionPlayer();
+            renderAudioProductionEstimate(null);
+            renderAudioProduction(null);
+            return;
+        }
+        if (!force && String(audioProductionLoadedProjectId || '') === String(projectId)) {
+            syncAudioProductionControls();
+            return;
+        }
+        if (!force && String(audioProductionInitializationProjectId || '') === String(projectId)) return;
+        audioProductionInitializationProjectId = projectId;
+        stopAudioProductionPolling();
+        clearAudioProductionPlayer();
+        audioProductionCurrent = null;
+        audioProductionEstimate = null;
+        audioProductionOptionsPayload = null;
+        audioProductionModels = [];
+        audioProductionVoices = [];
+        renderAudioProduction(null);
+        setAudioProductionStatus('Ladataan tuotantomalleja ja aiempaa tuotantotilaa…');
+        const optionsLoaded = await loadAudioProductionOptions(projectId);
+        if (String(window.manuscriptData?.id || '') !== String(projectId)) return;
+        const latest = await loadLatestAudioProduction(projectId);
+        if (String(window.manuscriptData?.id || '') !== String(projectId)) return;
+        audioProductionLoadedProjectId = projectId;
+        audioProductionInitializationProjectId = null;
+        if (optionsLoaded && !latest) await loadAudioProductionEstimate();
+        const optionWarnings = Array.isArray(audioProductionOptionsPayload?.warnings)
+            ? audioProductionOptionsPayload.warnings.filter(Boolean).join(' ')
+            : String(audioProductionOptionsPayload?.warnings || '').trim();
+        if (!latest && optionWarnings && !audioProductionModels.some(model => !model.disabled)) {
+            setAudioProductionStatus(optionWarnings, true);
+        }
+        syncAudioProductionControls();
+    }
+
+    async function startAudioProduction() {
+        let payload = audioProductionPayload();
+        if (!payload && window.manuscriptData && !window.manuscriptData.id) {
+            const saved = await window.saveManuscriptToDB(window.manuscriptData);
+            if (saved?.id) window.manuscriptData = saved;
+            await initializeAudioProductionWorkspace(true);
+            payload = audioProductionPayload();
+        }
+        if (!payload) {
+            setAudioProductionStatus('Valitse tallennettu käsikirjoitus, tuotantomalli ja lukijaääni.', true);
+            return;
+        }
+        const button = document.getElementById('audio-production-start-btn');
+        if (button) button.disabled = true;
+        stopAudioProductionPolling();
+        clearAudioProductionPlayer();
+        setAudioProductionStatus('Audiotuotantoa käynnistetään…');
+        try {
+            const response = await apiFetch('/api/audio/productions', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'Audiotuotannon käynnistäminen epäonnistui.');
+            const production = audioProductionResponseRecord(data);
+            if (!production?.id) throw new Error('Audiotuotanto käynnistyi ilman seurattavaa tuotantotunnistetta.');
+            renderAudioProduction(production);
+            startAudioProductionPolling(production.id);
+        } catch (err) {
+            setAudioProductionStatus(err.message, true);
+            syncAudioProductionControls();
+        } finally {
+            if (button && !audioProductionIsActive()) button.disabled = false;
+        }
+    }
+
+    async function resumeAudioProduction() {
+        const productionId = audioProductionCurrent?.id;
+        if (!productionId) return;
+        const button = document.getElementById('audio-production-resume-btn');
+        if (button) button.disabled = true;
+        setAudioProductionStatus('Audiotuotantoa jatketaan valmiista osista…');
+        try {
+            const response = await apiFetch(`/api/audio/productions/${productionId}/resume`, { method: 'POST' });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'Audiotuotannon jatkaminen epäonnistui.');
+            const production = audioProductionResponseRecord(data);
+            renderAudioProduction(production?.id ? production : { ...audioProductionCurrent, status: 'queued' });
+            startAudioProductionPolling(production?.id || productionId);
+        } catch (err) {
+            setAudioProductionStatus(err.message, true);
+            if (button) button.disabled = false;
+        }
+    }
+
+    async function refreshAudioProduction() {
+        if (audioProductionCurrent?.id) {
+            startAudioProductionPolling(audioProductionCurrent.id);
+        } else {
+            await loadLatestAudioProduction(window.manuscriptData?.id);
+        }
+    }
+
+    async function downloadAudioProductionAsset(kind) {
+        const productionId = audioProductionCurrent?.id;
+        if (!productionId) {
+            setAudioProductionStatus('Valmista audiotuotantoa ei ole ladattavaksi.', true);
+            return;
+        }
+        const isPackage = kind === 'package';
+        const button = document.getElementById(isPackage ? 'audio-production-package-btn' : 'audio-production-download-btn');
+        if (button) button.disabled = true;
+        setAudioProductionStatus(isPackage ? 'Valmistellaan lukupaketin latausta…' : 'Valmistellaan äänikirjan latausta…');
+        try {
+            const url = await requestAudioProductionAssetLink(productionId, kind);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = '';
+            link.rel = 'noopener';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setAudioProductionStatus(isPackage ? 'Lukupaketin lataus käynnistyi.' : 'Äänikirjan lataus käynnistyi.');
+        } catch (err) {
+            setAudioProductionStatus(err.message, true);
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
+    async function playAudioProductionVoicePreview() {
+        const voice = currentAudioProductionVoice();
+        const player = document.getElementById('audio-production-voice-preview');
+        if (!voice?.preview_url || !player) {
+            setAudioProductionStatus('Tälle lukijaäänelle ei ole saatavilla esittelynäytettä.', true);
+            return;
+        }
+        player.src = voice.preview_url;
+        player.classList.remove('hidden');
+        try {
+            await player.play();
+            setAudioProductionStatus(`Toistetaan lukijaäänen ${voice.display_name} esittelynäytettä.`);
+        } catch (err) {
+            setAudioProductionStatus('Ääninäyte on ladattu soittimeen. Käynnistä se soittimen painikkeesta.');
+        }
+    }
+
+    function showAudioWorkspacePanel(panelId) {
+        document.querySelectorAll('.audio-workspace-panel').forEach(panel => panel.classList.toggle('hidden', panel.id !== panelId));
+        document.querySelectorAll('.audio-workspace-tab').forEach(tab => {
+            const active = tab.dataset.audioWorkspacePanel === panelId;
+            tab.classList.toggle('active', active);
+            tab.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        if (panelId === 'audio-production-panel') initializeAudioProductionWorkspace(false);
+    }
 
     function setAudioStatus(message, isError = false) {
         const status = document.getElementById('audio-status');
@@ -12193,6 +13078,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const guide = document.getElementById('audio-pronunciation-guide');
         const opening = document.getElementById('audio-opening-words');
         const closing = document.getElementById('audio-closing-words');
+        renderAudioProductionLanguage();
         if (current) {
             current.textContent = window.manuscriptData
                 ? `Käsikirjoitus: ${window.manuscriptData.title || 'Nimetön'}`
@@ -12205,7 +13091,14 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             if (opening) opening.value = '';
             if (closing) closing.value = '';
             setAudioStatus('Valitse käsikirjoitus ensin.', true);
+            initializeAudioProductionWorkspace(false);
             return;
+        }
+        if (window.manuscriptData.id) {
+            initializeAudioProductionWorkspace(false);
+        } else {
+            renderAudioProduction(null);
+            setAudioProductionStatus('Tallenna käsikirjoitus ennen audiotuotannon käynnistämistä.');
         }
         const projectChanged = String(audioLoadedProjectId || '') !== String(window.manuscriptData.id || '');
         if (projectChanged) {
@@ -18754,6 +19647,14 @@ ${state.validation || 'Ei validointia.'}`;
 	    const productGenerateBtn = document.getElementById('product-generate-btn');
 	    const productRefreshBtn = document.getElementById('product-refresh-btn');
 	    const productSaveBtn = document.getElementById('product-save-btn');
+    const audioProductionModelSelect = document.getElementById('audio-production-model-select');
+    const audioProductionVoiceSelect = document.getElementById('audio-production-voice-select');
+    const audioProductionPreviewBtn = document.getElementById('audio-production-preview-btn');
+    const audioProductionStartBtn = document.getElementById('audio-production-start-btn');
+    const audioProductionResumeBtn = document.getElementById('audio-production-resume-btn');
+    const audioProductionRefreshBtn = document.getElementById('audio-production-refresh-btn');
+    const audioProductionDownloadBtn = document.getElementById('audio-production-download-btn');
+    const audioProductionPackageBtn = document.getElementById('audio-production-package-btn');
 	    const audioGuideBtn = document.getElementById('audio-guide-btn');
     const audioGeneratePackageBtn = document.getElementById('audio-generate-package-btn');
     const audioSaveChapterBtn = document.getElementById('audio-save-chapter-btn');
@@ -19104,6 +20005,37 @@ ${state.validation || 'Ei validointia.'}`;
 	        field.addEventListener('input', () => markProductMissingFields());
 	        field.addEventListener('change', () => markProductMissingFields());
 	    });
+    document.querySelectorAll('.audio-workspace-tab').forEach(tab => {
+        tab.addEventListener('click', () => showAudioWorkspacePanel(tab.dataset.audioWorkspacePanel || 'audio-production-panel'));
+    });
+    if (audioProductionModelSelect) {
+        audioProductionModelSelect.addEventListener('change', () => {
+            const preview = document.getElementById('audio-production-voice-preview');
+            if (preview) {
+                preview.pause();
+                preview.classList.add('hidden');
+            }
+            renderAudioProductionVoices();
+            scheduleAudioProductionEstimate();
+        });
+    }
+    if (audioProductionVoiceSelect) {
+        audioProductionVoiceSelect.addEventListener('change', () => {
+            const preview = document.getElementById('audio-production-voice-preview');
+            if (preview) {
+                preview.pause();
+                preview.classList.add('hidden');
+            }
+            renderAudioProductionVoiceDescription();
+            scheduleAudioProductionEstimate();
+        });
+    }
+    if (audioProductionPreviewBtn) audioProductionPreviewBtn.addEventListener('click', playAudioProductionVoicePreview);
+    if (audioProductionStartBtn) audioProductionStartBtn.addEventListener('click', startAudioProduction);
+    if (audioProductionResumeBtn) audioProductionResumeBtn.addEventListener('click', resumeAudioProduction);
+    if (audioProductionRefreshBtn) audioProductionRefreshBtn.addEventListener('click', refreshAudioProduction);
+    if (audioProductionDownloadBtn) audioProductionDownloadBtn.addEventListener('click', () => downloadAudioProductionAsset('audio'));
+    if (audioProductionPackageBtn) audioProductionPackageBtn.addEventListener('click', () => downloadAudioProductionAsset('package'));
     document.querySelectorAll('.audio-main-tab').forEach(tab => {
         tab.addEventListener('click', () => showAudioPanel(tab.dataset.audioPanel || 'audio-chapter-panel'));
     });

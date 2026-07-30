@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=75">
+    <link rel="stylesheet" href="styles.css?v=76">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -140,7 +140,7 @@
                     <li data-view="view-elamakerta">Elämäkerta</li>
                     <li data-view="view-tuotetiedot">Tuotetiedot</li>
                     <li data-view="view-markkinointi">Markkinointi</li>
-                    <li data-view="view-audio">Audio</li>
+                    <li data-view="view-audio">Audiotuotanto</li>
                     <li data-view="view-sopimukset">Sopimukset</li>
                     <li data-view="view-aikajana">Aikajana</li>
                     <li data-view="view-viimeistely">Versiot</li>
@@ -2418,11 +2418,103 @@
             <div id="view-audio" class="view-section editorial-paper-workspace audio-modern-workspace hidden">
                 <div class="header audio-header">
                     <div class="header-info">
-                        <p class="production-workspace-eyebrow">ÄÄNIKIRJA · TUOTANTO · ÄÄNIMALLIT</p>
-                        <h2>Audio ja äänikirjatuotanto</h2>
+                        <p class="production-workspace-eyebrow">ÄÄNIKIRJA · YHDEN NAPIN TUOTANTO · ÄÄNIMALLIT</p>
+                        <h2>Audiotuotanto</h2>
                         <p id="audio-current-project">Käsikirjoitus: [Ei aktiivista teosta]</p>
                     </div>
                 </div>
+
+                <div class="audio-workspace-tabs" role="tablist" aria-label="Audiotuotannon näkymät">
+                    <button class="audio-workspace-tab active" type="button" data-audio-workspace-panel="audio-production-panel" role="tab" aria-selected="true">Tuota äänikirja</button>
+                    <button class="audio-workspace-tab" type="button" data-audio-workspace-panel="audio-legacy-panel" role="tab" aria-selected="false">Valmistelu ja äänitestit</button>
+                </div>
+
+                <section id="audio-production-panel" class="audio-workspace-panel" role="tabpanel">
+                    <div class="audio-production-grid">
+                        <article class="card glass-panel audio-production-setup">
+                            <div class="audio-production-heading">
+                                <div>
+                                    <p class="audio-eyebrow">Koko käsikirjoitus</p>
+                                    <h3>Valitse malli ja lukijaääni</h3>
+                                    <p>Tuotanto jakaa teoksen osiin, luo äänitiedostot ja yhdistää ne automaattisesti.</p>
+                                </div>
+                                <span id="audio-production-language" class="audio-production-language">FI · SUOMI</span>
+                            </div>
+
+                            <div class="audio-production-settings">
+                                <div class="settings-row">
+                                    <label for="audio-production-model-select">Tuotantomalli</label>
+                                    <select id="audio-production-model-select" disabled>
+                                        <option value="">Ladataan malleja…</option>
+                                    </select>
+                                </div>
+                                <div class="settings-row">
+                                    <label for="audio-production-voice-select">Lukijaääni</label>
+                                    <select id="audio-production-voice-select" disabled>
+                                        <option value="">Valitse ensin tuotantomalli</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="audio-production-preview-row">
+                                <button class="btn btn-secondary" id="audio-production-preview-btn" type="button" disabled>Kuuntele ääninäyte</button>
+                                <span id="audio-production-voice-description">Valitse lukijaääni.</span>
+                            </div>
+                            <audio id="audio-production-voice-preview" class="audio-tts-player hidden" controls preload="none"></audio>
+
+                            <div class="audio-production-estimates" aria-label="Tuotantoarvio">
+                                <div><strong id="audio-production-unit-count">–</strong><span>tuotanto-osaa</span></div>
+                                <div><strong id="audio-production-duration-estimate">–</strong><span>äänikirjan kesto</span></div>
+                                <div><strong id="audio-production-time-estimate">–</strong><span>arvioitu luontiaika</span></div>
+                                <div><strong id="audio-production-cost-estimate">–</strong><span>arvioitu kustannus</span></div>
+                            </div>
+                            <p id="audio-production-estimate-status" class="audio-production-estimate-status">Valitse malli ja ääni, niin tuotantoarvio päivittyy.</p>
+
+                            <div class="audio-production-actions">
+                                <button class="btn btn-primary" id="audio-production-start-btn" type="button" disabled>Luo äänikirja</button>
+                                <button class="btn btn-secondary hidden" id="audio-production-resume-btn" type="button">Jatka tuotantoa</button>
+                                <button class="btn btn-secondary" id="audio-production-refresh-btn" type="button" disabled>Päivitä tila</button>
+                            </div>
+                            <p id="audio-production-status" class="audio-production-status" role="status" aria-live="polite">Valitse käsikirjoitus aloittaaksesi.</p>
+                        </article>
+
+                        <article id="audio-production-progress" class="card glass-panel audio-production-progress hidden" role="progressbar" aria-label="Äänikirjatuotannon eteneminen" aria-valuemin="0" aria-valuenow="0" aria-valuemax="100">
+                            <div class="audio-production-progress-heading">
+                                <div>
+                                    <p class="audio-eyebrow">Tuotannon tila</p>
+                                    <h3 id="audio-production-progress-title">Äänikirjaa valmistellaan</h3>
+                                </div>
+                                <span id="audio-production-state" class="audio-production-state">ODOTTAA</span>
+                            </div>
+                            <div class="audio-production-progress-track" aria-hidden="true">
+                                <span id="audio-production-progress-bar"></span>
+                            </div>
+                            <div class="audio-production-progress-copy">
+                                <strong id="audio-production-progress-text">0 / 0 osaa valmiina</strong>
+                                <span id="audio-production-current-section">Valmistellaan tuotantoa…</span>
+                            </div>
+                            <div id="audio-production-unit-list" class="audio-production-unit-list" aria-label="Tuotanto-osien tilat"></div>
+                        </article>
+                    </div>
+
+                    <article id="audio-production-result" class="card glass-panel audio-production-result hidden">
+                        <div class="audio-production-result-copy">
+                            <span class="audio-production-result-mark" aria-hidden="true">✓</span>
+                            <div>
+                                <p class="audio-eyebrow">Tuotanto valmis</p>
+                                <h3>Kuuntele tai lataa äänikirja</h3>
+                                <p id="audio-production-result-detail">Yhdistetty äänitiedosto on valmis.</p>
+                            </div>
+                        </div>
+                        <audio id="audio-production-player" class="audio-production-player" controls preload="none"></audio>
+                        <div class="audio-production-result-actions">
+                            <button class="btn btn-primary" id="audio-production-download-btn" type="button">Lataa äänikirja</button>
+                            <button class="btn btn-secondary" id="audio-production-package-btn" type="button">Lataa lukupaketti</button>
+                        </div>
+                    </article>
+                </section>
+
+                <section id="audio-legacy-panel" class="audio-workspace-panel hidden" role="tabpanel">
                 <p id="audio-status" class="audio-status" role="status">Valitse osio ja aloita lyhyellä testinäytteellä.</p>
 
                 <div class="audio-main-tabs" role="tablist" aria-label="Audio-osion näkymät">
@@ -2683,6 +2775,7 @@
                             <button class="btn btn-primary" id="audio-save-script-btn" type="button">Tallenna alku ja loppu</button>
                         </div>
                     </div>
+                </section>
                 </section>
             </div>
 
@@ -3403,6 +3496,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=123"></script>
+    <script src="app.js?v=124"></script>
 </body>
 </html>
