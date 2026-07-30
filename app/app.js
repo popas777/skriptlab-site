@@ -13608,6 +13608,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const normalizedModel = String(modelId || '').toLowerCase();
         let baseSeconds = 7;
         let realtimeFactor = .42;
+        const estimateCalibration = normalizedProvider === 'gemini'
+            ? 1.5
+            : normalizedProvider === 'elevenlabs' ? .5 : 1;
         if (normalizedProvider === 'gemini') {
             baseSeconds = normalizedModel.includes('pro') ? 10 : 7;
             realtimeFactor = normalizedModel.includes('pro') ? .58 : .38;
@@ -13618,11 +13621,18 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             baseSeconds = 9;
             realtimeFactor = .62;
         }
+        const baselineGenerationSeconds = Math.max(
+            5,
+            Math.ceil(baseSeconds + estimatedAudioSeconds * realtimeFactor)
+        );
         return {
             character_count: characterCount,
             word_count: wordCount,
             estimated_audio_seconds: estimatedAudioSeconds,
-            estimated_generation_seconds: Math.max(5, Math.ceil(baseSeconds + estimatedAudioSeconds * realtimeFactor))
+            estimated_generation_seconds: Math.max(
+                5,
+                Math.ceil(baselineGenerationSeconds * estimateCalibration)
+            )
         };
     }
 
