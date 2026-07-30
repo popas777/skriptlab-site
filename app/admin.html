@@ -740,7 +740,7 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
         function renderAnalysisStructureModelSelect() {
             if (!analysisStructureModelSelect) return;
             const textModels = loadedModels.filter(model => model.task_type === 'text' && model.is_enabled);
-            const configured = loadedModelSettings?.analysis_structure_model || 'gemini:gemini-3.5-flash';
+            const configured = loadedModelSettings?.analysis_structure_model || 'gemini:gemini-3.5-flash-lite';
             analysisStructureModelSelect.innerHTML = textModels.map(model => {
                 const value = `${model.provider}:${model.model_name}`;
                 const suffix = model.requires_enterprise_approval ? ' · pro/yritys' : '';
@@ -757,7 +757,7 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
         function renderTranslationGuidelinesModelSelect() {
             if (!translationGuidelinesModelSelect) return;
             const textModels = loadedModels.filter(model => model.task_type === 'text' && model.is_enabled);
-            const configured = loadedModelSettings?.translation_guidelines_model || 'gemini:gemini-3.5-flash';
+            const configured = loadedModelSettings?.translation_guidelines_model || 'gemini:gemini-3.5-flash-lite';
             translationGuidelinesModelSelect.innerHTML = textModels.map(model => {
                 const value = `${model.provider}:${model.model_name}`;
                 const suffix = model.requires_enterprise_approval ? ' · pro/yritys' : '';
