@@ -4507,6 +4507,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             renderMarketingMaterialsFromAnalysis(false);
             loadMarketingContext();
         }
+        if (viewId === 'view-audio') {
+            renderAudioView();
+        }
         updateHelpAgentContext();
     }
 
@@ -4570,9 +4573,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             }
             if (nextViewId === 'view-tuotetiedot') {
                 renderProductInfo();
-            }
-            if (nextViewId === 'view-audio') {
-                renderAudioView();
             }
             if (nextViewId === 'view-taitto') {
                 loadLayoutAssets();
@@ -11705,6 +11705,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     let geminiAudioObjectUrl = '';
     let elevenLabsVoices = [];
     let elevenLabsVoicesLoaded = false;
+    let elevenLabsVoicesLoadGeneration = 0;
+    let elevenLabsVoicesController = null;
     let elevenLabsAudioObjectUrl = '';
     let audioProductionModels = [];
     let audioProductionVoices = [];
@@ -11713,12 +11715,21 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     let audioProductionEstimate = null;
     let audioProductionLoadedProjectId = null;
     let audioProductionInitializationProjectId = null;
+    let audioProductionInitializationGeneration = 0;
+    let audioProductionOptionsGeneration = 0;
+    let audioProductionOptionsController = null;
+    let audioProductionOptionsError = '';
+    let audioProductionLatestGeneration = 0;
+    let audioProductionLatestController = null;
     let audioProductionPollTimer = null;
     let audioProductionPollGeneration = 0;
     let audioProductionEstimateTimer = null;
     let audioProductionEstimateGeneration = 0;
+    let audioProductionEstimateController = null;
     let audioProductionPlayerLoadedId = null;
     let audioProductionPlayerLoadingId = null;
+
+    const AUDIO_SETUP_REQUEST_TIMEOUT_MS = 20_000;
 
     const AUDIO_PRODUCTION_ACTIVE_STATUSES = new Set([
         'queued',
@@ -11736,6 +11747,26 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         'cancelled',
         'interrupted'
     ]);
+
+    function startAudioSetupRequestTimeout(controller) {
+        return window.setTimeout(() => controller.abort(), AUDIO_SETUP_REQUEST_TIMEOUT_MS);
+    }
+
+    function audioCatalogRequestError(error, timeoutMessage, fallbackMessage) {
+        if (error?.name === 'AbortError') return timeoutMessage;
+        return error?.message || fallbackMessage;
+    }
+
+    function audioSelectHasLoadingLabel(select) {
+        return Boolean(select && Array.from(select.options || []).some(option => /^Ladataan\b/i.test(option.textContent || '')));
+    }
+
+    function audioProductionInitializationIsCurrent(projectId, generation) {
+        return (
+            generation === audioProductionInitializationGeneration
+            && String(window.manuscriptData?.id || '') === String(projectId || '')
+        );
+    }
 
     function audioProductionStatusValue(production) {
         return String(production?.status || '').trim().toLowerCase();
@@ -11848,6 +11879,38 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             (Array.isArray(providerEntry.voices) ? providerEntry.voices : []).forEach(voice => addVoice(voice, provider));
         });
         return { models, voices };
+    }
+
+    function mergeElevenLabsVoicesIntoAudioProduction(render = false) {
+        if (!elevenLabsVoices.length) return false;
+        const previousVoiceKey = document.getElementById('audio-production-voice-select')?.value || '';
+        const merged = new Map(
+            audioProductionVoices.map(voice => [audioProductionOptionKey(voice.provider, voice.voice_id), voice])
+        );
+        elevenLabsVoices.forEach(voice => {
+            const voiceId = String(voice?.voice_id || voice?.id || '').trim();
+            if (!voiceId) return;
+            const key = audioProductionOptionKey('elevenlabs', voiceId);
+            const existing = merged.get(key) || {};
+            const voiceName = String(voice?.name || voice?.voice_name || voiceId).trim();
+            merged.set(key, {
+                ...existing,
+                provider: 'elevenlabs',
+                voice_id: voiceId,
+                voice_name: voiceName,
+                display_name: String(voice?.display_name || voiceName).trim(),
+                description: String(voice?.description || existing.description || '').trim(),
+                preview_url: String(voice?.preview_url || existing.preview_url || '').trim(),
+                is_default: Boolean(existing.is_default || voice?.is_default || voice?.default),
+                disabled: false
+            });
+        });
+        audioProductionVoices = Array.from(merged.values());
+        if (render && audioProductionOptionsPayload && currentAudioProductionModel()?.provider === 'elevenlabs') {
+            renderAudioProductionVoices(previousVoiceKey);
+            scheduleAudioProductionEstimate();
+        }
+        return true;
     }
 
     function currentAudioProductionModel() {
@@ -12322,20 +12385,35 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         poll();
     }
 
-    async function loadLatestAudioProduction(projectId = window.manuscriptData?.id) {
+    async function loadLatestAudioProduction(
+        projectId = window.manuscriptData?.id,
+        initializationGeneration = audioProductionInitializationGeneration
+    ) {
         if (!projectId) {
-            renderAudioProduction(null);
+            if (audioProductionInitializationIsCurrent(projectId, initializationGeneration)) renderAudioProduction(null);
             return null;
         }
+        const requestGeneration = ++audioProductionLatestGeneration;
+        if (audioProductionLatestController) audioProductionLatestController.abort();
+        const controller = new AbortController();
+        const timeoutId = startAudioSetupRequestTimeout(controller);
+        audioProductionLatestController = controller;
+        const isCurrentRequest = () => (
+            requestGeneration === audioProductionLatestGeneration
+            && audioProductionInitializationIsCurrent(projectId, initializationGeneration)
+        );
         try {
-            const response = await apiFetch(`/api/audio/productions/latest?project_id=${encodeURIComponent(projectId)}`);
+            const response = await apiFetch(
+                `/api/audio/productions/latest?project_id=${encodeURIComponent(projectId)}`,
+                { signal: controller.signal }
+            );
             if (response.status === 404 || response.status === 204) {
-                renderAudioProduction(null);
+                if (isCurrentRequest()) renderAudioProduction(null);
                 return null;
             }
             const data = await response.json().catch(() => null);
             if (!response.ok) throw new Error(data?.detail || 'Viimeisimmän audiotuotannon lataaminen epäonnistui.');
-            if (String(window.manuscriptData?.id || '') !== String(projectId)) return null;
+            if (!isCurrentRequest()) return null;
             const production = audioProductionResponseRecord(data);
             if (!production?.id) {
                 renderAudioProduction(null);
@@ -12346,17 +12424,37 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             if (audioProductionIsActive(production)) startAudioProductionPolling(production.id);
             return production;
         } catch (err) {
-            if (String(window.manuscriptData?.id || '') === String(projectId)) {
-                setAudioProductionStatus(err.message, true);
+            if (isCurrentRequest()) {
+                setAudioProductionStatus(audioCatalogRequestError(
+                    err,
+                    'Viimeisimmän audiotuotannon tilan haku aikakatkaistiin. Malli- ja äänivalinnat ovat silti käytettävissä.',
+                    'Viimeisimmän audiotuotannon lataaminen epäonnistui.'
+                ), true);
             }
             return null;
+        } finally {
+            window.clearTimeout(timeoutId);
+            if (audioProductionLatestController === controller) audioProductionLatestController = null;
         }
     }
 
-    async function loadAudioProductionOptions(projectId = window.manuscriptData?.id) {
+    async function loadAudioProductionOptions(
+        projectId = window.manuscriptData?.id,
+        initializationGeneration = audioProductionInitializationGeneration
+    ) {
         const modelSelect = document.getElementById('audio-production-model-select');
         const voiceSelect = document.getElementById('audio-production-voice-select');
         if (!projectId) return false;
+        const requestGeneration = ++audioProductionOptionsGeneration;
+        if (audioProductionOptionsController) audioProductionOptionsController.abort();
+        const controller = new AbortController();
+        const timeoutId = startAudioSetupRequestTimeout(controller);
+        audioProductionOptionsController = controller;
+        audioProductionOptionsError = '';
+        const isCurrentRequest = () => (
+            requestGeneration === audioProductionOptionsGeneration
+            && audioProductionInitializationIsCurrent(projectId, initializationGeneration)
+        );
         if (modelSelect) {
             modelSelect.disabled = true;
             modelSelect.innerHTML = '<option value="">Ladataan tuotantomalleja…</option>';
@@ -12366,40 +12464,80 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             voiceSelect.innerHTML = '<option value="">Ladataan lukijaääniä…</option>';
         }
         try {
-            const response = await apiFetch(`/api/audio/productions/options?project_id=${encodeURIComponent(projectId)}`);
+            const response = await apiFetch(
+                `/api/audio/productions/options?project_id=${encodeURIComponent(projectId)}`,
+                { signal: controller.signal }
+            );
             const data = await response.json().catch(() => null);
             if (!response.ok) throw new Error(data?.detail || 'Audiotuotannon mallien ja äänten lataaminen epäonnistui.');
-            if (String(window.manuscriptData?.id || '') !== String(projectId)) return false;
+            if (!data || typeof data !== 'object') throw new Error('Palvelin palautti virheellisen audiotuotannon valintaluettelon.');
+            if (!isCurrentRequest()) return false;
             audioProductionOptionsPayload = data || {};
             const normalized = normalizeAudioProductionOptions(audioProductionOptionsPayload);
             audioProductionModels = normalized.models;
             audioProductionVoices = normalized.voices;
+            mergeElevenLabsVoicesIntoAudioProduction(false);
             renderAudioProductionLanguage();
             renderAudioProductionModels();
+            if (!audioProductionModels.length) {
+                audioProductionOptionsError = 'Audiotuotannon tuotantomalleja ei ole käytettävissä.';
+                setAudioProductionStatus(audioProductionOptionsError, true);
+                return false;
+            }
             const warnings = Array.isArray(audioProductionOptionsPayload.warnings)
                 ? audioProductionOptionsPayload.warnings.filter(Boolean).join(' ')
                 : String(audioProductionOptionsPayload.warnings || '').trim();
             if (warnings) setAudioProductionStatus(warnings, !audioProductionModels.some(model => !model.disabled));
             return true;
         } catch (err) {
+            if (!isCurrentRequest()) return false;
+            audioProductionOptionsError = audioCatalogRequestError(
+                err,
+                'Audiotuotannon mallien lataaminen aikakatkaistiin. Yritä uudelleen Päivitä tila -painikkeella.',
+                'Audiotuotannon mallien ja äänten lataaminen epäonnistui.'
+            );
             audioProductionModels = [];
             audioProductionVoices = [];
             if (modelSelect) modelSelect.innerHTML = '<option value="">Mallien lataaminen epäonnistui</option>';
             if (voiceSelect) voiceSelect.innerHTML = '<option value="">Äänten lataaminen epäonnistui</option>';
-            setAudioProductionStatus(err.message, true);
+            setAudioProductionStatus(audioProductionOptionsError, true);
             syncAudioProductionControls();
             return false;
+        } finally {
+            window.clearTimeout(timeoutId);
+            if (audioProductionOptionsController === controller) audioProductionOptionsController = null;
+            if (isCurrentRequest() && (audioSelectHasLoadingLabel(modelSelect) || audioSelectHasLoadingLabel(voiceSelect))) {
+                audioProductionOptionsError = audioProductionOptionsError || 'Audiotuotannon valintojen lataaminen keskeytyi. Yritä uudelleen.';
+                if (modelSelect) modelSelect.innerHTML = '<option value="">Mallien lataaminen epäonnistui</option>';
+                if (voiceSelect) voiceSelect.innerHTML = '<option value="">Äänten lataaminen epäonnistui</option>';
+                setAudioProductionStatus(audioProductionOptionsError, true);
+                syncAudioProductionControls();
+            }
         }
     }
 
-    async function loadAudioProductionEstimate() {
+    async function loadAudioProductionEstimate(
+        initializationGeneration = audioProductionInitializationGeneration
+    ) {
         const payload = audioProductionPayload();
         const status = document.getElementById('audio-production-estimate-status');
         if (!payload) {
+            audioProductionEstimateGeneration += 1;
+            if (audioProductionEstimateController) audioProductionEstimateController.abort();
+            audioProductionEstimateController = null;
             renderAudioProductionEstimate(null);
             return null;
         }
+        const projectId = payload.project_id;
         const generation = ++audioProductionEstimateGeneration;
+        if (audioProductionEstimateController) audioProductionEstimateController.abort();
+        const controller = new AbortController();
+        const timeoutId = startAudioSetupRequestTimeout(controller);
+        audioProductionEstimateController = controller;
+        const isCurrentRequest = () => (
+            generation === audioProductionEstimateGeneration
+            && audioProductionInitializationIsCurrent(projectId, initializationGeneration)
+        );
         if (status) {
             status.textContent = 'Lasketaan tuotannon kestoa ja kustannusta…';
             status.classList.remove('is-error');
@@ -12408,25 +12546,39 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             const response = await apiFetch('/api/audio/productions/estimate', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
+                signal: controller.signal
             });
             const data = await response.json().catch(() => null);
             if (!response.ok) throw new Error(data?.detail || 'Audiotuotannon arvion laskeminen epäonnistui.');
-            if (generation !== audioProductionEstimateGeneration) return null;
+            if (!isCurrentRequest()) return null;
             renderAudioProductionEstimate(data);
             return data;
         } catch (err) {
-            if (generation !== audioProductionEstimateGeneration) return null;
+            if (!isCurrentRequest()) return null;
             if (status) {
-                status.textContent = err.message;
+                status.textContent = audioCatalogRequestError(
+                    err,
+                    'Tuotantoarvion laskeminen aikakatkaistiin. Malli- ja äänivalinnat ovat silti käytettävissä.',
+                    'Audiotuotannon arvion laskeminen epäonnistui.'
+                );
                 status.classList.add('is-error');
             }
             return null;
+        } finally {
+            window.clearTimeout(timeoutId);
+            if (audioProductionEstimateController === controller) audioProductionEstimateController = null;
+            if (isCurrentRequest() && status && /^Lasketaan\b/i.test(status.textContent || '')) {
+                status.textContent = 'Tuotantoarvion laskeminen keskeytyi. Yritä uudelleen muuttamalla valintaa tai päivittämällä tila.';
+                status.classList.add('is-error');
+            }
         }
     }
 
     function scheduleAudioProductionEstimate() {
         audioProductionEstimateGeneration += 1;
+        if (audioProductionEstimateController) audioProductionEstimateController.abort();
+        audioProductionEstimateController = null;
         if (audioProductionEstimateTimer) window.clearTimeout(audioProductionEstimateTimer);
         audioProductionEstimateTimer = window.setTimeout(() => loadAudioProductionEstimate(), 250);
     }
@@ -12435,12 +12587,33 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const projectId = window.manuscriptData?.id;
         renderAudioProductionLanguage();
         if (!projectId) {
+            audioProductionInitializationGeneration += 1;
+            audioProductionOptionsGeneration += 1;
+            if (audioProductionOptionsController) audioProductionOptionsController.abort();
+            audioProductionOptionsController = null;
+            audioProductionLatestGeneration += 1;
+            if (audioProductionLatestController) audioProductionLatestController.abort();
+            audioProductionLatestController = null;
+            audioProductionEstimateGeneration += 1;
+            if (audioProductionEstimateController) audioProductionEstimateController.abort();
+            audioProductionEstimateController = null;
+            if (audioProductionEstimateTimer) window.clearTimeout(audioProductionEstimateTimer);
+            audioProductionEstimateTimer = null;
             audioProductionLoadedProjectId = null;
             audioProductionInitializationProjectId = null;
+            audioProductionOptionsError = '';
+            audioProductionModels = [];
+            audioProductionVoices = [];
+            audioProductionOptionsPayload = null;
             stopAudioProductionPolling();
             clearAudioProductionPlayer();
             renderAudioProductionEstimate(null);
             renderAudioProduction(null);
+            const modelSelect = document.getElementById('audio-production-model-select');
+            const voiceSelect = document.getElementById('audio-production-voice-select');
+            if (modelSelect) modelSelect.innerHTML = '<option value="">Valitse käsikirjoitus ensin</option>';
+            if (voiceSelect) voiceSelect.innerHTML = '<option value="">Valitse käsikirjoitus ensin</option>';
+            syncAudioProductionControls();
             return;
         }
         if (!force && String(audioProductionLoadedProjectId || '') === String(projectId)) {
@@ -12448,30 +12621,65 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             return;
         }
         if (!force && String(audioProductionInitializationProjectId || '') === String(projectId)) return;
+        const initializationGeneration = ++audioProductionInitializationGeneration;
         audioProductionInitializationProjectId = projectId;
-        stopAudioProductionPolling();
-        clearAudioProductionPlayer();
-        audioProductionCurrent = null;
-        audioProductionEstimate = null;
-        audioProductionOptionsPayload = null;
-        audioProductionModels = [];
-        audioProductionVoices = [];
-        renderAudioProduction(null);
-        setAudioProductionStatus('Ladataan tuotantomalleja ja aiempaa tuotantotilaa…');
-        const optionsLoaded = await loadAudioProductionOptions(projectId);
-        if (String(window.manuscriptData?.id || '') !== String(projectId)) return;
-        const latest = await loadLatestAudioProduction(projectId);
-        if (String(window.manuscriptData?.id || '') !== String(projectId)) return;
-        audioProductionLoadedProjectId = projectId;
-        audioProductionInitializationProjectId = null;
-        if (optionsLoaded && !latest) await loadAudioProductionEstimate();
-        const optionWarnings = Array.isArray(audioProductionOptionsPayload?.warnings)
-            ? audioProductionOptionsPayload.warnings.filter(Boolean).join(' ')
-            : String(audioProductionOptionsPayload?.warnings || '').trim();
-        if (!latest && optionWarnings && !audioProductionModels.some(model => !model.disabled)) {
-            setAudioProductionStatus(optionWarnings, true);
+        try {
+            if (force) audioProductionLoadedProjectId = null;
+            audioProductionLatestGeneration += 1;
+            if (audioProductionLatestController) audioProductionLatestController.abort();
+            audioProductionLatestController = null;
+            stopAudioProductionPolling();
+            clearAudioProductionPlayer();
+            audioProductionEstimateGeneration += 1;
+            if (audioProductionEstimateController) audioProductionEstimateController.abort();
+            audioProductionEstimateController = null;
+            if (audioProductionEstimateTimer) window.clearTimeout(audioProductionEstimateTimer);
+            audioProductionEstimateTimer = null;
+            audioProductionCurrent = null;
+            audioProductionEstimate = null;
+            audioProductionOptionsError = '';
+            audioProductionOptionsPayload = null;
+            audioProductionModels = [];
+            audioProductionVoices = [];
+            renderAudioProduction(null);
+            setAudioProductionStatus('Ladataan tuotantomalleja ja aiempaa tuotantotilaa…');
+            const optionsLoaded = await loadAudioProductionOptions(projectId, initializationGeneration);
+            if (!audioProductionInitializationIsCurrent(projectId, initializationGeneration)) return;
+            const latest = await loadLatestAudioProduction(projectId, initializationGeneration);
+            if (!audioProductionInitializationIsCurrent(projectId, initializationGeneration)) return;
+            audioProductionLoadedProjectId = optionsLoaded ? projectId : null;
+            if (optionsLoaded && !latest) void loadAudioProductionEstimate(initializationGeneration);
+            if (!audioProductionInitializationIsCurrent(projectId, initializationGeneration)) return;
+            const optionWarnings = Array.isArray(audioProductionOptionsPayload?.warnings)
+                ? audioProductionOptionsPayload.warnings.filter(Boolean).join(' ')
+                : String(audioProductionOptionsPayload?.warnings || '').trim();
+            if (!optionsLoaded) {
+                setAudioProductionStatus(
+                    audioProductionOptionsError || 'Audiotuotannon valintoja ei saatu ladattua. Yritä uudelleen Päivitä tila -painikkeella.',
+                    true
+                );
+            } else if (!latest && optionWarnings && !audioProductionModels.some(model => !model.disabled)) {
+                setAudioProductionStatus(optionWarnings, true);
+            }
+            syncAudioProductionControls();
+        } catch (err) {
+            if (!audioProductionInitializationIsCurrent(projectId, initializationGeneration)) return;
+            audioProductionLoadedProjectId = null;
+            audioProductionOptionsError = err?.message || 'Audiotuotannon alustaminen epäonnistui.';
+            const modelSelect = document.getElementById('audio-production-model-select');
+            const voiceSelect = document.getElementById('audio-production-voice-select');
+            if (audioSelectHasLoadingLabel(modelSelect)) modelSelect.innerHTML = '<option value="">Mallien lataaminen epäonnistui</option>';
+            if (audioSelectHasLoadingLabel(voiceSelect)) voiceSelect.innerHTML = '<option value="">Äänten lataaminen epäonnistui</option>';
+            setAudioProductionStatus(audioProductionOptionsError, true);
+            syncAudioProductionControls();
+        } finally {
+            if (
+                initializationGeneration === audioProductionInitializationGeneration
+                && String(audioProductionInitializationProjectId || '') === String(projectId)
+            ) {
+                audioProductionInitializationProjectId = null;
+            }
         }
-        syncAudioProductionControls();
     }
 
     async function startAudioProduction() {
@@ -12531,11 +12739,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     }
 
     async function refreshAudioProduction() {
-        if (audioProductionCurrent?.id) {
-            startAudioProductionPolling(audioProductionCurrent.id);
-        } else {
-            await loadLatestAudioProduction(window.manuscriptData?.id);
-        }
+        await initializeAudioProductionWorkspace(true);
     }
 
     async function downloadAudioProductionAsset(kind) {
@@ -12956,10 +13160,22 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const meta = document.getElementById('audio-voice-meta');
         const previewButton = document.getElementById('audio-preview-voice-btn');
         const refreshButton = document.getElementById('audio-refresh-voices-btn');
-        if (!select || (elevenLabsVoicesLoaded && !force)) {
+        if (!select) return;
+        if (elevenLabsVoicesLoaded && !force) {
+            mergeElevenLabsVoicesIntoAudioProduction(true);
             renderAudioVoiceMeta();
             return;
         }
+        if (elevenLabsVoicesController && !force) return;
+        if (elevenLabsVoicesController) elevenLabsVoicesController.abort();
+        const loadGeneration = ++elevenLabsVoicesLoadGeneration;
+        const controller = new AbortController();
+        const timeoutId = startAudioSetupRequestTimeout(controller);
+        elevenLabsVoicesController = controller;
+        const isCurrentRequest = () => (
+            loadGeneration === elevenLabsVoicesLoadGeneration
+            && elevenLabsVoicesController === controller
+        );
         const currentValue = select.value || audioDataFromAnalysis()?.voice?.voice_id || '';
         select.disabled = true;
         if (previewButton) previewButton.disabled = true;
@@ -12967,9 +13183,11 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         select.innerHTML = '<option value="">Ladataan ElevenLabs-ääniä...</option>';
         if (meta) meta.textContent = 'Haetaan suomenkielisiä kerrontaääniä ElevenLabsista...';
         try {
-            const res = await apiFetch('/api/audio/voices');
+            const res = await apiFetch('/api/audio/voices', { signal: controller.signal });
             const data = await res.json().catch(() => null);
             if (!res.ok) throw new Error(data?.detail || 'ElevenLabs-äänten lataaminen epäonnistui.');
+            if (!data || typeof data !== 'object') throw new Error('Palvelin palautti virheellisen ElevenLabs-ääniluettelon.');
+            if (!isCurrentRequest()) return;
             elevenLabsVoices = Array.isArray(data?.voices) ? data.voices : [];
             elevenLabsVoicesLoaded = true;
             select.innerHTML = '';
@@ -13008,16 +13226,33 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             }
             applySavedAudioVoiceSettings();
             renderAudioVoiceMeta();
+            mergeElevenLabsVoicesIntoAudioProduction(true);
             if (data?.warnings?.length && meta) {
                 meta.textContent += ` ${data.warnings.join(' ')}`;
             }
         } catch (err) {
+            if (!isCurrentRequest()) return;
             elevenLabsVoicesLoaded = false;
             select.innerHTML = '<option value="">Äänten lataaminen epäonnistui</option>';
-            if (meta) meta.textContent = err.message || 'ElevenLabs-äänten lataaminen epäonnistui.';
+            if (meta) {
+                meta.textContent = audioCatalogRequestError(
+                    err,
+                    'ElevenLabs-äänten lataaminen aikakatkaistiin. Yritä uudelleen.',
+                    'ElevenLabs-äänten lataaminen epäonnistui.'
+                );
+            }
         } finally {
-            select.disabled = false;
-            if (refreshButton) refreshButton.disabled = false;
+            window.clearTimeout(timeoutId);
+            if (elevenLabsVoicesController === controller) elevenLabsVoicesController = null;
+            if (loadGeneration === elevenLabsVoicesLoadGeneration) {
+                if (audioSelectHasLoadingLabel(select)) {
+                    select.innerHTML = '<option value="">Äänten lataaminen epäonnistui</option>';
+                    if (meta) meta.textContent = 'ElevenLabs-äänten lataaminen keskeytyi. Yritä uudelleen.';
+                    elevenLabsVoicesLoaded = false;
+                }
+                select.disabled = false;
+                if (refreshButton) refreshButton.disabled = false;
+            }
         }
     }
 
