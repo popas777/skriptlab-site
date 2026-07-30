@@ -217,6 +217,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let translationWorkspaceFileLoadSequence = 0;
     let translationWorkspaceReviewRunning = false;
     let translationWorkspaceBatchJobId = null;
+    let translationReviewBatchJobId = null;
     let translationUiMode = 'assistant';
     let syncingTranslationScroll = false;
     let translationTimerInterval = null;
@@ -12147,6 +12148,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     let audioProductionLatestController = null;
     let audioProductionPollTimer = null;
     let audioProductionPollGeneration = 0;
+    let audioProductionCountdownTimer = null;
     let audioProductionEstimateTimer = null;
     let audioProductionEstimateGeneration = 0;
     let audioProductionEstimateController = null;
@@ -12225,6 +12227,23 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (!status) return;
         status.textContent = message || '';
         status.classList.toggle('is-error', isError);
+    }
+
+    function renderAudioProductionBatchCountdown(production) {
+        window.clearInterval(audioProductionCountdownTimer);
+        audioProductionCountdownTimer = null;
+        const element = document.getElementById('audio-production-batch-countdown');
+        const activeBatch = production?.execution_mode === 'batch' && audioProductionIsActive(production);
+        if (!element || !activeBatch) {
+            if (element) element.classList.add('hidden');
+            return;
+        }
+        const update = () => {
+            element.textContent = `Eräajon ${translationBatchCountdown(production.target_completion_at)}.`;
+            element.classList.remove('hidden');
+        };
+        update();
+        audioProductionCountdownTimer = window.setInterval(update, 1000);
     }
 
     function audioProductionProviderLabel(provider) {
@@ -13039,6 +13058,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const modelSelect = document.getElementById('audio-production-model-select');
         const voiceSelect = document.getElementById('audio-production-voice-select');
         const startButton = document.getElementById('audio-production-start-btn');
+        const batchButton = document.getElementById('audio-production-batch-start-btn');
         const resumeButton = document.getElementById('audio-production-resume-btn');
         const refreshButton = document.getElementById('audio-production-refresh-btn');
         const active = audioProductionIsActive();
@@ -13046,11 +13066,21 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const hasSelection = Boolean(currentAudioProductionModel() && currentAudioProductionVoice());
         const reviewedDraftSelected = Boolean(audioProductionDraftKey && audioProductionDraftKey === audioProductionSelectionKey());
         const draftError = reviewedDraftSelected ? audioProductionDraftValidationError() : '';
+        const batchSupported = String(currentAudioProductionModel()?.provider || '').toLowerCase() === 'gemini';
         if (modelSelect) modelSelect.disabled = active || !hasProject || !audioProductionModels.some(model => !model.disabled);
         if (voiceSelect) voiceSelect.disabled = active || !hasProject || !currentAudioProductionVoice();
         if (startButton) {
             startButton.disabled = active || !hasProject || !hasSelection || Boolean(draftError);
             startButton.textContent = audioProductionIsComplete() ? 'Luo uusi äänikirja' : active ? 'Tuotanto käynnissä…' : 'Luo äänikirja';
+        }
+        if (batchButton) {
+            batchButton.disabled = active || !hasProject || !hasSelection || Boolean(draftError) || !batchSupported;
+            batchButton.textContent = active && audioProductionCurrent?.execution_mode === 'batch'
+                ? 'Eräajo käynnissä…'
+                : 'Edullinen eräajo · 24 h';
+            batchButton.title = batchSupported
+                ? 'Gemini Batch API, noin 50 % normaalihinnasta. Tavoiteaika enintään 24 tuntia.'
+                : 'Audiotuotannon eräajo on käytettävissä vain Gemini TTS -mallilla.';
         }
         if (resumeButton) {
             resumeButton.classList.toggle('hidden', !audioProductionCanResume());
@@ -13080,6 +13110,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
 
     function renderAudioProduction(production) {
         audioProductionCurrent = production && typeof production === 'object' ? production : null;
+        renderAudioProductionBatchCountdown(audioProductionCurrent);
         if (audioProductionCurrent) renderAudioProductionEstimate(audioProductionCurrent);
         const progress = document.getElementById('audio-production-progress');
         const progressBar = document.getElementById('audio-production-progress-bar');
@@ -13488,7 +13519,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
     }
 
-    async function startAudioProduction() {
+    async function startAudioProduction(options = {}) {
+        const batch = options.batch === true;
         let payload = audioProductionPayload();
         if (!payload && window.manuscriptData && !window.manuscriptData.id) {
             const saved = await window.saveManuscriptToDB(window.manuscriptData);
@@ -13500,6 +13532,11 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             setAudioProductionStatus('Valitse tallennettu käsikirjoitus, tuotantomalli ja lukijaääni.', true);
             return;
         }
+        if (batch && String(payload.provider || '').toLowerCase() !== 'gemini') {
+            setAudioProductionStatus('Audiotuotannon eräajo on käytettävissä vain Gemini TTS -mallilla.', true);
+            return;
+        }
+        payload.execution_mode = batch ? 'batch' : 'interactive';
         if (audioProductionDraftKey === audioProductionSelectionKey()) {
             const draftError = audioProductionDraftValidationError();
             if (draftError) {
@@ -13513,10 +13550,12 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             }
         }
         const button = document.getElementById('audio-production-start-btn');
+        const batchButton = document.getElementById('audio-production-batch-start-btn');
         if (button) button.disabled = true;
+        if (batchButton) batchButton.disabled = true;
         stopAudioProductionPolling();
         clearAudioProductionPlayer();
-        setAudioProductionStatus('Audiotuotantoa käynnistetään…');
+        setAudioProductionStatus(batch ? 'Audiotuotannon eräajoa lähetetään Geminille…' : 'Audiotuotantoa käynnistetään…');
         try {
             const response = await apiFetch('/api/audio/productions', {
                 method: 'POST',
@@ -13534,6 +13573,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             syncAudioProductionControls();
         } finally {
             if (button && !audioProductionIsActive()) button.disabled = false;
+            if (batchButton && !audioProductionIsActive()) syncAudioProductionControls();
         }
     }
 
@@ -16520,6 +16560,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         populateTranslationWorkspaceReviewSelect();
         populateTranslationWorkspaceTranslationSelect();
         renderTranslationWorkspaceReview();
+        void resumeTranslationReviewBatchJob('workspace');
         return true;
     }
 
@@ -16681,6 +16722,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             'translation-workspace-review-prev-btn',
             'translation-workspace-review-next-btn',
             'translation-workspace-review-current-btn',
+            'translation-workspace-review-batch-btn',
             'translation-workspace-review-save-btn',
             'translation-workspace-review-accept-btn',
             'translation-workspace-review-download-btn',
@@ -16737,6 +16779,15 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (accept) accept.disabled = translationWorkspaceReviewRunning || !String(aiCheck.checked_translation || '').trim();
         if (download) download.disabled = translationWorkspaceReviewRunning || reviewedCount === 0;
         if (bilingual) bilingual.disabled = translationWorkspaceReviewRunning || reviewedCount === 0;
+        const batchButton = document.getElementById('translation-workspace-review-batch-btn');
+        if (batchButton) {
+            const selectedModel = document.getElementById('translation-workspace-review-model')?.value || '';
+            const supported = translationBatchModelSupported(selectedModel);
+            batchButton.disabled = translationWorkspaceReviewRunning || !supported;
+            batchButton.title = supported
+                ? 'Lähetä koko tarkastus Gemini Batch APIin. Tavoiteaika on enintään 24 tuntia.'
+                : 'Eräajo vaatii tuetun Gemini Flash -mallin.';
+        }
         if (status && !options.preserveStatus) {
             status.textContent = `${translationWorkspaceVersionLabel(item)} · tarkastettu ${reviewedCount}/${chunks.length} segmenttiä.`;
         }
@@ -16858,6 +16909,104 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 : `Koko käännös tarkastettiin (${completed}/${indexes.length} segmenttiä).`;
         }
         loadUsage();
+    }
+
+    function applyTranslationReviewBatchResult(data) {
+        if (!data?.id) return;
+        selectedFinnishTranslation = data;
+        latestFinnishTranslationText = data.translated_text || '';
+        const index = currentFinnishTranslationHistory.findIndex(item => String(item.id) === String(data.id));
+        if (index >= 0) currentFinnishTranslationHistory[index] = data;
+        loadedTranslationWorkspaceTranslationId = null;
+        renderTranslationWorkspaceReview({ preserveStatus: true });
+        renderTranslationWorkspaceHistory();
+        renderFinnishTranslationParts();
+        renderFinnishTranslationAiCheck();
+    }
+
+    async function startTranslationReviewBatch(source = 'workspace', existingJob = null) {
+        const item = selectedFinnishTranslation;
+        const workspace = source === 'workspace';
+        const status = document.getElementById(
+            workspace ? 'translation-workspace-review-status' : 'finnish-translation-ai-check-status'
+        );
+        const model = document.getElementById(
+            workspace ? 'translation-workspace-review-model' : 'finnish-translation-ai-check-model'
+        )?.value || null;
+        const repeatReviewed = document.getElementById(
+            workspace ? 'translation-workspace-review-repeat' : 'finnish-translation-ai-check-repeat'
+        )?.checked === true;
+        if (!item?.id || !translationChunkDetails(item).length) {
+            alert('Valitse ensin tarkastettava käännös.');
+            return;
+        }
+        if (!existingJob && !translationBatchModelSupported(model)) {
+            alert('Tarkastuksen eräajo vaatii tuetun Gemini Flash -mallin.');
+            return;
+        }
+        if (translationReviewBatchJobId && !existingJob) return;
+
+        translationWorkspaceReviewRunning = true;
+        finnishTranslationAiCheckAllRunning = true;
+        renderTranslationWorkspaceReview({ preserveStatus: true });
+        renderFinnishTranslationAiCheck();
+        let finalStatusMessage = '';
+        try {
+            let job = existingJob;
+            if (!job) {
+                if (status) status.textContent = 'Valmistellaan tarkastuksen edullista eräajoa…';
+                const response = await apiFetch(`/api/translations/${item.id}/review-jobs`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        model,
+                        repeat_reviewed: repeatReviewed
+                    })
+                });
+                job = await response.json().catch(() => null);
+                if (!response.ok) throw new Error(job?.detail || 'Tarkastuksen eräajo ei käynnistynyt.');
+            }
+            translationReviewBatchJobId = job.job_id;
+            if (status) {
+                status.textContent = `Tarkastuksen eräajo käynnissä. ${translationBatchCountdown(job.target_completion_at)}`;
+            }
+            const data = await pollTranslationJob(
+                job.job_id,
+                status,
+                'Käännöksen tarkastus'
+            );
+            applyTranslationReviewBatchResult(data);
+            if (status) {
+                const reviewed = translationChunkDetails(data).filter(chunk => finnishTranslationAiCheckedText(chunk)).length;
+                finalStatusMessage = `Käännöksen erätarkastus valmis. Tarkastettu ${reviewed}/${translationChunkDetails(data).length} segmenttiä.`;
+                status.textContent = finalStatusMessage;
+            }
+            loadUsage();
+        } catch (err) {
+            finalStatusMessage = networkFailureMessage(err);
+            if (status) status.textContent = finalStatusMessage;
+            if (!existingJob) alert('Tarkastuksen eräajo epäonnistui: ' + networkFailureMessage(err));
+        } finally {
+            translationReviewBatchJobId = null;
+            translationWorkspaceReviewRunning = false;
+            finnishTranslationAiCheckAllRunning = false;
+            renderTranslationWorkspaceReview({ preserveStatus: true });
+            renderFinnishTranslationAiCheck();
+            if (status && finalStatusMessage) status.textContent = finalStatusMessage;
+        }
+    }
+
+    async function resumeTranslationReviewBatchJob(source = 'workspace') {
+        const item = selectedFinnishTranslation;
+        if (!item?.id || translationReviewBatchJobId) return;
+        try {
+            const response = await apiFetch(`/api/translations/${item.id}/review-jobs/active`);
+            const job = await response.json().catch(() => null);
+            if (!response.ok || !job?.job_id) return;
+            await startTranslationReviewBatch(source, job);
+        } catch (err) {
+            console.warn('Tarkastuksen eräajon palauttaminen epäonnistui.', err);
+        }
     }
 
     async function importTranslationWorkspaceBilingual(event) {
@@ -17056,6 +17205,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             });
             updateTranslationChunkAdvice('translation');
             updateTranslationChunkAdvice('finnish-translation');
+            renderTranslationWorkspaceReview();
+            renderFinnishTranslationAiCheck();
         } catch (err) {
             selects.forEach(select => {
                 select.innerHTML = '<option value="">Oletusmalli</option>';
@@ -18568,6 +18719,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const status = document.getElementById('finnish-translation-ai-check-status');
         const runBtn = document.getElementById('finnish-translation-ai-check-run-btn');
         const runAllBtn = document.getElementById('finnish-translation-ai-check-run-all-btn');
+        const batchBtn = document.getElementById('finnish-translation-ai-check-batch-btn');
         const acceptBtn = document.getElementById('finnish-translation-ai-check-accept-btn');
         const acceptSelectedBtn = document.getElementById('finnish-translation-ai-check-accept-selected-btn');
         const acceptAllBtn = document.getElementById('finnish-translation-ai-check-accept-all-btn');
@@ -18587,6 +18739,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             status.textContent = 'Valitse käännös ja sen jälkeen tarkistettava pala.';
             if (runBtn) runBtn.disabled = true;
             if (runAllBtn) runAllBtn.disabled = true;
+            if (batchBtn) batchBtn.disabled = true;
             if (acceptBtn) acceptBtn.disabled = true;
             if (acceptSelectedBtn) acceptSelectedBtn.disabled = true;
             if (acceptAllBtn) acceptAllBtn.disabled = true;
@@ -18603,6 +18756,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             status.textContent = 'Osaloki puuttuu tältä käännökseltä.';
             if (runBtn) runBtn.disabled = true;
             if (runAllBtn) runAllBtn.disabled = true;
+            if (batchBtn) batchBtn.disabled = true;
             if (acceptBtn) acceptBtn.disabled = true;
             if (acceptSelectedBtn) acceptSelectedBtn.disabled = true;
             if (acceptAllBtn) acceptAllBtn.disabled = true;
@@ -18680,6 +18834,13 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             if (!selectedValueIsAvailable && currentValue && translationModels.some(model => `${model.provider}:${model.model_name}` === currentValue)) {
                 modelSelect.value = currentValue;
             }
+        }
+        if (batchBtn) {
+            const supported = translationBatchModelSupported(modelSelect?.value || '');
+            batchBtn.disabled = finnishTranslationAiCheckAllRunning || !supported;
+            batchBtn.title = supported
+                ? 'Lähetä koko tarkastus Gemini Batch APIin. Tavoiteaika on enintään 24 tuntia.'
+                : 'Eräajo vaatii tuetun Gemini Flash -mallin.';
         }
     }
 
@@ -19075,6 +19236,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         renderSelectedFinnishTranslationForReview();
         renderFinnishTranslationParts();
         renderFinnishTranslationAiCheck();
+        void resumeTranslationReviewBatchJob('finnish');
     }
 
     function renderSelectedTranslationForReview() {
@@ -20979,6 +21141,7 @@ ${state.validation || 'Ei validointia.'}`;
     const audioProductionVoiceSelect = document.getElementById('audio-production-voice-select');
     const audioProductionPreviewBtn = document.getElementById('audio-production-preview-btn');
     const audioProductionStartBtn = document.getElementById('audio-production-start-btn');
+    const audioProductionBatchStartBtn = document.getElementById('audio-production-batch-start-btn');
     const audioProductionResumeBtn = document.getElementById('audio-production-resume-btn');
     const audioProductionRefreshBtn = document.getElementById('audio-production-refresh-btn');
     const audioProductionDownloadBtn = document.getElementById('audio-production-download-btn');
@@ -21238,6 +21401,8 @@ ${state.validation || 'Ei validointia.'}`;
     });
     document.getElementById('translation-workspace-review-current-btn')?.addEventListener('click', checkTranslationWorkspaceCurrent);
     document.getElementById('translation-workspace-review-all-btn')?.addEventListener('click', () => checkAllTranslationWorkspaceSegments());
+    document.getElementById('translation-workspace-review-batch-btn')?.addEventListener('click', () => startTranslationReviewBatch('workspace'));
+    document.getElementById('translation-workspace-review-model')?.addEventListener('change', () => renderTranslationWorkspaceReview());
     document.getElementById('translation-workspace-review-save-btn')?.addEventListener('click', () => saveTranslationWorkspaceCurrent(false));
     document.getElementById('translation-workspace-review-accept-btn')?.addEventListener('click', () => saveTranslationWorkspaceCurrent(true));
     document.getElementById('translation-workspace-review-download-btn')?.addEventListener('click', () => downloadReviewedTranslationExport('reviewed', true));
@@ -21246,6 +21411,8 @@ ${state.validation || 'Ei validointia.'}`;
     document.getElementById('finnish-translation-part-save-btn')?.addEventListener('click', () => saveTranslationPartCorrection('finnish-translation'));
     document.getElementById('finnish-translation-ai-check-run-btn')?.addEventListener('click', runFinnishTranslationAiCheck);
     document.getElementById('finnish-translation-ai-check-run-all-btn')?.addEventListener('click', runAllFinnishTranslationAiChecks);
+    document.getElementById('finnish-translation-ai-check-batch-btn')?.addEventListener('click', () => startTranslationReviewBatch('finnish'));
+    document.getElementById('finnish-translation-ai-check-model')?.addEventListener('change', renderFinnishTranslationAiCheck);
     document.getElementById('finnish-translation-ai-check-accept-btn')?.addEventListener('click', acceptFinnishTranslationAiCheck);
     document.getElementById('finnish-translation-ai-check-accept-selected-btn')?.addEventListener('click', () => replaceFinnishTranslationAiCheckChunks('selected'));
     document.getElementById('finnish-translation-ai-check-accept-all-btn')?.addEventListener('click', () => replaceFinnishTranslationAiCheckChunks('all'));
@@ -21372,6 +21539,7 @@ ${state.validation || 'Ei validointia.'}`;
     }
     if (audioProductionPreviewBtn) audioProductionPreviewBtn.addEventListener('click', playAudioProductionVoicePreview);
     if (audioProductionStartBtn) audioProductionStartBtn.addEventListener('click', startAudioProduction);
+    if (audioProductionBatchStartBtn) audioProductionBatchStartBtn.addEventListener('click', () => startAudioProduction({ batch: true }));
     if (audioProductionResumeBtn) audioProductionResumeBtn.addEventListener('click', resumeAudioProduction);
     if (audioProductionRefreshBtn) audioProductionRefreshBtn.addEventListener('click', refreshAudioProduction);
     if (audioProductionDownloadBtn) audioProductionDownloadBtn.addEventListener('click', () => downloadAudioProductionAsset('audio'));
