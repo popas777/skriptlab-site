@@ -2865,7 +2865,9 @@
                         <div style="display:flex; gap:10px; flex-wrap:wrap;">
                             <button class="btn btn-secondary" id="translation-estimate-btn">Päivitä arvio</button>
                             <button class="btn btn-primary" id="translation-start-btn">Aloita käännös</button>
+                            <button class="btn btn-secondary" id="translation-batch-start-btn" title="Edullisempi Gemini-eräajo, jonka tavoiteaika on enintään 24 tuntia.">Edullinen eräajo</button>
                         </div>
+                        <div class="card-meta" style="line-height:1.45; margin-top:10px;">Eräajo maksaa noin puolet normaalista Gemini-kutsusta. Työ valmistuu taustalla, yleensä nopeammin kuin 24 tunnissa.</div>
                     </div>
                     <div class="card glass-panel">
                         <h3>Käännöksen tulos</h3>
@@ -3053,7 +3055,9 @@
                             <div style="display:flex; gap:10px; flex-wrap:wrap;">
                                 <button class="btn btn-secondary" id="finnish-translation-estimate-btn">Päivitä arvio</button>
                                 <button class="btn btn-primary" id="finnish-translation-start-btn">Aloita käännös</button>
+                                <button class="btn btn-secondary" id="finnish-translation-batch-start-btn" title="Edullisempi Gemini-eräajo, jonka tavoiteaika on enintään 24 tuntia.">Edullinen eräajo</button>
                             </div>
+                            <div class="card-meta" style="line-height:1.45; margin-top:10px;">Eräajo maksaa noin puolet normaalista Gemini-kutsusta. Työ jatkuu taustalla ja valmistuu yleensä alle 24 tunnissa.</div>
                             <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
                                 <button class="btn btn-secondary" id="finnish-translation-custom-start-btn">Aja räätälöidyllä käännöspromptilla</button>
                             </div>
@@ -3325,7 +3329,9 @@
                             <div class="translation-workspace-actions">
                                 <button id="translation-workspace-estimate-btn" class="btn btn-secondary" type="button">Päivitä arvio</button>
                                 <button id="translation-workspace-start-btn" class="btn btn-primary" type="button">Käännä koko teos</button>
+                                <button id="translation-workspace-batch-start-btn" class="btn btn-secondary" type="button" title="Edullisempi Gemini-eräajo, jonka tavoiteaika on enintään 24 tuntia.">Edullinen eräajo</button>
                             </div>
+                            <p class="card-meta">Eräajo maksaa noin puolet normaalista Gemini-kutsusta. Voit poistua sivulta: työ tallentuu projektiin valmistuttuaan.</p>
                         </div>
                         <div class="card glass-panel translation-workspace-run-card">
                             <div class="translation-workspace-run-heading">
@@ -3507,6 +3513,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=129"></script>
+    <script src="app.js?v=130"></script>
 </body>
 </html>

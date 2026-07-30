@@ -216,6 +216,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let translationWorkspaceFileEditError = false;
     let translationWorkspaceFileLoadSequence = 0;
     let translationWorkspaceReviewRunning = false;
+    let translationWorkspaceBatchJobId = null;
     let translationUiMode = 'assistant';
     let syncingTranslationScroll = false;
     let translationTimerInterval = null;
@@ -15633,13 +15634,21 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     function updateTranslationAnalysisNotice(project = currentTranslationProject()) {
         const notice = document.getElementById('translation-analysis-notice');
         const startBtn = document.getElementById('translation-start-btn');
+        const batchBtn = document.getElementById('translation-batch-start-btn');
         const estimateBtn = document.getElementById('translation-estimate-btn');
         const missing = Boolean(project?.id && !hasTranslationAnalysis(project));
+        const batchSupported = translationBatchModelSupported(document.getElementById('translation-model-select')?.value);
         if (notice) {
             notice.classList.toggle('hidden', !missing);
             notice.textContent = missing ? translationAnalysisMessage() : '';
         }
         if (startBtn) startBtn.disabled = missing;
+        if (batchBtn) {
+            batchBtn.disabled = missing || !batchSupported;
+            batchBtn.title = batchSupported
+                ? 'Edullisempi Gemini-eräajo, jonka tavoiteaika on enintään 24 tuntia.'
+                : 'Eräajo vaatii tuetun Gemini Flash -mallin.';
+        }
         if (estimateBtn) estimateBtn.disabled = missing;
         return !missing;
     }
@@ -15647,13 +15656,21 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     function updateFinnishTranslationAnalysisNotice(project = currentFinnishTranslationProject()) {
         const notice = document.getElementById('finnish-translation-analysis-notice');
         const startBtn = document.getElementById('finnish-translation-start-btn');
+        const batchBtn = document.getElementById('finnish-translation-batch-start-btn');
         const estimateBtn = document.getElementById('finnish-translation-estimate-btn');
         const missing = Boolean(project?.id && !hasTranslationAnalysis(project));
+        const batchSupported = translationBatchModelSupported(document.getElementById('finnish-translation-model-select')?.value);
         if (notice) {
             notice.classList.toggle('hidden', !missing);
             notice.textContent = missing ? finnishTranslationAnalysisMessage() : '';
         }
         if (startBtn) startBtn.disabled = missing;
+        if (batchBtn) {
+            batchBtn.disabled = missing || !batchSupported;
+            batchBtn.title = batchSupported
+                ? 'Edullisempi Gemini-eräajo, jonka tavoiteaika on enintään 24 tuntia.'
+                : 'Eräajo vaatii tuetun Gemini Flash -mallin.';
+        }
         if (estimateBtn) estimateBtn.disabled = missing;
         return !missing;
     }
@@ -15696,7 +15713,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const model = String(modelValue || '').toLocaleLowerCase('fi-FI');
         if (model.includes('3.1-flash-lite') || model.includes('flash-lite') || model.includes('lite')) {
             return {
-                label: 'Gemini 3.1 Flash-Lite',
+                label: model.includes('3.5-flash-lite') ? 'Gemini 3.5 Flash-Lite' : 'Gemini Flash-Lite',
                 min: 500,
                 max: 1000,
                 ideal: 1000,
@@ -15728,6 +15745,14 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             ideal: 2000,
             note: 'turvallinen yleissuositus kaunokirjalliseen käännökseen'
         };
+    }
+
+    function translationBatchModelSupported(modelValue) {
+        const model = String(modelValue || '').trim().toLowerCase();
+        if (!model) return true;
+        return model.includes('gemini-3.5-flash-lite')
+            || model.includes('gemini-3.5-flash')
+            || model.includes('gemini-3.6-flash');
     }
 
     function translationChunkRecommendationText(modelValue, chunkWords, isFinnish = false, compact = false) {
@@ -16074,6 +16099,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         renderTranslationWorkspaceHistory();
         renderTranslationWorkspaceReview();
         updateTranslationWorkspaceSummary();
+        void resumeTranslationWorkspaceBatchJob();
     }
 
     function selectTranslationWorkspaceTranslation(translationId, options = {}) {
@@ -16108,18 +16134,28 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const project = currentTranslationWorkspaceProject();
         const estimate = document.getElementById('translation-workspace-estimate');
         const startButton = document.getElementById('translation-workspace-start-btn');
+        const batchButton = document.getElementById('translation-workspace-batch-start-btn');
+        const batchSupported = translationBatchModelSupported(payload.model);
         updateTranslationWorkspaceSummary();
         if (!payload.project_id) {
             if (estimate) estimate.textContent = 'Valitse projekti, niin muodostan työmääräarvion.';
             if (startButton) startButton.disabled = true;
+            if (batchButton) batchButton.disabled = true;
             return null;
         }
         if (!hasTranslationAnalysis(project)) {
             if (estimate) estimate.textContent = 'Käännös vaatii ensin käsikirjoituksen analyysin. Aja analyysi tai lataa tallennettu analyysi ennen käännöstä.';
             if (startButton) startButton.disabled = true;
+            if (batchButton) batchButton.disabled = true;
             return null;
         }
         if (startButton) startButton.disabled = false;
+        if (batchButton) {
+            batchButton.disabled = !batchSupported;
+            batchButton.title = batchSupported
+                ? 'Edullisempi Gemini-eräajo, jonka tavoiteaika on enintään 24 tuntia.'
+                : 'Eräajo vaatii tuetun Gemini Flash -mallin.';
+        }
         if (estimate) estimate.textContent = 'Lasketaan segmenttejä ja työmäärää...';
         try {
             const data = await fetchTranslationEstimate(payload);
@@ -16131,15 +16167,50 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
     }
 
-    async function startTranslationWorkspaceRun() {
+    function updateTranslationWorkspaceJobProgress(job, estimate = null) {
+        const total = Number(job?.total_chunks || estimate?.chunks_count || 0);
+        const done = Number(job?.done_chunks || 0);
+        let percent = total ? done / total * 100 : 0;
+        let title = 'Käännös käynnissä';
+        let message = total ? `Valmiina ${Math.min(done, total)}/${total} segmenttiä.` : (job?.message || 'Käännös käynnissä.');
+        if (job?.execution_mode === 'batch') {
+            const phasePercent = { submitting: 5, queued: 10, running: 35, processing: 90 };
+            percent = Math.max(percent, phasePercent[job.status] || 10);
+            title = job.status === 'processing' ? 'Eräajon vastausta tallennetaan' : 'Edullinen eräajo käynnissä';
+            message = translationJobProgressText(job, 'Käännöksen eräajo');
+        }
+        setTranslationWorkspaceProgress(percent, title, message);
+    }
+
+    async function finishTranslationWorkspaceJob(data) {
+        selectedFinnishTranslation = data;
+        setTranslationWorkspaceProgress(
+            100,
+            data.status === 'partial' ? 'Käännös valmistui osittain' : 'Käännös valmis',
+            data.warnings || `${data.chunks_count} segmenttiä tallennettiin projektiin.`
+        );
+        await loadTranslationWorkspaceHistory(data.id);
+        loadUsage();
+    }
+
+    async function startTranslationWorkspaceRun(options = {}) {
+        const batch = options.batch === true;
         const payload = translationWorkspacePayload();
-        const button = document.getElementById('translation-workspace-start-btn');
+        payload.execution_mode = batch ? 'batch' : 'interactive';
+        const runButtons = [
+            document.getElementById('translation-workspace-start-btn'),
+            document.getElementById('translation-workspace-batch-start-btn')
+        ].filter(Boolean);
         if (!payload.project_id) {
             alert('Valitse ensin projekti.');
             return;
         }
-        if (button) button.disabled = true;
-        setTranslationWorkspaceProgress(0, 'Valmistellaan käännöstä', 'Lasketaan segmentit ja käynnistetään työ.');
+        runButtons.forEach(button => { button.disabled = true; });
+        setTranslationWorkspaceProgress(
+            0,
+            batch ? 'Valmistellaan eräajoa' : 'Valmistellaan käännöstä',
+            batch ? 'Lasketaan segmentit ja lähetetään työ Geminille.' : 'Lasketaan segmentit ja käynnistetään työ.'
+        );
         try {
             const estimate = await fetchTranslationEstimate(payload);
             const startRes = await apiFetch('/api/translations/jobs', {
@@ -16149,41 +16220,52 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             });
             const started = await startRes.json().catch(() => null);
             if (!startRes.ok) throw new Error(started?.detail || 'Käännöstyö ei käynnistynyt.');
-            while (true) {
-                const statusRes = await apiFetch(`/api/translations/jobs/${started.job_id}`);
-                const job = await statusRes.json().catch(() => null);
-                if (!statusRes.ok) throw new Error(job?.detail || 'Käännöstyön tilaa ei saatu.');
-                const done = Number(job?.done_chunks || 0);
-                const total = Number(job?.total_chunks || estimate?.chunks_count || 0);
-                const percent = total ? done / total * 100 : 0;
-                setTranslationWorkspaceProgress(
-                    percent,
-                    'Käännös käynnissä',
-                    total ? `Valmiina ${Math.min(done, total)}/${total} segmenttiä.` : (job?.message || 'Käännös käynnissä.')
-                );
-                if (['done', 'completed', 'partial'].includes(job.status) && job.translation_id) {
-                    const data = await fetchSavedTranslation(job.translation_id);
-                    selectedFinnishTranslation = data;
-                    setTranslationWorkspaceProgress(
-                        100,
-                        data.status === 'partial' ? 'Käännös valmistui osittain' : 'Käännös valmis',
-                        data.warnings || `${data.chunks_count} segmenttiä tallennettiin projektiin.`
-                    );
-                    await loadTranslationWorkspaceHistory(data.id);
-                    loadUsage();
-                    return;
-                }
-                if (['failed', 'error'].includes(job.status)) {
-                    throw new Error(job.error || job.message || 'Käännöstyö epäonnistui.');
-                }
-                await wait(2500);
-            }
+            if (batch) translationWorkspaceBatchJobId = started.job_id;
+            const data = await pollTranslationJob(
+                started.job_id,
+                null,
+                batch ? 'Käännöksen eräajo' : 'Käännös',
+                job => updateTranslationWorkspaceJobProgress(job, estimate)
+            );
+            await finishTranslationWorkspaceJob(data);
         } catch (err) {
             setTranslationWorkspaceProgress(0, 'Käännös keskeytyi', networkFailureMessage(err));
             alert('Käännöstyö epäonnistui: ' + networkFailureMessage(err));
             loadUsage();
         } finally {
-            if (button) button.disabled = false;
+            translationWorkspaceBatchJobId = null;
+            runButtons.forEach(button => { button.disabled = false; });
+            updateTranslationWorkspaceEstimate();
+        }
+    }
+
+    async function resumeTranslationWorkspaceBatchJob() {
+        const project = currentTranslationWorkspaceProject();
+        if (!project?.id || translationWorkspaceBatchJobId) return;
+        const res = await apiFetch(`/api/translations/jobs/active?project_id=${encodeURIComponent(project.id)}`);
+        const job = await res.json().catch(() => null);
+        if (!res.ok || !job?.job_id || job.execution_mode !== 'batch') return;
+        translationWorkspaceBatchJobId = job.job_id;
+        const runButtons = [
+            document.getElementById('translation-workspace-start-btn'),
+            document.getElementById('translation-workspace-batch-start-btn')
+        ].filter(Boolean);
+        runButtons.forEach(button => { button.disabled = true; });
+        updateTranslationWorkspaceJobProgress(job);
+        try {
+            const data = await pollTranslationJob(
+                job.job_id,
+                null,
+                'Käännöksen eräajo',
+                updateTranslationWorkspaceJobProgress
+            );
+            await finishTranslationWorkspaceJob(data);
+        } catch (err) {
+            setTranslationWorkspaceProgress(0, 'Eräajo keskeytyi', networkFailureMessage(err));
+        } finally {
+            translationWorkspaceBatchJobId = null;
+            runButtons.forEach(button => { button.disabled = false; });
+            updateTranslationWorkspaceEstimate();
         }
     }
 
@@ -16689,28 +16771,61 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         return data;
     }
 
-    async function pollTranslationJob(jobId, statusEl, label) {
-        while (true) {
-            const res = await apiFetch(`/api/translations/jobs/${jobId}`);
-            const job = await res.json().catch(() => null);
-            if (!res.ok) throw new Error(job?.detail || 'Käännöstyön tilan haku epäonnistui.');
-            const done = Number(job?.done_chunks || 0);
-            const total = Number(job?.total_chunks || 0);
-            if (statusEl && total) {
-                statusEl.textContent = `${label} käynnissä. Osa ${Math.min(done, total)}/${total}.`;
-            } else if (statusEl && job?.message) {
-                statusEl.textContent = job.message;
+    function translationBatchCountdown(targetCompletionAt) {
+        const target = new Date(targetCompletionAt || '').getTime();
+        if (!Number.isFinite(target)) return 'tavoiteaika enintään 24 h';
+        const remaining = Math.max(0, Math.ceil((target - Date.now()) / 1000));
+        if (remaining <= 0) return '24 h tavoiteaika täynnä – työ jatkuu taustalla';
+        const hours = Math.floor(remaining / 3600);
+        const minutes = Math.floor((remaining % 3600) / 60);
+        const seconds = remaining % 60;
+        return `tavoiteaikaa jäljellä ${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    function translationJobProgressText(job, label) {
+        const done = Number(job?.done_chunks || 0);
+        const total = Number(job?.total_chunks || 0);
+        if (job?.execution_mode === 'batch') {
+            const phase = job.status === 'processing'
+                ? 'Vastausta tallennetaan projektiin.'
+                : (job.message || 'Eräajo on Geminin käsittelyssä.');
+            return `${label}: ${phase} ${translationBatchCountdown(job.target_completion_at)}`;
+        }
+        return total
+            ? `${label} käynnissä. Osa ${Math.min(done, total)}/${total}.`
+            : (job?.message || `${label} käynnissä.`);
+    }
+
+    async function pollTranslationJob(jobId, statusEl, label, onProgress = null) {
+        let latestJob = null;
+        let countdownInterval = null;
+        try {
+            while (true) {
+                const res = await apiFetch(`/api/translations/jobs/${jobId}`);
+                const job = await res.json().catch(() => null);
+                if (!res.ok) throw new Error(job?.detail || 'Käännöstyön tilan haku epäonnistui.');
+                latestJob = job;
+                if (statusEl) statusEl.textContent = translationJobProgressText(job, label);
+                if (typeof onProgress === 'function') onProgress(job);
+                if (job?.execution_mode === 'batch' && !countdownInterval) {
+                    countdownInterval = window.setInterval(() => {
+                        if (statusEl && latestJob) statusEl.textContent = translationJobProgressText(latestJob, label);
+                        if (typeof onProgress === 'function' && latestJob) onProgress(latestJob);
+                    }, 1000);
+                }
+                if ((job.status === 'done' || job.status === 'completed' || job.status === 'partial') && job.translation_id) {
+                    return fetchSavedTranslation(job.translation_id);
+                }
+                if (job.status === 'done' || job.status === 'completed' || job.status === 'partial') {
+                    throw new Error(job.message || `${label} valmistui, mutta valmista käännöstä ei löytynyt.`);
+                }
+                if (job.status === 'failed' || job.status === 'error') {
+                    throw new Error(job.error || job.message || `${label} epäonnistui.`);
+                }
+                await wait(job?.execution_mode === 'batch' ? 15000 : 2500);
             }
-            if ((job.status === 'done' || job.status === 'completed' || job.status === 'partial') && job.translation_id) {
-                return fetchSavedTranslation(job.translation_id);
-            }
-            if (job.status === 'done' || job.status === 'completed' || job.status === 'partial') {
-                throw new Error(job.message || `${label} valmistui, mutta valmista käännöstä ei löytynyt.`);
-            }
-            if (job.status === 'failed' || job.status === 'error') {
-                throw new Error(job.error || job.message || `${label} epäonnistui.`);
-            }
-            await wait(2500);
+        } finally {
+            window.clearInterval(countdownInterval);
         }
     }
 
@@ -16724,9 +16839,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (!res.ok) throw new Error(job?.detail || `${label} ei käynnistynyt.`);
         if (statusEl) {
             const total = Number(job?.total_chunks || 0);
-            statusEl.textContent = total
-                ? `${label} jonossa. ${total} osaa odottaa käännöstä.`
-                : `${label} jonossa.`;
+            statusEl.textContent = job?.execution_mode === 'batch'
+                ? `${label} lähetetty eräajoon. ${translationBatchCountdown(job.target_completion_at)}`
+                : (total ? `${label} jonossa. ${total} osaa odottaa käännöstä.` : `${label} jonossa.`);
         }
         return pollTranslationJob(job.job_id, statusEl, label);
     }
@@ -18629,11 +18744,14 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
     }
 
-    async function startTranslation() {
+    async function startTranslation(options = {}) {
+        const batch = options.batch === true;
         const payload = translationRequestPayload();
+        payload.execution_mode = batch ? 'batch' : 'interactive';
         const status = document.getElementById('translation-status');
         const output = document.getElementById('translation-output');
-        const button = document.getElementById('translation-start-btn');
+        const button = document.getElementById(batch ? 'translation-batch-start-btn' : 'translation-start-btn');
+        const alternateButton = document.getElementById(batch ? 'translation-start-btn' : 'translation-batch-start-btn');
         if (!payload.project_id) {
             alert('Valitse ensin käsikirjoitus.');
             return;
@@ -18644,15 +18762,18 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             return;
         }
         if (button) button.disabled = true;
+        if (alternateButton) alternateButton.disabled = true;
         try {
-            if (status) status.textContent = 'Valmistellaan käännöstä ja lasketaan osat...';
+            if (status) status.textContent = batch ? 'Valmistellaan edullista eräajoa...' : 'Valmistellaan käännöstä ja lasketaan osat...';
             const estimateKey = translationEstimateKey(payload);
             const estimate = latestTranslationEstimate?.payload_key === estimateKey
                 ? latestTranslationEstimate
                 : await fetchTranslationEstimate(payload);
-            startTranslationTimer(estimate);
-            if (status) status.textContent = `Käännös käynnissä. ${translationEstimateSummary(estimate, payload)}`;
-            const data = await runTranslationJob(payload, status, 'Käännös');
+            if (!batch) startTranslationTimer(estimate);
+            if (status) status.textContent = batch
+                ? `Käännöksen eräajoa lähetetään. ${estimate.chunks_count} osaa.`
+                : `Käännös käynnissä. ${translationEstimateSummary(estimate, payload)}`;
+            const data = await runTranslationJob(payload, status, batch ? 'Käännöksen eräajo' : 'Käännös');
             latestTranslationText = data.translated_text || '';
             if (output) output.value = latestTranslationText;
             if (status) {
@@ -18668,17 +18789,26 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         } finally {
             stopTranslationTimer();
             if (button) button.disabled = false;
+            if (alternateButton) alternateButton.disabled = false;
             updateTranslationAnalysisNotice();
         }
     }
 
     async function startFinnishTranslation(options = {}) {
         const useCustomInstructions = options.useCustomInstructions === true;
+        const batch = options.batch === true;
         const payload = finnishTranslationRequestPayload({ includeInstructions: useCustomInstructions });
+        payload.execution_mode = batch ? 'batch' : 'interactive';
         const status = document.getElementById('finnish-translation-status');
         const output = document.getElementById('finnish-translation-output');
-        const button = document.getElementById(useCustomInstructions ? 'finnish-translation-custom-start-btn' : 'finnish-translation-start-btn');
-        const alternateButton = document.getElementById(useCustomInstructions ? 'finnish-translation-start-btn' : 'finnish-translation-custom-start-btn');
+        const button = document.getElementById(
+            batch ? 'finnish-translation-batch-start-btn' : (useCustomInstructions ? 'finnish-translation-custom-start-btn' : 'finnish-translation-start-btn')
+        );
+        const runButtons = [
+            'finnish-translation-start-btn',
+            'finnish-translation-custom-start-btn',
+            'finnish-translation-batch-start-btn'
+        ].map(id => document.getElementById(id)).filter(Boolean);
         if (!payload.project_id) {
             alert('Valitse ensin käsikirjoitus.');
             return;
@@ -18692,22 +18822,27 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             alert(finnishTranslationAnalysisMessage());
             return;
         }
-        if (button) button.disabled = true;
-        if (alternateButton) alternateButton.disabled = true;
+        runButtons.forEach(item => { item.disabled = true; });
         try {
-            const runLabel = useCustomInstructions
+            const runLabel = batch
+                ? 'Käännöksen eräajo'
+                : useCustomInstructions
                 ? 'Räätälöity käännös'
                 : 'Käännös';
-            if (status) status.textContent = useCustomInstructions
+            if (status) status.textContent = batch
+                ? 'Valmistellaan edullista eräajoa...'
+                : useCustomInstructions
                 ? 'Valmistellaan räätälöityä käännöstä ja lasketaan osat...'
                 : 'Valmistellaan käännöstä ja lasketaan osat...';
             const estimateKey = translationEstimateKey(payload);
             const estimate = latestFinnishTranslationEstimate?.payload_key === estimateKey
                 ? latestFinnishTranslationEstimate
                 : await fetchFinnishTranslationEstimate(payload);
-            startFinnishTranslationTimer(estimate);
+            if (!batch) startFinnishTranslationTimer(estimate);
             if (status) {
-                status.textContent = `${runLabel} käynnissä. ${translationEstimateSummary(estimate, payload, true)}`;
+                status.textContent = batch
+                    ? `${runLabel}a lähetetään. ${estimate.chunks_count} osaa.`
+                    : `${runLabel} käynnissä. ${translationEstimateSummary(estimate, payload, true)}`;
             }
             const data = await runTranslationJob(payload, status, runLabel);
             latestFinnishTranslationText = data.translated_text || '';
@@ -18726,8 +18861,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             loadUsage();
         } finally {
             stopFinnishTranslationTimer();
-            if (button) button.disabled = false;
-            if (alternateButton) alternateButton.disabled = false;
+            runButtons.forEach(item => { item.disabled = false; });
             updateFinnishTranslationAnalysisNotice();
         }
     }
@@ -20390,6 +20524,7 @@ ${state.validation || 'Ei validointia.'}`;
     const translationProjectSelect = document.getElementById('translation-project-select');
     const translationEstimateBtn = document.getElementById('translation-estimate-btn');
     const translationStartBtn = document.getElementById('translation-start-btn');
+    const translationBatchStartBtn = document.getElementById('translation-batch-start-btn');
     const translationDownloadBtn = document.getElementById('translation-download-btn');
     const translationReviewSelect = document.getElementById('translation-review-select');
     const translationReviewSaveBtn = document.getElementById('translation-review-save-btn');
@@ -20403,6 +20538,7 @@ ${state.validation || 'Ei validointia.'}`;
     const finnishTranslationSaveInstructionsBtn = document.getElementById('finnish-translation-save-instructions-btn');
     const finnishTranslationClearInstructionsBtn = document.getElementById('finnish-translation-clear-instructions-btn');
     const finnishTranslationStartBtn = document.getElementById('finnish-translation-start-btn');
+    const finnishTranslationBatchStartBtn = document.getElementById('finnish-translation-batch-start-btn');
     const finnishTranslationCustomStartBtn = document.getElementById('finnish-translation-custom-start-btn');
     const finnishTranslationDownloadBtn = document.getElementById('finnish-translation-download-btn');
     const finnishTranslationReviewSelect = document.getElementById('finnish-translation-review-select');
@@ -20421,6 +20557,7 @@ ${state.validation || 'Ei validointia.'}`;
     const translationWorkspaceProjectSelect = document.getElementById('translation-workspace-project-select');
     const translationWorkspaceEstimateBtn = document.getElementById('translation-workspace-estimate-btn');
     const translationWorkspaceStartBtn = document.getElementById('translation-workspace-start-btn');
+    const translationWorkspaceBatchStartBtn = document.getElementById('translation-workspace-batch-start-btn');
     const translationWorkspaceReviewSelect = document.getElementById('translation-workspace-review-select');
     const translationWorkspaceImportForm = document.getElementById('translation-workspace-import-form');
     const miscProjectSelect = document.getElementById('misc-project-select');
@@ -20532,6 +20669,7 @@ ${state.validation || 'Ei validointia.'}`;
     }
     if (translationEstimateBtn) translationEstimateBtn.addEventListener('click', updateTranslationEstimate);
     if (translationStartBtn) translationStartBtn.addEventListener('click', startTranslation);
+    if (translationBatchStartBtn) translationBatchStartBtn.addEventListener('click', () => startTranslation({ batch: true }));
     if (translationDownloadBtn) translationDownloadBtn.addEventListener('click', downloadTranslation);
     if (translationReviewSelect) {
         translationReviewSelect.addEventListener('change', () => selectTranslationForReview(translationReviewSelect.value));
@@ -20578,6 +20716,9 @@ ${state.validation || 'Ei validointia.'}`;
     if (finnishTranslationSaveInstructionsBtn) finnishTranslationSaveInstructionsBtn.addEventListener('click', saveFinnishTranslationInstructions);
     if (finnishTranslationClearInstructionsBtn) finnishTranslationClearInstructionsBtn.addEventListener('click', clearFinnishTranslationInstructions);
     if (finnishTranslationStartBtn) finnishTranslationStartBtn.addEventListener('click', () => startFinnishTranslation());
+    if (finnishTranslationBatchStartBtn) {
+        finnishTranslationBatchStartBtn.addEventListener('click', () => startFinnishTranslation({ batch: true }));
+    }
     if (finnishTranslationCustomStartBtn) {
         finnishTranslationCustomStartBtn.addEventListener('click', () => startFinnishTranslation({ useCustomInstructions: true }));
     }
@@ -20673,6 +20814,9 @@ ${state.validation || 'Ei validointia.'}`;
     }
     if (translationWorkspaceStartBtn) {
         translationWorkspaceStartBtn.addEventListener('click', startTranslationWorkspaceRun);
+    }
+    if (translationWorkspaceBatchStartBtn) {
+        translationWorkspaceBatchStartBtn.addEventListener('click', () => startTranslationWorkspaceRun({ batch: true }));
     }
     if (translationWorkspaceReviewSelect) {
         translationWorkspaceReviewSelect.addEventListener('change', () => {
