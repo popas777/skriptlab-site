@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=76">
+    <link rel="stylesheet" href="styles.css?v=77">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -2683,8 +2683,13 @@
                             <button class="btn btn-primary" id="audio-gemini-test-btn" type="button">Luo Gemini-testinäyte</button>
                             <button class="btn btn-secondary" type="button" data-audio-stop>Pysäytä</button>
                         </div>
-                        <audio id="audio-gemini-player" class="audio-tts-player hidden" controls preload="none"></audio>
-                        <p id="audio-gemini-sample-meta" class="audio-sample-meta hidden" role="status"></p>
+                        <div id="audio-gemini-preview-waiting" class="audio-preview-waiting hidden" role="status">
+                            <span><i aria-hidden="true"></i><span>Gemini muodostaa testinäytettä…<small id="audio-gemini-preview-waiting-estimate"></small></span></span>
+                            <strong id="audio-gemini-preview-elapsed">0,0 s</strong>
+                        </div>
+                        <div id="audio-gemini-preview-list" class="audio-preview-history" aria-label="Gemini-testinäytteet" aria-live="polite">
+                            <p class="audio-preview-empty">Valmiit Gemini-testit ilmestyvät tähän vertailua varten.</p>
+                        </div>
                     </details>
 
                     <details class="card glass-panel audio-voice-settings audio-provider-card audio-eleven-settings" open>
@@ -2730,7 +2735,13 @@
                             <button class="btn btn-secondary" id="audio-stop-voice-btn" type="button" data-audio-stop>Pysäytä</button>
                         </div>
                         <audio id="audio-eleven-player" class="audio-tts-player hidden" controls preload="none"></audio>
-                        <p id="audio-eleven-sample-meta" class="audio-sample-meta hidden" role="status"></p>
+                        <div id="audio-eleven-preview-waiting" class="audio-preview-waiting hidden" role="status">
+                            <span><i aria-hidden="true"></i><span>ElevenLabs muodostaa testinäytettä…<small id="audio-eleven-preview-waiting-estimate"></small></span></span>
+                            <strong id="audio-eleven-preview-elapsed">0,0 s</strong>
+                        </div>
+                        <div id="audio-eleven-preview-list" class="audio-preview-history" aria-label="ElevenLabs-testinäytteet" aria-live="polite">
+                            <p class="audio-preview-empty">Valmiit ElevenLabs-testit ilmestyvät tähän vertailua varten.</p>
+                        </div>
                     </details>
                     </div>
                     </section>
@@ -3496,6 +3507,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=125"></script>
+    <script src="app.js?v=126"></script>
 </body>
 </html>

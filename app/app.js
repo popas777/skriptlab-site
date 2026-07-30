@@ -11702,12 +11702,16 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     let geminiTtsModelsLoaded = false;
     let geminiTtsConfigured = false;
     let geminiTtsWarning = '';
-    let geminiAudioObjectUrl = '';
     let elevenLabsVoices = [];
     let elevenLabsVoicesLoaded = false;
     let elevenLabsVoicesLoadGeneration = 0;
     let elevenLabsVoicesController = null;
-    let elevenLabsAudioObjectUrl = '';
+    let audioPreviewSequence = 0;
+    const audioPreviewObjectUrls = new Map();
+    const audioPreviewRuns = {
+        gemini: { running: false, startedAt: 0, timer: null },
+        elevenlabs: { running: false, startedAt: 0, timer: null }
+    };
     let audioProductionModels = [];
     let audioProductionVoices = [];
     let audioProductionOptionsPayload = null;
@@ -12891,28 +12895,6 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         return `Tallennettu ${date.toLocaleString('fi-FI', { dateStyle: 'short', timeStyle: 'short' })}`;
     }
 
-    function renderAudioSampleMeta(elementId, preview) {
-        const element = document.getElementById(elementId);
-        if (!element) return;
-        if (!preview || typeof preview !== 'object') {
-            element.textContent = '';
-            element.classList.add('hidden');
-            return;
-        }
-        const createdAt = new Date(preview.created_at || '');
-        const createdLabel = Number.isNaN(createdAt.getTime())
-            ? 'luontiaika ei saatavilla'
-            : createdAt.toLocaleString('fi-FI', { dateStyle: 'short', timeStyle: 'medium' });
-        const details = [
-            `Viimeisin näyte ${createdLabel}`,
-            preview.provider_name || preview.provider,
-            `malli ${preview.model_name || preview.model_id || 'ei tiedossa'}`,
-            preview.voice_name ? `ääni ${preview.voice_name}` : ''
-        ].filter(Boolean);
-        element.textContent = details.join(' · ');
-        element.classList.remove('hidden');
-    }
-
     async function persistAudioData(audio, successMessage) {
         if (!window.manuscriptData?.id) throw new Error('Valitse tallennettu käsikirjoitus ensin.');
         const res = await apiFetch(`/api/projects/${window.manuscriptData.id}/metadata`, {
@@ -12960,7 +12942,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const meta = document.getElementById('audio-gemini-meta');
         const button = document.getElementById('audio-gemini-test-btn');
         const model = geminiTtsModels.find(item => item.model_name === select?.value);
-        if (button) button.disabled = !geminiTtsConfigured || !model;
+        if (button) button.disabled = audioPreviewRuns.gemini.running || !geminiTtsConfigured || !model;
         if (!meta) return;
         if (!geminiTtsConfigured) {
             meta.textContent = geminiTtsWarning || 'Lisää GOOGLE_API_KEY tai GEMINI_API_KEY backendin ympäristömuuttujiin.';
@@ -12978,7 +12960,6 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     function applySavedGeminiTtsSettings() {
         const saved = audioDataFromAnalysis().gemini_voice;
         if (!saved || typeof saved !== 'object') {
-            renderAudioSampleMeta('audio-gemini-sample-meta', null);
             renderGeminiTtsMeta();
             return;
         }
@@ -12994,7 +12975,6 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 select.value = value;
             }
         });
-        renderAudioSampleMeta('audio-gemini-sample-meta', saved.last_preview);
         renderGeminiTtsMeta();
     }
 
@@ -13103,7 +13083,6 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     function applySavedAudioVoiceSettings() {
         const saved = audioDataFromAnalysis().voice;
         if (!saved || typeof saved !== 'object') {
-            renderAudioSampleMeta('audio-eleven-sample-meta', null);
             return;
         }
         const voiceSelect = document.getElementById('audio-voice-select');
@@ -13122,7 +13101,6 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 select.value = value;
             }
         });
-        renderAudioSampleMeta('audio-eleven-sample-meta', saved.last_preview);
         renderAudioVoiceMeta();
     }
 
@@ -13598,26 +13576,162 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         return audioTextForScope(entry).text.slice(0, 5000);
     }
 
-    function geminiAudioPlayer() {
-        return document.getElementById('audio-gemini-player');
+    function audioPreviewNow() {
+        return window.performance?.now ? window.performance.now() : Date.now();
+    }
+
+    function formatAudioPreviewElapsed(seconds) {
+        return `${Math.max(0, Number(seconds) || 0).toLocaleString('fi-FI', {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1
+        })} s`;
+    }
+
+    function formatAudioPreviewDuration(seconds) {
+        const total = Math.max(0, Math.round(Number(seconds) || 0));
+        if (total < 60) return `${total} s`;
+        const hours = Math.floor(total / 3600);
+        const minutes = Math.floor((total % 3600) / 60);
+        const remainingSeconds = total % 60;
+        if (hours) return `${hours} h ${minutes} min`;
+        return remainingSeconds ? `${minutes} min ${remainingSeconds} s` : `${minutes} min`;
+    }
+
+    function estimateAudioPreview(text, provider, modelId, playbackSpeed = 1) {
+        const normalizedText = String(text || '').trim();
+        const wordCount = normalizedText ? normalizedText.split(/\s+/u).filter(Boolean).length : 0;
+        const characterCount = normalizedText.length;
+        const effectiveWordCount = Math.max(wordCount, Math.ceil(characterCount / 7));
+        const safePlaybackSpeed = Math.max(.5, Math.min(2, Number(playbackSpeed) || 1));
+        const estimatedAudioSeconds = Math.max(1, Math.ceil(((effectiveWordCount / 150) * 60) / safePlaybackSpeed));
+        const normalizedProvider = String(provider || '').toLowerCase();
+        const normalizedModel = String(modelId || '').toLowerCase();
+        let baseSeconds = 7;
+        let realtimeFactor = .42;
+        if (normalizedProvider === 'gemini') {
+            baseSeconds = normalizedModel.includes('pro') ? 10 : 7;
+            realtimeFactor = normalizedModel.includes('pro') ? .58 : .38;
+        } else if (normalizedModel.includes('flash')) {
+            baseSeconds = 5;
+            realtimeFactor = .28;
+        } else if (normalizedModel.includes('v3')) {
+            baseSeconds = 9;
+            realtimeFactor = .62;
+        }
+        return {
+            character_count: characterCount,
+            word_count: wordCount,
+            estimated_audio_seconds: estimatedAudioSeconds,
+            estimated_generation_seconds: Math.max(5, Math.ceil(baseSeconds + estimatedAudioSeconds * realtimeFactor))
+        };
+    }
+
+    function audioPreviewUi(provider) {
+        const gemini = provider === 'gemini';
+        return {
+            waiting: document.getElementById(gemini ? 'audio-gemini-preview-waiting' : 'audio-eleven-preview-waiting'),
+            elapsed: document.getElementById(gemini ? 'audio-gemini-preview-elapsed' : 'audio-eleven-preview-elapsed'),
+            estimate: document.getElementById(gemini ? 'audio-gemini-preview-waiting-estimate' : 'audio-eleven-preview-waiting-estimate'),
+            list: document.getElementById(gemini ? 'audio-gemini-preview-list' : 'audio-eleven-preview-list')
+        };
+    }
+
+    function updateAudioPreviewElapsed(provider) {
+        const state = audioPreviewRuns[provider];
+        if (!state?.running) return 0;
+        const elapsedSeconds = Math.max(0, (audioPreviewNow() - state.startedAt) / 1000);
+        const elapsed = audioPreviewUi(provider).elapsed;
+        if (elapsed) elapsed.textContent = formatAudioPreviewElapsed(elapsedSeconds);
+        return elapsedSeconds;
+    }
+
+    function beginAudioPreviewRun(provider, estimate) {
+        const state = audioPreviewRuns[provider];
+        if (!state || state.running) return false;
+        const ui = audioPreviewUi(provider);
+        state.running = true;
+        state.startedAt = audioPreviewNow();
+        if (state.timer) window.clearInterval(state.timer);
+        if (ui.elapsed) ui.elapsed.textContent = formatAudioPreviewElapsed(0);
+        if (ui.estimate) {
+            ui.estimate.textContent = `Arvioitu valmistumisaika noin ${formatAudioPreviewDuration(estimate?.estimated_generation_seconds)}.`;
+        }
+        ui.waiting?.classList.remove('hidden');
+        state.timer = window.setInterval(() => updateAudioPreviewElapsed(provider), 100);
+        return true;
+    }
+
+    function finishAudioPreviewRun(provider) {
+        const state = audioPreviewRuns[provider];
+        if (!state) return 0;
+        const elapsedSeconds = state.running
+            ? Math.max(0, (audioPreviewNow() - state.startedAt) / 1000)
+            : 0;
+        state.running = false;
+        if (state.timer) window.clearInterval(state.timer);
+        state.timer = null;
+        audioPreviewUi(provider).waiting?.classList.add('hidden');
+        return elapsedSeconds;
+    }
+
+    function renderAudioPreviewEmptyState(provider) {
+        const list = audioPreviewUi(provider).list;
+        if (!list || list.querySelector('.audio-preview-result')) return;
+        const name = provider === 'gemini' ? 'Gemini' : 'ElevenLabs';
+        list.innerHTML = `<p class="audio-preview-empty">Valmiit ${name}-testit ilmestyvät tähän vertailua varten.</p>`;
+    }
+
+    function appendAudioPreviewResult(provider, blob, preview) {
+        const list = audioPreviewUi(provider).list;
+        if (!list) throw new Error('Testinäytteiden vertailulistaa ei löytynyt.');
+        list.querySelector('.audio-preview-empty')?.remove();
+        const previewId = `audio-preview-${Date.now()}-${++audioPreviewSequence}`;
+        const objectUrl = URL.createObjectURL(blob);
+        audioPreviewObjectUrls.set(previewId, objectUrl);
+        const createdAt = new Date(preview.created_at || Date.now());
+        const createdLabel = Number.isNaN(createdAt.getTime())
+            ? 'Luontiaika ei saatavilla'
+            : createdAt.toLocaleString('fi-FI', { dateStyle: 'short', timeStyle: 'medium' });
+        const providerName = preview.provider_name || (provider === 'gemini' ? 'Gemini TTS' : 'ElevenLabs');
+        const article = document.createElement('article');
+        article.className = `audio-preview-result is-${provider}`;
+        article.dataset.previewId = previewId;
+        article.innerHTML = `
+            <div class="audio-preview-result-heading">
+                <div>
+                    <span>${escapeHtml(providerName)}</span>
+                    <strong>${escapeHtml(preview.voice_name || 'Nimetön ääni')}</strong>
+                </div>
+                <button class="audio-preview-delete" type="button" aria-label="Poista testinäyte">Poista</button>
+            </div>
+            <div class="audio-preview-facts">
+                <span><small>Malli</small>${escapeHtml(preview.model_name || preview.model_id || 'Ei tiedossa')}</span>
+                <span><small>Syöte</small>${formatNumber(preview.character_count || 0)} merkkiä · ${formatNumber(preview.word_count || 0)} sanaa</span>
+                <span><small>Äänikesto, arvio</small>${escapeHtml(formatAudioPreviewDuration(preview.estimated_audio_seconds))}</span>
+                <span><small>Valmistuminen, arvio</small>${escapeHtml(formatAudioPreviewDuration(preview.estimated_generation_seconds))}</span>
+                <span><small>Toteutunut aika</small>${escapeHtml(formatAudioPreviewElapsed(preview.elapsed_seconds))}</span>
+                <span><small>Luotu</small>${escapeHtml(createdLabel)}</span>
+            </div>
+            <audio class="audio-preview-player" controls preload="metadata"></audio>
+        `;
+        const player = article.querySelector('.audio-preview-player');
+        player.src = objectUrl;
+        article.querySelector('.audio-preview-delete')?.addEventListener('click', () => {
+            player.pause();
+            player.removeAttribute('src');
+            player.load();
+            const url = audioPreviewObjectUrls.get(previewId);
+            if (url) URL.revokeObjectURL(url);
+            audioPreviewObjectUrls.delete(previewId);
+            article.remove();
+            renderAudioPreviewEmptyState(provider);
+        });
+        list.prepend(article);
+        return player;
     }
 
     function audioPlayer() {
         return document.getElementById('audio-eleven-player');
-    }
-
-    function clearGeminiAudioObjectUrl() {
-        if (geminiAudioObjectUrl) {
-            URL.revokeObjectURL(geminiAudioObjectUrl);
-            geminiAudioObjectUrl = '';
-        }
-    }
-
-    function clearAudioObjectUrl() {
-        if (elevenLabsAudioObjectUrl) {
-            URL.revokeObjectURL(elevenLabsAudioObjectUrl);
-            elevenLabsAudioObjectUrl = '';
-        }
     }
 
     async function testGeminiTtsVoice() {
@@ -13638,9 +13752,14 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
         const voiceName = document.getElementById('audio-gemini-voice-select')?.value || 'Kore';
         const button = document.getElementById('audio-gemini-test-btn');
+        const estimate = estimateAudioPreview(text, 'gemini', model.model_name);
         stopAudioVoice(false);
+        if (!beginAudioPreviewRun('gemini', estimate)) return;
         if (button) button.disabled = true;
-        setAudioStatus(`Luodaan ${model.display_name} -testinäyte äänellä ${voiceName}...`);
+        setAudioStatus(
+            `Luodaan ${model.display_name} -testinäyte äänellä ${voiceName}. `
+            + `Arvioitu valmistumisaika noin ${formatAudioPreviewDuration(estimate.estimated_generation_seconds)}.`
+        );
         try {
             const res = await apiFetch('/api/audio/gemini-tts-preview', {
                 method: 'POST',
@@ -13661,22 +13780,19 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             if (!blob.size || !String(blob.type || '').startsWith('audio/')) {
                 throw new Error('Gemini TTS ei palauttanut toistettavaa äänitiedostoa.');
             }
-            const player = geminiAudioPlayer();
-            if (!player) throw new Error('Gemini-äänisoitinta ei löytynyt.');
-            clearGeminiAudioObjectUrl();
-            geminiAudioObjectUrl = URL.createObjectURL(blob);
-            player.src = geminiAudioObjectUrl;
-            player.classList.remove('hidden');
-            player.onended = () => setAudioStatus('Gemini TTS -testinäyte päättyi.');
+            const elapsedSeconds = finishAudioPreviewRun('gemini');
             const preview = {
                 created_at: res.headers.get('X-Audio-Created-At') || new Date().toISOString(),
                 provider: 'gemini',
                 provider_name: 'Gemini TTS',
                 model_id: res.headers.get('X-Audio-Model') || model.model_name,
                 model_name: model.display_name,
-                voice_name: res.headers.get('X-Audio-Voice') || voiceName
+                voice_name: res.headers.get('X-Audio-Voice') || voiceName,
+                ...estimate,
+                elapsed_seconds: elapsedSeconds
             };
-            renderAudioSampleMeta('audio-gemini-sample-meta', preview);
+            const player = appendAudioPreviewResult('gemini', blob, preview);
+            player.onended = () => setAudioStatus('Gemini TTS -testinäyte päättyi.');
             await persistGeminiTtsSettings(preview);
             try {
                 await player.play();
@@ -13687,6 +13803,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         } catch (err) {
             setAudioStatus(err.message || 'Gemini TTS -äänitesti epäonnistui.', true);
         } finally {
+            finishAudioPreviewRun('gemini');
             renderGeminiTtsMeta();
         }
     }
@@ -13731,9 +13848,15 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const selectedModel = document.getElementById('audio-tts-model-select');
         const modelId = selectedModel?.value || 'eleven_multilingual_v2';
         const modelName = selectedModel?.selectedOptions?.[0]?.textContent?.trim() || modelId;
+        const selectedSpeed = Number(document.getElementById('audio-rate-select')?.value || 1);
+        const estimate = estimateAudioPreview(text, 'elevenlabs', modelId, selectedSpeed);
         stopAudioVoice(false);
+        if (!beginAudioPreviewRun('elevenlabs', estimate)) return;
         if (button) button.disabled = true;
-        setAudioStatus(`Luodaan lukijaäänellä ${selectedVoice?.name || 'valittu ääni'} lyhyt testinäyte ElevenLabsissa...`);
+        setAudioStatus(
+            `Luodaan lukijaäänellä ${selectedVoice?.name || 'valittu ääni'} lyhyt testinäyte ElevenLabsissa. `
+            + `Arvioitu valmistumisaika noin ${formatAudioPreviewDuration(estimate.estimated_generation_seconds)}.`
+        );
         try {
             const res = await apiFetch('/api/audio/tts-preview', {
                 method: 'POST',
@@ -13744,7 +13867,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     text,
                     model_id: modelId,
                     delivery: document.getElementById('audio-delivery-select')?.value || 'natural',
-                    speed: Number(document.getElementById('audio-rate-select')?.value || 1)
+                    speed: selectedSpeed
                 })
             });
             if (!res.ok) {
@@ -13755,22 +13878,19 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             if (!blob.size || !String(blob.type || '').startsWith('audio/')) {
                 throw new Error('ElevenLabs ei palauttanut toistettavaa äänitiedostoa.');
             }
-            const player = audioPlayer();
-            if (!player) throw new Error('Äänisoitinta ei löytynyt.');
-            clearAudioObjectUrl();
-            elevenLabsAudioObjectUrl = URL.createObjectURL(blob);
-            player.src = elevenLabsAudioObjectUrl;
-            player.classList.remove('hidden');
-            player.onended = () => setAudioStatus('ElevenLabs-testinäyte päättyi.');
+            const elapsedSeconds = finishAudioPreviewRun('elevenlabs');
             const preview = {
                 created_at: res.headers.get('X-Audio-Created-At') || new Date().toISOString(),
                 provider: 'elevenlabs',
                 provider_name: 'ElevenLabs',
                 model_id: res.headers.get('X-Audio-Model') || modelId,
                 model_name: modelName,
-                voice_name: selectedVoice?.name || selectedVoiceId
+                voice_name: selectedVoice?.name || selectedVoiceId,
+                ...estimate,
+                elapsed_seconds: elapsedSeconds
             };
-            renderAudioSampleMeta('audio-eleven-sample-meta', preview);
+            const player = appendAudioPreviewResult('elevenlabs', blob, preview);
+            player.onended = () => setAudioStatus('ElevenLabs-testinäyte päättyi.');
             await persistAudioVoiceSettings(preview);
             try {
                 await player.play();
@@ -13781,18 +13901,24 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         } catch (err) {
             setAudioStatus(err.message || 'ElevenLabs-äänitesti epäonnistui.', true);
         } finally {
+            finishAudioPreviewRun('elevenlabs');
             if (button) button.disabled = false;
         }
     }
 
     function stopAudioVoice(showStatus = true) {
         if (window.speechSynthesis) window.speechSynthesis.cancel();
-        [geminiAudioPlayer(), audioPlayer()].forEach(player => {
+        [audioPlayer(), ...document.querySelectorAll('.audio-preview-player')].forEach(player => {
             if (!player) return;
             player.pause();
             player.currentTime = 0;
         });
-        if (showStatus) setAudioStatus('Äänitesti pysäytetty.');
+        if (showStatus) {
+            const generationRunning = audioPreviewRuns.gemini.running || audioPreviewRuns.elevenlabs.running;
+            setAudioStatus(generationRunning
+                ? 'Toisto pysäytetty. Käynnissä oleva testinäytteen luonti jatkuu palvelimella.'
+                : 'Äänitesti pysäytetty.');
+        }
     }
 
     async function runAiWorkflow() {
