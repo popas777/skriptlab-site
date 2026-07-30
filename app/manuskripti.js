@@ -36,6 +36,14 @@
   };
   let proposal = null;         // viimeisin rakenne-ehdotus
   let pollTimer = null;
+  let analysisClockTimer = null;
+  let analysisStartedAt = null;
+  let analysisEstimateStartedAt = null;
+  let analysisEstimateMinSeconds = null;
+  let analysisEstimateMaxSeconds = null;
+  let analysisEstimateToken = "";
+  let analysisPollFailures = 0;
+  let activeAnalysisJobId = null;
   let saveTimer = null;
   let workflowRefreshPromise = null;
   let sheetContext = null;     // { type: "chapter"|"analysis", ... }
@@ -380,7 +388,9 @@
     if (!response.ok) {
       let detail = "";
       try { detail = (await response.json()).detail || ""; } catch (e) { /* ohitetaan */ }
-      throw new Error(detail || "Pyyntö epäonnistui (" + response.status + ")");
+      const error = new Error(detail || "Pyyntö epäonnistui (" + response.status + ")");
+      error.status = response.status;
+      throw error;
     }
     return response.json();
   }
@@ -569,6 +579,12 @@
   }
 
   async function openProject(id) {
+    if (project && String(project.id || "") !== String(id || "")) {
+      clearTimeout(pollTimer);
+      pollTimer = null;
+      activeAnalysisJobId = null;
+      stopAnalysisClock();
+    }
     const initialStep = pendingInitialStep;
     const cached = cachedProject(id);
     if (initialStep) showScreen(initialStep);
@@ -1120,6 +1136,8 @@
     const hasAny = ANALYSIS_SECTIONS.concat(META_SECTIONS).some(([field]) => analysis[field]);
     $("analysis-empty").hidden = hasAny;
 
+    restoreActiveAnalysisJob();
+
     if (!hasAny) return;
 
     const buildSection = ([field, label], open) => {
@@ -1182,36 +1200,190 @@
   }
 
   async function runAnalysis() {
+    const savedJob = project?.analysis?.analysis_job;
+    if (["queued", "running"].includes(String(savedJob?.status || "")) && savedJob?.job_id) {
+      restoreActiveAnalysisJob();
+      return;
+    }
     $("btn-run-analysis").disabled = true;
     $("analysis-progress").hidden = false;
     $("analysis-empty").hidden = true;
+    startAnalysisClock();
     setAnalysisProgress({ status: "queued", current: 0, total: 0, label: "Analyysi jonossa…" });
 
     try {
       const job = await apiStartAnalysis(project.id);
+      activeAnalysisJobId = job.job_id;
       pollAnalysis(job.job_id);
     } catch (error) {
+      activeAnalysisJobId = null;
+      stopAnalysisClock();
       toast(error.message);
       $("btn-run-analysis").disabled = false;
       $("analysis-progress").hidden = true;
     }
   }
 
+  function formatAnalysisDuration(seconds) {
+    const safeSeconds = Math.max(0, Math.round(Number(seconds || 0)));
+    const hours = Math.floor(safeSeconds / 3600);
+    const minutes = Math.floor((safeSeconds % 3600) / 60);
+    const remainder = safeSeconds % 60;
+    return hours
+      ? hours + ":" + String(minutes).padStart(2, "0") + ":" + String(remainder).padStart(2, "0")
+      : minutes + ":" + String(remainder).padStart(2, "0");
+  }
+
+  function formatAnalysisEstimate(seconds) {
+    const safeSeconds = Math.max(0, Math.ceil(Number(seconds || 0)));
+    if (safeSeconds < 60) return "alle 1 min";
+    const minutes = Math.max(1, Math.ceil(safeSeconds / 60));
+    if (minutes < 60) return minutes + " min";
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return remainingMinutes ? hours + " h " + remainingMinutes + " min" : hours + " h";
+  }
+
+  function analysisSourceChars() {
+    return (project?.chapters || []).reduce((total, chapter) => total + chapterText(chapter).length, 0);
+  }
+
+  function initialAnalysisEstimate() {
+    const chunks = Math.max(1, Math.ceil(analysisSourceChars() / 24000));
+    if (chunks === 1) return { min: 45, max: 240, token: "initial-single" };
+    const waves = Math.ceil(chunks / 3);
+    return {
+      min: waves * 60 + 90,
+      max: waves * 240 + 480,
+      token: "initial-" + chunks,
+    };
+  }
+
+  function setAnalysisEstimate(minSeconds, maxSeconds, token) {
+    if (token && token === analysisEstimateToken) return;
+    analysisEstimateStartedAt = Date.now();
+    analysisEstimateMinSeconds = Number.isFinite(minSeconds) ? Math.max(0, minSeconds) : null;
+    analysisEstimateMaxSeconds = Number.isFinite(maxSeconds) ? Math.max(0, maxSeconds) : null;
+    analysisEstimateToken = token || "";
+  }
+
+  function analysisCompletedParts(job) {
+    if (Array.isArray(job.chunks) && (job.chunks.length || Number(job.total || 0) > 1)) {
+      return job.chunks.filter((item) => String(item?.status || "").toLowerCase() === "completed").length;
+    }
+    return Math.max(0, Number(job.current || 0));
+  }
+
+  function updateAnalysisEstimate(job) {
+    const label = String(job.label || job.message || "").toLowerCase();
+    if (label.includes("yhteenveto") || label.includes("yhdist")) {
+      setAnalysisEstimate(60, 420, "synthesis");
+      return;
+    }
+    const total = Math.max(0, Number(job.total || 0));
+    if (!total) return;
+    const completed = analysisCompletedParts(job);
+    const remaining = Math.max(0, total - completed);
+    if (total === 1) {
+      setAnalysisEstimate(30, 240, "single-" + completed);
+      return;
+    }
+    const waves = Math.max(1, Math.ceil(remaining / 3));
+    setAnalysisEstimate(
+      waves * 45 + 60,
+      waves * 240 + 480,
+      "chunks-" + total + "-" + completed
+    );
+  }
+
+  function renderAnalysisClock() {
+    const target = $("analysis-progress-time");
+    if (!target || !analysisStartedAt) return;
+    const now = Date.now();
+    const elapsed = formatAnalysisDuration((now - analysisStartedAt) / 1000);
+    let estimate = "arvio tarkentuu";
+    if (analysisEstimateStartedAt && Number.isFinite(analysisEstimateMaxSeconds)) {
+      const phaseElapsed = Math.max(0, (now - analysisEstimateStartedAt) / 1000);
+      const minRemaining = Math.max(0, Number(analysisEstimateMinSeconds || 0) - phaseElapsed);
+      const maxRemaining = Math.max(0, Number(analysisEstimateMaxSeconds || 0) - phaseElapsed);
+      if (maxRemaining <= 0) {
+        estimate = "arvio ylittyi – mallin vastausta odotetaan edelleen";
+      } else if (minRemaining <= 0) {
+        estimate = "arvio jäljellä enintään noin " + formatAnalysisEstimate(maxRemaining);
+      } else {
+        const minText = formatAnalysisEstimate(minRemaining);
+        const maxText = formatAnalysisEstimate(maxRemaining);
+        estimate = minText === maxText
+          ? "arvio jäljellä noin " + maxText
+          : "arvio jäljellä noin " + minText + "–" + maxText;
+      }
+    }
+    target.textContent = "Kulunut " + elapsed + " · " + estimate;
+  }
+
+  function startAnalysisClock(startedAt) {
+    stopAnalysisClock();
+    const timestamp = String(startedAt || "").trim();
+    const normalizedTimestamp = timestamp && !/(?:Z|[+-]\d{2}:?\d{2})$/i.test(timestamp)
+      ? timestamp + "Z"
+      : timestamp;
+    const parsedStartedAt = normalizedTimestamp ? Date.parse(normalizedTimestamp) : NaN;
+    analysisStartedAt = Number.isFinite(parsedStartedAt) ? parsedStartedAt : Date.now();
+    const estimate = initialAnalysisEstimate();
+    setAnalysisEstimate(estimate.min, estimate.max, estimate.token);
+    renderAnalysisClock();
+    analysisClockTimer = setInterval(renderAnalysisClock, 1000);
+  }
+
+  function stopAnalysisClock() {
+    if (analysisClockTimer) clearInterval(analysisClockTimer);
+    analysisClockTimer = null;
+    analysisStartedAt = null;
+    analysisEstimateStartedAt = null;
+    analysisEstimateMinSeconds = null;
+    analysisEstimateMaxSeconds = null;
+    analysisEstimateToken = "";
+  }
+
   function setAnalysisProgress(job) {
-    const percent = job.total ? Math.round((job.current / job.total) * 100) : 8;
+    updateAnalysisEstimate(job);
+    const completed = analysisCompletedParts(job);
+    const percent = job.total ? Math.round((completed / job.total) * 100) : 8;
     $("analysis-progress-fill").style.width = Math.max(8, percent) + "%";
     $("analysis-progress-label").textContent = job.label || job.message || "Analyysi käynnissä…";
-    $("analysis-progress-detail").textContent = job.total ? "Vaihe " + job.current + " / " + job.total : "";
+    $("analysis-progress-detail").textContent = job.total ? "Valmiina " + completed + " / " + job.total : "";
+    renderAnalysisClock();
+  }
+
+  function restoreActiveAnalysisJob() {
+    const job = project?.analysis?.analysis_job;
+    if (!["queued", "running"].includes(String(job?.status || "")) || !job?.job_id) return false;
+    $("btn-run-analysis").disabled = true;
+    $("analysis-progress").hidden = false;
+    $("analysis-empty").hidden = true;
+    if (!analysisStartedAt) startAnalysisClock(job.started_at);
+    setAnalysisProgress(job);
+    if (String(activeAnalysisJobId || "") !== String(job.job_id) || !pollTimer) {
+      pollAnalysis(job.job_id);
+    }
+    return true;
   }
 
   function pollAnalysis(jobId) {
-    clearInterval(pollTimer);
-    pollTimer = setInterval(async () => {
+    clearTimeout(pollTimer);
+    activeAnalysisJobId = jobId;
+    analysisPollFailures = 0;
+    const poll = async () => {
       try {
         const job = await apiPollAnalysis(jobId);
+        analysisPollFailures = 0;
+        if (job.started_at && !analysisStartedAt) startAnalysisClock(job.started_at);
         setAnalysisProgress(job);
         if (["completed", "partial", "failed"].includes(job.status)) {
-          clearInterval(pollTimer);
+          clearTimeout(pollTimer);
+          pollTimer = null;
+          activeAnalysisJobId = null;
+          stopAnalysisClock();
           $("btn-run-analysis").disabled = false;
           $("analysis-progress").hidden = true;
           if (job.status === "failed") {
@@ -1227,13 +1399,30 @@
               ? `Analyysi valmistui osittain. Projektimuistissa on ${memoryCount} luonnosta.`
               : `Analyysi valmis. Projektimuistiin luotiin ${memoryCount} luonnosta.`);
           }
+          return;
         }
       } catch (error) {
-        clearInterval(pollTimer);
-        $("btn-run-analysis").disabled = false;
-        toast("Analyysin seuranta katkesi: " + error.message);
+        const status = Number(error?.status || 0);
+        if (status >= 400 && status < 500 && status !== 408 && status !== 429) {
+          clearTimeout(pollTimer);
+          pollTimer = null;
+          activeAnalysisJobId = null;
+          stopAnalysisClock();
+          $("btn-run-analysis").disabled = false;
+          $("analysis-progress-label").textContent = "Analyysin seuranta päättyi";
+          $("analysis-progress-detail").textContent = error.message || "Analyysityötä ei enää löytynyt.";
+          toast("Analyysin seuranta päättyi: " + (error.message || "tuntematon virhe"));
+          return;
+        }
+        analysisPollFailures += 1;
+        $("analysis-progress-label").textContent = "Analyysi jatkuu palvelimella…";
+        $("analysis-progress-detail").textContent = "Yhteyttä tarkistetaan uudelleen (" + analysisPollFailures + ")";
+        renderAnalysisClock();
       }
-    }, 1500);
+      const retryDelay = Math.min(15000, 1500 * Math.max(1, analysisPollFailures));
+      pollTimer = setTimeout(poll, retryDelay);
+    };
+    pollTimer = setTimeout(poll, 300);
   }
 
   /* ------------------------------------------------------------ rakenne */

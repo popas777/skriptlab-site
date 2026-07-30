@@ -241,7 +241,7 @@
                     id="manuskripti-frame-kirjani"
                     class="manuskripti-frame"
                     title="Käsikirjoitukseni"
-                    src="manuskripti.html?v=11"
+                    src="manuskripti.html?v=13"
                     loading="lazy"
                 ></iframe>
                 <div id="legacy-kirjani-view" hidden aria-hidden="true">
@@ -404,7 +404,7 @@
                     id="manuskripti-frame-rakenne"
                     class="manuskripti-frame"
                     title="Rakenne"
-                    src="manuskripti.html?step=rakenne&v=11"
+                    src="manuskripti.html?step=rakenne&v=13"
                     loading="lazy"
                 ></iframe>
                 <div id="legacy-rakenne-view" hidden aria-hidden="true">
@@ -1618,7 +1618,7 @@
                     id="manuskripti-frame-analyysi"
                     class="manuskripti-frame"
                     title="Analyysi"
-                    src="manuskripti.html?step=analyysi&v=11"
+                    src="manuskripti.html?step=analyysi&v=13"
                     loading="lazy"
                 ></iframe>
                 <div id="legacy-analyysi-view" hidden aria-hidden="true">
@@ -2539,7 +2539,7 @@
                                 <select id="audio-scope-select">
                                     <option value="sample_1500">Lyhyt testinäyte, noin 1 500 merkkiä</option>
                                     <option value="sample_5000">Laaja testinäyte, noin 5 000 merkkiä</option>
-                                    <option value="chapter">Koko osio</option>
+                                    <option value="chapter">Osio (enintään 42 000 merkkiä)</option>
                                 </select>
                             </div>
                             <div class="settings-row">
@@ -2675,7 +2675,7 @@
                             </div>
                             <div class="settings-row audio-provider-note">
                                 <strong>Suomi tunnistetaan automaattisesti</strong>
-                                <span>Testiin käytetään enintään 5 000 merkkiä valitusta osiosta.</span>
+                                <span>Testiin käytetään enintään 700 merkkiä valitusta osiosta. Koko äänikirja tuotetaan erillisinä paloina.</span>
                             </div>
                         </div>
                         <p id="audio-gemini-meta" class="audio-voice-meta">Gemini TTS -mallivalikoimaa ladataan.</p>
@@ -2694,7 +2694,7 @@
 
                     <details class="card glass-panel audio-voice-settings audio-provider-card audio-eleven-settings" open>
                         <summary>ElevenLabs-lukijaäänen testaus</summary>
-                        <p class="card-meta">Valmis esittely ei kuluta tekstikiintiötä. Oman testin luonnissa ElevenLabsille lähetetään valitun laajuuden mukaisesti enintään 5 000 merkkiä osiosta.</p>
+                        <p class="card-meta">Valmis esittely ei kuluta tekstikiintiötä. Oman testin luonnissa ElevenLabsille lähetetään enintään 2 000 merkkiä osiosta, jotta myös hitaampi v3-testi pysyy turvallisen lyhyenä.</p>
                         <div class="audio-settings-grid">
                             <div class="settings-row">
                                 <label for="audio-voice-select">Lukijaääni</label>
@@ -3507,6 +3507,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=127"></script>
+    <script src="app.js?v=129"></script>
 </body>
 </html>

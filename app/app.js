@@ -311,10 +311,173 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     let developmentSceneSuggestions = [];
     let developmentSuggestionsProjectId = null;
     const activeMultiCallRuns = new Map();
+    const activeLongOperationTimers = new Map();
     const multiCallRunControls = {
         development_feedback: { start: 'development-run-btn', stop: 'development-stop-btn' },
         project_memory: { start: 'knowledge-extract-btn', stop: 'knowledge-stop-btn' }
     };
+    const longOperationTimerConfig = {
+        analysis: { viewId: 'view-analyysi', timerId: 'analysis-timer' },
+        development_feedback: { viewId: 'view-kehityseditointi', statusId: 'development-status' },
+        project_memory: { viewId: 'view-kehityseditointi', statusId: 'knowledge-status' }
+    };
+
+    function formatLongOperationDuration(seconds) {
+        const safeSeconds = Math.max(0, Math.round(Number(seconds || 0)));
+        const hours = Math.floor(safeSeconds / 3600);
+        const minutes = Math.floor((safeSeconds % 3600) / 60);
+        const remainder = safeSeconds % 60;
+        if (hours) return `${hours}:${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+        return `${minutes}:${String(remainder).padStart(2, '0')}`;
+    }
+
+    function formatLongOperationEstimate(seconds) {
+        const safeSeconds = Math.max(0, Math.ceil(Number(seconds || 0)));
+        if (safeSeconds < 60) return 'alle 1 min';
+        const minutes = Math.max(1, Math.ceil(safeSeconds / 60));
+        if (minutes < 60) return `${minutes} min`;
+        const hours = Math.floor(minutes / 60);
+        const remainingMinutes = minutes % 60;
+        return remainingMinutes ? `${hours} h ${remainingMinutes} min` : `${hours} h`;
+    }
+
+    function longOperationEstimateText(state, now = Date.now()) {
+        if (state.estimateLabel) return state.estimateLabel;
+        if (!Number.isFinite(state.estimateMaxSeconds)) return 'Arvio tarkentuu työn edetessä';
+        const estimateElapsed = Math.max(0, (now - state.estimateStartedAt) / 1000);
+        const minRemaining = Math.max(0, Number(state.estimateMinSeconds || 0) - estimateElapsed);
+        const maxRemaining = Math.max(0, Number(state.estimateMaxSeconds || 0) - estimateElapsed);
+        if (maxRemaining <= 0) return 'Arvio ylittyi – mallin vastausta odotetaan edelleen';
+        if (minRemaining <= 0) return `Arvio jäljellä enintään noin ${formatLongOperationEstimate(maxRemaining)}`;
+        const minText = formatLongOperationEstimate(minRemaining);
+        const maxText = formatLongOperationEstimate(maxRemaining);
+        return minText === maxText
+            ? `Arvio jäljellä noin ${maxText}`
+            : `Arvio jäljellä noin ${minText}–${maxText}`;
+    }
+
+    function renderLongOperationTimer(key) {
+        const state = activeLongOperationTimers.get(key);
+        if (!state || !state.active) return;
+        const config = longOperationTimerConfig[key] || {};
+        const now = Date.now();
+        const elapsedText = formatLongOperationDuration((now - state.startedAt) / 1000);
+        const estimateText = longOperationEstimateText(state, now);
+        if (config.timerId) {
+            const timer = document.getElementById(config.timerId);
+            if (timer) {
+                timer.textContent = elapsedText;
+                timer.title = estimateText;
+                let estimate = document.getElementById(`${config.timerId}-estimate`);
+                if (!estimate) {
+                    estimate = document.createElement('p');
+                    estimate.id = `${config.timerId}-estimate`;
+                    estimate.style.cssText = 'color:var(--text-secondary);margin-top:8px;font-size:13px;';
+                    timer.insertAdjacentElement('afterend', estimate);
+                }
+                estimate.textContent = `${estimateText}. Näkymän vaihtaminen ei keskeytä käynnissä olevaa ajoa.`;
+            }
+            return;
+        }
+        const status = document.getElementById(config.statusId);
+        if (!status) return;
+        const heartbeatActive = state.lastHeartbeatAt && now - state.lastHeartbeatAt < 45000;
+        const parts = [
+            state.message,
+            `Kulunut ${elapsedText}`,
+            estimateText,
+            heartbeatActive ? 'Yhteys palvelimeen aktiivinen' : ''
+        ].filter(Boolean);
+        status.textContent = parts.join(' · ');
+    }
+
+    function resumeLongOperationTimer(key) {
+        const state = activeLongOperationTimers.get(key);
+        const config = longOperationTimerConfig[key] || {};
+        if (!state || !state.active || state.interval || currentViewId !== config.viewId) return;
+        renderLongOperationTimer(key);
+        state.interval = window.setInterval(() => renderLongOperationTimer(key), 1000);
+    }
+
+    function syncLongOperationTimersForView(viewId) {
+        activeLongOperationTimers.forEach((state, key) => {
+            const config = longOperationTimerConfig[key] || {};
+            if (config.viewId === viewId) {
+                resumeLongOperationTimer(key);
+                return;
+            }
+            if (state.interval) {
+                window.clearInterval(state.interval);
+                state.interval = null;
+            }
+        });
+    }
+
+    function startLongOperationTimer(key, options = {}) {
+        finishLongOperationTimer(key);
+        const config = longOperationTimerConfig[key] || {};
+        const status = config.statusId ? document.getElementById(config.statusId) : null;
+        const now = Date.now();
+        const state = {
+            active: true,
+            startedAt: now,
+            estimateStartedAt: now,
+            estimateMinSeconds: Number.isFinite(options.estimateMinSeconds) ? Number(options.estimateMinSeconds) : null,
+            estimateMaxSeconds: Number.isFinite(options.estimateMaxSeconds) ? Number(options.estimateMaxSeconds) : null,
+            estimateLabel: String(options.estimateLabel || ''),
+            estimateToken: String(options.estimateToken || ''),
+            interval: null,
+            message: String(options.message || ''),
+            lastHeartbeatAt: null,
+            originalAriaLive: status?.getAttribute('aria-live')
+        };
+        activeLongOperationTimers.set(key, state);
+        if (status) status.setAttribute('aria-live', 'off');
+        resumeLongOperationTimer(key);
+        return state;
+    }
+
+    function updateLongOperationTimer(key, options = {}) {
+        const state = activeLongOperationTimers.get(key);
+        if (!state) return;
+        if (Object.prototype.hasOwnProperty.call(options, 'message')) state.message = String(options.message || '');
+        if (options.heartbeat) state.lastHeartbeatAt = Date.now();
+        if (
+            Object.prototype.hasOwnProperty.call(options, 'estimateMinSeconds')
+            || Object.prototype.hasOwnProperty.call(options, 'estimateMaxSeconds')
+            || Object.prototype.hasOwnProperty.call(options, 'estimateLabel')
+        ) {
+            const nextToken = String(options.estimateToken || '');
+            if (!nextToken || nextToken !== state.estimateToken) {
+                state.estimateStartedAt = Date.now();
+                state.estimateMinSeconds = Number.isFinite(options.estimateMinSeconds) ? Number(options.estimateMinSeconds) : null;
+                state.estimateMaxSeconds = Number.isFinite(options.estimateMaxSeconds) ? Number(options.estimateMaxSeconds) : null;
+                state.estimateLabel = String(options.estimateLabel || '');
+                state.estimateToken = nextToken;
+            }
+        }
+        renderLongOperationTimer(key);
+    }
+
+    function finishLongOperationTimer(key) {
+        const state = activeLongOperationTimers.get(key);
+        if (!state) return;
+        if (state.interval) window.clearInterval(state.interval);
+        const config = longOperationTimerConfig[key] || {};
+        const status = config.statusId ? document.getElementById(config.statusId) : null;
+        activeLongOperationTimers.delete(key);
+        if (status) {
+            if (state.originalAriaLive === null) status.removeAttribute('aria-live');
+            else status.setAttribute('aria-live', state.originalAriaLive || 'polite');
+            status.textContent = state.message || '';
+        }
+        if (config.timerId) {
+            const timer = document.getElementById(config.timerId);
+            if (timer) timer.removeAttribute('title');
+            const estimate = document.getElementById(`${config.timerId}-estimate`);
+            if (estimate) estimate.textContent = '';
+        }
+    }
 
     function syncMultiCallRunControls(key) {
         const config = multiCallRunControls[key];
@@ -4465,6 +4628,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             activeNavViewId = viewId;
         }
         currentViewId = activeNavViewId;
+        syncLongOperationTimersForView(currentViewId);
 
         views.forEach(v => v.classList.add('hidden'));
         const targetView = document.getElementById(viewId);
@@ -4651,16 +4815,47 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const pulse = document.getElementById('analysis-pulse-bar');
         const current = Number(job?.current || 0);
         const total = Number(job?.total || 0);
+        const completedChunks = Array.isArray(job?.chunks)
+            ? job.chunks.filter(item => String(item?.status || '').toLowerCase() === 'completed').length
+            : 0;
+        const completed = total > 1 ? completedChunks : current;
+        const synthesisPhase = String(job?.label || '').toLocaleLowerCase('fi-FI').includes('yhteenveto')
+            || String(job?.message || '').toLocaleLowerCase('fi-FI').includes('yhdistetään');
         if (title) title.textContent = job?.status === 'queued' ? 'Analyysi jonossa...' : 'Analyysi käynnissä...';
         if (status) status.textContent = job?.message || 'Käsikirjoitusta analysoidaan osissa.';
         if (progressText) {
             progressText.textContent = total
-                ? `Osa ${Math.min(current, total)} / ${total}${job?.label ? `: ${job.label}` : ''}`
+                ? `${synthesisPhase ? 'Osat käsitelty' : 'Valmiina'} ${Math.min(completed, total)} / ${total}${job?.label ? ` · ${job.label}` : ''}`
                 : 'Valmistellaan pitkän käsikirjoituksen analyysia.';
         }
         if (pulse && total) {
             pulse.style.animation = 'none';
-            pulse.style.width = `${Math.max(8, Math.min(100, Math.round((current / total) * 100)))}%`;
+            pulse.style.width = `${Math.max(8, Math.min(100, Math.round((completed / total) * 100)))}%`;
+        }
+        if (activeLongOperationTimers.has('analysis')) {
+            if (job?.status === 'queued') {
+                updateLongOperationTimer('analysis', {
+                    estimateLabel: 'Jonossa – arvio alkaa käsittelyn käynnistyttyä',
+                    estimateToken: 'queued'
+                });
+            } else if (synthesisPhase) {
+                updateLongOperationTimer('analysis', {
+                    estimateMinSeconds: 120,
+                    estimateMaxSeconds: 600,
+                    estimateLabel: '',
+                    estimateToken: 'synthesis'
+                });
+            } else if (total) {
+                const remainingParts = Math.max(1, total - completed);
+                const parallelWaves = total > 1 ? Math.ceil(remainingParts / 3) : 1;
+                const remainingStages = parallelWaves + (total > 1 ? 1 : 0);
+                updateLongOperationTimer('analysis', {
+                    estimateMinSeconds: remainingStages * 120,
+                    estimateMaxSeconds: remainingStages * 600,
+                    estimateLabel: '',
+                    estimateToken: `parts-${completed}-${total}`
+                });
+            }
         }
     }
 
@@ -4710,16 +4905,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         runAnalysisBtn.addEventListener('click', async () => {
             runAnalysisBtn.style.display = 'none';
             analysisLoader.classList.remove('hidden');
-
-            let analysisSeconds = 0;
             const timerEl = document.getElementById('analysis-timer');
             if(timerEl) timerEl.textContent = '0:00';
-            const analysisInterval = setInterval(() => {
-                analysisSeconds++;
-                const m = Math.floor(analysisSeconds / 60);
-                const s = analysisSeconds % 60;
-                if(timerEl) timerEl.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
-            }, 1000);
+            startLongOperationTimer('analysis', {
+                estimateLabel: 'Arvio tarkentuu, kun käsittelyosien määrä selviää',
+                estimateToken: 'preparing'
+            });
 
             try {
                 const projectText = getFullManuscriptText(window.manuscriptData);
@@ -4744,7 +4935,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 if (!startRes.ok) throw new Error(startedJob?.detail || 'Analyysin käynnistys epäonnistui.');
                 setAnalysisProgress(startedJob);
                 const finishedJob = await pollAnalysisJob(startedJob.job_id);
-                clearInterval(analysisInterval);
                 analysisLoader.classList.add('hidden');
                 analysisResults.classList.remove('hidden');
                 await applyAnalysisResult(finishedJob.data);
@@ -4752,11 +4942,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                     alert('Analyysi valmistui osittaisena. Osa käsikirjoituksen kohdista voi vaatia uuden ajon tai käsittelyn pienemmissä osissa.');
                 }
             } catch(e) {
-                clearInterval(analysisInterval);
                 alert('Analyysi epäonnistui:\n' + networkFailureMessage(e));
                 analysisLoader.classList.add('hidden');
                 runAnalysisBtn.style.display = 'block';
                 loadUsage();
+            } finally {
+                finishLongOperationTimer('analysis');
             }
         });
     }
@@ -9112,10 +9303,124 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function compactDevelopmentText(value, maxChars = 1800) {
         const text = analysisValue(value).replace(/\s+/g, ' ').trim();
-        if (!text || text.length <= maxChars) return text;
-        const head = Math.floor(maxChars * 0.62);
-        const tail = Math.max(160, maxChars - head - 20);
-        return `${text.slice(0, head).trim()} ... ${text.slice(-tail).trim()}`;
+        const safeMaxChars = Math.max(1, Math.floor(Number(maxChars || 1)));
+        if (!text || text.length <= safeMaxChars) return text;
+        if (safeMaxChars < 40) return text.slice(0, safeMaxChars);
+        const marker = ' ... ';
+        const contentBudget = safeMaxChars - marker.length;
+        const head = Math.max(1, Math.floor(contentBudget * 0.62));
+        const tail = Math.max(1, contentBudget - head);
+        return `${text.slice(0, head).trimEnd()}${marker}${text.slice(-tail).trimStart()}`.slice(0, safeMaxChars);
+    }
+
+    // Leave room for the server's safety wrapper and the strictest enabled
+    // provider prompt cap (Mistral 36k).
+    const LONG_EDIT_REQUEST_MAX_INPUT_CHARS = 35000;
+
+    function checkedLongEditInput(text, prompt, label = 'Mallipyyntö') {
+        const safeText = String(text || '');
+        const safePrompt = String(prompt || '');
+        const inputChars = safeText.length + safePrompt.length;
+        if (inputChars > LONG_EDIT_REQUEST_MAX_INPUT_CHARS) {
+            throw new Error(
+                `${label} on ${formatNumber(inputChars)} merkkiä, joten sitä ei lähetetty `
+                + `(${formatNumber(LONG_EDIT_REQUEST_MAX_INPUT_CHARS)} merkin turvaraja). Jaa aineisto pienempiin osiin.`
+            );
+        }
+        return { text: safeText, prompt: safePrompt, inputChars };
+    }
+
+    function longEditErrorMessage(value, fallback) {
+        if (typeof value === 'string' && value.trim()) return value.trim();
+        if (value && typeof value === 'object') {
+            try {
+                return JSON.stringify(value);
+            } catch (_) {
+                return fallback;
+            }
+        }
+        return fallback;
+    }
+
+    async function readLongEditStream(response, { timerKey = '', label = 'Mallipyyntö' } = {}) {
+        let finalPayload = null;
+        let streamError = null;
+        let rawText = '';
+        let buffer = '';
+        const handleLine = line => {
+            const trimmed = String(line || '').trim();
+            if (!trimmed) return;
+            let event = null;
+            try {
+                event = JSON.parse(trimmed);
+            } catch (_) {
+                return;
+            }
+            if (event?.type === 'heartbeat') {
+                if (timerKey) updateLongOperationTimer(timerKey, { heartbeat: true });
+                return;
+            }
+            if (event?.type === 'error' || event?.detail || event?.error) {
+                streamError = longEditErrorMessage(event.detail || event.error, `${label} epäonnistui.`);
+                return;
+            }
+            if (event?.type === 'result' || Object.prototype.hasOwnProperty.call(event || {}, 'edited_text')) {
+                finalPayload = event;
+            }
+        };
+
+        if (response.body?.getReader) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                const decoded = decoder.decode(value, { stream: true });
+                if (timerKey && decoded && (decoded.trim() === '' || /^\s{512,}/.test(decoded))) {
+                    updateLongOperationTimer(timerKey, { heartbeat: true });
+                }
+                rawText += decoded;
+                buffer += decoded;
+                const lines = buffer.split(/\r?\n/);
+                buffer = lines.pop() || '';
+                lines.forEach(handleLine);
+            }
+            const tail = decoder.decode();
+            rawText += tail;
+            buffer += tail;
+            handleLine(buffer);
+        } else {
+            rawText = await response.text();
+            rawText.split(/\r?\n/).forEach(handleLine);
+        }
+
+        if (!finalPayload && !streamError) {
+            try {
+                const fallbackPayload = JSON.parse(rawText.trim());
+                if (fallbackPayload?.detail || fallbackPayload?.error || fallbackPayload?.type === 'error') {
+                    streamError = longEditErrorMessage(fallbackPayload.detail || fallbackPayload.error, `${label} epäonnistui.`);
+                } else {
+                    finalPayload = fallbackPayload;
+                }
+            } catch (_) {
+                // NDJSON contains several JSON objects, so parsing the whole body is only a compatibility fallback.
+            }
+        }
+        if (!response.ok || streamError) {
+            throw new Error(streamError || `${label} epäonnistui.`);
+        }
+        if (!finalPayload) throw new Error(`${label} ei palauttanut lopputulosta.`);
+        return finalPayload;
+    }
+
+    async function requestLongEdit(payload, { signal, timerKey = '', label = 'Mallipyyntö' } = {}) {
+        const response = await apiFetch('/api/edit/stream', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            signal,
+            body: JSON.stringify(payload)
+        });
+        return readLongEditStream(response, { timerKey, label });
     }
 
     function developmentFocusValues() {
@@ -9245,7 +9550,11 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function setKnowledgeStatus(message, isError = false) {
         const element = document.getElementById('knowledge-status');
         if (!element) return;
-        element.textContent = message || '';
+        if (activeLongOperationTimers.has('project_memory')) {
+            updateLongOperationTimer('project_memory', { message });
+        } else {
+            element.textContent = message || '';
+        }
         element.classList.toggle('is-error', Boolean(isError));
     }
 
@@ -9687,9 +9996,13 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         )));
     }
 
-    function sanitizeKnowledgeSuggestions(rawSuggestions) {
+    function sanitizeKnowledgeSuggestions(rawSuggestions, maxItems = 60) {
         const allowed = new Set(['character', 'location', 'timeline', 'fact']);
-        return (Array.isArray(rawSuggestions) ? rawSuggestions : []).slice(0, 60).map((raw, index) => {
+        const source = Array.isArray(rawSuggestions) ? rawSuggestions : [];
+        const bounded = Number.isFinite(maxItems)
+            ? source.slice(0, Math.max(0, Math.floor(maxItems)))
+            : source;
+        return bounded.map((raw, index) => {
             const itemType = allowed.has(String(raw?.type || raw?.item_type || '').toLowerCase())
                 ? String(raw.type || raw.item_type).toLowerCase()
                 : 'fact';
@@ -9714,7 +10027,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const projectId = String(window.manuscriptData?.id || '');
         if (knowledgeReviewProjectId === projectId) return;
         const dev = window.manuscriptData?.analysis?.development_editing || {};
-        knowledgeSuggestions = sanitizeKnowledgeSuggestions(dev.knowledge_suggestions || []).map((item, index) => ({
+        // A saved run can contain results from hundreds of source chunks. Do
+        // not apply the per-provider-response limit while restoring it.
+        knowledgeSuggestions = sanitizeKnowledgeSuggestions(dev.knowledge_suggestions || [], Number.POSITIVE_INFINITY).map((item, index) => ({
             ...item,
             id: item.id || `knowledge-suggestion-saved-${index}`,
             selected: Boolean(dev.knowledge_suggestions?.[index]?.selected)
@@ -9856,7 +10171,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }).join('');
     }
 
-    function splitKnowledgeSourceText(value, maxChars = 30000) {
+    function splitKnowledgeSourceText(value, maxChars = 8000) {
+        const safeMaxChars = Math.max(1000, Math.min(8000, Number(maxChars || 8000)));
         const paragraphs = String(value || '').split(/\n\s*\n/).map(item => item.trim()).filter(Boolean);
         const chunks = [];
         let buffer = '';
@@ -9865,53 +10181,60 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             buffer = '';
         };
         paragraphs.forEach(paragraph => {
-            if (paragraph.length > maxChars) {
+            if (paragraph.length > safeMaxChars) {
                 push();
-                for (let start = 0; start < paragraph.length; start += maxChars) {
-                    chunks.push(paragraph.slice(start, start + maxChars));
+                for (let start = 0; start < paragraph.length; start += safeMaxChars) {
+                    chunks.push(paragraph.slice(start, start + safeMaxChars));
                 }
                 return;
             }
             const candidate = buffer ? `${buffer}\n\n${paragraph}` : paragraph;
-            if (candidate.length > maxChars) push();
+            if (candidate.length > safeMaxChars) push();
             buffer = buffer ? `${buffer}\n\n${paragraph}` : paragraph;
         });
         push();
         return chunks;
     }
 
-    function knowledgeManuscriptChunks(maxChunkChars = 12000, maxChunks = 48) {
+    function knowledgeManuscriptChunks(maxChunkChars = 9000, maxChunks = 512) {
+        const safeMaxChunkChars = Math.max(4000, Math.min(9000, Number(maxChunkChars || 9000)));
+        const softChunkLimit = Math.max(512, Number(maxChunks || 512));
         const pieces = [];
         bodyChapterEntries().forEach(({ chapter, index }, order) => {
-            const title = structureDisplayTitle(chapter, index) || `Osio ${order + 1}`;
+            const title = compactDevelopmentText(structureDisplayTitle(chapter, index) || `Osio ${order + 1}`, 240);
+            const chapterId = compactDevelopmentText(chapter.id || '', 160);
             const chapterText = (chapter.paragraphs || []).join('\n\n').trim();
-            const chapterPieces = splitKnowledgeSourceText(chapterText, Math.max(8000, maxChunkChars - 500));
+            const metadataReserve = `CHAPTER_${String(order + 1).padStart(2, '0')} | ${title} | chapter_custom_id=${chapterId} | osion pala 9999/9999\n`.length;
+            const sourceLimit = Math.max(1000, Math.min(8000, safeMaxChunkChars - metadataReserve));
+            const chapterPieces = splitKnowledgeSourceText(chapterText, sourceLimit);
             chapterPieces.forEach((text, pieceIndex) => {
                 const pieceLabel = chapterPieces.length > 1 ? ` | osion pala ${pieceIndex + 1}/${chapterPieces.length}` : '';
-                pieces.push(`CHAPTER_${String(order + 1).padStart(2, '0')} | ${title} | chapter_custom_id=${chapter.id || ''}${pieceLabel}\n${text}`);
+                const packed = `CHAPTER_${String(order + 1).padStart(2, '0')} | ${title} | chapter_custom_id=${chapterId}${pieceLabel}\n${text}`;
+                if (packed.length > safeMaxChunkChars) {
+                    throw new Error(`Projektimuistin lähdepala ylittää ${formatNumber(safeMaxChunkChars)} merkin turvarajan.`);
+                }
+                pieces.push(packed);
             });
         });
         const chunks = [];
         let buffer = '';
-        let includedPieces = 0;
         for (const piece of pieces) {
-            if (chunks.length >= maxChunks) break;
             const candidate = buffer ? `${buffer}\n\n---\n\n${piece}` : piece;
-            if (candidate.length > maxChunkChars && buffer) {
+            if (candidate.length > safeMaxChunkChars && buffer) {
                 chunks.push(buffer);
-                buffer = '';
-                if (chunks.length >= maxChunks) break;
                 buffer = piece;
-                includedPieces += 1;
                 continue;
             }
             buffer = candidate;
-            includedPieces += 1;
         }
-        if (buffer && chunks.length < maxChunks) chunks.push(buffer);
+        if (buffer) chunks.push(buffer);
+        if (chunks.some(chunk => chunk.length > safeMaxChunkChars)) {
+            throw new Error(`Projektimuistin pyyntöön muodostui yli ${formatNumber(safeMaxChunkChars)} merkin pala.`);
+        }
         return {
             chunks,
-            omittedPieces: Math.max(0, pieces.length - includedPieces)
+            omittedPieces: 0,
+            softLimitExceeded: chunks.length > softChunkLimit
         };
     }
 
@@ -9979,7 +10302,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 }
             });
         });
-        return merged.slice(0, 80);
+        return merged;
     }
 
     function mergeContinuityIssueLists(current, incoming) {
@@ -10026,6 +10349,11 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
         const run = beginMultiCallRun('project_memory');
         if (!run) return;
         if (button) button.disabled = true;
+        startLongOperationTimer('project_memory', {
+            message: 'Valmistellaan projektimuistin luontia…',
+            estimateLabel: 'Arvio tarkentuu, kun käsittelyosien määrä selviää',
+            estimateToken: 'preparing'
+        });
         setKnowledgeStatus('Poimitaan käsikirjoituksesta projektitietoja…');
         let completedKeys = new Set();
         let failures = [];
@@ -10048,6 +10376,13 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
                 && Number(knowledgeExtractionProgress.total || 0) === chunks.length;
             completedKeys = new Set(canResume ? knowledgeExtractionProgress.completed_keys : []);
             const pendingChunks = chunks.filter(chunk => !completedKeys.has(chunk.key));
+            const initialBatches = Math.max(1, Math.ceil(pendingChunks.length / 2));
+            updateLongOperationTimer('project_memory', {
+                estimateMinSeconds: initialBatches * 120,
+                estimateMaxSeconds: initialBatches * 600,
+                estimateLabel: '',
+                estimateToken: `memory-${pendingChunks.length}-${chunks.length}`
+            });
             failures = [];
             knowledgeExtractionProgress = {
                 status: 'running',
@@ -10061,25 +10396,27 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
             await saveKnowledgeReviewState();
 
             const processChunk = async chunk => {
-                const response = await apiFetch('/api/edit', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    signal: run.controller.signal,
-                    body: JSON.stringify({
+                const checkedInput = checkedLongEditInput(
+                    [
+                        `PROJEKTI: ${window.manuscriptData.title || 'Nimetön'}`,
+                        chunk.index === 0 ? `AIEMPI ANALYYSI:\n${compactDevelopmentText(developmentAnalysisBrief(), 4500) || 'Ei aiempaa analyysiä.'}` : '',
+                        `JO PROJEKTIMUISTISSA:\n${compactKnowledgeIndex(4500) || 'Ei merkintöjä.'}`,
+                        `KÄSIKIRJOITUS OSIOITTAIN:\n${chunk.text}`
+                    ].filter(Boolean).join('\n\n'),
+                    buildKnowledgeExtractionPrompt(extraInstructions),
+                    `Projektimuistin osa ${chunk.index + 1}/${chunks.length}`
+                );
+                const payload = await requestLongEdit({
                         purpose: 'development_editing',
                         temperature: 0.1,
                         max_output_tokens: 2200,
-                        prompt: buildKnowledgeExtractionPrompt(extraInstructions),
-                        text: [
-                            `PROJEKTI: ${window.manuscriptData.title || 'Nimetön'}`,
-                            chunk.index === 0 ? `AIEMPI ANALYYSI:\n${compactDevelopmentText(developmentAnalysisBrief(), 4500) || 'Ei aiempaa analyysiä.'}` : '',
-                            `JO PROJEKTIMUISTISSA:\n${compactKnowledgeIndex(4500) || 'Ei merkintöjä.'}`,
-                            `KÄSIKIRJOITUS OSIOITTAIN:\n${chunk.text}`
-                        ].filter(Boolean).join('\n\n')
-                    })
+                        prompt: checkedInput.prompt,
+                        text: checkedInput.text
+                    }, {
+                        signal: run.controller.signal,
+                        timerKey: 'project_memory',
+                        label: `Projektimuistin osa ${chunk.index + 1}/${chunks.length}`
                 });
-                const payload = await response.json().catch(() => null);
-                if (!response.ok) throw new Error(payload?.detail || `Projektitietojen poiminta epäonnistui osassa ${chunk.index + 1}.`);
                 const parsed = parseAiJsonObject(payload?.edited_text);
                 return sanitizeKnowledgeSuggestions(parsed?.suggestions);
             };
@@ -10088,6 +10425,13 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
                 throwIfMultiCallRunStopped(run);
                 const batch = pendingChunks.slice(start, start + 2);
                 const nextNumber = completedKeys.size + 1;
+                const batchesIncludingCurrent = Math.ceil((pendingChunks.length - start) / 2);
+                updateLongOperationTimer('project_memory', {
+                    estimateMinSeconds: batchesIncludingCurrent * 120,
+                    estimateMaxSeconds: batchesIncludingCurrent * 600,
+                    estimateLabel: '',
+                    estimateToken: `memory-batch-${start}`
+                });
                 setKnowledgeStatus(`Poimitaan projektitietoja · osat ${nextNumber}–${Math.min(nextNumber + batch.length - 1, chunks.length)}/${chunks.length}… Valmiit osat tallennetaan heti.`);
                 const results = await Promise.allSettled(batch.map(processChunk));
                 results.forEach((result, resultIndex) => {
@@ -10119,6 +10463,12 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
             throwIfMultiCallRunStopped(run);
             if (!knowledgeSuggestions.length && failures.length) throw new Error(failures[0].message);
             if (!knowledgeSuggestions.length) throw new Error('Poiminta ei palauttanut projektimuistiin tallennettavia tietoja.');
+            updateLongOperationTimer('project_memory', {
+                estimateMinSeconds: 30,
+                estimateMaxSeconds: 120,
+                estimateLabel: '',
+                estimateToken: 'memory-saving'
+            });
             const persistence = await acceptKnowledgeSuggestions({ automatic: true, run });
             throwIfMultiCallRunStopped(run);
             const retryNote = failures.length ? ` ${failures.length} osaa jäi kesken; jatka projektimuistin luontia yrittääksesi ne uudelleen.` : '';
@@ -10149,6 +10499,7 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
             loadUsage();
         } finally {
             finishMultiCallRun(run);
+            finishLongOperationTimer('project_memory');
             if (button) button.disabled = !canEditProject(window.manuscriptData || {});
         }
     }
@@ -10253,18 +10604,20 @@ Säännöt:
             const memory = compactKnowledgeIndex(12000);
             for (let index = 0; index < manuscript.chunks.length; index += 1) {
                 setKnowledgeStatus(`Tarkistetaan jatkuvuutta · osa ${index + 1}/${manuscript.chunks.length}…`);
-                const response = await apiFetch('/api/edit', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
+                const checkedInput = checkedLongEditInput(
+                    `PROJEKTIMUISTI:\n${memory}\n\nKÄSIKIRJOITUS OSIOITTAIN:\n${manuscript.chunks[index]}`,
+                    buildContinuityPrompt(),
+                    `Jatkuvuustarkistuksen osa ${index + 1}/${manuscript.chunks.length}`
+                );
+                const payload = await requestLongEdit({
                         purpose: 'development_editing',
                         temperature: 0.1,
-                        prompt: buildContinuityPrompt(),
-                        text: `PROJEKTIMUISTI:\n${memory}\n\nKÄSIKIRJOITUS OSIOITTAIN:\n${manuscript.chunks[index]}`
-                    })
+                        prompt: checkedInput.prompt,
+                        text: checkedInput.text
+                    }, {
+                        timerKey: 'project_memory',
+                        label: `Jatkuvuustarkistuksen osa ${index + 1}/${manuscript.chunks.length}`
                 });
-                const payload = await response.json().catch(() => null);
-                if (!response.ok) throw new Error(payload?.detail || `Jatkuvuustarkistus epäonnistui osassa ${index + 1}.`);
                 const parsed = parseAiJsonObject(payload?.edited_text);
                 issues = mergeContinuityIssueLists(issues, sanitizeContinuityIssues(parsed?.issues));
             }
@@ -10537,12 +10890,14 @@ Säännöt:
         return rows.join('\n\n---\n\n');
     }
 
-    const DEVELOPMENT_CHUNK_SIZE = 2;
-    const DEVELOPMENT_FEEDBACK_PROMPT_VERSION = 3;
-    const DEVELOPMENT_REQUEST_TIMEOUT_MS = 85000;
+    const DEVELOPMENT_SOURCE_CHUNK_CHARS = 7500;
+    const DEVELOPMENT_FEEDBACK_PROMPT_VERSION = 4;
     const DEVELOPMENT_REQUEST_ATTEMPTS = 2;
-    const DEVELOPMENT_PARALLEL_CHUNKS = 3;
-    const DEVELOPMENT_SYNTHESIS_REPORT_BUDGET = 36000;
+    const DEVELOPMENT_PARALLEL_CHUNKS = 2;
+    // The complete synthesis text also contains analysis, project memory and
+    // run metadata. Keep reports below 18k so text stays under the server's
+    // independent 30k text limit.
+    const DEVELOPMENT_SYNTHESIS_REPORT_BUDGET = 18000;
     const DEVELOPMENT_RETRY_DELAY_MS = 1500;
     const DEVELOPMENT_EDITORIAL_AREAS = [
         'juonen rakenne ja narratiiviset kaaret',
@@ -10554,19 +10909,25 @@ Säännöt:
         'luettavuus, kliseet, toistuvat ilmaukset ja toistuvat tekniset ongelmat'
     ];
 
-    function developmentChapterChunks(chunkSize = DEVELOPMENT_CHUNK_SIZE) {
-        const entries = bodyChapterEntries().map((entry, order) => ({ ...entry, order }));
+    function developmentChapterChunks(maxChunkChars = DEVELOPMENT_SOURCE_CHUNK_CHARS) {
         const chunks = [];
-        for (let cursor = 0; cursor < entries.length; cursor += chunkSize) {
-            chunks.push(entries.slice(cursor, cursor + chunkSize));
-        }
+        bodyChapterEntries().forEach((entry, order) => {
+            const sourceText = (entry.chapter.paragraphs || []).join('\n\n').trim();
+            const sourcePieces = splitKnowledgeSourceText(sourceText, Math.min(DEVELOPMENT_SOURCE_CHUNK_CHARS, maxChunkChars));
+            sourcePieces.forEach((text, pieceIndex) => chunks.push({
+                ...entry,
+                order,
+                text,
+                pieceIndex,
+                pieceTotal: sourcePieces.length
+            }));
+        });
         return chunks;
     }
 
     function developmentRunSignature(chunks, brief) {
-        const chapterSignature = chunks.flat().map(({ chapter, index }) => {
-            const text = (chapter.paragraphs || []).join('\n');
-            return knowledgeChunkKey(`${chapter.id || index}|${chapter.title || ''}|${text}`, index);
+        const chapterSignature = chunks.map(({ chapter, index, text, pieceIndex }) => {
+            return knowledgeChunkKey(`${chapter.id || index}|${chapter.title || ''}|${pieceIndex}|${text}`, index);
         }).join('|');
         const briefSignature = JSON.stringify({
             prompt_version: DEVELOPMENT_FEEDBACK_PROMPT_VERSION,
@@ -10582,13 +10943,14 @@ Säännöt:
     }
 
     function developmentChunkExcerpt(entry) {
-        const text = (entry.chapter.paragraphs || []).join('\n\n').trim();
+        const text = String(entry.text || '').trim();
         const title = structureDisplayTitle(entry.chapter, entry.index) || `Osio ${entry.order + 1}`;
+        const pieceLabel = entry.pieceTotal > 1 ? ` | osion pala ${entry.pieceIndex + 1}/${entry.pieceTotal}` : '';
         return [
-            `CHAPTER_${String(entry.order + 1).padStart(2, '0')} | lähdeindeksi ${entry.index + 1} | ${title}`,
+            `CHAPTER_${String(entry.order + 1).padStart(2, '0')} | lähdeindeksi ${entry.index + 1} | ${title}${pieceLabel}`,
             `Sanoja noin: ${countWords(text)}`,
             'TEKSTIOTE:',
-            compactDevelopmentText(text, 3800)
+            text
         ].join('\n');
     }
 
@@ -10640,26 +11002,21 @@ Säännöt:
             compactDevelopmentText(developmentKnowledgeBrief(20), 2200) || 'Ei erillisiä tietokortteja.',
             '',
             'KÄSITELTÄVÄT OSIOT:',
-            chunk.map(developmentChunkExcerpt).join('\n\n---\n\n')
+            developmentChunkExcerpt(chunk)
         ].filter(value => value !== '').join('\n');
     }
 
     function developmentSynthesisInput(progress) {
         const project = window.manuscriptData;
         const brief = readDevelopmentBriefFromForm();
-        const successfulReportCount = Math.max(1, (progress.reports || []).filter(Boolean).length);
-        const perReportLimit = Math.max(
-            700,
-            Math.min(2500, Math.floor(DEVELOPMENT_SYNTHESIS_REPORT_BUDGET / successfulReportCount))
-        );
-        const reports = (progress.reports || []).map((report, index) => [
-            `OSARAPORTTI ${index + 1}/${progress.total}`,
-            compactDevelopmentText(report, perReportLimit)
-        ].join('\n')).filter((_, index) => Boolean(progress.reports?.[index])).join('\n\n---\n\n');
+        const reportItems = (progress.reports || [])
+            .map((report, index) => report ? { report, index } : null)
+            .filter(Boolean);
+        const successfulReportCount = Math.max(1, reportItems.length);
         const missingReports = (progress.reports || [])
             .map((report, index) => report ? null : index + 1)
             .filter(Boolean);
-        return [
+        const prefix = [
             `PROJEKTI: ${project?.title || 'Nimetön'}`,
             `TEKIJÄ: ${project?.author || 'Tuntematon'}`,
             `Pituus: noin ${formatNumber(countWords(getFullManuscriptText(project)))} sanaa`,
@@ -10673,12 +11030,45 @@ Säännöt:
             'PROJEKTIMUISTIN TIIVISTELMÄ:',
             compactDevelopmentText(developmentKnowledgeBrief(24), 2600) || 'Ei erillisiä tietokortteja.',
             '',
-            'LYHYET OSARAPORTIT KOKO KÄSIKIRJOITUKSESTA:',
-            reports,
-            missingReports.length
-                ? `PUUTTUVAT OSARAPORTIT: ${missingReports.join(', ')}. Älä päättele niiden sisällöstä; merkitse kattavuusrajoitus loppuraporttiin.`
-                : ''
+            'LYHYET OSARAPORTIT KOKO KÄSIKIRJOITUKSESTA:'
         ].filter(value => value !== '').join('\n');
+        const suffix = missingReports.length
+            ? `PUUTTUVAT OSARAPORTIT: ${missingReports.join(', ')}. Älä päättele niiden sisällöstä; merkitse kattavuusrajoitus loppuraporttiin.`
+            : '';
+        const separator = '\n\n---\n\n';
+        const headerChars = reportItems.reduce(
+            (sum, item) => sum + `OSARAPORTTI ${item.index + 1}/${progress.total}\n`.length,
+            0
+        );
+        const fixedChars = prefix.length + suffix.length + 4;
+        const availableReportChars = Math.max(
+            successfulReportCount,
+            Math.min(DEVELOPMENT_SYNTHESIS_REPORT_BUDGET, 29000 - fixedChars)
+        );
+        const separatorChars = Math.max(0, reportItems.length - 1) * separator.length;
+        let perReportLimit = Math.max(
+            1,
+            Math.min(
+                2200,
+                Math.floor((availableReportChars - headerChars - separatorChars) / successfulReportCount)
+            )
+        );
+        const buildReports = limit => reportItems.map(item => [
+            `OSARAPORTTI ${item.index + 1}/${progress.total}`,
+            compactDevelopmentText(item.report, limit)
+        ].join('\n')).join(separator);
+        let reports = buildReports(perReportLimit);
+        let result = [prefix, reports, suffix].filter(Boolean).join('\n\n');
+        if (result.length > 29000 && perReportLimit > 1) {
+            const excessPerReport = Math.ceil((result.length - 29000) / successfulReportCount) + 2;
+            perReportLimit = Math.max(1, perReportLimit - excessPerReport);
+            reports = buildReports(perReportLimit);
+            result = [prefix, reports, suffix].filter(Boolean).join('\n\n');
+        }
+        if (result.length > 30000) {
+            throw new Error('Loppuraportin rajattua synteesipyyntöä ei saatu mahtumaan 30 000 merkin tekstirajaan.');
+        }
+        return result;
     }
 
     function developmentFallbackReport(progress, reason = '') {
@@ -10908,7 +11298,11 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     function setDevelopmentStatus(message, isError = false) {
         const el = document.getElementById('development-status');
         if (!el) return;
-        el.textContent = message || '';
+        if (activeLongOperationTimers.has('development_feedback')) {
+            updateLongOperationTimer('development_feedback', { message });
+        } else {
+            el.textContent = message || '';
+        }
         el.classList.toggle('is-saved', !isError && Boolean(message));
         el.style.color = isError ? '#ffb4b4' : '';
     }
@@ -10960,62 +11354,51 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         renderKnowledgeWorkspace();
         if (shouldLoadKnowledge) loadKnowledgeWorkspace(false);
         const progress = dev.feedback_progress || {};
-        const resumable = ['running', 'partial', 'synthesizing', 'synthesis_failed'].includes(progress.status);
+        const resumable = ['running', 'partial', 'synthesizing', 'synthesis_failed', 'completed_with_warnings'].includes(progress.status);
         const runButton = document.getElementById('development-run-btn');
         if (runButton && !isMultiCallRunActive('development_feedback')) {
             runButton.textContent = resumable ? '✦ Jatka kehityseditointipalautetta' : '✦ Kehityseditointipalaute';
         }
-        setDevelopmentStatus(data
-            ? (resumable
-                ? `Edellinen ajo jäi kesken: ${Number(progress.completed || 0)}/${Number(progress.total || 0)} osaa tallessa. Paina Jatka kehityseditointipalautetta.`
-                : (dev.feedback_report ? 'Kehityseditointipalaute valmis.' : 'Valmis aloitettavaksi.'))
-            : 'Valitse käsikirjoitus ensin.', !data);
+        if (isMultiCallRunActive('development_feedback')) {
+            renderLongOperationTimer('development_feedback');
+        } else {
+            setDevelopmentStatus(data
+                ? (resumable
+                    ? `Edellinen ajo jäi kesken: ${Number(progress.completed || 0)}/${Number(progress.total || 0)} osaa tallessa. Paina Jatka kehityseditointipalautetta.`
+                    : (dev.feedback_report ? 'Kehityseditointipalaute valmis.' : 'Valmis aloitettavaksi.'))
+                : 'Valitse käsikirjoitus ensin.', !data);
+        }
         syncMultiCallRunControls('development_feedback');
     }
 
     async function requestDevelopmentEdit({ text, prompt, temperature, maxOutputTokens, retryLabel }, run) {
+        const checkedInput = checkedLongEditInput(text, prompt, retryLabel || 'Kehityseditoinnin mallipyyntö');
         let lastError = null;
         for (let attempt = 1; attempt <= DEVELOPMENT_REQUEST_ATTEMPTS; attempt += 1) {
             throwIfMultiCallRunStopped(run);
-            const controller = new AbortController();
-            let timedOut = false;
-            const stopRequest = () => controller.abort();
-            run.controller.signal.addEventListener('abort', stopRequest, { once: true });
-            const timeout = window.setTimeout(() => {
-                timedOut = true;
-                controller.abort();
-            }, DEVELOPMENT_REQUEST_TIMEOUT_MS);
             try {
-                const response = await apiFetch('/api/edit', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    signal: controller.signal,
-                    body: JSON.stringify({
-                        text,
+                const payload = await requestLongEdit({
+                        text: checkedInput.text,
                         purpose: 'development_editing',
                         temperature,
                         max_output_tokens: maxOutputTokens,
-                        prompt
-                    })
+                        prompt: checkedInput.prompt
+                    }, {
+                        signal: run.controller.signal,
+                        timerKey: 'development_feedback',
+                        label: retryLabel
                 });
-                const payload = await response.json().catch(() => null);
-                if (!response.ok) throw new Error(payload?.detail || `${retryLabel} epäonnistui.`);
                 const result = String(payload?.edited_text || '').trim();
                 if (!result) throw new Error(`${retryLabel} ei palauttanut sisältöä.`);
                 return result;
             } catch (error) {
                 if (run.stopRequested || run.controller.signal.aborted) throw error;
-                lastError = timedOut
-                    ? new Error(`${retryLabel} aikakatkaistiin ${Math.round(DEVELOPMENT_REQUEST_TIMEOUT_MS / 1000)} sekunnin jälkeen.`)
-                    : error;
+                lastError = error;
                 if (attempt < DEVELOPMENT_REQUEST_ATTEMPTS) {
                     setDevelopmentStatus(`${retryLabel} ei valmistunut. Yritetään automaattisesti uudelleen (${attempt + 1}/${DEVELOPMENT_REQUEST_ATTEMPTS})…`);
                     await new Promise(resolve => window.setTimeout(resolve, DEVELOPMENT_RETRY_DELAY_MS * attempt));
                     throwIfMultiCallRunStopped(run);
                 }
-            } finally {
-                window.clearTimeout(timeout);
-                run.controller.signal.removeEventListener('abort', stopRequest);
             }
         }
         throw lastError || new Error(`${retryLabel} epäonnistui.`);
@@ -11056,6 +11439,12 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const run = beginMultiCallRun('development_feedback');
         if (!run) return;
         if (button) button.disabled = true;
+        startLongOperationTimer('development_feedback', {
+            message: 'Valmistellaan kehityseditointipalautetta…',
+            estimateLabel: 'Arvio tarkentuu, kun käsittelyerien määrä selviää',
+            estimateToken: 'preparing'
+        });
+        setDevelopmentStatus('Valmistellaan käsikirjoituksen osia kehityseditointia varten…');
         let dev = null;
         let progress = null;
         try {
@@ -11070,7 +11459,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             const canResume = savedProgress
                 && savedProgress.signature === signature
                 && Number(savedProgress.total) === chunks.length
-                && ['running', 'partial', 'synthesizing', 'synthesis_failed'].includes(savedProgress.status)
+                && ['running', 'partial', 'synthesizing', 'synthesis_failed', 'completed_with_warnings'].includes(savedProgress.status)
                 && Array.isArray(savedProgress.reports);
             progress = canResume
                 ? {
@@ -11094,11 +11483,26 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 .map((_, index) => progress.reports[index] ? null : index)
                 .filter(index => index !== null);
             progress.parallel_chunks = Math.min(DEVELOPMENT_PARALLEL_CHUNKS, Math.max(1, pendingIndexes.length));
+            const initialStages = Math.ceil(pendingIndexes.length / DEVELOPMENT_PARALLEL_CHUNKS) + 1;
+            updateLongOperationTimer('development_feedback', {
+                estimateMinSeconds: initialStages * 120,
+                estimateMaxSeconds: initialStages * 600,
+                estimateLabel: '',
+                estimateToken: `feedback-${pendingIndexes.length}-${chunks.length}`
+            });
 
             for (let cursor = 0; cursor < pendingIndexes.length; cursor += DEVELOPMENT_PARALLEL_CHUNKS) {
                 throwIfMultiCallRunStopped(run);
                 const batchIndexes = pendingIndexes.slice(cursor, cursor + DEVELOPMENT_PARALLEL_CHUNKS);
                 const batchLabels = batchIndexes.map(index => index + 1).join(', ');
+                const batchesIncludingCurrent = Math.ceil((pendingIndexes.length - cursor) / DEVELOPMENT_PARALLEL_CHUNKS);
+                const stagesIncludingSynthesis = batchesIncludingCurrent + 1;
+                updateLongOperationTimer('development_feedback', {
+                    estimateMinSeconds: stagesIncludingSynthesis * 120,
+                    estimateMaxSeconds: stagesIncludingSynthesis * 600,
+                    estimateLabel: '',
+                    estimateToken: `feedback-batch-${cursor}`
+                });
                 progress.status = 'running';
                 progress.updated_at = new Date().toISOString();
                 setDevelopmentStatus(
@@ -11161,6 +11565,12 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             progress.updated_at = new Date().toISOString();
             dev.feedback_progress = progress;
             await window.saveManuscriptToDB(window.manuscriptData);
+            updateLongOperationTimer('development_feedback', {
+                estimateMinSeconds: 120,
+                estimateMaxSeconds: 600,
+                estimateLabel: '',
+                estimateToken: 'feedback-synthesis'
+            });
             setDevelopmentStatus(`Kehityseditointipalaute: yhdistetään ${successfulReports} valmistunutta osaraporttia…`);
             let synthesisWarning = '';
             try {
@@ -11198,6 +11608,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     signature,
                     total: chunks.length,
                     completed: successfulReports,
+                    reports: failedChunks.length ? progress.reports : undefined,
+                    failures: failedChunks.length ? progress.failures : undefined,
                     failed_chunks: failedChunks,
                     started_at: progress.started_at,
                     updated_at: dev.feedback_updated_at,
@@ -11218,7 +11630,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     + 'Voit jatkaa myöhemmin vain loppuraportin yhdistämistä.'
                 );
             } else {
-                if (button) button.textContent = '✦ Kehityseditointipalaute';
+                if (button) button.textContent = failedChunks.length
+                    ? '✦ Jatka puuttuvien osien käsittelyä'
+                    : '✦ Kehityseditointipalaute';
                 setDevelopmentStatus(failedChunks.length
                     ? `Kehityseditointipalaute valmis ja tallennettu. ${failedChunks.length} osaa jäi väliin; kattavuusrajoitus on huomioitu raportissa.`
                     : 'Kehityseditointipalaute valmis ja tallennettu.', Boolean(failedChunks.length));
@@ -11245,6 +11659,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             loadUsage();
         } finally {
             finishMultiCallRun(run);
+            finishLongOperationTimer('development_feedback');
             if (button) button.disabled = !canEditProject(window.manuscriptData || {});
         }
     }
@@ -11260,18 +11675,20 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (button) button.disabled = true;
         setDevelopmentStatus('Luodaan rakennemallia...');
         try {
-            const res = await apiFetch('/api/edit', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    text: developmentProjectInput(),
+            const checkedInput = checkedLongEditInput(
+                developmentProjectInput(),
+                buildDevelopmentBlueprintPrompt(),
+                'Kehityseditoinnin rakennemalli'
+            );
+            const payload = await requestLongEdit({
+                    text: checkedInput.text,
                     purpose: 'development_editing',
                     temperature: 0.2,
-                    prompt: buildDevelopmentBlueprintPrompt()
-                })
+                    prompt: checkedInput.prompt
+                }, {
+                    timerKey: 'development_feedback',
+                    label: 'Kehityseditoinnin rakennemalli'
             });
-            const payload = await res.json().catch(() => null);
-            if (!res.ok) throw new Error(payload?.detail || 'Rakennemallin luonti epäonnistui.');
             const dev = developmentData();
             dev.brief = readDevelopmentBriefFromForm();
             dev.blueprint = payload?.edited_text || '';
@@ -11316,18 +11733,20 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (button) button.disabled = true;
         setDevelopmentStatus('Luodaan kehitys- ja rakennepalautetta...');
         try {
-            const res = await apiFetch('/api/edit', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    text: buildDevelopmentFeedbackInput(),
+            const checkedInput = checkedLongEditInput(
+                buildDevelopmentFeedbackInput(),
+                buildDevelopmentFeedbackPrompt(),
+                'Kehityseditoinnin loppupalaute'
+            );
+            const payload = await requestLongEdit({
+                    text: checkedInput.text,
                     purpose: 'development_editing',
                     temperature: 0.25,
-                    prompt: buildDevelopmentFeedbackPrompt()
-                })
+                    prompt: checkedInput.prompt
+                }, {
+                    timerKey: 'development_feedback',
+                    label: 'Kehityseditoinnin loppupalaute'
             });
-            const payload = await res.json().catch(() => null);
-            if (!res.ok) throw new Error(payload?.detail || 'Kehityspalautteen luonti epäonnistui.');
             dev.feedback_report = payload?.edited_text || '';
             dev.revision_plan = extractMarkdownSection(dev.feedback_report, 'Priorisoitu korjaussuunnitelma') || dev.revision_plan || '';
             dev.feedback_updated_at = new Date().toISOString();
@@ -13398,8 +13817,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     instructions: document.getElementById('audio-extra-instructions')?.value || ''
                 })
             });
-            const data = await res.json().catch(() => null);
-            if (!res.ok) throw new Error(data?.detail || 'Tuotantoaineiston luonti epäonnistui.');
+            const data = await readLongEditStream(res, { label: 'Tuotantoaineiston luonti' });
             if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
             const audio = { ...(window.manuscriptData.analysis.audio || {}) };
             audio.chapters = { ...(audio.chapters || {}) };
@@ -13443,15 +13861,19 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
         const button = document.getElementById('audio-guide-btn');
         if (button) button.disabled = true;
-        setAudioStatus('Luodaan sanastoa ja ääntämisohjeita koko kirjasta...');
+        let seconds = 0;
+        setAudioStatus('Luodaan sanastoa ja ääntämisohjeita koko kirjasta (0 s)...');
+        const timer = window.setInterval(() => {
+            seconds += 1;
+            setAudioStatus(`Luodaan sanastoa ja ääntämisohjeita koko kirjasta (${seconds} s)...`);
+        }, 1000);
         try {
             const res = await apiFetch('/api/audio/pronunciation-guide', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ project_id: window.manuscriptData.id })
             });
-            const data = await res.json().catch(() => null);
-            if (!res.ok) throw new Error(data?.detail || 'Ääntämisohjeiden luonti epäonnistui.');
+            const data = await readLongEditStream(res, { label: 'Ääntämisohjeiden luonti' });
             if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
             window.manuscriptData.analysis.audio = {
                 ...(window.manuscriptData.analysis.audio || {}),
@@ -13459,7 +13881,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             };
             const guide = document.getElementById('audio-pronunciation-guide');
             if (guide) guide.value = data.pronunciation_guide || '';
-            setAudioStatus(data.warnings ? `${data.warnings} Lähde: ${data.generated_by}.` : `Sanasto ja ääntämisohjeet luotu. Lähde: ${data.generated_by}.`);
+            setAudioStatus(data.warnings
+                ? `${data.warnings} Valmistui ${seconds} sekunnissa. Lähde: ${data.generated_by}.`
+                : `Sanasto ja ääntämisohjeet luotu ${seconds} sekunnissa. Lähde: ${data.generated_by}.`);
             loadUsage();
             return data;
         } catch (err) {
@@ -13468,6 +13892,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             loadUsage();
             return null;
         } finally {
+            window.clearInterval(timer);
             if (button) button.disabled = false;
         }
     }
@@ -13570,10 +13995,11 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         URL.revokeObjectURL(link.href);
     }
 
-    function firstAudioSampleText() {
+    function firstAudioSampleText(maxChars = 5000) {
         const entry = currentAudioChapterEntry();
         if (!entry) return '';
-        return audioTextForScope(entry).text.slice(0, 5000);
+        const safeMaxChars = Math.max(100, Math.min(Number(maxChars) || 5000, 5000));
+        return audioTextForScope(entry).text.slice(0, safeMaxChars);
     }
 
     function audioPreviewNow() {
@@ -13755,7 +14181,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             setAudioStatus('Valitse ensin Gemini TTS -malli.', true);
             return;
         }
-        const text = firstAudioSampleText();
+        const text = firstAudioSampleText(700);
         if (!text) {
             setAudioStatus('Valitusta osiosta ei löytynyt kuunneltavaa tekstiä.', true);
             return;
@@ -13848,7 +14274,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             setAudioStatus('Valitse ensin ElevenLabs-lukijaääni.', true);
             return;
         }
-        const text = firstAudioSampleText();
+        const text = firstAudioSampleText(2000);
         if (!text) {
             setAudioStatus('Valitusta osiosta ei löytynyt kuunneltavaa tekstiä.', true);
             return;
