@@ -178,7 +178,7 @@ const pageTranslations = {
     { selector: ".core-actions li:nth-child(3)", fi: "Editoi", en: "Edit" },
     { selector: ".core-actions li:nth-child(4)", fi: "Oikolue", en: "Proofread" },
     { selector: ".core-actions li:nth-child(5)", fi: "Käännä", en: "Translate" },
-    { selector: ".hero-trust", fi: "Tekstin oikeudet säilyvät sinulla. Palvelun oma data käsitellään EU-alueella.", en: "You retain the rights to your text. The service's own data is processed in the EU." },
+    { selector: ".hero-trust", fi: "Tekstin oikeudet säilyvät sinulla. SkriptLab on ohjelmistoyritys — emme julkaise teoksia. Palvelun oma data käsitellään EU-alueella.", en: "You retain the rights to your text. SkriptLab is a software company — we do not publish works. The service's own data is processed in the EU." },
     { selector: ".product-shot-label", fi: "SkriptLab", en: "SkriptLab" },
     { selector: ".product-shot-bar strong", fi: "Kirjoita ja editoi", en: "Write and edit" },
     { selector: ".product-shot img", attr: "alt", fi: "SkriptLabin kirjoitus- ja editointinäkymä: kirjamuisti, käsikirjoitus ja oikolukutehtävät rinnakkain.", en: "SkriptLab writing and editing view with manuscript memory, the text and proofreading tasks side by side." },
@@ -269,7 +269,7 @@ const pageTranslations = {
     { selector: "#translation-package-card li:nth-child(4)", fi: "Valitun version muokkaus ja tiedostovienti", en: "Editing and file export for the selected version" },
     { selector: ".software-pricing-note", attr: "aria-label", fi: "Hinnoittelun rajaus", en: "Pricing scope" },
     { selector: ".software-pricing-note strong", fi: "Ohjelmisto, ei käännös- tai oikolukupalvelu.", en: "Software, not a translation or proofreading service." },
-    { selector: ".software-pricing-note p", fi: "Paketti koskee yhtä kohdekieltä kerrallaan. Hinta kattaa SkriptLabin käyttöoikeuden ja koko yllä kuvatun kokonaisuuden. Suosittelemme, että käyttäjä tai hänen valitsemansa kieliasiantuntija tarkistaa lopputuloksen ennen julkaisua.", en: "The package covers one target language at a time. The price includes access to SkriptLab and the complete package described above. We recommend that the user or a language specialist of their choice review the final result before publication." },
+    { selector: ".software-pricing-note p", fi: "Paketti koskee yhtä kohdekieltä kerrallaan. Hinta kattaa SkriptLabin käyttöoikeuden ja koko yllä kuvatun kokonaisuuden. Suosittelemme, että käyttäjä tai hänen valitsemansa kieliasiantuntija tarkistaa lopputuloksen ennen julkaisua. Kaikki aineistot ja oikeudet toimitetaan tilaajalle. SkriptLab ei käytä, myy eikä julkaise toimeksiantojen aineistoja.", en: "The package covers one target language at a time. The price includes access to SkriptLab and the complete package described above. We recommend that the user or a language specialist of their choice review the final result before publication. All materials and rights are delivered to the customer. SkriptLab does not use, sell or publish materials from assignments." },
     { selector: ".pricing-followup .btn-primary", fi: "Pyydä käyttöoikeus", en: "Request access" }
   ],
   trust: [
