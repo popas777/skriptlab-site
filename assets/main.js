@@ -19,16 +19,16 @@ const pageKey = window.location.pathname.includes("/legal/")
 const metaTranslations = {
   home: {
     fi: {
-      title: "SkriptLab - kirjoita, editoi, oikolue ja käännä",
-      description: "SkriptLab on käsikirjoitusohjelmisto kirjoittamiseen, editointiin, oikolukuun ja kieliversioiden tekemiseen.",
+      title: "SkriptLab - kirjoita, analysoi, editoi, oikolue ja käännä",
+      description: "SkriptLab on käsikirjoitusohjelmisto kirjoittamiseen, analysointiin, editointiin, oikolukuun ja käännösversioiden tekemiseen.",
       ogTitle: "SkriptLab",
-      ogDescription: "Kirjoita, editoi, oikolue ja tee kieliversiot samassa käsikirjoitustyötilassa."
+      ogDescription: "Kirjoita, analysoi, editoi, oikolue ja tee käännösversioita samassa käsikirjoitustyötilassa."
     },
     en: {
-      title: "SkriptLab - write, edit, proofread and translate",
-      description: "SkriptLab is manuscript software for writing, editing, proofreading and creating language versions.",
+      title: "SkriptLab - write, analyse, edit, proofread and translate",
+      description: "SkriptLab is manuscript software for writing, analysing, editing, proofreading and creating translation versions.",
       ogTitle: "SkriptLab",
-      ogDescription: "Write, edit, proofread and create language versions in one manuscript workspace."
+      ogDescription: "Write, analyse, edit, proofread and create translation versions in one manuscript workspace."
     }
   },
   audience: {
@@ -64,11 +64,11 @@ const metaTranslations = {
   pricing: {
     fi: {
       title: "Hinnoittelu - SkriptLab",
-      description: "SkriptLab-ohjelmiston hinta perustuu tekstimäärään, valittuihin toimintoihin ja kieliversioiden määrään. Katso 300-sivuisen teoksen esimerkkihinta."
+      description: "SkriptLab-ohjelmiston hinta perustuu tekstimäärään ja valittuihin toimintoihin. Katso 300-sivuisen teoksen käännöspaketin esimerkkihinta."
     },
     en: {
       title: "Pricing - SkriptLab",
-      description: "SkriptLab software pricing is based on text volume, selected tools and the number of language versions. See an example for a 300-page work."
+      description: "SkriptLab software pricing is based on text volume and selected tools. See the translation package example for a 300-page work."
     }
   },
   trust: {
@@ -124,7 +124,7 @@ const commonTranslations = [
   { selector: ".hero-links a[href='prosessi.html']", fi: "Työnkulku", en: "Workflow" },
   { selector: ".hero-links a[href='luottamus.html']", fi: "Tietosuoja", en: "Privacy" },
   { selector: ".hero-links a[href='hinnat.html']", fi: "Hinnoittelu", en: "Pricing" },
-  { selector: ".footer-brand p", fi: "Käsikirjoitusohjelmisto kirjoittamiseen, editointiin, oikolukuun ja kieliversioihin.", en: "Manuscript software for writing, editing, proofreading and language versions." },
+  { selector: ".footer-brand p", fi: "Käsikirjoitusohjelmisto kirjoittamiseen, analysointiin, editointiin, oikolukuun ja käännösversioihin.", en: "Manuscript software for writing, analysing, editing, proofreading and translation versions." },
   { selector: ".footer-top .footer-col:nth-child(2) h2", fi: "Tuote", en: "Product" },
   { selector: ".footer-top .footer-col:nth-child(2) a:nth-of-type(1)", fi: "Ominaisuudet", en: "Features" },
   { selector: ".footer-top .footer-col:nth-child(2) a:nth-of-type(2)", fi: "Työnkulku", en: "Workflow" },
@@ -163,22 +163,23 @@ const commonTranslations = [
 const pageTranslations = {
   home: [
     { selector: ".eyebrow", fi: "Käsikirjoitusohjelmisto", en: "Manuscript software" },
-    { selector: ".hero h1", fi: "Kirjoita, editoi, oikolue ja käännä", en: "Write, edit, proofread and translate" },
+    { selector: ".hero h1", fi: "Kirjoita, analysoi, editoi, oikolue ja käännä", en: "Write, analyse, edit, proofread and translate" },
     { selector: ".hero-sub", fi: "Koko käsikirjoitustyö yhdessä sovelluksessa.", en: "Your complete manuscript workflow in one application." },
     {
       selector: ".hero-desc",
-      fi: "Aloita tyhjästä tai tuo valmis teksti. Työstä käsikirjoitusta luku kerrallaan, hyväksy vain haluamasi muutokset, tarkista kieli ja tee rinnakkaiset kieliversiot. Sinä teet työn ja päätökset – SkriptLab antaa työkalut.",
-      en: "Start from a blank page or import an existing text. Work chapter by chapter, accept only the changes you want, check the language and create parallel language versions. You do the work and make the decisions – SkriptLab provides the tools."
+      fi: "Aloita tyhjästä tai tuo valmis teksti. Analysoi kokonaisuus, työstä käsikirjoitusta luku kerrallaan, oikolue valitsemasi osiot ja luo vaihtoehtoisia käännösversioita valitulle kielelle. Sinä hyväksyt muutokset ja teet päätökset – SkriptLab antaa työkalut.",
+      en: "Start from a blank page or import an existing text. Analyse the whole work, edit the manuscript chapter by chapter, proofread the sections you choose and create alternative translation versions for one selected target language. You approve the changes and make the decisions – SkriptLab provides the tools."
     },
     { selector: ".hero-actions .btn-primary", fi: "Pyydä käyttöoikeus", en: "Request access" },
     { selector: ".hero-actions .btn-ghost", fi: "Tutustu toimintoihin", en: "Explore the tools" },
     { selector: ".core-actions", attr: "aria-label", fi: "SkriptLabin perustoiminnot", en: "Core SkriptLab tools" },
     { selector: ".core-actions li:nth-child(1)", fi: "Kirjoita", en: "Write" },
-    { selector: ".core-actions li:nth-child(2)", fi: "Editoi", en: "Edit" },
-    { selector: ".core-actions li:nth-child(3)", fi: "Oikolue", en: "Proofread" },
-    { selector: ".core-actions li:nth-child(4)", fi: "Käännä", en: "Translate" },
+    { selector: ".core-actions li:nth-child(2)", fi: "Analysoi", en: "Analyse" },
+    { selector: ".core-actions li:nth-child(3)", fi: "Editoi", en: "Edit" },
+    { selector: ".core-actions li:nth-child(4)", fi: "Oikolue", en: "Proofread" },
+    { selector: ".core-actions li:nth-child(5)", fi: "Käännä", en: "Translate" },
     { selector: ".hero-trust", fi: "Tekstin oikeudet säilyvät sinulla. Palvelun oma data käsitellään EU-alueella.", en: "You retain the rights to your text. The service's own data is processed in the EU." },
-    { selector: ".product-shot-label", fi: "Aito näkymä SkriptLabista", en: "A real view of SkriptLab" },
+    { selector: ".product-shot-label", fi: "SkriptLab", en: "SkriptLab" },
     { selector: ".product-shot-bar strong", fi: "Kirjoita ja editoi", en: "Write and edit" },
     { selector: ".product-shot img", attr: "alt", fi: "SkriptLabin kirjoitus- ja editointinäkymä: kirjamuisti, käsikirjoitus ja oikolukutehtävät rinnakkain.", en: "SkriptLab writing and editing view with manuscript memory, the text and proofreading tasks side by side." },
     { selector: ".product-shot figcaption", fi: "Kirjoita tekstiä, pidä teoksen tiedot mukana ja oikolue valitsemasi osio.", en: "Write your text, keep the work's details close and proofread the section you choose." }
@@ -247,7 +248,7 @@ const pageTranslations = {
   pricing: [
     { selector: ".pricing-section .section-inner > .section-label", fi: "Hinnoittelu", en: "Pricing" },
     { selector: ".section-title", fi: "Ohjelmiston hinta tekstimäärän mukaan", en: "Software pricing based on text volume" },
-    { selector: ".section-intro", fi: "Maksat SkriptLabin käyttöoikeudesta ja valitusta käsittelymäärästä. Kirjoitat, editoit, oikoluet ja teet kieliversiot itse sovelluksessa.", en: "You pay for access to SkriptLab and the selected processing volume. You write, edit, proofread and create language versions yourself in the application." },
+    { selector: ".section-intro", fi: "Maksat SkriptLabin käyttöoikeudesta ja valitusta käsittelymäärästä. Kirjoitat, analysoit, editoit, oikoluet ja teet käännösversiot itse sovelluksessa.", en: "You pay for access to SkriptLab and the selected processing volume. You write, analyse, edit, proofread and create translation versions yourself in the application." },
     { selector: ".price-card:nth-child(1) .price-model", fi: "Teoskohtainen", en: "Per work" },
     { selector: ".price-card:nth-child(1) h2", fi: "Yksi käsikirjoitus", en: "One manuscript" },
     { selector: ".price-card:nth-child(1) p", fi: "Hinta muodostuu tekstimäärästä ja käyttöön valituista työkaluista.", en: "Pricing is based on text volume and the tools you select." },
@@ -255,13 +256,13 @@ const pageTranslations = {
     { selector: ".price-card:nth-child(1) li:nth-child(2)", fi: "Kirjoitus ja editointi", en: "Writing and editing" },
     { selector: ".price-card:nth-child(1) li:nth-child(3)", fi: "Valitut oikolukukierrokset", en: "Selected proofreading rounds" },
     { selector: ".price-card:nth-child(1) li:nth-child(4)", fi: "Versiot ja tiedostoviennit", en: "Versions and file exports" },
-    { selector: ".price-card:nth-child(2) .price-model", fi: "Kieliversiot", en: "Language versions" },
-    { selector: ".price-card:nth-child(2) h2", fi: "Yksi tai useampi kieli", en: "One or more languages" },
-    { selector: ".price-card:nth-child(2) p", fi: "Hinta määräytyy lähdetekstin pituuden ja kieliversioiden määrän mukaan.", en: "Pricing is based on source text length and the number of language versions." },
-    { selector: ".price-card:nth-child(2) li:nth-child(1)", fi: "Valitut kohdekielet", en: "Selected target languages" },
-    { selector: ".price-card:nth-child(2) li:nth-child(2)", fi: "Lähdevertailu per versio", en: "Source comparison per version" },
-    { selector: ".price-card:nth-child(2) li:nth-child(3)", fi: "Oikolukukierros per versio", en: "Proofreading round per version" },
-    { selector: ".price-card:nth-child(2) li:nth-child(4)", fi: "Muokkaus ja vienti", en: "Editing and export" },
+    { selector: ".price-card:nth-child(2) .price-model", fi: "Käännösversiot", en: "Translation versions" },
+    { selector: ".price-card:nth-child(2) h2", fi: "Yksi valittu kohdekieli", en: "One selected target language" },
+    { selector: ".price-card:nth-child(2) p", fi: "Luo samasta lähdetekstistä vaihtoehtoisia käännösversioita yhdelle valitulle kohdekielelle.", en: "Create alternative translation versions from the same source text for one selected target language." },
+    { selector: ".price-card:nth-child(2) li:nth-child(1)", fi: "Yksi valittu kohdekieli", en: "One selected target language" },
+    { selector: ".price-card:nth-child(2) li:nth-child(2)", fi: "Kolme käännösversiota", en: "Three translation versions" },
+    { selector: ".price-card:nth-child(2) li:nth-child(3)", fi: "Valitun version lähdevertailu", en: "Source comparison for the selected version" },
+    { selector: ".price-card:nth-child(2) li:nth-child(4)", fi: "Valitun version oikoluku", en: "Proofreading for the selected version" },
     { selector: ".price-card:nth-child(3) .price-model", fi: "Kuukausikäyttö", en: "Monthly access" },
     { selector: ".price-card:nth-child(3) h2", fi: "Tiimi", en: "Team" },
     { selector: ".price-card:nth-child(3) p", fi: "Jatkuva käyttö usealle käyttäjälle ja käsikirjoitukselle.", en: "Ongoing access for multiple users and manuscripts." },
@@ -277,7 +278,7 @@ const pageTranslations = {
     { selector: ".price-card:nth-child(4) li:nth-child(3)", fi: "Oma käsikirjoitus", en: "Your own manuscript" },
     { selector: ".price-card:nth-child(4) li:nth-child(4)", fi: "Selkeä jatkopäätös", en: "A clear next-step decision" },
     { selector: ".example-pricing .section-label", fi: "Esimerkkiprojekti", en: "Example project" },
-    { selector: "#esimerkkiprojekti-title", fi: "300-sivuinen teos, kolme kieliversiota", en: "A 300-page work, three language versions" },
+    { selector: "#esimerkkiprojekti-title", fi: "300-sivuinen teos, kolme käännösversiota valitulle kielelle", en: "A 300-page work, three translation versions in one selected language" },
     { selector: ".example-pricing > div:first-child > p:not(.section-label)", fi: "Sivumäärä havainnollistaa laajuutta. Hinta lasketaan sanoista ja merkeistä.", en: "The page count illustrates scope. Pricing is calculated from words and characters." },
     { selector: ".project-metrics", attr: "aria-label", fi: "Esimerkkiteoksen laajuus", en: "Example work size" },
     { selector: ".project-metrics span:nth-child(1) strong", fi: "noin 300", en: "about 300" },
@@ -285,15 +286,15 @@ const pageTranslations = {
     { selector: ".project-metrics span:nth-child(2) small", fi: "sanaa", en: "words" },
     { selector: ".project-metrics span:nth-child(3) strong", fi: "enintään 450 000", en: "up to 450,000" },
     { selector: ".project-metrics span:nth-child(3) small", fi: "merkkiä välilyönteineen", en: "characters including spaces" },
-    { selector: ".estimate-summary div > span", fi: "Monikielinen teospaketti", en: "Multilingual work package" },
-    { selector: ".estimate-summary div > small", fi: "Esimerkkihinta ohjelmiston käytölle", en: "Example price for software use" },
-    { selector: ".estimate-breakdown div:nth-child(1) dt", fi: "Lähdetekstin analyysi ja teoskohtainen käyttöoikeus", en: "Source text analysis and per-work software access" },
-    { selector: ".estimate-breakdown div:nth-child(2) dt", fi: "Kolme käyttäjän valitsemaa kieliversiota", en: "Three language versions selected by the user" },
-    { selector: ".estimate-breakdown div:nth-child(3) dt", fi: "Lähdevertailu ja oikolukukierros jokaiseen versioon", en: "Source comparison and proofreading round for each version" },
-    { selector: ".estimate-includes", fi: "Pakettiin sisältyvät versioiden muokkaus ja tiedostoviennit SkriptLabissa.", en: "The package includes editing the versions and exporting files in SkriptLab." },
+    { selector: ".estimate-summary div > span", fi: "Ohjelmistopaketti", en: "Software package" },
+    { selector: ".estimate-summary div > small", fi: "Kokonaishinta", en: "Total price" },
+    { selector: ".package-includes li:nth-child(1)", fi: "Kolme vaihtoehtoista käännösversiota yhdelle valitulle kohdekielelle", en: "Three alternative translation versions for one selected target language" },
+    { selector: ".package-includes li:nth-child(2)", fi: "Yhden käyttäjän valitseman version tarkastus lähdetekstiä vasten", en: "Source comparison for one version selected by the user" },
+    { selector: ".package-includes li:nth-child(3)", fi: "Valitun version oikolukukierros", en: "One proofreading round for the selected version" },
+    { selector: ".package-includes li:nth-child(4)", fi: "Valitun version muokkaus ja tiedostovienti", en: "Editing and file export for the selected version" },
     { selector: ".software-pricing-note", attr: "aria-label", fi: "Hinnoittelun rajaus", en: "Pricing scope" },
     { selector: ".software-pricing-note strong", fi: "Ohjelmisto, ei käännös- tai oikolukupalvelu.", en: "Software, not a translation or proofreading service." },
-    { selector: ".software-pricing-note p", fi: "Hinta koskee SkriptLabin käyttöoikeutta ja yllä kuvattuja automaattisia käsittelyajoja. Käyttäjä tai hänen valitsemansa kieliasiantuntija tarkastaa ja hyväksyy lopputuloksen ennen julkaisua.", en: "The price covers access to SkriptLab and the automated processing runs described above. The user or a language specialist chosen by them reviews and approves the result before publication." },
+    { selector: ".software-pricing-note p", fi: "Paketti koskee yhtä kohdekieltä kerrallaan. 900 € kattaa SkriptLabin käyttöoikeuden ja koko yllä kuvatun kokonaisuuden. Käyttäjä tai hänen valitsemansa kieliasiantuntija hyväksyy lopputuloksen ennen julkaisua.", en: "The package covers one target language at a time. €900 includes access to SkriptLab and the complete package described above. The user or a language specialist chosen by them approves the result before publication." },
     { selector: ".example-pricing .btn-primary", fi: "Pyydä käyttöoikeus", en: "Request access" }
   ],
   trust: [

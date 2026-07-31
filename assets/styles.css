@@ -336,7 +336,7 @@ a {
 
 .core-actions {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.5rem;
   max-width: 560px;
   margin: 1.7rem 0 0;
@@ -1006,42 +1006,30 @@ a {
   font-weight: 500;
 }
 
-.estimate-breakdown {
-  margin: 0;
-  padding: 0.35rem 1.6rem;
-}
-
-.estimate-breakdown div {
+.package-includes {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 1.5rem;
-  padding: 1rem 0;
-  border-bottom: 1px solid var(--border);
+  margin: 0;
+  padding: 0.35rem 1.6rem 0.45rem;
+  list-style: none;
 }
 
-.estimate-breakdown div:last-child {
+.package-includes li {
+  position: relative;
+  padding: 1rem 0 1rem 1.65rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.package-includes li:last-child {
   border-bottom: 0;
 }
 
-.estimate-breakdown dt,
-.estimate-breakdown dd {
-  margin: 0;
-}
-
-.estimate-breakdown dt {
-  color: var(--muted);
-}
-
-.estimate-breakdown dd {
-  color: var(--ink);
+.package-includes li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: var(--amber);
   font-weight: 600;
-  text-align: right;
-}
-
-.estimate-includes {
-  padding: 0 1.6rem 1.45rem;
-  color: var(--muted);
-  font-size: 0.84rem;
 }
 
 .software-pricing-note {
@@ -1379,7 +1367,7 @@ a {
   }
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1120px) {
   .hero-inner {
     grid-template-columns: 1fr;
     gap: 2.5rem;
@@ -1482,6 +1470,10 @@ a {
     grid-template-columns: 1fr 1fr;
   }
 
+  .core-actions li:last-child {
+    grid-column: 1 / -1;
+  }
+
   .product-shot-bar strong {
     display: none;
   }
@@ -1498,15 +1490,6 @@ a {
     align-items: flex-start;
     flex-direction: column;
     gap: 1rem;
-  }
-
-  .estimate-breakdown div {
-    grid-template-columns: 1fr;
-    gap: 0.25rem;
-  }
-
-  .estimate-breakdown dd {
-    text-align: left;
   }
 
   .btn-primary,
