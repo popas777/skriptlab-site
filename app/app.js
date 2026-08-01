@@ -263,6 +263,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     let visualBatchRowSequence = 0;
     let visualBatchController = null;
     let visualPromptPlanController = null;
+    let visualImageBatchSubmitting = false;
+    let visualImageBatchJobId = null;
+    let visualImageBatchProjectId = null;
+    let visualImageBatchLastStatus = null;
+    let visualImageBatchPollToken = null;
+    let visualImageBatchResumePromise = null;
+    let visualEstimateTimer = null;
+    let visualEstimateController = null;
+    let latestVisualEstimate = null;
+    let latestVisualEstimateKey = '';
     let proofreadSuggestions = [];
     let proofreadSelection = { cIndex: null };
     let proofreadExtraFindings = [];
@@ -781,6 +791,11 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const visualModelSelect = document.getElementById('visual-model-select');
     const visualSharedPrompt = document.getElementById('visual-shared-prompt');
     const visualPromptCount = document.getElementById('visual-prompt-count');
+    const visualImageSize = document.getElementById('visual-image-size');
+    const visualVariantsPerPrompt = document.getElementById('visual-variants-per-prompt');
+    const visualExecutionModeInputs = Array.from(document.querySelectorAll('input[name="visual-execution-mode"]'));
+    const visualBatchModeOption = document.getElementById('visual-batch-mode-option');
+    const visualRunModeNote = document.getElementById('visual-run-mode-note');
     const visualGeneratePromptsBtn = document.getElementById('visual-generate-prompts-btn');
     const visualUseAnalysis = document.getElementById('visual-use-analysis');
     const visualUseMemory = document.getElementById('visual-use-memory');
@@ -791,6 +806,11 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const visualStopBtn = document.getElementById('visual-stop-btn');
     const visualStatus = document.getElementById('visual-status');
     const visualProgress = document.getElementById('visual-progress');
+    const visualEstimateCount = document.getElementById('visual-estimate-count');
+    const visualEstimateUnit = document.getElementById('visual-estimate-unit');
+    const visualEstimateTotal = document.getElementById('visual-estimate-total');
+    const visualEstimateQuota = document.getElementById('visual-estimate-quota');
+    const visualEstimateNote = document.getElementById('visual-estimate-note');
     const visualGallery = document.getElementById('visual-gallery');
     const visualEmptyState = document.getElementById('visual-empty-state');
     const visualLoadMoreBtn = document.getElementById('visual-load-more-btn');
@@ -7083,6 +7103,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const VISUAL_BATCH_REQUEST_DELAY_MS = 10000;
     const VISUAL_BATCH_RETRY_DELAY_MS = 10000;
     const VISUAL_BATCH_MAX_REQUEST_ATTEMPTS = 2;
+    const VISUAL_MAX_IMAGES_PER_RUN = 100;
+    const VISUAL_BATCH_POLL_INTERVAL_MS = 15000;
+    const VISUAL_ESTIMATE_DEBOUNCE_MS = 350;
     const visualKindDefinitions = [
         { value: 'chapter_opening', label: 'Luvun tai osion avauskuva' },
         { value: 'scene', label: 'Kohtauskuva' },
@@ -7163,6 +7186,204 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         visualStatus.classList.toggle('is-error', Boolean(isError));
     }
 
+    function selectedVisualModel() {
+        const value = String(visualModelSelect?.value || '');
+        return imageModels.find(model => `${model.provider}:${model.model_name}` === value)
+            || imageModels.find(model => String(model.model_name || '') === value)
+            || null;
+    }
+
+    function visualExecutionMode() {
+        return visualExecutionModeInputs.find(input => input.checked)?.value === 'batch' ? 'batch' : 'direct';
+    }
+
+    function visualVariantCount() {
+        const value = Math.min(10, Math.max(1, Number(visualVariantsPerPrompt?.value) || 1));
+        if (visualVariantsPerPrompt && String(value) !== visualVariantsPerPrompt.value) {
+            visualVariantsPerPrompt.value = String(value);
+        }
+        return value;
+    }
+
+    function visualSelectedImageSize() {
+        return String(visualImageSize?.value || '1K').trim().toUpperCase() || '1K';
+    }
+
+    function visualModelSupportsBatch(model = selectedVisualModel()) {
+        if (!model || String(model.model_name || '').toLowerCase().startsWith('imagen-')) return false;
+        return model.supports_batch === true;
+    }
+
+    function visualSupportedImageSizes(model = selectedVisualModel()) {
+        const configured = Array.isArray(model?.supported_image_sizes) ? model.supported_image_sizes : [];
+        const normalized = configured
+            .map(value => {
+                const size = String(value || '').trim().toUpperCase();
+                return size === '512PX' || size === '512 PX' ? '512' : size;
+            })
+            .filter((value, index, values) => ['512', '1K', '2K', '4K'].includes(value) && values.indexOf(value) === index);
+        return normalized.length ? normalized : ['1K'];
+    }
+
+    function syncVisualModelCapabilities() {
+        const model = selectedVisualModel();
+        const sizes = visualSupportedImageSizes(model);
+        if (visualImageSize) {
+            const current = visualSelectedImageSize();
+            visualImageSize.innerHTML = sizes.map(size => `<option value="${size}">${size === '512' ? '512 px' : size}</option>`).join('');
+            visualImageSize.value = sizes.includes(current) ? current : sizes[0];
+        }
+        const batchInput = visualExecutionModeInputs.find(input => input.value === 'batch');
+        const directInput = visualExecutionModeInputs.find(input => input.value === 'direct');
+        const batchSupported = visualModelSupportsBatch(model);
+        if (batchInput) batchInput.disabled = !batchSupported;
+        visualBatchModeOption?.classList.toggle('is-disabled', !batchSupported);
+        if (!batchSupported && batchInput?.checked && directInput) directInput.checked = true;
+        if (visualRunModeNote) {
+            visualRunModeNote.textContent = !model
+                ? 'Valitse kuvamalli nähdäksesi käytettävissä olevat ajotavat.'
+                : batchSupported
+                    ? 'Valittu malli tukee taustalla jatkuvaa Gemini-eräajoa. Eräajon tavoiteaika on enintään 24 tuntia.'
+                    : 'Valittu malli tukee vain suoraa ajoa. Imagen-malleja ei voi lähettää Gemini-eräajoon.';
+        }
+    }
+
+    function visualPlannedImageCount() {
+        const rows = collectVisualBatchRows({ expandVariants: false });
+        return rows.length * visualVariantCount();
+    }
+
+    function visualCurrency(value, currency, maximumFractionDigits = 3) {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return '–';
+        try {
+            return new Intl.NumberFormat('fi-FI', {
+                style: 'currency',
+                currency,
+                minimumFractionDigits: 2,
+                maximumFractionDigits,
+            }).format(number);
+        } catch (error) {
+            return `${number.toFixed(2)} ${currency}`;
+        }
+    }
+
+    function visualEstimatePayload() {
+        const model = selectedVisualModel();
+        return {
+            model_name: String(model?.model_name || visualModelSelect?.value || ''),
+            execution_mode: visualExecutionMode(),
+            image_size: visualSelectedImageSize(),
+            image_count: visualPlannedImageCount(),
+        };
+    }
+
+    function visualEstimateKey(projectId = activeGraphicProjectId(), payload = visualEstimatePayload()) {
+        return JSON.stringify({ project_id: String(projectId || ''), ...payload });
+    }
+
+    function renderVisualEstimate(data = null, message = '', isError = false) {
+        const count = Number(data?.image_count ?? visualPlannedImageCount());
+        if (visualEstimateCount) visualEstimateCount.textContent = count ? formatNumber(count) : '–';
+        if (visualEstimateUnit) visualEstimateUnit.textContent = data ? visualCurrency(data.unit_cost_eur, 'EUR', 4) : '–';
+        if (visualEstimateTotal) visualEstimateTotal.textContent = data ? visualCurrency(data.estimated_cost_eur, 'EUR', 3) : '–';
+        if (visualEstimateQuota) {
+            const remaining = Number(data?.monthly_remaining);
+            const limit = Number(data?.monthly_limit);
+            visualEstimateQuota.textContent = data?.quota_enforced === false
+                ? 'Ei käyttäjäkohtaista rajaa'
+                : Number.isFinite(remaining)
+                ? `${formatNumber(Math.max(0, remaining))}${Number.isFinite(limit) ? ` / ${formatNumber(limit)}` : ''}`
+                : '–';
+        }
+        if (visualEstimateNote) {
+            const modeLabel = data?.execution_mode === 'batch' ? 'Gemini-eräajo' : 'suora ajo';
+            const defaultMessage = data
+                ? `${data.model_display_name || data.model_name || 'Valittu malli'} · ${data.image_size || visualSelectedImageSize()} · ${modeLabel}. ${data.disclaimer || ''}`.trim()
+                : 'Valitse projekti ja kuvamalli, niin hinta-arvio päivittyy.';
+            visualEstimateNote.textContent = message || defaultMessage;
+            visualEstimateNote.classList.toggle('is-error', Boolean(isError));
+        }
+    }
+
+    async function updateVisualEstimate() {
+        window.clearTimeout(visualEstimateTimer);
+        visualEstimateTimer = null;
+        const projectId = activeGraphicProjectId();
+        const payload = visualEstimatePayload();
+        const key = visualEstimateKey(projectId, payload);
+        if (!projectId || !payload.model_name) {
+            latestVisualEstimate = null;
+            latestVisualEstimateKey = '';
+            renderVisualEstimate(null);
+            syncGraphicsControls();
+            return null;
+        }
+        if (!payload.image_count) {
+            latestVisualEstimate = null;
+            latestVisualEstimateKey = '';
+            renderVisualEstimate(null, 'Lisää vähintään yksi varsinainen luku hinta-arviota varten.', true);
+            syncGraphicsControls();
+            return null;
+        }
+        if (payload.image_count > VISUAL_MAX_IMAGES_PER_RUN) {
+            latestVisualEstimate = null;
+            latestVisualEstimateKey = key;
+            renderVisualEstimate(null, `Kuvaerässä voi olla enintään ${VISUAL_MAX_IMAGES_PER_RUN} kuvaa. Vähennä vaihtoehtojen määrää.`, true);
+            syncGraphicsControls();
+            return null;
+        }
+        visualEstimateController?.abort();
+        const controller = new AbortController();
+        visualEstimateController = controller;
+        renderVisualEstimate(null, 'Lasketaan valitun kuvaerän hinta-arviota…');
+        try {
+            const response = await apiFetch(`/api/projects/${projectId}/visual-image-jobs/estimate`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload),
+                signal: controller.signal,
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'Kuvaerän hinta-arviota ei saatu laskettua.');
+            if (controller.signal.aborted || visualEstimateKey() !== key) return null;
+            latestVisualEstimate = data;
+            latestVisualEstimateKey = key;
+            const exceedsBatchMaximum = payload.execution_mode === 'batch'
+                && Number(data?.max_batch_images) > 0
+                && payload.image_count > Number(data.max_batch_images);
+            const exceedsQuota = data?.quota_enforced !== false
+                && Number.isFinite(Number(data?.monthly_remaining))
+                && payload.image_count > Number(data.monthly_remaining);
+            if (exceedsBatchMaximum) {
+                renderVisualEstimate(data, `Valittu erä sisältää ${payload.image_count} kuvaa. Mallin eräajoraja on ${data.max_batch_images} kuvaa.`, true);
+            } else if (exceedsQuota) {
+                renderVisualEstimate(data, `Kuvaerä tarvitsee ${payload.image_count} kuvapyyntöä, mutta kuukausikiintiötä on jäljellä ${Math.max(0, Number(data.monthly_remaining))}.`, true);
+            } else {
+                renderVisualEstimate(data);
+            }
+            syncGraphicsControls();
+            return data;
+        } catch (error) {
+            if (error?.name === 'AbortError') return null;
+            if (visualEstimateKey() !== key) return null;
+            latestVisualEstimate = null;
+            latestVisualEstimateKey = '';
+            renderVisualEstimate(null, networkFailureMessage(error), true);
+            syncGraphicsControls();
+            return null;
+        } finally {
+            if (visualEstimateController === controller) visualEstimateController = null;
+        }
+    }
+
+    function scheduleVisualEstimate(options = {}) {
+        window.clearTimeout(visualEstimateTimer);
+        renderVisualEstimate(latestVisualEstimateKey === visualEstimateKey() ? latestVisualEstimate : null);
+        visualEstimateTimer = window.setTimeout(updateVisualEstimate, options.immediate ? 0 : VISUAL_ESTIMATE_DEBOUNCE_MS);
+        syncGraphicsControls();
+    }
+
     function setInfographicStatus(message, isError = false) {
         if (!infographicStatus) return;
         infographicStatus.textContent = String(message || '');
@@ -7196,6 +7417,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             if (nextPanelId === 'graphics-panel-images') {
                 loadImageModels();
                 renderVisualBatchDefaults();
+                void resumeVisualImageBatchJob();
+                scheduleVisualEstimate();
             } else if (nextPanelId === 'graphics-panel-infographics') {
                 populateInfographicDefaults();
             }
@@ -7433,6 +7656,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             row.remove();
             renumberVisualBatchRows();
             syncGraphicsControls();
+            scheduleVisualEstimate();
             setVisualStatus(visualBatchRows.children.length
                 ? `${visualBatchRows.children.length} kuvaehdotusta valmiina ajoon.`
                 : 'Lisää vähintään yksi kuvaehdotuksen rivi.');
@@ -7441,6 +7665,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         renumberVisualBatchRows();
         if (options.focus) row.querySelector('.visual-row-chapter')?.focus();
         syncGraphicsControls();
+        if (!options.skipEstimate) scheduleVisualEstimate();
         return row;
     }
 
@@ -7467,7 +7692,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (projectChanged && visualSharedPrompt) visualSharedPrompt.value = savedPlan?.visual_style || '';
         if (projectChanged && visualWithoutText) visualWithoutText.checked = savedPlan?.without_text ?? true;
         if (savedPlan?.prompts.length) {
-            savedPlan.prompts.forEach(item => addVisualBatchRow(item));
+            savedPlan.prompts.forEach(item => addVisualBatchRow(item, { skipEstimate: true }));
             if (visualPromptCount) visualPromptCount.value = String(savedPlan.prompts.length);
         } else {
             const entries = visualChapterEntries().slice(0, 10);
@@ -7476,7 +7701,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 section_label: structureDisplayTitle(chapter, index) || `Luku ${index + 1}`,
                 visual_kind: 'scene',
                 aspect_ratio: '3:4',
-            }));
+            }, { skipEstimate: true }));
             if (visualPromptCount) visualPromptCount.value = String(Math.min(10, Math.max(1, entries.length || 10)));
         }
         visualRowsInitializedProjectId = projectId;
@@ -7493,30 +7718,66 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 : 'Projektista ei löytynyt varsinaisia tekstillisiä lukuja Kuvamaailmaa varten.',
             Boolean(window.manuscriptData && !visualBatchRows.children.length));
         syncGraphicsControls();
+        scheduleVisualEstimate();
     }
 
-    function collectVisualBatchRows() {
+    function collectVisualBatchRows(options = {}) {
         const sharedPrompt = (visualSharedPrompt?.value || '').trim();
-        return Array.from(visualBatchRows?.querySelectorAll('.visual-batch-row') || []).map((row, index) => {
+        const baseItems = Array.from(visualBatchRows?.querySelectorAll('.visual-batch-row') || []).map((row, index) => {
             const chapterId = row.querySelector('.visual-row-chapter')?.value || '';
             const specificPrompt = row.querySelector('.visual-row-prompt')?.value.trim() || '';
             const prompt = [sharedPrompt, specificPrompt].filter(Boolean).join('\n\n');
+            const sectionLabel = row.querySelector('.visual-row-label')?.value.trim() || visualChapterTitle(chapterId);
             return {
                 row,
                 index,
+                rowIndex: index,
+                sectionLabel,
+                sharedPrompt,
+                specificPrompt,
                 payload: {
                     model: visualModelSelect?.value || null,
                     visual_kind: row.querySelector('.visual-row-kind')?.value || 'chapter_opening',
-                    section_label: row.querySelector('.visual-row-label')?.value.trim() || visualChapterTitle(chapterId),
+                    section_label: sectionLabel,
                     chapter_custom_id: chapterId,
                     prompt: prompt.slice(0, 2000),
                     aspect_ratio: row.querySelector('.visual-row-aspect')?.value || '3:4',
+                    image_size: visualSelectedImageSize(),
                     use_analysis: Boolean(visualUseAnalysis?.checked),
                     use_project_memory: Boolean(visualUseMemory?.checked),
                     without_text: Boolean(visualWithoutText?.checked),
                 },
             };
         }).filter(item => item.payload.chapter_custom_id && item.payload.prompt);
+        if (options.expandVariants === false) return baseItems;
+        const variantCount = visualVariantCount();
+        const expanded = [];
+        baseItems.forEach(item => {
+            for (let variantIndex = 1; variantIndex <= variantCount; variantIndex += 1) {
+                const variantInstruction = variantCount > 1
+                    ? `Variant ${variantIndex}/${variantCount}: keep style and characters consistent; vary composition or camera angle.`
+                    : '';
+                const prompt = [item.sharedPrompt, variantInstruction, item.specificPrompt]
+                    .filter(Boolean)
+                    .join('\n\n')
+                    .slice(0, 2000);
+                expanded.push({
+                    ...item,
+                    index: expanded.length,
+                    variantIndex,
+                    variantCount,
+                    payload: {
+                        ...item.payload,
+                        section_label: variantCount > 1
+                            ? `${item.sectionLabel} · vaihtoehto ${variantIndex}`
+                            : item.sectionLabel,
+                        prompt,
+                        variant_index: variantIndex,
+                    },
+                });
+            }
+        });
+        return expanded;
     }
 
     async function ensureGraphicProject() {
@@ -7569,7 +7830,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             visualWithoutText.checked = data.without_text;
         }
         visualBatchRows?.replaceChildren();
-        prompts.forEach(item => addVisualBatchRow(item));
+        prompts.forEach(item => addVisualBatchRow(item, { skipEstimate: true }));
         rememberVisualPromptPlan({ ...data, visual_style: visualStyle }, prompts);
         visualRowsInitializedProjectId = String(window.manuscriptData?.id || 'unsaved');
         if (visualPromptCount) visualPromptCount.value = String(prompts.length);
@@ -7577,13 +7838,14 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             visualProgress.max = Math.max(1, prompts.length);
             visualProgress.value = 0;
         }
+        scheduleVisualEstimate();
         return prompts;
     }
 
     async function generateVisualPromptPlan() {
-        if (visualPromptPlanController || visualBatchController) return;
+        if (visualPromptPlanController || visualBatchController || visualImageBatchSubmitting || visualImageBatchJobId) return;
         const projectId = await ensureGraphicProject();
-        if (visualPromptPlanController || visualBatchController) return;
+        if (visualPromptPlanController || visualBatchController || visualImageBatchSubmitting || visualImageBatchJobId) return;
         if (!projectId) {
             setVisualStatus('Valitse tai tallenna käsikirjoitus ennen tyylin ja lukupromptien luontia.', true);
             return;
@@ -7641,28 +7903,72 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function syncGraphicsControls() {
         const hasProject = Boolean(window.manuscriptData);
         const editable = hasProject && canEditProject(window.manuscriptData);
-        const batchRunning = Boolean(visualBatchController);
+        const directRunning = Boolean(visualBatchController);
+        const providerBatchRunning = visualImageBatchSubmitting || Boolean(visualImageBatchJobId);
         const promptRunning = Boolean(visualPromptPlanController);
-        const graphicsRunning = batchRunning || promptRunning;
+        const graphicsRunning = directRunning || providerBatchRunning || promptRunning;
+        const mode = visualExecutionMode();
+        const imageCount = visualPlannedImageCount();
+        const estimateIsCurrent = latestVisualEstimate && latestVisualEstimateKey === visualEstimateKey();
+        const batchSupported = visualModelSupportsBatch();
+        const batchMaximum = estimateIsCurrent ? Number(latestVisualEstimate.max_batch_images) : 0;
+        const remaining = estimateIsCurrent ? Number(latestVisualEstimate.monthly_remaining) : NaN;
+        const exceedsMaximum = imageCount > VISUAL_MAX_IMAGES_PER_RUN
+            || (mode === 'batch' && batchMaximum > 0 && imageCount > batchMaximum);
+        const exceedsQuota = latestVisualEstimate?.quota_enforced !== false
+            && Number.isFinite(remaining)
+            && imageCount > remaining;
         if (visualAddRowBtn) visualAddRowBtn.disabled = !editable || graphicsRunning || !nextUnusedVisualChapterEntry();
         if (visualGeneratePromptsBtn) {
             visualGeneratePromptsBtn.disabled = !editable || graphicsRunning || !visualChapterEntries().length;
             visualGeneratePromptsBtn.textContent = promptRunning ? 'Luodaan tyyliä ja prompteja…' : 'Luo tyyli ja lukupromptit';
         }
         if (visualGenerateAllBtn) {
-            visualGenerateAllBtn.disabled = !editable || graphicsRunning || !visualBatchRows?.children.length;
-            visualGenerateAllBtn.textContent = batchRunning ? 'Generoidaan kuvaerää…' : 'Generoi kaikki ehdotukset';
+            visualGenerateAllBtn.disabled = !editable
+                || graphicsRunning
+                || !imageCount
+                || exceedsMaximum
+                || exceedsQuota
+                || (mode === 'batch' && !batchSupported);
+            visualGenerateAllBtn.textContent = directRunning
+                ? 'Luodaan kuvia…'
+                : providerBatchRunning
+                    ? 'Gemini-eräajo käynnissä…'
+                    : mode === 'batch'
+                        ? `Lähetä ${imageCount || ''} kuvaa eräajoon`.replace(/\s+/g, ' ').trim()
+                        : `Luo ${imageCount || ''} kuvaa heti`.replace(/\s+/g, ' ').trim();
         }
         if (visualStopBtn) {
-            visualStopBtn.classList.toggle('hidden', !batchRunning);
-            visualStopBtn.disabled = !batchRunning || visualBatchController?.stopRequested;
+            visualStopBtn.classList.toggle('hidden', !directRunning && !providerBatchRunning);
+            visualStopBtn.disabled = (!directRunning && !providerBatchRunning)
+                || visualImageBatchSubmitting
+                || visualBatchController?.stopRequested;
+            visualStopBtn.textContent = visualImageBatchSubmitting
+                ? 'Lähetetään…'
+                : providerBatchRunning
+                    ? 'Peru eräajo'
+                    : (visualBatchController?.stopRequested ? 'Pysäytetään…' : 'Pysäytä');
         }
         visualBatchRows?.querySelectorAll('input, select, textarea, button').forEach(field => {
             field.disabled = !editable || graphicsRunning;
         });
-        [visualPromptCount, visualSharedPrompt, visualUseAnalysis, visualUseMemory, visualWithoutText, visualModelSelect]
+        [
+            visualPromptCount,
+            visualSharedPrompt,
+            visualUseAnalysis,
+            visualUseMemory,
+            visualWithoutText,
+            visualModelSelect,
+            visualImageSize,
+            visualVariantsPerPrompt,
+            ...visualExecutionModeInputs,
+        ]
             .filter(Boolean)
-            .forEach(field => { field.disabled = !editable || graphicsRunning; });
+            .forEach(field => {
+                field.disabled = !editable
+                    || graphicsRunning
+                    || (field.value === 'batch' && !batchSupported);
+            });
         if (infographicGenerateBtn) infographicGenerateBtn.disabled = !editable || infographicGenerateBtn.dataset.running === 'true';
     }
 
@@ -7731,9 +8037,13 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     async function generateVisualBatch() {
-        if (visualBatchController) return;
+        if (visualExecutionMode() === 'batch') {
+            await startVisualProviderBatch();
+            return;
+        }
+        if (visualBatchController || visualImageBatchJobId) return;
         const projectId = await ensureGraphicProject();
-        if (visualBatchController) return;
+        if (visualBatchController || visualImageBatchJobId) return;
         if (!projectId) {
             setVisualStatus('Valitse tai tallenna käsikirjoitus ennen kuvien generointia.', true);
             return;
@@ -7742,6 +8052,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const batch = collectVisualBatchRows();
         if (!batch.length) {
             setVisualStatus('Lisää vähintään yksi kuvaehdotuksen rivi.', true);
+            return;
+        }
+        if (batch.length > VISUAL_MAX_IMAGES_PER_RUN) {
+            setVisualStatus(`Yhdessä kuvaerässä voi olla enintään ${VISUAL_MAX_IMAGES_PER_RUN} kuvaa. Vähennä vaihtoehtojen määrää.`, true);
             return;
         }
         const batchRun = {
@@ -7795,7 +8109,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                     }
                     if (rowStatus) {
                         rowStatus.textContent = activeProjectStillMatches
-                            ? 'Valmis ja tallennettu.'
+                            ? item.variantCount > 1
+                                ? `Vaihtoehto ${item.variantIndex}/${item.variantCount} valmis ja tallennettu.`
+                                : 'Valmis ja tallennettu.'
                             : 'Valmis ja tallennettu aiempaan projektiin.';
                         rowStatus.classList.remove('is-running');
                         rowStatus.classList.add('is-complete');
@@ -7856,6 +8172,352 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             if (visualBatchController === batchRun) visualBatchController = null;
             if (visualStopBtn) visualStopBtn.textContent = 'Pysäytä';
             if (batchRun.projectChanged) renderVisualBatchDefaults(true);
+            syncGraphicsControls();
+        }
+    }
+
+    function visualProviderJobId(job) {
+        return job?.id ?? job?.batch_id ?? job?.job_id ?? null;
+    }
+
+    function visualProviderJobStatus(job) {
+        return String(job?.status || 'queued').trim().toLowerCase();
+    }
+
+    function visualProviderJobCounts(job) {
+        const total = Number(job?.total_requests ?? job?.image_count ?? job?.total_images ?? 0);
+        const completed = Number(job?.completed_requests ?? job?.completed_images ?? job?.done_images ?? 0);
+        const failed = Number(job?.failed_requests ?? job?.failed_images ?? 0);
+        return {
+            total: Number.isFinite(total) ? Math.max(0, total) : 0,
+            completed: Number.isFinite(completed) ? Math.max(0, completed) : 0,
+            failed: Number.isFinite(failed) ? Math.max(0, failed) : 0,
+        };
+    }
+
+    function visualProviderJobTerminal(status) {
+        return ['completed', 'done', 'partial', 'failed', 'error', 'cancelled', 'canceled', 'expired'].includes(String(status || '').toLowerCase());
+    }
+
+    function visualProviderBatchCountdown(targetCompletionAt) {
+        const target = new Date(targetCompletionAt || '').getTime();
+        if (!Number.isFinite(target)) return 'tavoiteaika enintään 24 h';
+        const remaining = Math.max(0, Math.ceil((target - Date.now()) / 1000));
+        if (!remaining) return '24 tunnin tavoiteaika täynnä';
+        const hours = Math.floor(remaining / 3600);
+        const minutes = Math.floor((remaining % 3600) / 60);
+        return `tavoiteaikaa jäljellä ${hours} h ${String(minutes).padStart(2, '0')} min`;
+    }
+
+    function visualProviderJobPhase(job) {
+        const status = visualProviderJobStatus(job);
+        return ({
+            submitting: 'Lähetetään Geminille',
+            queued: 'Odottaa Geminin käsittelyä',
+            running: 'Gemini luo kuvia',
+            processing: 'Valmiita kuvia tallennetaan projektiin',
+            partial: 'Eräajo valmistui osittain',
+            completed: 'Eräajo valmistui',
+            done: 'Eräajo valmistui',
+        })[status] || 'Eräajo on käsittelyssä';
+    }
+
+    function applyVisualProviderJobSettings(job) {
+        const modelName = String(job?.model_name || '');
+        if (visualModelSelect && modelName) {
+            const option = Array.from(visualModelSelect.options).find(item => (
+                item.value === modelName || item.value.endsWith(`:${modelName}`)
+            ));
+            if (option) visualModelSelect.value = option.value;
+        }
+        syncVisualModelCapabilities();
+        const imageSize = String(job?.image_size || '').toUpperCase();
+        if (visualImageSize && Array.from(visualImageSize.options).some(option => option.value === imageSize)) {
+            visualImageSize.value = imageSize;
+        }
+        const batchInput = visualExecutionModeInputs.find(input => input.value === 'batch');
+        if (batchInput && !batchInput.disabled) batchInput.checked = true;
+    }
+
+    function updateVisualProviderBatchProgress(job) {
+        const counts = visualProviderJobCounts(job);
+        const processed = Math.min(counts.total, counts.completed + counts.failed);
+        if (visualProgress) {
+            visualProgress.max = Math.max(1, counts.total);
+            visualProgress.value = processed;
+        }
+        const countCopy = counts.total
+            ? ` ${counts.completed}/${counts.total} kuvaa valmiina${counts.failed ? `, ${counts.failed} epäonnistui` : ''}.`
+            : '';
+        setVisualStatus(`${visualProviderJobPhase(job)}.${countCopy} ${visualProviderBatchCountdown(job?.target_completion_at)}`.replace(/\.\s*\./g, '.'));
+        const resultItems = Array.isArray(job?.items) ? job.items : [];
+        visualBatchRows?.querySelectorAll('.visual-batch-row').forEach(row => {
+            const rowStatus = row.querySelector('.visual-batch-row-status');
+            if (!rowStatus) return;
+            const chapterId = String(row.querySelector('.visual-row-chapter')?.value || '');
+            const matches = resultItems.filter(item => String(item?.chapter_custom_id || '') === chapterId);
+            const ready = matches.filter(item => ['completed', 'done', 'succeeded'].includes(String(item?.status || '').toLowerCase())).length;
+            const failed = matches.filter(item => ['failed', 'error'].includes(String(item?.status || '').toLowerCase())).length;
+            const processed = ready + failed;
+            rowStatus.textContent = matches.length && processed
+                ? `${ready}/${matches.length} vaihtoehtoa valmiina${failed ? `, ${failed} epäonnistui` : ''}.`
+                : `${visualProviderJobPhase(job)}…`;
+            rowStatus.classList.toggle(
+                'is-running',
+                !visualProviderJobTerminal(visualProviderJobStatus(job)) && (!matches.length || processed < matches.length),
+            );
+            rowStatus.classList.toggle('is-complete', Boolean(matches.length && ready === matches.length));
+            rowStatus.classList.toggle('is-error', failed > 0);
+        });
+    }
+
+    function clearVisualProviderBatchState(token = visualImageBatchPollToken) {
+        if (token && visualImageBatchPollToken && token !== visualImageBatchPollToken) return;
+        if (visualImageBatchPollToken) visualImageBatchPollToken.stopped = true;
+        visualImageBatchPollToken = null;
+        visualImageBatchJobId = null;
+        visualImageBatchProjectId = null;
+        visualImageBatchLastStatus = null;
+        syncGraphicsControls();
+    }
+
+    function detachVisualProviderBatchForProjectChange(nextProjectId) {
+        const currentProjectId = String(visualImageBatchProjectId || '');
+        if (!currentProjectId || currentProjectId === String(nextProjectId || '')) return false;
+        if (visualImageBatchPollToken) visualImageBatchPollToken.stopped = true;
+        visualImageBatchPollToken = null;
+        visualImageBatchJobId = null;
+        visualImageBatchProjectId = null;
+        visualImageBatchLastStatus = null;
+        syncGraphicsControls();
+        return true;
+    }
+
+    async function finishVisualProviderBatch(job, token) {
+        if (visualImageBatchPollToken !== token || token.stopped) return;
+        const status = visualProviderJobStatus(job);
+        const counts = visualProviderJobCounts(job);
+        const projectStillActive = activeGraphicProjectId() === token.projectId;
+        clearVisualProviderBatchState(token);
+        if (!projectStillActive) return;
+        await loadGraphicAssets(false, { force: true });
+        loadUsage();
+        if (status === 'completed' || status === 'done') {
+            setVisualStatus(`Gemini-eräajo valmistui. ${counts.completed || counts.total} kuvaa tallennettiin projektiin.`);
+        } else if (status === 'partial') {
+            setVisualStatus(`Gemini-eräajo valmistui osittain. ${counts.completed}/${counts.total} kuvaa tallennettiin ja ${counts.failed} epäonnistui.`, true);
+        } else if (status === 'cancelled' || status === 'canceled') {
+            setVisualStatus('Gemini-eräajo peruttiin. Vain ennen tämän eräajon käynnistämistä projektiin valmiiksi tallennetut kuvat säilyvät varmasti; keskeneräisen erän tuloksia ei luvata.');
+        } else if (status === 'expired') {
+            setVisualStatus('Gemini-eräajo ei valmistunut 24 tunnissa. Vain ennen tämän eräajon käynnistämistä projektiin valmiiksi tallennetut kuvat säilyvät varmasti; keskeneräisen erän tuloksia ei luvata.', true);
+        } else {
+            setVisualStatus(job?.error || job?.error_message || 'Gemini-eräajo epäonnistui.', true);
+        }
+        visualBatchRows?.querySelectorAll('.visual-batch-row-status').forEach(rowStatus => {
+            rowStatus.textContent = status === 'completed' || status === 'done'
+                ? 'Eräajo valmis. Kuvat on tallennettu projektiin.'
+                : 'Eräajo päättyi. Tarkista tallennetut kuvat ja eräajon yhteenveto.';
+            rowStatus.classList.remove('is-running');
+            rowStatus.classList.toggle('is-complete', status === 'completed' || status === 'done');
+            rowStatus.classList.toggle('is-error', !['completed', 'done', 'cancelled', 'canceled'].includes(status));
+        });
+        scheduleVisualEstimate({ immediate: true });
+    }
+
+    async function monitorVisualProviderBatch(initialJob) {
+        const jobId = visualProviderJobId(initialJob);
+        const projectId = String(initialJob?.project_id || visualImageBatchProjectId || activeGraphicProjectId());
+        if (!jobId || !projectId) return;
+        applyVisualProviderJobSettings(initialJob);
+        const token = { jobId: String(jobId), projectId, stopped: false };
+        if (visualImageBatchPollToken) visualImageBatchPollToken.stopped = true;
+        visualImageBatchPollToken = token;
+        visualImageBatchJobId = jobId;
+        visualImageBatchProjectId = projectId;
+        visualImageBatchLastStatus = initialJob;
+        let job = initialJob;
+        let consecutiveErrors = 0;
+        syncGraphicsControls();
+        while (!token.stopped && visualImageBatchPollToken === token) {
+            if (activeGraphicProjectId() !== projectId) {
+                token.stopped = true;
+                break;
+            }
+            updateVisualProviderBatchProgress(job);
+            const status = visualProviderJobStatus(job);
+            if (visualProviderJobTerminal(status)) {
+                await finishVisualProviderBatch(job, token);
+                return;
+            }
+            await wait(VISUAL_BATCH_POLL_INTERVAL_MS);
+            if (token.stopped || visualImageBatchPollToken !== token) break;
+            try {
+                const response = await apiFetch(`/api/visual-image-jobs/${jobId}`);
+                const data = await response.json().catch(() => null);
+                if (!response.ok) throw new Error(data?.detail || 'Eräajon tilaa ei saatu päivitettyä.');
+                job = data?.job || data || {};
+                visualImageBatchLastStatus = job;
+                consecutiveErrors = 0;
+            } catch (error) {
+                consecutiveErrors += 1;
+                if (consecutiveErrors >= 3) {
+                    setVisualStatus('Yhteys eräajon tilaan katkesi. Työ jatkuu palvelimella; avaa Kuvamaailma myöhemmin nähdäksesi tilanteen.', true);
+                    clearVisualProviderBatchState(token);
+                    return;
+                }
+                setVisualStatus(`Eräajo jatkuu palvelimella. Tilan päivitys epäonnistui, yritetään uudelleen (${consecutiveErrors}/3)…`);
+            }
+        }
+        if (visualImageBatchPollToken === token) clearVisualProviderBatchState(token);
+    }
+
+    async function resumeVisualImageBatchJob() {
+        const projectId = activeGraphicProjectId();
+        if (!projectId || visualBatchController || visualImageBatchJobId || visualImageBatchResumePromise) return;
+        const requestedProjectId = String(projectId);
+        visualImageBatchResumePromise = (async () => {
+            try {
+                const response = await apiFetch(`/api/projects/${requestedProjectId}/visual-image-jobs/active`);
+                const data = await response.json().catch(() => null);
+                if (response.status === 404 || response.status === 204) return;
+                if (!response.ok) throw new Error(data?.detail || 'Keskeneräisen kuvaerän tilaa ei saatu ladattua.');
+                const job = data?.job || data;
+                if (!visualProviderJobId(job) || activeGraphicProjectId() !== requestedProjectId) return;
+                visualImageBatchJobId = visualProviderJobId(job);
+                visualImageBatchProjectId = requestedProjectId;
+                updateVisualProviderBatchProgress(job);
+                void monitorVisualProviderBatch(job);
+            } catch (error) {
+                if (activeGraphicProjectId() === requestedProjectId) {
+                    setVisualStatus(networkFailureMessage(error), true);
+                }
+            }
+        })();
+        try {
+            await visualImageBatchResumePromise;
+        } finally {
+            visualImageBatchResumePromise = null;
+        }
+    }
+
+    function visualProviderBatchItems() {
+        return collectVisualBatchRows().map(item => ({
+            prompt: item.payload.prompt,
+            section_label: item.sectionLabel,
+            chapter_custom_id: item.payload.chapter_custom_id,
+            visual_kind: item.payload.visual_kind,
+            aspect_ratio: item.payload.aspect_ratio,
+            variant_index: item.variantIndex,
+        }));
+    }
+
+    async function startVisualProviderBatch() {
+        if (visualBatchController || visualImageBatchSubmitting || visualImageBatchJobId) return;
+        if (!visualModelSupportsBatch()) {
+            setVisualStatus('Valittu kuvamalli ei tue Gemini-eräajoa. Valitse Gemini 3.1 Flash Image -malli tai käytä suoraa ajoa.', true);
+            return;
+        }
+        const projectId = await ensureGraphicProject();
+        if (!projectId || String(projectId) !== activeGraphicProjectId()) {
+            setVisualStatus('Valitse tai tallenna käsikirjoitus ennen eräajon käynnistämistä.', true);
+            return;
+        }
+        const items = visualProviderBatchItems();
+        if (!items.length) {
+            setVisualStatus('Lisää vähintään yksi kuvaehdotuksen rivi.', true);
+            return;
+        }
+        if (items.length > VISUAL_MAX_IMAGES_PER_RUN) {
+            setVisualStatus(`Gemini-erässä voi olla enintään ${VISUAL_MAX_IMAGES_PER_RUN} kuvaa. Vähennä vaihtoehtojen määrää.`, true);
+            return;
+        }
+        const estimate = latestVisualEstimateKey === visualEstimateKey()
+            ? latestVisualEstimate
+            : await updateVisualEstimate();
+        if (estimate && Number(estimate.max_batch_images) > 0 && items.length > Number(estimate.max_batch_images)) {
+            setVisualStatus(`Valittu malli sallii enintään ${estimate.max_batch_images} kuvaa yhdessä eräajossa.`, true);
+            return;
+        }
+        if (
+            estimate
+            && estimate.quota_enforced !== false
+            && Number.isFinite(Number(estimate.monthly_remaining))
+            && items.length > Number(estimate.monthly_remaining)
+        ) {
+            setVisualStatus(`Kuvaerä tarvitsee ${items.length} kuvapyyntöä, mutta kuukausikiintiötä on jäljellä ${Math.max(0, Number(estimate.monthly_remaining))}.`, true);
+            return;
+        }
+        visualBatchRows?.querySelectorAll('.visual-batch-row-status').forEach(status => {
+            status.textContent = 'Valmistellaan Gemini-eräajoa…';
+            status.classList.remove('is-error', 'is-complete');
+            status.classList.add('is-running');
+        });
+        if (visualProgress) {
+            visualProgress.max = items.length;
+            visualProgress.value = 0;
+        }
+        setVisualStatus(`Lähetetään ${items.length} kuvan erä Geminille. Voit sulkea sivun lähetyksen jälkeen.`);
+        visualImageBatchSubmitting = true;
+        syncGraphicsControls();
+        try {
+            const response = await apiFetch(`/api/projects/${projectId}/visual-image-jobs`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    model_name: String(selectedVisualModel()?.model_name || visualModelSelect?.value || ''),
+                    image_size: visualSelectedImageSize(),
+                    items,
+                    use_analysis: Boolean(visualUseAnalysis?.checked),
+                    use_project_memory: Boolean(visualUseMemory?.checked),
+                    without_text: Boolean(visualWithoutText?.checked),
+                }),
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'Gemini-eräajoa ei saatu käynnistettyä.');
+            const job = data?.job || data;
+            if (!visualProviderJobId(job)) throw new Error('Palvelin ei palauttanut eräajon tunnistetta.');
+            visualImageBatchJobId = visualProviderJobId(job);
+            visualImageBatchProjectId = String(projectId);
+            setVisualStatus(`Gemini-eräajo lähetettiin onnistuneesti. ${visualProviderBatchCountdown(job?.target_completion_at)}`);
+            void monitorVisualProviderBatch(job);
+            loadUsage();
+        } catch (error) {
+            setVisualStatus(networkFailureMessage(error), true);
+            visualBatchRows?.querySelectorAll('.visual-batch-row-status').forEach(status => {
+                status.textContent = 'Eräajon lähetys epäonnistui. Voit yrittää uudelleen.';
+                status.classList.remove('is-running');
+                status.classList.add('is-error');
+            });
+            clearVisualProviderBatchState();
+        } finally {
+            visualImageBatchSubmitting = false;
+            syncGraphicsControls();
+        }
+    }
+
+    async function cancelVisualProviderBatch() {
+        const jobId = visualImageBatchJobId;
+        if (!jobId) return;
+        if (!window.confirm('Perutaanko käynnissä oleva Gemini-eräajo? Vain ennen tämän eräajon käynnistämistä projektiin valmiiksi tallennetut kuvat säilyvät varmasti. Keskeneräisen erän tulosten tallentumista ei voida luvata.')) return;
+        if (visualStopBtn) {
+            visualStopBtn.disabled = true;
+            visualStopBtn.textContent = 'Perutaan…';
+        }
+        try {
+            const response = await apiFetch(`/api/visual-image-jobs/${jobId}/cancel`, { method: 'POST' });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'Gemini-eräajoa ei saatu peruttua.');
+            const job = data?.job || data || { status: 'cancelled' };
+            if (!job.status) job.status = 'cancelled';
+            const token = visualImageBatchPollToken || {
+                jobId: String(jobId),
+                projectId: String(visualImageBatchProjectId || activeGraphicProjectId()),
+                stopped: false,
+            };
+            if (!visualImageBatchPollToken) visualImageBatchPollToken = token;
+            await finishVisualProviderBatch(job, token);
+        } catch (error) {
+            setVisualStatus(networkFailureMessage(error), true);
             syncGraphicsControls();
         }
     }
@@ -9004,6 +9666,14 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 select.value = `${defaultModel.provider}:${defaultModel.model_name}`;
             }
         });
+        if (visualModelSelect) {
+            if (visualImageBatchJobId && visualImageBatchLastStatus) {
+                applyVisualProviderJobSettings(visualImageBatchLastStatus);
+            } else {
+                syncVisualModelCapabilities();
+            }
+            scheduleVisualEstimate();
+        }
     }
 
     async function loadImageModels(force = false) {
@@ -9461,9 +10131,25 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     visualGenerateAllBtn?.addEventListener('click', generateVisualBatch);
     visualGeneratePromptsBtn?.addEventListener('click', generateVisualPromptPlan);
     visualLoadMoreBtn?.addEventListener('click', () => loadMoreGraphicAssets('book_visual_image'));
+    visualModelSelect?.addEventListener('change', () => {
+        syncVisualModelCapabilities();
+        scheduleVisualEstimate({ immediate: true });
+    });
+    visualImageSize?.addEventListener('change', () => scheduleVisualEstimate({ immediate: true }));
+    visualVariantsPerPrompt?.addEventListener('input', () => scheduleVisualEstimate());
+    visualVariantsPerPrompt?.addEventListener('change', () => scheduleVisualEstimate({ immediate: true }));
+    visualExecutionModeInputs.forEach(input => input.addEventListener('change', () => {
+        syncVisualModelCapabilities();
+        scheduleVisualEstimate({ immediate: true });
+    }));
     visualStopBtn?.addEventListener('click', () => {
-        if (!visualBatchController || visualBatchController.stopRequested) return;
-        requestVisualBatchStop('Pysäytetään kuvaerää nykyisen pyynnön jälkeen…');
+        if (visualImageBatchJobId) {
+            void cancelVisualProviderBatch();
+            return;
+        }
+        if (visualBatchController && !visualBatchController.stopRequested) {
+            requestVisualBatchStop('Pysäytetään kuvaerää nykyisen pyynnön jälkeen…');
+        }
     });
     infographicTypeSelect?.addEventListener('change', () => {
         if (infographicTitleInput?.dataset.autoTitle === 'true' || !infographicTitleInput?.value.trim()) {
@@ -16689,6 +17375,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
 
     function clearActiveManuscript() {
         requestVisualBatchStopForProjectChange('');
+        detachVisualProviderBatchForProjectChange('');
+        visualEstimateController?.abort();
+        latestVisualEstimate = null;
+        latestVisualEstimateKey = '';
         invalidateGraphicAssetCache(true);
         window.manuscriptData = null;
         projectVersions = [];
@@ -16805,6 +17495,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const nextProjectId = String(data.id || '');
         if (activeGraphicProjectId() !== nextProjectId) {
             requestVisualBatchStopForProjectChange(nextProjectId);
+            detachVisualProviderBatchForProjectChange(nextProjectId);
+            visualEstimateController?.abort();
+            latestVisualEstimate = null;
+            latestVisualEstimateKey = '';
             invalidateGraphicAssetCache(true);
         }
         const versionsProjectChanged = String(loadedVersionsProjectId || '') !== String(data.id || '');

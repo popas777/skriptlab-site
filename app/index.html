@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=82">
+    <link rel="stylesheet" href="styles.css?v=83">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -2071,6 +2071,33 @@
                                 <span>Luotavien lukupromptien määrä (1–10)</span>
                                 <input id="visual-prompt-count" type="number" min="1" max="10" step="1" value="10">
                             </label>
+                            <label class="graphics-field">
+                                <span>Kuvan resoluutio</span>
+                                <select id="visual-image-size">
+                                    <option value="512">512 px</option>
+                                    <option value="1K">1K</option>
+                                    <option value="2K">2K</option>
+                                    <option value="4K">4K</option>
+                                </select>
+                            </label>
+                            <label class="graphics-field">
+                                <span>Vaihtoehtoja kustakin lukupromptista (1–10)</span>
+                                <input id="visual-variants-per-prompt" type="number" min="1" max="10" step="1" value="1">
+                            </label>
+                            <fieldset class="visual-run-mode graphics-field-wide">
+                                <legend>Ajotapa</legend>
+                                <div class="visual-run-mode-options">
+                                    <label class="visual-run-mode-option">
+                                        <input type="radio" name="visual-execution-mode" value="direct" checked>
+                                        <span><strong>Luo heti</strong><small>Kuvat valmistuvat yksi kerrallaan. Pidä tämä sivu avoinna ajon ajan.</small></span>
+                                    </label>
+                                    <label class="visual-run-mode-option" id="visual-batch-mode-option">
+                                        <input type="radio" name="visual-execution-mode" value="batch">
+                                        <span><strong>Edullinen Gemini-eräajo</strong><small>Jopa 24 tuntia. Työ jatkuu palvelimella, vaikka suljet sivun.</small></span>
+                                    </label>
+                                </div>
+                                <p id="visual-run-mode-note">Eräajo on käytettävissä sitä tukevilla Gemini-kuvamalleilla.</p>
+                            </fieldset>
                             <label class="graphics-field graphics-field-wide">
                                 <span>Yhteinen kuvallinen tyyli</span>
                                 <textarea id="visual-shared-prompt" rows="3" maxlength="700" placeholder="Esimerkiksi: hillitty pohjoismainen väripaletti, luonnollinen valo ja sama kuvallinen rytmi kaikissa ehdotuksissa."></textarea>
@@ -2088,12 +2115,19 @@
                             <label><input id="visual-use-memory" type="checkbox" checked> Hyödynnä projektimuistia</label>
                             <label><input id="visual-without-text" type="checkbox" checked> Kuva ilman tekstiä</label>
                         </div>
+                        <div class="visual-cost-estimate" aria-label="Kuvaerän hinta-arvio" aria-live="polite">
+                            <div><span>Kuvia yhteensä</span><strong id="visual-estimate-count">–</strong></div>
+                            <div><span>Arvio / kuva</span><strong id="visual-estimate-unit">–</strong></div>
+                            <div><span>Hinta-arvio</span><strong id="visual-estimate-total">–</strong></div>
+                            <div><span>Kuukausikiintiötä jäljellä</span><strong id="visual-estimate-quota">–</strong></div>
+                            <p id="visual-estimate-note">Valitse projekti ja kuvamalli, niin hinta-arvio päivittyy.</p>
+                        </div>
                     </div>
 
                     <div class="graphics-batch-heading">
                         <div>
                             <h3>Kuvaerän luvut</h3>
-                            <p>Enintään 10 varsinaista lukua muodostetaan riveiksi. Alkuosat, osaotsikot ja lopputekstit ohitetaan. Kymmenen kuvan erä käyttää 10 kuvapyyntöä.</p>
+                            <p>Enintään 10 varsinaista lukua muodostetaan riveiksi. Voit luoda kustakin promptista 1–10 vaihtoehtoa, kuitenkin enintään 100 kuvaa kerralla. Alkuosat, osaotsikot ja lopputekstit ohitetaan.</p>
                         </div>
                         <button class="btn btn-secondary" id="visual-add-row-btn" type="button">+ Lisää luku</button>
                     </div>
@@ -2105,7 +2139,7 @@
                         </div>
                         <div class="graphics-run-actions">
                             <button class="btn btn-secondary hidden" id="visual-stop-btn" type="button">Pysäytä</button>
-                            <button class="btn btn-primary" id="visual-generate-all-btn" type="button">Generoi kaikki ehdotukset</button>
+                            <button class="btn btn-primary" id="visual-generate-all-btn" type="button">Luo kuvat heti</button>
                         </div>
                     </div>
 
@@ -3680,6 +3714,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=138"></script>
+    <script src="app.js?v=140"></script>
 </body>
 </html>
