@@ -7308,6 +7308,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             visual_style: visualStyle,
             prompts,
             generated_by: String(raw.generated_by || ''),
+            without_text: typeof raw.without_text === 'boolean' ? raw.without_text : true,
             updated_at: String(raw.updated_at || ''),
         };
     }
@@ -7319,6 +7320,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             visual_style: String(data?.visual_style || '').trim().slice(0, 700),
             prompts: prompts.map(item => ({ ...item })),
             generated_by: String(data?.generated_by || ''),
+            without_text: typeof data?.without_text === 'boolean'
+                ? data.without_text
+                : Boolean(visualWithoutText?.checked),
             updated_at: new Date().toISOString(),
         };
     }
@@ -7461,6 +7465,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         visualBatchRows.replaceChildren();
         const savedPlan = storedVisualPromptPlan();
         if (projectChanged && visualSharedPrompt) visualSharedPrompt.value = savedPlan?.visual_style || '';
+        if (projectChanged && visualWithoutText) visualWithoutText.checked = savedPlan?.without_text ?? true;
         if (savedPlan?.prompts.length) {
             savedPlan.prompts.forEach(item => addVisualBatchRow(item));
             if (visualPromptCount) visualPromptCount.value = String(savedPlan.prompts.length);
@@ -7560,6 +7565,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }).filter(Boolean).slice(0, 10);
         if (!prompts.length) throw new Error('Kuvapromptteja ei saatu muodostettua valituille luvuille.');
         if (visualSharedPrompt) visualSharedPrompt.value = visualStyle;
+        if (visualWithoutText && typeof data?.without_text === 'boolean') {
+            visualWithoutText.checked = data.without_text;
+        }
         visualBatchRows?.replaceChildren();
         prompts.forEach(item => addVisualBatchRow(item));
         rememberVisualPromptPlan({ ...data, visual_style: visualStyle }, prompts);
@@ -7607,6 +7615,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                     style_hint: visualSharedPrompt?.value.trim() || null,
                     use_analysis: Boolean(visualUseAnalysis?.checked),
                     use_project_memory: Boolean(visualUseMemory?.checked),
+                    without_text: Boolean(visualWithoutText?.checked),
                 }),
             });
             const data = await response.json().catch(() => null);
