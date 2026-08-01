@@ -7077,6 +7077,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     };
 
 	    // --- 5. Kuvitus Logic ---
+    const VISUAL_BATCH_REQUEST_DELAY_MS = 10000;
+    const VISUAL_BATCH_RETRY_DELAY_MS = 10000;
+    const VISUAL_BATCH_MAX_REQUEST_ATTEMPTS = 2;
     const visualKindDefinitions = [
         { value: 'chapter_opening', label: 'Luvun tai osion avauskuva' },
         { value: 'scene', label: 'Kohtauskuva' },
@@ -7226,24 +7229,76 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     function visualChapterEntries() {
-        const bodyEntries = bodyChapterEntries();
-        if (bodyEntries.length) return bodyEntries;
-        return (window.manuscriptData?.chapters || []).map((chapter, index) => ({ chapter, index }));
+        const projectTitle = normalizeBookSectionTitle(window.manuscriptData?.title || '').toLocaleLowerCase('fi-FI');
+        return (window.manuscriptData?.chapters || [])
+            .map((chapter, index) => ({ chapter, index }))
+            .filter(({ chapter, index }) => {
+                const title = normalizeBookSectionTitle(structureDisplayTitle(chapter, index)).toLocaleLowerCase('fi-FI');
+                const id = String(chapter?.id || '').trim().toLocaleLowerCase('fi-FI').replace(/[\s-]+/g, '_');
+                const apiKind = String(chapter?.kind || chapter?.placement || '').trim().toLocaleLowerCase('fi-FI');
+                const structureKind = structureChapterKind(chapter);
+                const excludedId = /^(?:alku|kansi|nimiolehti|title_page|valinimilehti|tekijanoikeus|omistus|epigrafi|sisallys|toc|esipuhe|johdanto|alkusoitto|prelude|overture|prologi|prologue|osa|part|aliluku|subchapter|epilogi|epilogue|loppu|jalkisanat|liite|sanasto|bibliografia|kiitokset|huomautukset|hakemisto|kolofoni)(?:_|$)/.test(id);
+                const excludedTitle = /^(?:alkusoitto|prelude|overture|prologi|prologue|epilogi|epilogue|osa|part|aliluku|subchapter|kansi|cover|nimiölehti|nimiolehti|title page|sisällys|sisallys|table of contents|esipuhe|preface|johdanto|introduction|jälkisanat|jalkisanat|afterword|liite|appendix|sanasto|glossary|bibliografia|bibliography|kiitokset|acknowledgements|hakemisto|index|kolofoni|colophon)(?:\b|\s*[:\-–])/.test(title);
+                const hasText = (chapter?.paragraphs || []).some(paragraph => String(paragraph || '').trim());
+                return hasText
+                    && chapterPlacement(chapter, index) === 'body'
+                    && structureKind === 'chapter'
+                    && !['front', 'part', 'back'].includes(apiKind)
+                    && !excludedId
+                    && !excludedTitle
+                    && !(projectTitle && title === projectTitle);
+            });
+    }
+
+    function visualChapterEntry(chapterId) {
+        return visualChapterEntries().find(({ chapter }) => String(chapter.id || '') === String(chapterId || '')) || null;
+    }
+
+    function visualChapterExcerpt(chapter, index, maxChars = 560) {
+        const title = normalizeBookSectionTitle(structureDisplayTitle(chapter, index)).toLocaleLowerCase('fi-FI');
+        const text = (chapter?.paragraphs || [])
+            .map(paragraph => String(paragraph || '').replace(/^#{1,6}\s+/, '').replace(/\s+/g, ' ').trim())
+            .filter(paragraph => paragraph && paragraph.toLocaleLowerCase('fi-FI') !== title)
+            .join(' ')
+            .trim();
+        if (text.length <= maxChars) return text;
+        const compact = text.slice(0, maxChars + 1);
+        const lastSpace = compact.lastIndexOf(' ');
+        return `${compact.slice(0, lastSpace > maxChars * .65 ? lastSpace : maxChars).trim()}…`;
+    }
+
+    function visualChapterPrompt(chapter, index) {
+        const title = structureDisplayTitle(chapter, index) || `Luku ${index + 1}`;
+        const excerpt = visualChapterExcerpt(chapter, index);
+        return [
+            `Kuvita luvun ”${title}” yksi keskeinen, konkreettinen kohtaus.`,
+            'Perusta henkilöt, tapahtumapaikka, toiminta, aikakausi ja tunnelma vain tämän luvun sisältöön.',
+            'Älä kuvita luvun otsikkoa otsikkokorttina äläkä lisää kuvaan tekstiä.',
+            excerpt ? `Luvun aineisto: ${excerpt}` : '',
+        ].filter(Boolean).join(' ').slice(0, 1200);
+    }
+
+    function nextUnusedVisualChapterEntry() {
+        const used = new Set(Array.from(visualBatchRows?.querySelectorAll('.visual-row-chapter') || []).map(select => String(select.value || '')));
+        return visualChapterEntries().find(({ chapter }) => !used.has(String(chapter.id || ''))) || null;
     }
 
     function visualChapterTitle(chapterId) {
-        if (!chapterId) return 'Koko teos';
-        const entry = visualChapterEntries().find(({ chapter }) => String(chapter.id || '') === String(chapterId));
-        return entry ? (structureDisplayTitle(entry.chapter, entry.index) || 'Nimetön osio') : 'Valittu osio';
+        const entry = visualChapterEntry(chapterId);
+        return entry ? (structureDisplayTitle(entry.chapter, entry.index) || 'Nimetön luku') : 'Valitse luku';
     }
 
     function visualChapterOptions(selectedId = '') {
-        const options = visualChapterEntries().map(({ chapter, index }) => {
+        const entries = visualChapterEntries();
+        if (!entries.length) return '<option value="" selected disabled>Varsinaisia tekstillisiä lukuja ei löytynyt</option>';
+        const resolvedId = entries.some(({ chapter }) => String(chapter.id || '') === String(selectedId || ''))
+            ? String(selectedId || '')
+            : String(entries[0].chapter.id || '');
+        return entries.map(({ chapter, index }) => {
             const chapterId = String(chapter.id || '');
-            const title = structureDisplayTitle(chapter, index) || `Osio ${index + 1}`;
-            return `<option value="${escapeHtml(chapterId)}"${chapterId === String(selectedId || '') ? ' selected' : ''}>${escapeHtml(title)}</option>`;
-        });
-        return `<option value=""${selectedId ? '' : ' selected'}>Koko teos / ei osiokohtaista sidosta</option>${options.join('')}`;
+            const title = structureDisplayTitle(chapter, index) || `Luku ${index + 1}`;
+            return `<option value="${escapeHtml(chapterId)}"${chapterId === resolvedId ? ' selected' : ''}>${escapeHtml(title)}</option>`;
+        }).join('');
     }
 
     function visualKindOptions(selected = 'chapter_opening') {
@@ -7269,12 +7324,17 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function addVisualBatchRow(initial = {}, options = {}) {
         if (!visualBatchRows) return null;
+        const fallbackEntry = nextUnusedVisualChapterEntry() || visualChapterEntries()[0] || null;
+        const selectedEntry = visualChapterEntry(initial.chapter_custom_id) || fallbackEntry;
+        if (!selectedEntry) return null;
         const rowId = `visual-row-${++visualBatchRowSequence}`;
-        const chapterId = String(initial.chapter_custom_id || '');
-        const sectionLabel = String(initial.section_label || visualChapterTitle(chapterId));
+        const chapterId = String(selectedEntry.chapter.id || '');
+        const sectionLabel = String(initial.section_label || structureDisplayTitle(selectedEntry.chapter, selectedEntry.index) || `Luku ${selectedEntry.index + 1}`);
+        const chapterPrompt = String(initial.prompt || visualChapterPrompt(selectedEntry.chapter, selectedEntry.index));
         const row = document.createElement('article');
         row.className = 'visual-batch-row glass-panel';
         row.dataset.visualRowId = rowId;
+        row.dataset.visualPromptAuto = initial.prompt ? 'false' : 'true';
         row.innerHTML = `
             <div class="visual-batch-row-header">
                 <span class="visual-batch-row-number">00</span>
@@ -7283,7 +7343,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             </div>
             <div class="visual-batch-row-fields">
                 <label class="graphics-field">
-                    <span>Kirjan osio</span>
+                    <span>Kirjan luku</span>
                     <select class="visual-row-chapter">${visualChapterOptions(chapterId)}</select>
                 </label>
                 <label class="graphics-field">
@@ -7299,17 +7359,23 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                     <input class="visual-row-label" type="text" maxlength="160" value="${escapeHtml(sectionLabel)}" placeholder="Esimerkiksi Luku 1 · avauskuva">
                 </label>
                 <label class="graphics-field graphics-field-wide">
-                    <span>Rivikohtainen kuvaohje</span>
-                    <textarea class="visual-row-prompt" rows="3" maxlength="1200" placeholder="Kuvaile tärkein tapahtuma, henkilö, paikka, tunnelma tai symboli. Voit jättää kentän tyhjäksi, jos analyysi ja projektimuisti saavat ohjata ehdotusta.">${escapeHtml(initial.prompt || '')}</textarea>
+                    <span>Lukukohtainen prompti</span>
+                    <textarea class="visual-row-prompt" rows="4" maxlength="1200" placeholder="Luvun tekstiin perustuva prompti muodostetaan automaattisesti.">${escapeHtml(chapterPrompt)}</textarea>
                 </label>
             </div>
             <p class="visual-batch-row-status" role="status">Odottaa generointia.</p>
         `;
         const chapterSelect = row.querySelector('.visual-row-chapter');
         const labelInput = row.querySelector('.visual-row-label');
+        const promptInput = row.querySelector('.visual-row-prompt');
         chapterSelect?.addEventListener('change', () => {
-            if (labelInput) labelInput.value = visualChapterTitle(chapterSelect.value);
+            const entry = visualChapterEntry(chapterSelect.value);
+            if (!entry) return;
+            if (labelInput) labelInput.value = structureDisplayTitle(entry.chapter, entry.index) || `Luku ${entry.index + 1}`;
+            if (promptInput) promptInput.value = visualChapterPrompt(entry.chapter, entry.index);
+            row.dataset.visualPromptAuto = 'true';
         });
+        promptInput?.addEventListener('input', () => { row.dataset.visualPromptAuto = 'false'; });
         row.querySelector('.visual-row-remove')?.addEventListener('click', () => {
             row.remove();
             renumberVisualBatchRows();
@@ -7325,23 +7391,33 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         return row;
     }
 
+    function refreshAutomaticVisualChapterPrompts() {
+        visualBatchRows?.querySelectorAll('.visual-batch-row').forEach(row => {
+            if (row.dataset.visualPromptAuto !== 'true') return;
+            const entry = visualChapterEntry(row.querySelector('.visual-row-chapter')?.value || '');
+            const promptInput = row.querySelector('.visual-row-prompt');
+            if (entry && promptInput) promptInput.value = visualChapterPrompt(entry.chapter, entry.index);
+        });
+    }
+
     function renderVisualBatchDefaults(force = false) {
         if (!visualBatchRows) return;
         const projectId = String(window.manuscriptData?.id || 'unsaved');
         const projectChanged = visualRowsInitializedProjectId !== projectId;
-        if (!force && !projectChanged && visualBatchRows.children.length) return;
+        if (!force && !projectChanged && visualBatchRows.children.length) {
+            refreshAutomaticVisualChapterPrompts();
+            return;
+        }
         if (visualBatchController) return;
         visualBatchRows.replaceChildren();
         const entries = visualChapterEntries().slice(0, 3);
         if (entries.length) {
-            entries.forEach(({ chapter, index }, rowIndex) => addVisualBatchRow({
+            entries.forEach(({ chapter, index }) => addVisualBatchRow({
                 chapter_custom_id: String(chapter.id || ''),
-                section_label: structureDisplayTitle(chapter, index) || `Osio ${index + 1}`,
-                visual_kind: rowIndex === 0 ? 'chapter_opening' : 'scene',
+                section_label: structureDisplayTitle(chapter, index) || `Luku ${index + 1}`,
+                visual_kind: 'scene',
                 aspect_ratio: '3:4',
             }));
-        } else {
-            addVisualBatchRow({ section_label: 'Koko teos', visual_kind: 'atmosphere', aspect_ratio: '3:4' });
         }
         if (projectChanged && visualSharedPrompt) visualSharedPrompt.value = '';
         visualRowsInitializedProjectId = projectId;
@@ -7349,9 +7425,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             visualProgress.max = Math.max(1, visualBatchRows.children.length);
             visualProgress.value = 0;
         }
-        setVisualStatus(window.manuscriptData
-            ? `${visualBatchRows.children.length} kuvaehdotusta valmiina ajoon.`
-            : 'Valitse projekti ennen kuvien generointia.');
+        setVisualStatus(!window.manuscriptData
+            ? 'Valitse projekti ennen kuvien generointia.'
+            : visualBatchRows.children.length
+                ? `${visualBatchRows.children.length} luvun promptit muodostettiin ja kuvaehdotukset ovat valmiina ajoon.`
+                : 'Projektista ei löytynyt varsinaisia tekstillisiä lukuja Kuvamaailmaa varten.',
+            Boolean(window.manuscriptData && !visualBatchRows.children.length));
         syncGraphicsControls();
     }
 
@@ -7368,7 +7447,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                     model: visualModelSelect?.value || null,
                     visual_kind: row.querySelector('.visual-row-kind')?.value || 'chapter_opening',
                     section_label: row.querySelector('.visual-row-label')?.value.trim() || visualChapterTitle(chapterId),
-                    chapter_custom_id: chapterId || null,
+                    chapter_custom_id: chapterId,
                     prompt: prompt.slice(0, 2000),
                     aspect_ratio: row.querySelector('.visual-row-aspect')?.value || '3:4',
                     use_analysis: Boolean(visualUseAnalysis?.checked),
@@ -7376,7 +7455,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                     without_text: Boolean(visualWithoutText?.checked),
                 },
             };
-        });
+        }).filter(item => item.payload.chapter_custom_id && item.payload.prompt);
     }
 
     async function ensureGraphicProject() {
@@ -7391,7 +7470,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const hasProject = Boolean(window.manuscriptData);
         const editable = hasProject && canEditProject(window.manuscriptData);
         const batchRunning = Boolean(visualBatchController);
-        if (visualAddRowBtn) visualAddRowBtn.disabled = !editable || batchRunning;
+        if (visualAddRowBtn) visualAddRowBtn.disabled = !editable || batchRunning || !nextUnusedVisualChapterEntry();
         if (visualGenerateAllBtn) {
             visualGenerateAllBtn.disabled = !editable || batchRunning || !visualBatchRows?.children.length;
             visualGenerateAllBtn.textContent = batchRunning ? 'Generoidaan kuvaerää…' : 'Generoi kaikki ehdotukset';
@@ -7404,6 +7483,70 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             field.disabled = !editable || batchRunning;
         });
         if (infographicGenerateBtn) infographicGenerateBtn.disabled = !editable || infographicGenerateBtn.dataset.running === 'true';
+    }
+
+    async function waitForVisualBatch(batchRun, delayMs, statusMessage) {
+        const deadline = Date.now() + Math.max(0, Number(delayMs || 0));
+        let previousSeconds = null;
+        while (Date.now() < deadline) {
+            if (!visualBatchUsesActiveProject(batchRun)) {
+                batchRun.stopRequested = true;
+                batchRun.projectChanged = true;
+            }
+            if (batchRun.stopRequested) return false;
+            const seconds = Math.max(1, Math.ceil((deadline - Date.now()) / 1000));
+            if (seconds !== previousSeconds) {
+                setVisualStatus(`${statusMessage} ${seconds} s…`);
+                previousSeconds = seconds;
+            }
+            await wait(Math.min(500, Math.max(0, deadline - Date.now())));
+        }
+        return !batchRun.stopRequested;
+    }
+
+    function visualBatchErrorMessage(error) {
+        const message = String(error?.message || '').trim();
+        if (message && !/failed to fetch|networkerror|load failed/i.test(message)) return message;
+        return 'Yhteys kuvamalliin katkesi. Valmiit kuvat säilyvät, ja epäonnistuneen luvun voi ajaa uudelleen.';
+    }
+
+    async function requestVisualBatchImage(projectId, item, batch, batchRun, rowStatus) {
+        let lastError = null;
+        for (let attempt = 1; attempt <= VISUAL_BATCH_MAX_REQUEST_ATTEMPTS; attempt += 1) {
+            try {
+                const response = await apiFetch(`/api/projects/${projectId}/visual-images`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(item.payload),
+                });
+                const data = await response.json().catch(() => null);
+                if (response.ok) return data;
+                const error = new Error(data?.detail || 'Kuvaehdotuksen generointi epäonnistui.');
+                error.status = response.status;
+                const retryAfter = Number(response.headers?.get?.('Retry-After') || 0);
+                error.retryAfterMs = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 0;
+                error.stopBatch = response.status === 429;
+                throw error;
+            } catch (error) {
+                lastError = error;
+                const retryable = [408, 425, 502, 503, 504].includes(Number(error?.status));
+                if (error?.stopBatch || !retryable || attempt >= VISUAL_BATCH_MAX_REQUEST_ATTEMPTS) throw error;
+                const delayMs = Math.max(error.retryAfterMs || 0, VISUAL_BATCH_RETRY_DELAY_MS * attempt);
+                if (rowStatus) rowStatus.textContent = `Kuvamalli tarvitsee hetken. Uusi yritys ${attempt + 1}/${VISUAL_BATCH_MAX_REQUEST_ATTEMPTS} odottaa…`;
+                const canContinue = await waitForVisualBatch(
+                    batchRun,
+                    delayMs,
+                    `Kuvamalli tarvitsee hetken ennen luvun ${item.index + 1}/${batch.length} uutta yritystä. Odotetaan`,
+                );
+                if (!canContinue) {
+                    const stoppedError = new Error('Kuvaerä pysäytettiin odotuksen aikana.');
+                    stoppedError.batchStopped = true;
+                    throw stoppedError;
+                }
+                if (rowStatus) rowStatus.textContent = `Generoidaan uudelleen ${item.index + 1}/${batch.length}…`;
+            }
+        }
+        throw lastError || new Error('Kuvaehdotuksen generointi epäonnistui.');
     }
 
     async function generateVisualBatch() {
@@ -7443,7 +7586,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         let completed = 0;
         let stopped = false;
         try {
-            for (const item of batch) {
+            for (let batchIndex = 0; batchIndex < batch.length; batchIndex += 1) {
+                const item = batch[batchIndex];
                 if (!visualBatchUsesActiveProject(batchRun)) {
                     batchRun.stopRequested = true;
                     batchRun.projectChanged = true;
@@ -7459,13 +7603,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 }
                 setVisualStatus(`Generoidaan kuvaehdotusta ${item.index + 1}/${batch.length}: ${item.payload.section_label}. Valmiit kuvat tallentuvat heti.`);
                 try {
-                    const response = await apiFetch(`/api/projects/${projectId}/visual-images`, {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify(item.payload),
-                    });
-                    const data = await response.json().catch(() => null);
-                    if (!response.ok) throw new Error(data?.detail || 'Kuvaehdotuksen generointi epäonnistui.');
+                    const data = await requestVisualBatchImage(projectId, item, batch, batchRun, rowStatus);
                     completed += 1;
                     const activeProjectStillMatches = visualBatchUsesActiveProject(batchRun);
                     if (activeProjectStillMatches) {
@@ -7482,12 +7620,20 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                         rowStatus.classList.add('is-complete');
                     }
                 } catch (error) {
-                    const message = networkFailureMessage(error);
+                    if (error?.batchStopped) {
+                        stopped = true;
+                        break;
+                    }
+                    const message = visualBatchErrorMessage(error);
                     failures.push({ label: item.payload.section_label, message });
                     if (rowStatus) {
                         rowStatus.textContent = message;
                         rowStatus.classList.remove('is-running');
                         rowStatus.classList.add('is-error');
+                    }
+                    if (error?.stopBatch) {
+                        batchRun.stopRequested = true;
+                        batchRun.stopReason = 'usage_limit';
                     }
                 } finally {
                     if (visualProgress) visualProgress.value = item.index + 1;
@@ -7500,11 +7646,24 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                     stopped = true;
                     break;
                 }
+                if (batchIndex < batch.length - 1) {
+                    const canContinue = await waitForVisualBatch(
+                        batchRun,
+                        VISUAL_BATCH_REQUEST_DELAY_MS,
+                        `Kuva ${batchIndex + 1}/${batch.length} on käsitelty. Annetaan kuvamallille hetki ennen seuraavaa pyyntöä. Odotetaan`,
+                    );
+                    if (!canContinue) {
+                        stopped = true;
+                        break;
+                    }
+                }
             }
             await loadGraphicAssets(false, { force: true });
             loadUsage();
             if (batchRun.projectChanged) {
                 // The active project owns the visible status and gallery now.
+            } else if (batchRun.stopReason === 'usage_limit') {
+                setVisualStatus(`Kuvaerä keskeytettiin käyttörajaan. ${completed}/${batch.length} kuvaa valmistui; valmiit kuvat ovat tallessa.`, true);
             } else if (stopped) {
                 setVisualStatus(`Kuvaerä pysäytettiin. ${completed}/${batch.length} kuvaa valmistui${failures.length ? ` ja ${failures.length} epäonnistui` : ''}.`, Boolean(failures.length));
             } else if (failures.length) {
@@ -9104,11 +9263,20 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         button.addEventListener('click', () => setGraphicsTab(button.dataset.graphicsPanel));
         button.addEventListener('keydown', handleGraphicsTabKeydown);
     });
-    visualAddRowBtn?.addEventListener('click', () => addVisualBatchRow({
-        section_label: 'Koko teos',
-        visual_kind: 'atmosphere',
-        aspect_ratio: '3:4',
-    }, { focus: true }));
+    visualAddRowBtn?.addEventListener('click', () => {
+        const entry = nextUnusedVisualChapterEntry();
+        if (!entry) {
+            setVisualStatus('Kaikille varsinaisille luvuille on jo kuvaehdotuksen rivi.', true);
+            return;
+        }
+        addVisualBatchRow({
+            chapter_custom_id: String(entry.chapter.id || ''),
+            section_label: structureDisplayTitle(entry.chapter, entry.index) || `Luku ${entry.index + 1}`,
+            visual_kind: 'scene',
+            aspect_ratio: '3:4',
+        }, { focus: true });
+        setVisualStatus(`${visualBatchRows.children.length} luvun promptit ovat valmiina ajoon.`);
+    });
     visualGenerateAllBtn?.addEventListener('click', generateVisualBatch);
     visualLoadMoreBtn?.addEventListener('click', () => loadMoreGraphicAssets('book_visual_image'));
     visualStopBtn?.addEventListener('click', () => {

@@ -2054,7 +2054,7 @@
                         <div>
                             <span class="graphics-workspace-kicker">KUVAMAAILMA</span>
                             <h3>Luo usean osion kuvaehdotukset yhdellä kertaa</h3>
-                            <p>Rakenna riveistä kuvaerä. Jokainen rivi tuottaa yhden projektin ilmeeseen ja valittuun kirjan osioon sidotun ehdotuksen.</p>
+                            <p>Rakenna varsinaisista luvuista kuvaerä. Jokainen rivi saa oman luvun tekstiin perustuvan, muokattavan promptin.</p>
                         </div>
                         <span class="graphics-context-badge">Analyysi + projektimuisti</span>
                     </div>
@@ -2081,10 +2081,10 @@
 
                     <div class="graphics-batch-heading">
                         <div>
-                            <h3>Kuvaerän osiot</h3>
-                            <p>Ensimmäiset rivit muodostetaan automaattisesti projektin ensimmäisistä tekstillisistä osioista.</p>
+                            <h3>Kuvaerän luvut</h3>
+                            <p>Ensimmäiset rivit muodostetaan automaattisesti vain varsinaisista tekstillisistä luvuista. Alkuosat, osaotsikot ja lopputekstit ohitetaan.</p>
                         </div>
-                        <button class="btn btn-secondary" id="visual-add-row-btn" type="button">+ Lisää osio</button>
+                        <button class="btn btn-secondary" id="visual-add-row-btn" type="button">+ Lisää luku</button>
                     </div>
                     <div id="visual-batch-rows" class="visual-batch-rows" aria-live="polite"></div>
                     <div class="graphics-run-bar">
@@ -3669,6 +3669,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=135"></script>
+    <script src="app.js?v=136"></script>
 </body>
 </html>
