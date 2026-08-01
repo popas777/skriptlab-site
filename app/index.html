@@ -221,7 +221,7 @@
                         <span class="publisher-demo-kicker">Kustantamodemo · valmis esityspolku</span>
                         <h2>Käsikirjoituksesta julkaisuksi</h2>
                         <p>
-                            Demokäsikirjoitus on tuotu tarkastettuna käännösversiona. Etene vasemmalta oikealle ja näytä, kuinka käyttäjä viimeistelee ja paketoi aineiston sekä valmistelee sen omaa jatkokäyttöään varten.
+                            Middlemarchin ensimmäinen kirja on tuotu tarkastettuna suomennoksena. Etene vasemmalta oikealle ja näytä, kuinka sama teos viimeistellään, paketoidaan, lokalisoidaan ja viedään kampanjaksi.
                         </p>
                         <div class="publisher-demo-facts" aria-label="Demokirjan valmiustiedot">
                             <span>13 tekstiosaa</span>
@@ -1522,7 +1522,7 @@
                         </div>
                     </div>
                     <p class="publish-note">
-                        SkriptLab auttaa valmistelemaan tekstiä, metadataa, oheisaineistoja ja tuotantoon tarvittavia koosteita. SkriptLab on ohjelmistoyritys eikä julkaise, painata tai myy kirjoja. Varsinaisen julkaisun, jakelun ja painatuksen hoitaa käyttäjä, kustantaja tai tämän valitsema kumppani.
+                        SkriptLab auttaa valmistelemaan tekstiä, metadataa, oheisaineistoja ja tuotantoon tarvittavia koosteita. Varsinainen julkaisu, sopimukset, hinnoittelu ja oikeuksien luovutus päätetään aina erikseen.
                     </p>
                 </section>
             </div>
@@ -2473,6 +2473,7 @@
                             <div class="audio-production-actions">
                                 <button class="btn btn-primary" id="audio-production-start-btn" type="button" disabled>Luo äänikirja</button>
                                 <button class="btn btn-secondary" id="audio-production-batch-start-btn" type="button" disabled>Edullinen eräajo · 24 h</button>
+                                <button class="btn btn-secondary hidden" id="audio-production-cancel-btn" type="button">Pysäytä tuotanto</button>
                                 <button class="btn btn-secondary hidden" id="audio-production-resume-btn" type="button">Jatka tuotantoa</button>
                                 <button class="btn btn-secondary" id="audio-production-refresh-btn" type="button" disabled>Päivitä tila</button>
                             </div>
@@ -2895,8 +2896,9 @@
                             <button class="btn btn-secondary" id="translation-estimate-btn">Päivitä arvio</button>
                             <button class="btn btn-primary" id="translation-start-btn">Aloita käännös</button>
                             <button class="btn btn-secondary" id="translation-batch-start-btn" title="Edullisempi Gemini-eräajo, jonka tavoiteaika on enintään 24 tuntia.">Edullinen eräajo</button>
+                            <button class="btn btn-secondary hidden" id="translation-cancel-btn" type="button">Pysäytä käännös</button>
                         </div>
-                        <div class="card-meta" style="line-height:1.45; margin-top:10px;">Eräajo maksaa noin puolet normaalista Gemini-kutsusta. Työ valmistuu taustalla, yleensä nopeammin kuin 24 tunnissa.</div>
+                        <div class="card-meta" style="line-height:1.45; margin-top:10px;">Eräajo maksaa noin puolet normaalista Gemini-kutsusta. Työ valmistuu 24 tunnin sisällä tai vapautetaan automaattisesti määräajan täyttyessä.</div>
                     </div>
                     <div class="card glass-panel">
                         <h3>Käännöksen tulos</h3>
@@ -3085,8 +3087,9 @@
                                 <button class="btn btn-secondary" id="finnish-translation-estimate-btn">Päivitä arvio</button>
                                 <button class="btn btn-primary" id="finnish-translation-start-btn">Aloita käännös</button>
                                 <button class="btn btn-secondary" id="finnish-translation-batch-start-btn" title="Edullisempi Gemini-eräajo, jonka tavoiteaika on enintään 24 tuntia.">Edullinen eräajo</button>
+                                <button class="btn btn-secondary hidden" id="finnish-translation-cancel-btn" type="button">Pysäytä käännös</button>
                             </div>
-                            <div class="card-meta" style="line-height:1.45; margin-top:10px;">Eräajo maksaa noin puolet normaalista Gemini-kutsusta. Työ jatkuu taustalla ja valmistuu yleensä alle 24 tunnissa.</div>
+                            <div class="card-meta" style="line-height:1.45; margin-top:10px;">Eräajo maksaa noin puolet normaalista Gemini-kutsusta. Työ valmistuu 24 tunnin sisällä tai vapautetaan automaattisesti määräajan täyttyessä.</div>
                             <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
                                 <button class="btn btn-secondary" id="finnish-translation-custom-start-btn">Aja räätälöidyllä käännöspromptilla</button>
                             </div>
@@ -3208,6 +3211,7 @@
                                 <button id="finnish-translation-ai-check-run-btn" class="btn btn-secondary" type="button">Tarkasta AI:lla</button>
                                 <button id="finnish-translation-ai-check-run-all-btn" class="btn btn-secondary" type="button">Tarkasta kaikki AI:lla</button>
                                 <button id="finnish-translation-ai-check-batch-btn" class="btn btn-secondary" type="button">Edullinen eräajo · 24 h</button>
+                                <button id="finnish-translation-ai-check-cancel-btn" class="btn btn-secondary hidden" type="button">Pysäytä tarkastus</button>
                                 <button id="finnish-translation-ai-check-accept-btn" class="btn btn-primary" type="button">Korvaa tällä</button>
                                 <button id="finnish-translation-ai-check-accept-selected-btn" class="btn btn-secondary" type="button">Korvaa valitut</button>
                                 <button id="finnish-translation-ai-check-accept-all-btn" class="btn btn-secondary" type="button">Korvaa kaikki tarkastetut</button>
@@ -3360,6 +3364,7 @@
                                 <button id="translation-workspace-estimate-btn" class="btn btn-secondary" type="button">Päivitä arvio</button>
                                 <button id="translation-workspace-start-btn" class="btn btn-primary" type="button">Käännä koko teos</button>
                                 <button id="translation-workspace-batch-start-btn" class="btn btn-secondary" type="button" title="Edullisempi Gemini-eräajo, jonka tavoiteaika on enintään 24 tuntia.">Edullinen eräajo</button>
+                                <button id="translation-workspace-cancel-btn" class="btn btn-secondary hidden" type="button">Pysäytä käännös</button>
                             </div>
                             <p class="card-meta">Eräajo maksaa noin puolet normaalista Gemini-kutsusta. Voit poistua sivulta: työ tallentuu projektiin valmistuttuaan.</p>
                         </div>
@@ -3455,6 +3460,7 @@
                             </label>
                             <button id="translation-workspace-review-all-btn" class="btn btn-primary" type="button">Tarkasta koko käännös</button>
                             <button id="translation-workspace-review-batch-btn" class="btn btn-secondary" type="button">Edullinen eräajo · 24 h</button>
+                            <button id="translation-workspace-review-cancel-btn" class="btn btn-secondary hidden" type="button">Pysäytä tarkastus</button>
                             <button id="translation-workspace-review-download-btn" class="btn btn-secondary" type="button">Lataa tarkastettu kirja</button>
                             <button id="translation-workspace-review-bilingual-btn" class="btn btn-secondary" type="button">Lataa bilingual</button>
                         </div>
@@ -3544,6 +3550,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=132"></script>
+    <script src="app.js?v=133"></script>
 </body>
 </html>
