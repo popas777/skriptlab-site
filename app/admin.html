@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab - Admin Paneeli</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=85">
     <style>
         .admin-container {
             max-width: 1200px;
@@ -164,6 +164,61 @@
             min-height: 58px;
             resize: vertical;
         }
+        .usage-limit-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .usage-limit-category {
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            background: rgba(121, 192, 255, 0.035);
+            padding: 14px;
+            min-width: 0;
+        }
+        .usage-limit-category h5 {
+            color: var(--text-primary);
+            font-size: 14px;
+            margin: 0 0 4px;
+        }
+        .usage-limit-category > p {
+            color: var(--text-secondary);
+            font-size: 11px;
+            line-height: 1.4;
+            min-height: 31px;
+            margin: 0 0 12px;
+        }
+        .usage-limit-inputs {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+        .usage-limit-inputs .settings-row {
+            min-width: 0;
+            margin: 0;
+        }
+        .usage-limit-inputs input { min-width: 0; width: 100%; }
+        .usage-limit-note {
+            color: var(--text-secondary);
+            font-size: 12px;
+            line-height: 1.45;
+            margin: -2px 0 16px;
+        }
+        .usage-limit-summary {
+            display: grid;
+            gap: 6px;
+            color: var(--text-secondary);
+            font-size: 12px;
+            margin-bottom: 14px;
+        }
+        .usage-limit-summary div {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+            padding-bottom: 5px;
+        }
         @media (max-width: 640px) {
             .model-registry-item {
                 align-items: flex-start;
@@ -174,9 +229,12 @@
                 justify-content: flex-start;
             }
             .module-checkbox-grid,
-            .access-group-fields {
+            .access-group-fields,
+            .usage-limit-grid,
+            .usage-limit-inputs {
                 grid-template-columns: 1fr;
             }
+            .usage-limit-category > p { min-height: 0; }
         }
     </style>
 </head>
@@ -407,24 +465,75 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
 
                     <div id="usage-limit-panel" class="hidden" style="border-top: 1px solid var(--border-color); margin-top: 24px; padding-top: 24px;">
                         <h4 id="usage-limit-title" style="margin-bottom: 16px; color: var(--text-primary);">Käyttörajat</h4>
-                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                            <div class="settings-row">
-                                <label>Analyysia / kk</label>
-                                <input id="limit-analysis-monthly" type="text" inputmode="numeric">
-                            </div>
-                            <div class="settings-row">
-                                <label>Merkkiä / analyysi</label>
-                                <input id="limit-analysis-chars" type="text" inputmode="numeric">
-                            </div>
-                            <div class="settings-row">
-                                <label>Kappalemuokkausta / kk</label>
-                                <input id="limit-edit-monthly" type="text" inputmode="numeric">
-                            </div>
-                            <div class="settings-row">
-                                <label>Merkkiä / muokkaus</label>
-                                <input id="limit-edit-chars" type="text" inputmode="numeric">
-                            </div>
+                        <div class="usage-limit-grid">
+                            <section class="usage-limit-category">
+                                <h5>Pitkä AI-käsittely</h5>
+                                <p>Monivaiheiset ja koko käsikirjoituksen työt.</p>
+                                <div class="usage-limit-inputs">
+                                    <div class="settings-row">
+                                        <label for="limit-long-monthly">Ajoa / kk</label>
+                                        <input id="limit-long-monthly" type="number" min="0" max="10000" step="1">
+                                    </div>
+                                    <div class="settings-row">
+                                        <label for="limit-long-chars">Merkkiä / ajo</label>
+                                        <input id="limit-long-chars" type="number" min="1" max="6000000" step="1">
+                                    </div>
+                                </div>
+                            </section>
+                            <section class="usage-limit-category">
+                                <h5>Lyhyt AI-käsittely</h5>
+                                <p>Yhden mallikutsun pyynnöt. Koko kirjan työkalut käyttävät pitkän aineiston rajaa.</p>
+                                <div class="usage-limit-inputs">
+                                    <div class="settings-row">
+                                        <label for="limit-short-monthly">Pyyntöä / kk</label>
+                                        <input id="limit-short-monthly" type="number" min="0" max="100000" step="1">
+                                    </div>
+                                    <div class="settings-row">
+                                        <label for="limit-short-chars">Merkkiä / tavallinen pyyntö</label>
+                                        <input id="limit-short-chars" type="number" min="1" max="600000" step="1">
+                                    </div>
+                                </div>
+                            </section>
+                            <section class="usage-limit-category">
+                                <h5>Käännökset ja tarkistukset</h5>
+                                <p>Käännös-, oikoluku- ja laaduntarkistusajot.</p>
+                                <div class="usage-limit-inputs">
+                                    <div class="settings-row">
+                                        <label for="limit-translation-monthly">Ajoa / kk</label>
+                                        <input id="limit-translation-monthly" type="number" min="0" max="100000" step="1">
+                                    </div>
+                                    <div class="settings-row">
+                                        <label for="limit-translation-chars">Merkkiä / ajo</label>
+                                        <input id="limit-translation-chars" type="number" min="1" max="6000000" step="1">
+                                    </div>
+                                </div>
+                            </section>
+                            <section class="usage-limit-category">
+                                <h5>Audio</h5>
+                                <p>Äänitestit ja audiotuotannot; merkkiraja huomioi työn koon.</p>
+                                <div class="usage-limit-inputs">
+                                    <div class="settings-row">
+                                        <label for="limit-audio-monthly">Ajoa / kk</label>
+                                        <input id="limit-audio-monthly" type="number" min="0" max="100000" step="1">
+                                    </div>
+                                    <div class="settings-row">
+                                        <label for="limit-audio-chars">Merkkiä / ajo</label>
+                                        <input id="limit-audio-chars" type="number" min="1" max="5000000" step="1">
+                                    </div>
+                                </div>
+                            </section>
+                            <section class="usage-limit-category">
+                                <h5>Kuvat</h5>
+                                <p>Eräajossa jokainen kuva lasketaan erikseen.</p>
+                                <div class="usage-limit-inputs">
+                                    <div class="settings-row">
+                                        <label for="limit-image-monthly">Kuvaa / kk</label>
+                                        <input id="limit-image-monthly" type="number" min="0" max="100000" step="1">
+                                    </div>
+                                </div>
+                            </section>
                         </div>
+                        <p class="usage-limit-note">Kuukausirajan arvo 0 estää uudet ajot tässä kategoriassa. Koko kirjan yhden kutsun työkalut lasketaan lyhyiksi käsittelyiksi, mutta ne käyttävät pitkän aineiston kokorajaa.</p>
                         <div style="display:flex; flex-wrap:wrap; gap: 16px; margin-bottom: 16px;">
                             <label style="display:flex; align-items:center; gap:8px; color:var(--text-secondary); font-size:13px;">
                                 <input id="limit-pro-models" type="checkbox" style="width:auto; padding:0;">
@@ -435,7 +544,7 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                                 Salli kuvamallit
                             </label>
                         </div>
-                        <p id="usage-limit-usage" style="color: var(--text-secondary); font-size: 13px; margin-bottom: 12px;"></p>
+                        <div id="usage-limit-usage" class="usage-limit-summary"></div>
                         <div style="display:flex; gap: 10px; flex-wrap:wrap;">
                             <button id="save-usage-limit-btn" class="btn btn-primary">Tallenna rajat</button>
                             <button id="reset-usage-limit-btn" class="btn btn-secondary">Palauta oletusrajat</button>
@@ -515,10 +624,15 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
         const saveUsageLimitBtn = document.getElementById('save-usage-limit-btn');
         const resetUsageLimitBtn = document.getElementById('reset-usage-limit-btn');
         const resetUsageCountersBtn = document.getElementById('reset-usage-counters-btn');
-        const limitAnalysisMonthly = document.getElementById('limit-analysis-monthly');
-        const limitAnalysisChars = document.getElementById('limit-analysis-chars');
-        const limitEditMonthly = document.getElementById('limit-edit-monthly');
-        const limitEditChars = document.getElementById('limit-edit-chars');
+        const limitLongMonthly = document.getElementById('limit-long-monthly');
+        const limitLongChars = document.getElementById('limit-long-chars');
+        const limitShortMonthly = document.getElementById('limit-short-monthly');
+        const limitShortChars = document.getElementById('limit-short-chars');
+        const limitTranslationMonthly = document.getElementById('limit-translation-monthly');
+        const limitTranslationChars = document.getElementById('limit-translation-chars');
+        const limitAudioMonthly = document.getElementById('limit-audio-monthly');
+        const limitAudioChars = document.getElementById('limit-audio-chars');
+        const limitImageMonthly = document.getElementById('limit-image-monthly');
         const limitProModels = document.getElementById('limit-pro-models');
         const limitImageModels = document.getElementById('limit-image-models');
         let loadedModels = [];
@@ -527,6 +641,7 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
         let loadedAccessGroups = [];
         let selectedLimitUserId = null;
         let selectedLimitUserName = '';
+        let usageLimitApiReady = false;
         const userRoles = [
             ['kirjailija', 'Kirjailija'],
             ['kaantaja', 'Kääntäjä'],
@@ -1020,13 +1135,58 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
         }
 
         function fillUsageLimitForm(data) {
-            limitAnalysisMonthly.value = data.monthly_analysis_limit;
-            limitAnalysisChars.value = data.max_analysis_chars;
-            limitEditMonthly.value = data.monthly_paragraph_edit_limit;
-            limitEditChars.value = data.max_paragraph_edit_chars;
+            usageLimitApiReady = [
+                'monthly_translation_check_limit',
+                'max_translation_check_chars',
+                'monthly_audio_limit',
+                'max_audio_chars',
+                'monthly_image_limit'
+            ].every(key => data[key] !== undefined && data[key] !== null);
+            const longLimit = data.monthly_long_ai_limit ?? data.monthly_analysis_limit;
+            const longUsed = data.monthly_long_ai_used ?? data.monthly_analysis_used;
+            const shortLimit = data.monthly_short_ai_limit ?? data.monthly_paragraph_edit_limit;
+            const shortUsed = data.monthly_short_ai_used ?? data.monthly_paragraph_edit_used;
+            const translationLimit = data.monthly_translation_check_limit ?? data.monthly_translation_limit;
+            const translationUsed = data.monthly_translation_check_used ?? data.monthly_translation_used;
+            limitLongMonthly.value = longLimit;
+            limitLongChars.value = data.max_long_ai_chars ?? data.max_analysis_chars;
+            limitShortMonthly.value = shortLimit;
+            limitShortChars.value = data.max_short_ai_chars ?? data.max_paragraph_edit_chars;
+            limitTranslationMonthly.value = usageLimitApiReady ? translationLimit : '';
+            limitTranslationChars.value = usageLimitApiReady ? data.max_translation_check_chars : '';
+            limitAudioMonthly.value = usageLimitApiReady ? data.monthly_audio_limit : '';
+            limitAudioChars.value = usageLimitApiReady ? data.max_audio_chars : '';
+            limitImageMonthly.value = usageLimitApiReady ? data.monthly_image_limit : '';
+            [
+                limitTranslationMonthly,
+                limitTranslationChars,
+                limitAudioMonthly,
+                limitAudioChars,
+                limitImageMonthly
+            ].forEach(input => { input.disabled = !usageLimitApiReady; });
+            saveUsageLimitBtn.disabled = !usageLimitApiReady;
             limitProModels.checked = Boolean(data.allow_pro_models);
             limitImageModels.checked = Boolean(data.allow_image_models);
-            usageLimitUsage.textContent = `Käytetty tässä kuussa: ${data.monthly_analysis_used}/${data.monthly_analysis_limit} analyysia, ${data.monthly_translation_used}/${data.monthly_translation_limit} käännöstä, ${data.monthly_paragraph_edit_used}/${data.monthly_paragraph_edit_limit} kappalemuokkausta. ${data.has_custom_limit ? 'Käyttäjäkohtainen raja.' : 'Oletusrajat käytössä.'}`;
+            const rows = [
+                ['Pitkä AI-käsittely', longUsed, longLimit, 'ajoa'],
+                ['Lyhyt AI-käsittely', shortUsed, shortLimit, 'pyyntöä'],
+                ['Käännökset ja tarkistukset', translationUsed, translationLimit, 'ajoa'],
+                ['Audio', data.monthly_audio_used ?? null, data.monthly_audio_limit ?? null, 'ajoa'],
+                ['Kuvat', data.monthly_image_used ?? null, data.monthly_image_limit ?? null, 'kuvaa']
+            ];
+            usageLimitUsage.innerHTML = rows.map(([label, used, limit, unit]) => (
+                `<div><span>${label}</span><strong>${used ?? '–'}/${limit ?? '–'} ${unit}</strong></div>`
+            )).join('') + `<div><span>Asetus</span><strong>${data.has_custom_limit ? 'Käyttäjäkohtainen raja' : 'Oletusrajat'}</strong></div>`;
+            return usageLimitApiReady;
+        }
+
+        function usageLimitInteger(input, label) {
+            const value = input?.valueAsNumber;
+            if (!input || !input.validity.valid || !Number.isSafeInteger(value)) {
+                input?.reportValidity();
+                throw new Error(`${label}: anna sallittu kokonaisluku.`);
+            }
+            return value;
         }
 
         async function loadUsageLimit(userId, displayName) {
@@ -1039,9 +1199,13 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                 const res = await window.SkriptLabAuth.fetch(`/api/admin/users/${userId}/usage-limit`);
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.detail || 'Käyttörajojen lataus epäonnistui.');
-                fillUsageLimitForm(data);
-                usageLimitStatus.textContent = '';
+                const ready = fillUsageLimitForm(data);
+                usageLimitStatus.textContent = ready
+                    ? ''
+                    : 'Palvelinpäivitys on vielä kesken. Uudet käyttörajat voi tallentaa päivityksen valmistuttua.';
             } catch (err) {
+                usageLimitApiReady = false;
+                saveUsageLimitBtn.disabled = true;
                 usageLimitStatus.textContent = err.message;
             }
         }
@@ -1391,14 +1555,38 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
         if (saveUsageLimitBtn) {
             saveUsageLimitBtn.addEventListener('click', async () => {
                 if (!selectedLimitUserId) return;
+                if (!usageLimitApiReady) {
+                    usageLimitStatus.textContent = 'Palvelinpäivitys on vielä kesken. Yritä hetken kuluttua uudelleen.';
+                    return;
+                }
                 saveUsageLimitBtn.disabled = true;
                 usageLimitStatus.textContent = 'Tallennetaan käyttörajoja...';
                 try {
+                    const longMonthly = usageLimitInteger(limitLongMonthly, 'Pitkä AI-käsittely / kk');
+                    const longChars = usageLimitInteger(limitLongChars, 'Pitkän AI-käsittelyn merkkiraja');
+                    const shortMonthly = usageLimitInteger(limitShortMonthly, 'Lyhyt AI-käsittely / kk');
+                    const shortChars = usageLimitInteger(limitShortChars, 'Lyhyen AI-käsittelyn merkkiraja');
+                    const translationMonthly = usageLimitInteger(limitTranslationMonthly, 'Käännökset ja tarkistukset / kk');
+                    const translationChars = usageLimitInteger(limitTranslationChars, 'Käännösten ja tarkistusten merkkiraja');
+                    const audioMonthly = usageLimitInteger(limitAudioMonthly, 'Audio / kk');
+                    const audioChars = usageLimitInteger(limitAudioChars, 'Audion merkkiraja');
+                    const imageMonthly = usageLimitInteger(limitImageMonthly, 'Kuvat / kk');
                     const payload = {
-                        monthly_analysis_limit: parseInt(limitAnalysisMonthly.value || '0', 10),
-                        max_analysis_chars: parseInt(limitAnalysisChars.value || '1', 10),
-                        monthly_paragraph_edit_limit: parseInt(limitEditMonthly.value || '0', 10),
-                        max_paragraph_edit_chars: parseInt(limitEditChars.value || '1', 10),
+                        monthly_long_ai_limit: longMonthly,
+                        max_long_ai_chars: longChars,
+                        monthly_short_ai_limit: shortMonthly,
+                        max_short_ai_chars: shortChars,
+                        monthly_translation_check_limit: translationMonthly,
+                        max_translation_check_chars: translationChars,
+                        monthly_audio_limit: audioMonthly,
+                        max_audio_chars: audioChars,
+                        monthly_image_limit: imageMonthly,
+                        // Keep long/short saves working during a staggered
+                        // frontend/backend rollout or a temporary rollback.
+                        monthly_analysis_limit: longMonthly,
+                        max_analysis_chars: longChars,
+                        monthly_paragraph_edit_limit: shortMonthly,
+                        max_paragraph_edit_chars: shortChars,
                         allow_pro_models: limitProModels.checked,
                         allow_image_models: limitImageModels.checked
                     };
@@ -1409,12 +1597,14 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                     });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.detail || 'Käyttörajojen tallennus epäonnistui.');
-                    fillUsageLimitForm(data);
-                    usageLimitStatus.textContent = `Rajat tallennettu käyttäjälle ${selectedLimitUserName}.`;
+                    const ready = fillUsageLimitForm(data);
+                    usageLimitStatus.textContent = ready
+                        ? `Rajat tallennettu käyttäjälle ${selectedLimitUserName}.`
+                        : 'Pitkän ja lyhyen käsittelyn rajat tallennettiin, mutta palvelinpäivitys on vielä kesken.';
                 } catch (err) {
                     usageLimitStatus.textContent = err.message;
                 } finally {
-                    saveUsageLimitBtn.disabled = false;
+                    saveUsageLimitBtn.disabled = !usageLimitApiReady;
                 }
             });
         }
@@ -1430,8 +1620,10 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                     });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.detail || 'Oletusrajojen palautus epäonnistui.');
-                    fillUsageLimitForm(data);
-                    usageLimitStatus.textContent = `Oletusrajat palautettu käyttäjälle ${selectedLimitUserName}.`;
+                    const ready = fillUsageLimitForm(data);
+                    usageLimitStatus.textContent = ready
+                        ? `Oletusrajat palautettu käyttäjälle ${selectedLimitUserName}.`
+                        : 'Oletusrajat palautettiin, mutta palvelinpäivitys on vielä kesken.';
                 } catch (err) {
                     usageLimitStatus.textContent = err.message;
                 } finally {
@@ -1452,8 +1644,10 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                     });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.detail || 'Käytön nollaus epäonnistui.');
-                    fillUsageLimitForm(data);
-                    usageLimitStatus.textContent = `Tämän kuun käyttö nollattu käyttäjälle ${selectedLimitUserName}.`;
+                    const ready = fillUsageLimitForm(data);
+                    usageLimitStatus.textContent = ready
+                        ? `Tämän kuun käyttö nollattu käyttäjälle ${selectedLimitUserName}.`
+                        : 'Käyttö nollattiin, mutta palvelinpäivitys on vielä kesken.';
                 } catch (err) {
                     usageLimitStatus.textContent = err.message;
                 } finally {

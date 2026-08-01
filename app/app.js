@@ -687,12 +687,20 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         box: document.getElementById('usage-box'),
         toggle: document.getElementById('usage-toggle'),
         details: document.getElementById('usage-details'),
-        analysisText: document.getElementById('usage-analysis-text'),
-        analysisBar: document.getElementById('usage-analysis-bar'),
-        analysisChars: document.getElementById('usage-analysis-chars'),
-        editText: document.getElementById('usage-edit-text'),
-        editBar: document.getElementById('usage-edit-bar'),
-        editChars: document.getElementById('usage-edit-chars'),
+        longText: document.getElementById('usage-long-text'),
+        longBar: document.getElementById('usage-long-bar'),
+        longDetail: document.getElementById('usage-long-detail'),
+        shortText: document.getElementById('usage-short-text'),
+        shortBar: document.getElementById('usage-short-bar'),
+        shortDetail: document.getElementById('usage-short-detail'),
+        translationText: document.getElementById('usage-translation-text'),
+        translationBar: document.getElementById('usage-translation-bar'),
+        translationDetail: document.getElementById('usage-translation-detail'),
+        audioText: document.getElementById('usage-audio-text'),
+        audioBar: document.getElementById('usage-audio-bar'),
+        audioDetail: document.getElementById('usage-audio-detail'),
+        imageText: document.getElementById('usage-image-text'),
+        imageBar: document.getElementById('usage-image-bar'),
         status: document.getElementById('usage-status')
     };
     const analysisFields = [
@@ -1208,8 +1216,14 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     function usagePercent(used, limit) {
-        if (!limit || limit <= 0) return used > 0 ? 100 : 0;
+        if (!limit || limit <= 0) return 100;
         return Math.min(100, Math.round((used / limit) * 100));
+    }
+
+    function usageField(data, canonicalKey, compatibilityKey = '') {
+        const value = data?.[canonicalKey] ?? (compatibilityKey ? data?.[compatibilityKey] : null);
+        if (value === null || value === undefined || value === '') return null;
+        return Number.isFinite(Number(value)) ? Number(value) : null;
     }
 
     function formatDuration(seconds) {
@@ -4435,24 +4449,82 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function updateUsagePanel(data) {
         if (!usageEls.box || !data) return;
-        const analysisCountPercent = usagePercent(data.monthly_analysis_used, data.monthly_analysis_limit);
-        const analysisCharsPercent = usagePercent(data.monthly_analysis_chars_used, data.monthly_analysis_chars_limit);
-        const editCountPercent = usagePercent(data.monthly_paragraph_edit_used, data.monthly_paragraph_edit_limit);
-        const editCharsPercent = usagePercent(data.monthly_paragraph_edit_chars_used, data.monthly_paragraph_edit_chars_limit);
-        const analysisPercent = Math.max(analysisCountPercent, analysisCharsPercent);
-        const editPercent = Math.max(editCountPercent, editCharsPercent);
+        const metrics = [
+            {
+                label: 'Pitkä AI-käsittely',
+                text: usageEls.longText,
+                bar: usageEls.longBar,
+                detail: usageEls.longDetail,
+                used: usageField(data, 'monthly_long_ai_used', 'monthly_analysis_used'),
+                limit: usageField(data, 'monthly_long_ai_limit', 'monthly_analysis_limit'),
+                charsUsed: usageField(data, 'monthly_long_ai_chars_used', 'monthly_analysis_chars_used'),
+                charsLimit: usageField(data, 'monthly_long_ai_chars_limit', 'monthly_analysis_chars_limit'),
+                maxChars: usageField(data, 'max_long_ai_chars', 'max_analysis_chars')
+            },
+            {
+                label: 'Lyhyt AI-käsittely',
+                text: usageEls.shortText,
+                bar: usageEls.shortBar,
+                detail: usageEls.shortDetail,
+                used: usageField(data, 'monthly_short_ai_used', 'monthly_paragraph_edit_used'),
+                limit: usageField(data, 'monthly_short_ai_limit', 'monthly_paragraph_edit_limit'),
+                charsUsed: usageField(data, 'monthly_short_ai_chars_used', 'monthly_paragraph_edit_chars_used'),
+                charsLimit: usageField(data, 'monthly_short_ai_chars_limit', 'monthly_paragraph_edit_chars_limit'),
+                maxChars: usageField(data, 'max_short_ai_chars', 'max_paragraph_edit_chars'),
+                maxCharsLabel: 'Tavallinen pyyntö enintään'
+            },
+            {
+                label: 'Käännökset ja tarkistukset',
+                text: usageEls.translationText,
+                bar: usageEls.translationBar,
+                detail: usageEls.translationDetail,
+                used: usageField(data, 'monthly_translation_check_used', 'monthly_translation_used'),
+                limit: usageField(data, 'monthly_translation_check_limit', 'monthly_translation_limit'),
+                charsUsed: usageField(data, 'monthly_translation_check_chars_used', 'monthly_translation_chars_used'),
+                charsLimit: usageField(data, 'monthly_translation_check_chars_limit', 'monthly_translation_chars_limit'),
+                maxChars: usageField(data, 'max_translation_check_chars', 'max_translation_chars')
+            },
+            {
+                label: 'Audio',
+                text: usageEls.audioText,
+                bar: usageEls.audioBar,
+                detail: usageEls.audioDetail,
+                used: usageField(data, 'monthly_audio_used'),
+                limit: usageField(data, 'monthly_audio_limit'),
+                charsUsed: usageField(data, 'monthly_audio_chars_used'),
+                charsLimit: usageField(data, 'monthly_audio_chars_limit'),
+                maxChars: usageField(data, 'max_audio_chars')
+            },
+            {
+                label: 'Kuvat',
+                text: usageEls.imageText,
+                bar: usageEls.imageBar,
+                used: usageField(data, 'monthly_image_used'),
+                limit: usageField(data, 'monthly_image_limit')
+            }
+        ];
 
-        usageEls.analysisText.textContent = `${data.monthly_analysis_used}/${data.monthly_analysis_limit}`;
-        usageEls.analysisBar.style.width = `${analysisPercent}%`;
-        usageEls.analysisChars.textContent = `Max ${formatNumber(data.max_analysis_chars)} merkkiä / analyysi, ${formatNumber(data.monthly_analysis_chars_used)}/${formatNumber(data.monthly_analysis_chars_limit)} merkkiä / kk`;
+        metrics.forEach((metric) => {
+            const hasCount = Number.isFinite(metric.used) && Number.isFinite(metric.limit);
+            const countPercent = hasCount ? usagePercent(metric.used, metric.limit) : 0;
+            const hasChars = Number.isFinite(metric.charsUsed)
+                && Number.isFinite(metric.charsLimit)
+                && Number.isFinite(metric.maxChars);
+            const charsPercent = hasChars ? usagePercent(metric.charsUsed, metric.charsLimit) : 0;
+            metric.percent = Math.max(countPercent, charsPercent);
+            if (metric.text) metric.text.textContent = hasCount ? `${metric.used}/${metric.limit}` : '–';
+            if (metric.bar) metric.bar.style.width = `${metric.percent}%`;
+            if (metric.detail) {
+                metric.detail.textContent = hasChars
+                    ? `${metric.maxCharsLabel || 'Enintään'} ${formatNumber(metric.maxChars)} merkkiä / ajo · ${formatNumber(metric.charsUsed)}/${formatNumber(metric.charsLimit)} merkkiä / kk`
+                    : 'Raja tulee näkyviin, kun palvelinpäivitys on valmis.';
+            }
+        });
 
-        usageEls.editText.textContent = `${data.monthly_paragraph_edit_used}/${data.monthly_paragraph_edit_limit}`;
-        usageEls.editBar.style.width = `${editPercent}%`;
-        usageEls.editChars.textContent = `Max ${formatNumber(data.max_paragraph_edit_chars)} merkkiä / muokkaus, ${formatNumber(data.monthly_paragraph_edit_chars_used)}/${formatNumber(data.monthly_paragraph_edit_chars_limit)} merkkiä / kk`;
-
-        usageEls.status.textContent = analysisPercent >= 100 || editPercent >= 100
-            ? 'Kuukausiraja täynnä. Ota yhteys ylläpitoon.'
-            : 'Rajat päivittyvät onnistuneiden ajojen jälkeen.';
+        const fullCategories = metrics.filter((metric) => metric.percent >= 100).map((metric) => metric.label);
+        usageEls.status.textContent = fullCategories.length
+            ? `Kuukausiraja täynnä: ${fullCategories.join(', ')}. Ota tarvittaessa yhteys ylläpitoon.`
+            : 'Rajat päivittyvät käynnistettyjen ajojen mukaan.';
     }
 
     async function loadUsage() {

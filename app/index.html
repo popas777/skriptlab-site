@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=84">
+    <link rel="stylesheet" href="styles.css?v=85">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -177,19 +177,47 @@
                 <div class="usage-details" id="usage-details" hidden>
                     <div class="usage-row">
                         <div class="usage-label">
-                            <span>Analyysit</span>
-                            <span id="usage-analysis-text">-</span>
+                            <span>Pitkä AI-käsittely</span>
+                            <span id="usage-long-text">-</span>
                         </div>
-                        <div class="usage-bar"><div id="usage-analysis-bar"></div></div>
-                        <p id="usage-analysis-chars">-</p>
+                        <div class="usage-bar"><div id="usage-long-bar"></div></div>
+                        <p class="usage-help">Monivaiheiset ja koko käsikirjoituksen työt.</p>
+                        <p id="usage-long-detail">-</p>
                     </div>
                     <div class="usage-row">
                         <div class="usage-label">
-                            <span>Kappale- ja lukumuokkaukset</span>
-                            <span id="usage-edit-text">-</span>
+                            <span>Lyhyt AI-käsittely</span>
+                            <span id="usage-short-text">-</span>
                         </div>
-                        <div class="usage-bar"><div id="usage-edit-bar"></div></div>
-                        <p id="usage-edit-chars">-</p>
+                        <div class="usage-bar"><div id="usage-short-bar"></div></div>
+                        <p class="usage-help">Yhden mallikutsun pyynnöt. Koko kirjan työkalut käyttävät erillistä aineistorajaa.</p>
+                        <p id="usage-short-detail">-</p>
+                    </div>
+                    <div class="usage-row">
+                        <div class="usage-label">
+                            <span>Käännökset ja tarkistukset</span>
+                            <span id="usage-translation-text">-</span>
+                        </div>
+                        <div class="usage-bar"><div id="usage-translation-bar"></div></div>
+                        <p class="usage-help">Käännös-, oikoluku- ja laaduntarkistusajot.</p>
+                        <p id="usage-translation-detail">-</p>
+                    </div>
+                    <div class="usage-row">
+                        <div class="usage-label">
+                            <span>Audio</span>
+                            <span id="usage-audio-text">-</span>
+                        </div>
+                        <div class="usage-bar"><div id="usage-audio-bar"></div></div>
+                        <p class="usage-help">Äänitestit ja audiotuotannot.</p>
+                        <p id="usage-audio-detail">-</p>
+                    </div>
+                    <div class="usage-row">
+                        <div class="usage-label">
+                            <span>Kuvat</span>
+                            <span id="usage-image-text">-</span>
+                        </div>
+                        <div class="usage-bar"><div id="usage-image-bar"></div></div>
+                        <p class="usage-help">Eräajossa jokainen kuva lasketaan erikseen.</p>
                     </div>
                     <p id="usage-status">Ladataan rajoja...</p>
                 </div>
@@ -3714,6 +3742,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=141"></script>
+    <script src="app.js?v=142"></script>
 </body>
 </html>

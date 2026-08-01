@@ -1840,14 +1840,19 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 }
 .usage-row { margin-bottom: 12px; }
 .usage-label {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
     gap: 8px;
     color: var(--text-secondary);
     font-size: 12px;
     margin-bottom: 6px;
 }
-.usage-label span:last-child { color: var(--text-primary); }
+.usage-label span:first-child { min-width: 0; }
+.usage-label span:last-child {
+    color: var(--text-primary);
+    white-space: nowrap;
+}
 .usage-bar {
     height: 6px;
     background: rgba(255,255,255,0.08);
@@ -1866,6 +1871,14 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     font-size: 11px;
     line-height: 1.4;
     margin-top: 5px;
+}
+.usage-row .usage-help {
+    color: var(--text-primary);
+    opacity: 0.82;
+}
+#usage-status {
+    border-top: 1px solid rgba(121, 192, 255, 0.14);
+    padding-top: 8px;
 }
 .sidebar-user-card {
     margin-top: 12px;
