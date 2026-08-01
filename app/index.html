@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=78">
+    <link rel="stylesheet" href="styles.css?v=80">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -129,7 +129,7 @@
                     <li data-view="view-kirjoita-editoi">Kirjoita ja editoi</li>
                     <li data-view="view-mobiilieditori">Mobiili-editori</li>
                     <li data-view="view-oikoluku">Oikoluku ja viimeistely</li>
-                    <li data-view="view-kuvitus">Kansi</li>
+                    <li data-view="view-kuvitus">Kansi ja grafiikka</li>
                     <li data-view="view-kirja">Valmis kirja & taitto</li>
                     <li data-view="view-julkaisupaketti">Tiedostopaketti</li>
                     <li data-view="view-monikielinen-julkaisu">Monikielinen julkaisu</li>
@@ -1231,7 +1231,7 @@
                         <select id="publication-package-cover-select">
                             <option value="">Ei kansikuvaa paketissa</option>
                         </select>
-                        <button class="btn btn-secondary" id="publication-package-open-cover-btn" type="button">Avaa Kansi</button>
+                        <button class="btn btn-secondary" id="publication-package-open-cover-btn" type="button">Avaa Kansi ja grafiikka</button>
                     </section>
 
                     <section class="card glass-panel publication-package-contents-card">
@@ -1846,21 +1846,28 @@
                 </div>
             </div>
 
-            <!-- 6. VIEW: KUVITUS -->
+            <!-- 6. VIEW: KANSI JA GRAFIIKKA -->
             <div id="view-kuvitus" class="view-section hidden">
                 <header class="production-workspace-hero cover-workspace-hero">
                     <div class="production-workspace-hero-copy">
-                        <p class="production-workspace-eyebrow">KANSI-STUDIO · KUVASTA PAINOAINEISTOKSI</p>
-	                    <h2>Kansi</h2>
+                        <p class="production-workspace-eyebrow">VISUAALINEN STUDIO · KANSI · KUVAT · INFOGRAFIIKKA</p>
+	                    <h2>Kansi ja grafiikka</h2>
                         <p id="illustration-current-project">Käsikirjoitus: [Ei aktiivista teosta]</p>
                     </div>
                     <div class="production-workspace-hero-status">
-                        <span>PAINOVALMIUS</span>
-                        <strong>Etukansi · selkä · takakansi</strong>
-                        <p>Leikkuuvarat ja 300 DPI -tiedostot samassa työtilassa.</p>
+                        <span>PROJEKTIKONTEKSTI</span>
+                        <strong>Kansi · kuvamaailma · infografiikka</strong>
+                        <p>Hyödynnä teoksen analyysiä ja projektimuistia yhtenäisen visuaalisen maailman luomisessa.</p>
                     </div>
                 </header>
 
+                <div class="graphics-tabs" role="tablist" aria-label="Kansi ja grafiikka -työtilat">
+                    <button class="graphics-tab is-active" id="graphics-tab-cover" type="button" role="tab" aria-selected="true" aria-controls="graphics-panel-cover" data-graphics-panel="graphics-panel-cover">Kansi</button>
+                    <button class="graphics-tab" id="graphics-tab-images" type="button" role="tab" aria-selected="false" aria-controls="graphics-panel-images" data-graphics-panel="graphics-panel-images" tabindex="-1">Kuvamaailma</button>
+                    <button class="graphics-tab" id="graphics-tab-infographics" type="button" role="tab" aria-selected="false" aria-controls="graphics-panel-infographics" data-graphics-panel="graphics-panel-infographics" tabindex="-1">Infografiikka</button>
+                </div>
+
+                <section id="graphics-panel-cover" class="graphics-tab-panel" role="tabpanel" aria-labelledby="graphics-tab-cover" aria-hidden="false" tabindex="0">
                 <div class="illustration-section cover-workspace-section" style="margin-bottom: 40px;">
                     <div class="production-section-heading"><span>01</span><div><h3>Kansikuva</h3><p>Luo tai tuo visuaalinen perusta ja viimeistele kannen tekstit.</p></div></div>
                     <div class="card glass-panel illustration-cover-grid" style="display:grid; grid-template-columns:minmax(0, 1fr) minmax(280px, 380px); gap:24px; align-items:start;">
@@ -2040,21 +2047,133 @@
                         </div>
                     </section>
                 </div>
+                </section>
 
-                <div class="illustration-section hidden" aria-hidden="true">
-                    <h3 style="margin-bottom: 20px; color: var(--text-primary);">Sisäkuvitukset</h3>
-                    <div class="card glass-panel" style="display: flex; gap: 32px; align-items:flex-start; flex-wrap: wrap;">
-                        <div style="flex:1; min-width: 250px;">
-                            <label style="font-size: 13px; color: var(--text-secondary); display:block; margin-bottom:8px;">Seuraava vaihe</label>
-                            <div style="padding:20px; background:rgba(0,0,0,0.2); border-radius:12px; border:1px dashed var(--border-color); font-size:14px; color:var(--text-secondary); line-height: 1.6;">
-                                Sisäkuvitukset lisätään myöhemmin kappale- tai lukukohtaisina luonnoksina. Ensin viimeistellään kansikuvan tallennus, mallivalinta ja kustannusrajat.
-                            </div>
+                <section id="graphics-panel-images" class="graphics-tab-panel hidden" role="tabpanel" aria-labelledby="graphics-tab-images" aria-hidden="true" tabindex="0">
+                    <div class="graphics-workspace-intro">
+                        <div>
+                            <span class="graphics-workspace-kicker">KUVAMAAILMA</span>
+                            <h3>Luo usean osion kuvaehdotukset yhdellä kertaa</h3>
+                            <p>Rakenna riveistä kuvaerä. Jokainen rivi tuottaa yhden projektin ilmeeseen ja valittuun kirjan osioon sidotun ehdotuksen.</p>
                         </div>
-                        <div id="inner-img-box" style="width: 250px; height: 250px; background: rgba(0,0,0,0.1); border: 2px dashed rgba(5,150,105,0.3); border-radius: 12px; display:flex; align-items:center; justify-content:center; color: var(--text-secondary); text-align:center; padding:20px; box-shadow: inset 0 0 20px rgba(0,0,0,0.5);">
-                            Sisäkuvitusten paikka.
+                        <span class="graphics-context-badge">Analyysi + projektimuisti</span>
+                    </div>
+
+                    <div class="graphics-control-card glass-panel">
+                        <div class="graphics-control-grid">
+                            <label class="graphics-field">
+                                <span>Kuvamalli</span>
+                                <select id="visual-model-select" data-image-model-select>
+                                    <option value="">Ladataan kuvamalleja...</option>
+                                </select>
+                            </label>
+                            <label class="graphics-field graphics-field-wide">
+                                <span>Yhteinen visuaalinen ohje</span>
+                                <textarea id="visual-shared-prompt" rows="3" maxlength="700" placeholder="Esimerkiksi: hillitty pohjoismainen väripaletti, luonnollinen valo ja sama kuvallinen rytmi kaikissa ehdotuksissa."></textarea>
+                            </label>
+                        </div>
+                        <div class="graphics-context-options" aria-label="Kuvamaailman lähdetiedot">
+                            <label><input id="visual-use-analysis" type="checkbox" checked> Hyödynnä analyysiä</label>
+                            <label><input id="visual-use-memory" type="checkbox" checked> Hyödynnä projektimuistia</label>
+                            <label><input id="visual-without-text" type="checkbox" checked> Kuva ilman tekstiä</label>
                         </div>
                     </div>
-                </div>
+
+                    <div class="graphics-batch-heading">
+                        <div>
+                            <h3>Kuvaerän osiot</h3>
+                            <p>Ensimmäiset rivit muodostetaan automaattisesti projektin ensimmäisistä tekstillisistä osioista.</p>
+                        </div>
+                        <button class="btn btn-secondary" id="visual-add-row-btn" type="button">+ Lisää osio</button>
+                    </div>
+                    <div id="visual-batch-rows" class="visual-batch-rows" aria-live="polite"></div>
+                    <div class="graphics-run-bar">
+                        <div class="graphics-run-copy">
+                            <p id="visual-status" role="status" aria-live="polite">Valitse projekti ja tarkista kuvaerän rivit.</p>
+                            <progress id="visual-progress" max="1" value="0" aria-label="Kuvaerän eteneminen"></progress>
+                        </div>
+                        <div class="graphics-run-actions">
+                            <button class="btn btn-secondary hidden" id="visual-stop-btn" type="button">Pysäytä</button>
+                            <button class="btn btn-primary" id="visual-generate-all-btn" type="button">Generoi kaikki ehdotukset</button>
+                        </div>
+                    </div>
+
+                    <div class="graphics-gallery-section">
+                        <div class="production-section-heading"><span>02</span><div><h3>Tallennetut kuvaehdotukset</h3><p>Kaikki projektin Kuvamaailma-kuvat ovat ladattavissa. Muokkausoikeudella voit myös poistaa niitä.</p></div></div>
+                        <div id="visual-gallery" class="graphics-gallery"></div>
+                        <p id="visual-empty-state" class="graphics-empty-state">Ei vielä tallennettuja kuvaehdotuksia.</p>
+                        <button class="btn btn-secondary graphics-load-more" id="visual-load-more-btn" type="button" hidden>Lataa lisää kuvaehdotuksia</button>
+                    </div>
+                </section>
+
+                <section id="graphics-panel-infographics" class="graphics-tab-panel hidden" role="tabpanel" aria-labelledby="graphics-tab-infographics" aria-hidden="true" tabindex="0">
+                    <div class="graphics-workspace-intro">
+                        <div>
+                            <span class="graphics-workspace-kicker">INFOGRAFIIKKA</span>
+                            <h3>Tee projektin tiedoista selkeä visuaalinen kokonaisuus</h3>
+                            <p>Luo esimerkiksi tapahtumien aikajana, henkilökartta tai teemoja jäsentävä kaavio analyysin ja projektimuistin pohjalta.</p>
+                        </div>
+                        <span class="graphics-context-badge">Projektitieto kuviksi</span>
+                    </div>
+
+                    <div class="infographic-workspace">
+                        <div class="graphics-control-card glass-panel">
+                            <div class="graphics-control-grid infographic-control-grid">
+                                <label class="graphics-field">
+                                    <span>Infografiikan tyyppi</span>
+                                    <select id="infographic-type-select">
+                                        <option value="timeline">Aikajana</option>
+                                        <option value="character_map">Henkilökartta</option>
+                                        <option value="story_arc">Juonen kaari</option>
+                                        <option value="location_map">Paikkakartta</option>
+                                        <option value="fact_sheet">Fakta- ja teemakooste</option>
+                                    </select>
+                                </label>
+                                <label class="graphics-field">
+                                    <span>Visuaalinen teema</span>
+                                    <select id="infographic-theme-select">
+                                        <option value="paper">Paperi</option>
+                                        <option value="forest">Metsä</option>
+                                        <option value="midnight">Keskiyö</option>
+                                        <option value="berry">Marja</option>
+                                        <option value="ocean">Meri</option>
+                                    </select>
+                                </label>
+                                <label class="graphics-field graphics-field-wide">
+                                    <span>Otsikko</span>
+                                    <input id="infographic-title-input" type="text" maxlength="160" placeholder="Esimerkiksi Teoksen tapahtumien aikajana">
+                                </label>
+                                <label class="graphics-field graphics-field-wide">
+                                    <span>Painotus ja lisäohje</span>
+                                    <textarea id="infographic-focus-input" rows="5" maxlength="1000" placeholder="Kerro, mitä tapahtumia, henkilöitä, suhteita tai käsitteitä infografiikan pitää korostaa."></textarea>
+                                </label>
+                            </div>
+                            <div class="graphics-context-options" aria-label="Infografiikan lähdetiedot">
+                                <label><input id="infographic-use-analysis" type="checkbox" checked> Hyödynnä analyysiä</label>
+                                <label><input id="infographic-use-memory" type="checkbox" checked> Hyödynnä projektimuistia</label>
+                            </div>
+                            <button class="btn btn-primary infographic-generate-button" id="infographic-generate-btn" type="button">Luo infografiikka</button>
+                            <p id="infographic-status" class="graphics-inline-status" role="status" aria-live="polite">Valitse projekti ja infografiikan tyyppi.</p>
+                        </div>
+
+                        <div class="infographic-preview-card glass-panel">
+                            <div class="infographic-preview-heading">
+                                <span>UUSIN INFOGRAFIIKKA</span>
+                                <strong id="infographic-preview-title">Esikatselu</strong>
+                            </div>
+                            <div id="infographic-latest-preview" class="infographic-latest-preview">
+                                <div class="graphics-preview-empty"><span>◇</span><strong>Infografiikka ilmestyy tähän</strong><small>Valitse tyyppi ja paina Luo infografiikka.</small></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="graphics-gallery-section">
+                        <div class="production-section-heading"><span>02</span><div><h3>Tallennetut infografiikat</h3><p>Lataa valmis aineisto. Muokkausoikeudella voit poistaa tarpeettomat versiot.</p></div></div>
+                        <div id="infographic-gallery" class="graphics-gallery"></div>
+                        <p id="infographic-empty-state" class="graphics-empty-state">Ei vielä tallennettuja infografiikoita.</p>
+                        <button class="btn btn-secondary graphics-load-more" id="infographic-load-more-btn" type="button" hidden>Lataa lisää infografiikoita</button>
+                    </div>
+                </section>
             </div>
 
             <!-- 7. VIEW: TUOTETIEDOT -->
@@ -3550,6 +3669,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=133"></script>
+    <script src="app.js?v=135"></script>
 </body>
 </html>

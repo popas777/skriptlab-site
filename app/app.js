@@ -244,11 +244,24 @@ document.addEventListener('DOMContentLoaded', async () => {
 	    let currentMiscAssets = [];
 	    let currentLayoutAssets = [];
     let currentCoverImages = [];
+    let currentGraphicAssets = [];
     let marketingContextCovers = [];
     let selectedCoverReference = null;
 	let latestCoverLayout = null;
 	let coverLayoutDefaultsProjectId = null;
 	    let imageModels = [];
+    let graphicsActivePanel = 'graphics-panel-cover';
+    let graphicAssetsLoadedProjectId = null;
+    let graphicAssetsLoadSequence = 0;
+    let graphicAssetPreviewObserver = null;
+    const graphicAssetDetailRequests = new Map();
+    const graphicAssetPagination = {
+        book_visual_image: { nextCursor: null, loading: false },
+        infographic: { nextCursor: null, loading: false },
+    };
+    let visualRowsInitializedProjectId = null;
+    let visualBatchRowSequence = 0;
+    let visualBatchController = null;
     let proofreadSuggestions = [];
     let proofreadSelection = { cIndex: null };
     let proofreadExtraFindings = [];
@@ -762,6 +775,35 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const coverLayoutSpineMetric = document.getElementById('cover-layout-spine-metric');
     const coverLayoutSizeMetric = document.getElementById('cover-layout-size-metric');
     const coverLayoutResolution = document.getElementById('cover-layout-resolution');
+    const graphicsTabButtons = Array.from(document.querySelectorAll('.graphics-tab[data-graphics-panel]'));
+    const graphicsTabPanels = Array.from(document.querySelectorAll('.graphics-tab-panel'));
+    const visualModelSelect = document.getElementById('visual-model-select');
+    const visualSharedPrompt = document.getElementById('visual-shared-prompt');
+    const visualUseAnalysis = document.getElementById('visual-use-analysis');
+    const visualUseMemory = document.getElementById('visual-use-memory');
+    const visualWithoutText = document.getElementById('visual-without-text');
+    const visualBatchRows = document.getElementById('visual-batch-rows');
+    const visualAddRowBtn = document.getElementById('visual-add-row-btn');
+    const visualGenerateAllBtn = document.getElementById('visual-generate-all-btn');
+    const visualStopBtn = document.getElementById('visual-stop-btn');
+    const visualStatus = document.getElementById('visual-status');
+    const visualProgress = document.getElementById('visual-progress');
+    const visualGallery = document.getElementById('visual-gallery');
+    const visualEmptyState = document.getElementById('visual-empty-state');
+    const visualLoadMoreBtn = document.getElementById('visual-load-more-btn');
+    const infographicTypeSelect = document.getElementById('infographic-type-select');
+    const infographicThemeSelect = document.getElementById('infographic-theme-select');
+    const infographicTitleInput = document.getElementById('infographic-title-input');
+    const infographicFocusInput = document.getElementById('infographic-focus-input');
+    const infographicUseAnalysis = document.getElementById('infographic-use-analysis');
+    const infographicUseMemory = document.getElementById('infographic-use-memory');
+    const infographicGenerateBtn = document.getElementById('infographic-generate-btn');
+    const infographicStatus = document.getElementById('infographic-status');
+    const infographicPreviewTitle = document.getElementById('infographic-preview-title');
+    const infographicLatestPreview = document.getElementById('infographic-latest-preview');
+    const infographicGallery = document.getElementById('infographic-gallery');
+    const infographicEmptyState = document.getElementById('infographic-empty-state');
+    const infographicLoadMoreBtn = document.getElementById('infographic-load-more-btn');
     if (logoutLink) {
         logoutLink.addEventListener('click', async (event) => {
             event.preventDefault();
@@ -4512,7 +4554,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             ['view-kehityseditointi', 'Kehityspalaute'],
             ['view-kirjoita-editoi', 'Työpöytäeditori'],
             ['view-oikoluku', 'Oikoluku ja viimeistely'],
-            ['view-kuvitus', 'Kansi'],
+            ['view-kuvitus', 'Kansi ja grafiikka'],
             ['view-kirja', 'Tuotanto ja taitto'],
             ['view-julkaisupaketti', 'Tiedostopaketti'],
             ['view-monikielinen-julkaisu', 'Monikielinen julkaisu'],
@@ -4689,6 +4731,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (viewId === 'view-audio') {
             renderAudioView();
         }
+        if (viewId === 'view-kuvitus') {
+            initializeGraphicsWorkspace();
+        }
         updateHelpAgentContext();
     }
 
@@ -4745,10 +4790,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             }
             if (nextViewId === 'view-elamakerta') {
                 refreshElamakertaFrame();
-            }
-            if (nextViewId === 'view-kuvitus') {
-                loadImageModels();
-                loadCoverImages();
             }
             if (nextViewId === 'view-tuotetiedot') {
                 renderProductInfo();
@@ -7036,6 +7077,449 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     };
 
 	    // --- 5. Kuvitus Logic ---
+    const visualKindDefinitions = [
+        { value: 'chapter_opening', label: 'Luvun tai osion avauskuva' },
+        { value: 'scene', label: 'Kohtauskuva' },
+        { value: 'character', label: 'Henkilökuva' },
+        { value: 'location', label: 'Paikkakuva' },
+        { value: 'object', label: 'Esine tai symboli' },
+        { value: 'atmosphere', label: 'Tunnelmakuva' },
+        { value: 'marketing', label: 'Markkinointikuva' },
+    ];
+    const visualAspectRatioDefinitions = [
+        { value: '3:4', label: 'Pysty 3:4' },
+        { value: '16:9', label: 'Vaaka 16:9' },
+        { value: '1:1', label: 'Neliö 1:1' },
+        { value: '4:3', label: 'Vaaka 4:3' },
+        { value: '9:16', label: 'Kapea pysty 9:16' },
+    ];
+    const infographicTypeLabels = {
+        timeline: 'Aikajana',
+        character_map: 'Henkilökartta',
+        story_arc: 'Juonen kaari',
+        location_map: 'Paikkakartta',
+        fact_sheet: 'Fakta- ja teemakooste',
+    };
+    const GRAPHIC_ASSET_PAGE_SIZE = 12;
+
+    function activeGraphicProjectId() {
+        return String(window.manuscriptData?.id || '');
+    }
+
+    function visualBatchUsesActiveProject(batchRun = visualBatchController) {
+        return Boolean(batchRun && batchRun.projectId === activeGraphicProjectId());
+    }
+
+    function requestVisualBatchStop(message, projectChanged = false) {
+        const batchRun = visualBatchController;
+        if (!batchRun) return false;
+        if (projectChanged) batchRun.projectChanged = true;
+        if (!batchRun.stopRequested) batchRun.stopRequested = true;
+        if (visualStopBtn) {
+            visualStopBtn.disabled = true;
+            visualStopBtn.textContent = 'Pysäytetään…';
+        }
+        if (message) setVisualStatus(message);
+        syncGraphicsControls();
+        return true;
+    }
+
+    function requestVisualBatchStopForProjectChange(nextProjectId) {
+        const batchRun = visualBatchController;
+        if (!batchRun || batchRun.projectId === String(nextProjectId || '')) return false;
+        return requestVisualBatchStop(
+            'Projekti vaihtui. Käynnissä oleva kuva valmistuu vanhaan projektiin, eikä uusia pyyntöjä aloiteta.',
+            true,
+        );
+    }
+
+    function resetGraphicAssetPagination() {
+        Object.values(graphicAssetPagination).forEach(state => {
+            state.nextCursor = null;
+            state.loading = false;
+        });
+        updateGraphicLoadMoreButtons();
+    }
+
+    function invalidateGraphicAssetCache(render = true) {
+        graphicAssetsLoadSequence += 1;
+        graphicAssetsLoadedProjectId = null;
+        graphicAssetPreviewObserver?.disconnect();
+        graphicAssetDetailRequests.clear();
+        resetGraphicAssetPagination();
+        currentGraphicAssets = [];
+        if (render) renderGraphicAssets([]);
+    }
+
+    function setVisualStatus(message, isError = false) {
+        if (!visualStatus) return;
+        visualStatus.textContent = String(message || '');
+        visualStatus.classList.toggle('is-error', Boolean(isError));
+    }
+
+    function setInfographicStatus(message, isError = false) {
+        if (!infographicStatus) return;
+        infographicStatus.textContent = String(message || '');
+        infographicStatus.classList.toggle('is-error', Boolean(isError));
+    }
+
+    function setGraphicsTab(panelId = 'graphics-panel-cover', options = {}) {
+        const nextPanelId = graphicsTabPanels.some(panel => panel.id === panelId)
+            ? panelId
+            : 'graphics-panel-cover';
+        graphicsActivePanel = nextPanelId;
+        graphicsTabPanels.forEach(panel => {
+            const active = panel.id === nextPanelId;
+            panel.classList.toggle('hidden', !active);
+            panel.setAttribute('aria-hidden', String(!active));
+        });
+        graphicsTabButtons.forEach(button => {
+            const active = button.dataset.graphicsPanel === nextPanelId;
+            button.classList.toggle('is-active', active);
+            button.setAttribute('aria-selected', String(active));
+            button.tabIndex = active ? 0 : -1;
+            if (active && options.focus) button.focus();
+        });
+
+        if (nextPanelId === 'graphics-panel-cover') {
+            loadImageModels();
+            loadCoverImages();
+        } else {
+            const projectId = activeGraphicProjectId();
+            if (graphicAssetsLoadedProjectId !== projectId) loadGraphicAssets(false);
+            if (nextPanelId === 'graphics-panel-images') {
+                loadImageModels();
+                renderVisualBatchDefaults();
+            } else if (nextPanelId === 'graphics-panel-infographics') {
+                populateInfographicDefaults();
+            }
+            observeGraphicAssetPreviews();
+        }
+        syncGraphicsControls();
+    }
+
+    function handleGraphicsTabKeydown(event) {
+        const currentIndex = graphicsTabButtons.indexOf(event.currentTarget);
+        if (currentIndex < 0) return;
+        let nextIndex = currentIndex;
+        if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+            nextIndex = (currentIndex + 1) % graphicsTabButtons.length;
+        } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+            nextIndex = (currentIndex - 1 + graphicsTabButtons.length) % graphicsTabButtons.length;
+        } else if (event.key === 'Home') {
+            nextIndex = 0;
+        } else if (event.key === 'End') {
+            nextIndex = graphicsTabButtons.length - 1;
+        } else {
+            return;
+        }
+        event.preventDefault();
+        const nextButton = graphicsTabButtons[nextIndex];
+        setGraphicsTab(nextButton.dataset.graphicsPanel, { focus: true });
+    }
+
+    function initializeGraphicsWorkspace() {
+        updateIllustrationProjectText();
+        renderVisualBatchDefaults();
+        populateInfographicDefaults();
+        setGraphicsTab(graphicsActivePanel);
+    }
+
+    function visualChapterEntries() {
+        const bodyEntries = bodyChapterEntries();
+        if (bodyEntries.length) return bodyEntries;
+        return (window.manuscriptData?.chapters || []).map((chapter, index) => ({ chapter, index }));
+    }
+
+    function visualChapterTitle(chapterId) {
+        if (!chapterId) return 'Koko teos';
+        const entry = visualChapterEntries().find(({ chapter }) => String(chapter.id || '') === String(chapterId));
+        return entry ? (structureDisplayTitle(entry.chapter, entry.index) || 'Nimetön osio') : 'Valittu osio';
+    }
+
+    function visualChapterOptions(selectedId = '') {
+        const options = visualChapterEntries().map(({ chapter, index }) => {
+            const chapterId = String(chapter.id || '');
+            const title = structureDisplayTitle(chapter, index) || `Osio ${index + 1}`;
+            return `<option value="${escapeHtml(chapterId)}"${chapterId === String(selectedId || '') ? ' selected' : ''}>${escapeHtml(title)}</option>`;
+        });
+        return `<option value=""${selectedId ? '' : ' selected'}>Koko teos / ei osiokohtaista sidosta</option>${options.join('')}`;
+    }
+
+    function visualKindOptions(selected = 'chapter_opening') {
+        return visualKindDefinitions.map(item => (
+            `<option value="${item.value}"${item.value === selected ? ' selected' : ''}>${escapeHtml(item.label)}</option>`
+        )).join('');
+    }
+
+    function visualAspectRatioOptions(selected = '3:4') {
+        return visualAspectRatioDefinitions.map(item => (
+            `<option value="${item.value}"${item.value === selected ? ' selected' : ''}>${escapeHtml(item.label)}</option>`
+        )).join('');
+    }
+
+    function renumberVisualBatchRows() {
+        visualBatchRows?.querySelectorAll('.visual-batch-row').forEach((row, index) => {
+            const number = row.querySelector('.visual-batch-row-number');
+            if (number) number.textContent = String(index + 1).padStart(2, '0');
+            const heading = row.querySelector('.visual-batch-row-title');
+            if (heading) heading.textContent = `Kuvaehdotus ${index + 1}`;
+        });
+    }
+
+    function addVisualBatchRow(initial = {}, options = {}) {
+        if (!visualBatchRows) return null;
+        const rowId = `visual-row-${++visualBatchRowSequence}`;
+        const chapterId = String(initial.chapter_custom_id || '');
+        const sectionLabel = String(initial.section_label || visualChapterTitle(chapterId));
+        const row = document.createElement('article');
+        row.className = 'visual-batch-row glass-panel';
+        row.dataset.visualRowId = rowId;
+        row.innerHTML = `
+            <div class="visual-batch-row-header">
+                <span class="visual-batch-row-number">00</span>
+                <div><strong class="visual-batch-row-title">Kuvaehdotus</strong><small>Yksi kuva tästä rivistä</small></div>
+                <button class="visual-row-remove" type="button" aria-label="Poista kuvaehdotuksen rivi">Poista</button>
+            </div>
+            <div class="visual-batch-row-fields">
+                <label class="graphics-field">
+                    <span>Kirjan osio</span>
+                    <select class="visual-row-chapter">${visualChapterOptions(chapterId)}</select>
+                </label>
+                <label class="graphics-field">
+                    <span>Kuvan tehtävä</span>
+                    <select class="visual-row-kind">${visualKindOptions(initial.visual_kind || 'chapter_opening')}</select>
+                </label>
+                <label class="graphics-field">
+                    <span>Kuvasuhde</span>
+                    <select class="visual-row-aspect">${visualAspectRatioOptions(initial.aspect_ratio || '3:4')}</select>
+                </label>
+                <label class="graphics-field">
+                    <span>Kuvan nimi</span>
+                    <input class="visual-row-label" type="text" maxlength="160" value="${escapeHtml(sectionLabel)}" placeholder="Esimerkiksi Luku 1 · avauskuva">
+                </label>
+                <label class="graphics-field graphics-field-wide">
+                    <span>Rivikohtainen kuvaohje</span>
+                    <textarea class="visual-row-prompt" rows="3" maxlength="1200" placeholder="Kuvaile tärkein tapahtuma, henkilö, paikka, tunnelma tai symboli. Voit jättää kentän tyhjäksi, jos analyysi ja projektimuisti saavat ohjata ehdotusta.">${escapeHtml(initial.prompt || '')}</textarea>
+                </label>
+            </div>
+            <p class="visual-batch-row-status" role="status">Odottaa generointia.</p>
+        `;
+        const chapterSelect = row.querySelector('.visual-row-chapter');
+        const labelInput = row.querySelector('.visual-row-label');
+        chapterSelect?.addEventListener('change', () => {
+            if (labelInput) labelInput.value = visualChapterTitle(chapterSelect.value);
+        });
+        row.querySelector('.visual-row-remove')?.addEventListener('click', () => {
+            row.remove();
+            renumberVisualBatchRows();
+            syncGraphicsControls();
+            setVisualStatus(visualBatchRows.children.length
+                ? `${visualBatchRows.children.length} kuvaehdotusta valmiina ajoon.`
+                : 'Lisää vähintään yksi kuvaehdotuksen rivi.');
+        });
+        visualBatchRows.appendChild(row);
+        renumberVisualBatchRows();
+        if (options.focus) row.querySelector('.visual-row-chapter')?.focus();
+        syncGraphicsControls();
+        return row;
+    }
+
+    function renderVisualBatchDefaults(force = false) {
+        if (!visualBatchRows) return;
+        const projectId = String(window.manuscriptData?.id || 'unsaved');
+        const projectChanged = visualRowsInitializedProjectId !== projectId;
+        if (!force && !projectChanged && visualBatchRows.children.length) return;
+        if (visualBatchController) return;
+        visualBatchRows.replaceChildren();
+        const entries = visualChapterEntries().slice(0, 3);
+        if (entries.length) {
+            entries.forEach(({ chapter, index }, rowIndex) => addVisualBatchRow({
+                chapter_custom_id: String(chapter.id || ''),
+                section_label: structureDisplayTitle(chapter, index) || `Osio ${index + 1}`,
+                visual_kind: rowIndex === 0 ? 'chapter_opening' : 'scene',
+                aspect_ratio: '3:4',
+            }));
+        } else {
+            addVisualBatchRow({ section_label: 'Koko teos', visual_kind: 'atmosphere', aspect_ratio: '3:4' });
+        }
+        if (projectChanged && visualSharedPrompt) visualSharedPrompt.value = '';
+        visualRowsInitializedProjectId = projectId;
+        if (visualProgress) {
+            visualProgress.max = Math.max(1, visualBatchRows.children.length);
+            visualProgress.value = 0;
+        }
+        setVisualStatus(window.manuscriptData
+            ? `${visualBatchRows.children.length} kuvaehdotusta valmiina ajoon.`
+            : 'Valitse projekti ennen kuvien generointia.');
+        syncGraphicsControls();
+    }
+
+    function collectVisualBatchRows() {
+        const sharedPrompt = (visualSharedPrompt?.value || '').trim();
+        return Array.from(visualBatchRows?.querySelectorAll('.visual-batch-row') || []).map((row, index) => {
+            const chapterId = row.querySelector('.visual-row-chapter')?.value || '';
+            const specificPrompt = row.querySelector('.visual-row-prompt')?.value.trim() || '';
+            const prompt = [sharedPrompt, specificPrompt].filter(Boolean).join('\n\n');
+            return {
+                row,
+                index,
+                payload: {
+                    model: visualModelSelect?.value || null,
+                    visual_kind: row.querySelector('.visual-row-kind')?.value || 'chapter_opening',
+                    section_label: row.querySelector('.visual-row-label')?.value.trim() || visualChapterTitle(chapterId),
+                    chapter_custom_id: chapterId || null,
+                    prompt: prompt.slice(0, 2000),
+                    aspect_ratio: row.querySelector('.visual-row-aspect')?.value || '3:4',
+                    use_analysis: Boolean(visualUseAnalysis?.checked),
+                    use_project_memory: Boolean(visualUseMemory?.checked),
+                    without_text: Boolean(visualWithoutText?.checked),
+                },
+            };
+        });
+    }
+
+    async function ensureGraphicProject() {
+        if (window.manuscriptData && !window.manuscriptData.id) {
+            const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
+            if (savedProject?.id) window.manuscriptData = savedProject;
+        }
+        return window.manuscriptData?.id || null;
+    }
+
+    function syncGraphicsControls() {
+        const hasProject = Boolean(window.manuscriptData);
+        const editable = hasProject && canEditProject(window.manuscriptData);
+        const batchRunning = Boolean(visualBatchController);
+        if (visualAddRowBtn) visualAddRowBtn.disabled = !editable || batchRunning;
+        if (visualGenerateAllBtn) {
+            visualGenerateAllBtn.disabled = !editable || batchRunning || !visualBatchRows?.children.length;
+            visualGenerateAllBtn.textContent = batchRunning ? 'Generoidaan kuvaerää…' : 'Generoi kaikki ehdotukset';
+        }
+        if (visualStopBtn) {
+            visualStopBtn.classList.toggle('hidden', !batchRunning);
+            visualStopBtn.disabled = !batchRunning || visualBatchController?.stopRequested;
+        }
+        visualBatchRows?.querySelectorAll('input, select, textarea, button').forEach(field => {
+            field.disabled = !editable || batchRunning;
+        });
+        if (infographicGenerateBtn) infographicGenerateBtn.disabled = !editable || infographicGenerateBtn.dataset.running === 'true';
+    }
+
+    async function generateVisualBatch() {
+        if (visualBatchController) return;
+        const projectId = await ensureGraphicProject();
+        if (visualBatchController) return;
+        if (!projectId) {
+            setVisualStatus('Valitse tai tallenna käsikirjoitus ennen kuvien generointia.', true);
+            return;
+        }
+        if (String(projectId) !== activeGraphicProjectId()) return;
+        const batch = collectVisualBatchRows();
+        if (!batch.length) {
+            setVisualStatus('Lisää vähintään yksi kuvaehdotuksen rivi.', true);
+            return;
+        }
+        const batchRun = {
+            projectId: String(projectId),
+            stopRequested: false,
+            projectChanged: false,
+        };
+        visualBatchController = batchRun;
+        if (visualStopBtn) visualStopBtn.textContent = 'Pysäytä';
+        syncGraphicsControls();
+        if (visualProgress) {
+            visualProgress.max = batch.length;
+            visualProgress.value = 0;
+        }
+        batch.forEach(({ row }) => {
+            const status = row.querySelector('.visual-batch-row-status');
+            if (status) {
+                status.textContent = 'Odottaa vuoroa…';
+                status.classList.remove('is-error', 'is-complete', 'is-running');
+            }
+        });
+        const failures = [];
+        let completed = 0;
+        let stopped = false;
+        try {
+            for (const item of batch) {
+                if (!visualBatchUsesActiveProject(batchRun)) {
+                    batchRun.stopRequested = true;
+                    batchRun.projectChanged = true;
+                }
+                if (batchRun.stopRequested) {
+                    stopped = true;
+                    break;
+                }
+                const rowStatus = item.row.querySelector('.visual-batch-row-status');
+                if (rowStatus) {
+                    rowStatus.textContent = `Generoidaan ${item.index + 1}/${batch.length}…`;
+                    rowStatus.classList.add('is-running');
+                }
+                setVisualStatus(`Generoidaan kuvaehdotusta ${item.index + 1}/${batch.length}: ${item.payload.section_label}. Valmiit kuvat tallentuvat heti.`);
+                try {
+                    const response = await apiFetch(`/api/projects/${projectId}/visual-images`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(item.payload),
+                    });
+                    const data = await response.json().catch(() => null);
+                    if (!response.ok) throw new Error(data?.detail || 'Kuvaehdotuksen generointi epäonnistui.');
+                    completed += 1;
+                    const activeProjectStillMatches = visualBatchUsesActiveProject(batchRun);
+                    if (activeProjectStillMatches) {
+                        addGraphicAsset(data, batchRun.projectId);
+                    } else {
+                        batchRun.stopRequested = true;
+                        batchRun.projectChanged = true;
+                    }
+                    if (rowStatus) {
+                        rowStatus.textContent = activeProjectStillMatches
+                            ? 'Valmis ja tallennettu.'
+                            : 'Valmis ja tallennettu aiempaan projektiin.';
+                        rowStatus.classList.remove('is-running');
+                        rowStatus.classList.add('is-complete');
+                    }
+                } catch (error) {
+                    const message = networkFailureMessage(error);
+                    failures.push({ label: item.payload.section_label, message });
+                    if (rowStatus) {
+                        rowStatus.textContent = message;
+                        rowStatus.classList.remove('is-running');
+                        rowStatus.classList.add('is-error');
+                    }
+                } finally {
+                    if (visualProgress) visualProgress.value = item.index + 1;
+                }
+                if (!visualBatchUsesActiveProject(batchRun)) {
+                    batchRun.stopRequested = true;
+                    batchRun.projectChanged = true;
+                }
+                if (batchRun.stopRequested) {
+                    stopped = true;
+                    break;
+                }
+            }
+            await loadGraphicAssets(false, { force: true });
+            loadUsage();
+            if (batchRun.projectChanged) {
+                // The active project owns the visible status and gallery now.
+            } else if (stopped) {
+                setVisualStatus(`Kuvaerä pysäytettiin. ${completed}/${batch.length} kuvaa valmistui${failures.length ? ` ja ${failures.length} epäonnistui` : ''}.`, Boolean(failures.length));
+            } else if (failures.length) {
+                setVisualStatus(`${completed}/${batch.length} kuvaa valmistui. ${failures.length} riviä epäonnistui; muut kuvat ovat tallessa.`, true);
+            } else {
+                setVisualStatus(`Kaikki ${completed} kuvaehdotusta luotiin ja tallennettiin.`);
+            }
+        } finally {
+            if (visualBatchController === batchRun) visualBatchController = null;
+            if (visualStopBtn) visualStopBtn.textContent = 'Pysäytä';
+            if (batchRun.projectChanged) renderVisualBatchDefaults(true);
+            syncGraphicsControls();
+        }
+    }
+
     const coverFormatDefinitions = [
         {
             key: 'portrait_1000x1500',
@@ -8162,27 +8646,485 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
     }
 
-    async function loadImageModels() {
-        if (!coverModelSelect) return;
+    function renderImageModelSelects() {
+        const selects = [coverModelSelect, visualModelSelect].filter(Boolean);
+        const defaultModel = imageModels.find(model => model.is_default) || imageModels[0] || null;
+        selects.forEach(select => {
+            const currentValue = select.value;
+            if (!imageModels.length) {
+                select.innerHTML = '<option value="">Ei käytössä olevia kuvamalleja</option>';
+                return;
+            }
+            select.innerHTML = imageModels
+                .map(model => `<option value="${escapeHtml(`${model.provider}:${model.model_name}`)}">${escapeHtml(model.display_name)}</option>`)
+                .join('');
+            if (currentValue && Array.from(select.options).some(option => option.value === currentValue)) {
+                select.value = currentValue;
+            } else if (defaultModel) {
+                select.value = `${defaultModel.provider}:${defaultModel.model_name}`;
+            }
+        });
+    }
+
+    async function loadImageModels(force = false) {
+        if (!coverModelSelect && !visualModelSelect) return [];
+        if (imageModels.length && !force) {
+            renderImageModelSelects();
+            return imageModels;
+        }
         try {
             const res = await apiFetch('/api/models/image');
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || 'Kuvamallien lataus epäonnistui.');
             imageModels = data || [];
-            if (!imageModels.length) {
-                coverModelSelect.innerHTML = '<option value="">Ei käytössä olevia kuvamalleja</option>';
-                return;
-            }
-            coverModelSelect.innerHTML = imageModels
-                .map(model => `<option value="${escapeHtml(`${model.provider}:${model.model_name}`)}">${escapeHtml(model.display_name)}</option>`)
-                .join('');
-            const defaultModel = imageModels.find(model => model.is_default) || imageModels[0];
-            if (defaultModel) coverModelSelect.value = `${defaultModel.provider}:${defaultModel.model_name}`;
+            renderImageModelSelects();
+            return imageModels;
         } catch (err) {
-            coverModelSelect.innerHTML = '<option value="">Kuvamalleja ei saatu ladattua</option>';
+            [coverModelSelect, visualModelSelect].filter(Boolean).forEach(select => {
+                select.innerHTML = '<option value="">Kuvamalleja ei saatu ladattua</option>';
+            });
             setIllustrationStatus(err.message, true);
+            setVisualStatus(err.message, true);
+            return [];
         }
     }
+
+    function graphicAssetTypeLabel(asset) {
+        return asset?.asset_type === 'infographic' ? 'Infografiikka' : 'Kuvaehdotus';
+    }
+
+    function graphicAssetDate(value) {
+        const date = new Date(value || '');
+        return Number.isNaN(date.getTime()) ? '' : date.toLocaleString('fi-FI', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    }
+
+    function graphicAssetFileName(asset) {
+        const projectTitle = safeFileStem(window.manuscriptData?.title || 'projekti', 'projekti');
+        const assetTitle = safeFileStem(asset?.title || graphicAssetTypeLabel(asset), asset?.asset_type === 'infographic' ? 'infografiikka' : 'kuvaehdotus');
+        const mime = String(asset?.mime_type || '').toLowerCase();
+        const extension = mime.includes('jpeg') || mime.includes('jpg')
+            ? 'jpg'
+            : mime.includes('webp')
+                ? 'webp'
+                : mime.includes('svg')
+                    ? 'svg'
+                    : 'png';
+        return `${projectTitle}-${assetTitle}.${extension}`;
+    }
+
+    function graphicAssetStatusSetter(asset) {
+        return asset?.asset_type === 'infographic' ? setInfographicStatus : setVisualStatus;
+    }
+
+    async function downloadGraphicAsset(asset) {
+        const resolvedAsset = asset?.data_url ? asset : await loadGraphicAssetDetail(asset);
+        if (!resolvedAsset?.data_url) {
+            graphicAssetStatusSetter(asset)('Kuvatiedostoa ei löytynyt ladattavaksi.', true);
+            return;
+        }
+        const link = document.createElement('a');
+        link.href = resolvedAsset.data_url;
+        link.download = graphicAssetFileName(resolvedAsset);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        if (resolvedAsset.asset_type === 'infographic') setInfographicStatus('Infografiikan lataus käynnistyi.');
+        else setVisualStatus('Kuvaehdotuksen lataus käynnistyi.');
+    }
+
+    function updateGraphicAssetCardPreview(card, asset) {
+        if (!card || !asset) return;
+        const media = card.querySelector('.graphic-asset-media');
+        const downloadButton = card.querySelector('.graphic-download-btn');
+        if (asset.data_url && media) {
+            media.replaceChildren();
+            const image = document.createElement('img');
+            image.src = asset.data_url;
+            image.alt = asset.title || graphicAssetTypeLabel(asset);
+            image.loading = 'lazy';
+            media.appendChild(image);
+            card.classList.remove('is-loading-preview', 'has-preview-error');
+        }
+        if (downloadButton) {
+            downloadButton.disabled = !asset.data_url;
+            downloadButton.textContent = asset.data_url ? 'Lataa' : 'Ei ladattavissa';
+        }
+    }
+
+    async function loadGraphicAssetDetail(asset, card = null) {
+        if (asset?.data_url) {
+            updateGraphicAssetCardPreview(card, asset);
+            return asset;
+        }
+        const projectId = activeGraphicProjectId();
+        if (!projectId || !asset?.id || String(asset.project_id || '') !== projectId) return null;
+        const requestKey = `${projectId}:${asset.id}`;
+        let request = graphicAssetDetailRequests.get(requestKey);
+        if (!request) {
+            request = (async () => {
+                const response = await apiFetch(`/api/projects/${projectId}/graphic-assets/${asset.id}`);
+                const data = await response.json().catch(() => null);
+                if (!response.ok) throw new Error(data?.detail || 'Grafiikka-aineiston esikatselua ei voitu ladata.');
+                if (activeGraphicProjectId() !== projectId) return null;
+                const current = currentGraphicAssets.find(item => String(item.id) === String(asset.id));
+                if (!current) return null;
+                Object.assign(current, data);
+                return current;
+            })().finally(() => graphicAssetDetailRequests.delete(requestKey));
+            graphicAssetDetailRequests.set(requestKey, request);
+        }
+        try {
+            const resolved = await request;
+            if (!resolved) return null;
+            updateGraphicAssetCardPreview(card, resolved);
+            if (resolved.asset_type === 'infographic') {
+                const infographics = currentGraphicAssets
+                    .filter(item => item.asset_type === 'infographic')
+                    .sort((left, right) => new Date(right.created_at || 0) - new Date(left.created_at || 0));
+                if (String(infographics[0]?.id || '') === String(resolved.id)) renderLatestInfographic(infographics);
+            }
+            return resolved;
+        } catch (error) {
+            if (card?.isConnected) {
+                card.classList.remove('is-loading-preview');
+                card.classList.add('has-preview-error');
+                const media = card.querySelector('.graphic-asset-media');
+                if (media) media.innerHTML = '<span>Esikatselua ei voitu ladata</span>';
+                const downloadButton = card.querySelector('.graphic-download-btn');
+                if (downloadButton) {
+                    downloadButton.disabled = false;
+                    downloadButton.textContent = 'Yritä uudelleen';
+                }
+            }
+            return null;
+        }
+    }
+
+    function createGraphicAssetCard(asset) {
+        const card = document.createElement('article');
+        card.className = `graphic-asset-card glass-panel${asset.data_url ? '' : ' is-loading-preview'}`;
+        card.dataset.graphicAssetId = String(asset.id || '');
+        const kind = graphicAssetTypeLabel(asset);
+        const date = graphicAssetDate(asset.created_at);
+        const model = String(asset.model || '').trim();
+        const material = String(asset.material_kind || '').trim();
+        card.innerHTML = `
+            <div class="graphic-asset-media"></div>
+            <div class="graphic-asset-copy">
+                <span>${escapeHtml(kind)}</span>
+                <h4>${escapeHtml(asset.title || kind)}</h4>
+                <p>${[material, model, date].filter(Boolean).map(escapeHtml).join(' · ')}</p>
+            </div>
+            ${asset.prompt ? `<details class="graphic-asset-prompt"><summary>Luonnissa käytetty ohje</summary><p>${escapeHtml(asset.prompt)}</p></details>` : ''}
+            <div class="graphic-asset-actions">
+                <button class="btn btn-secondary graphic-download-btn" type="button"${asset.data_url ? '' : ' disabled'}>${asset.data_url ? 'Lataa' : 'Ladataan…'}</button>
+                ${canEditProject(window.manuscriptData || {}) ? '<button class="btn btn-secondary btn-danger-soft graphic-delete-btn" type="button">Poista</button>' : ''}
+            </div>
+        `;
+        const media = card.querySelector('.graphic-asset-media');
+        if (asset.data_url) {
+            const image = document.createElement('img');
+            image.src = asset.data_url;
+            image.alt = asset.title || kind;
+            image.loading = 'lazy';
+            media.appendChild(image);
+        } else {
+            media.innerHTML = '<span>Ladataan esikatselua…</span>';
+        }
+        card.querySelector('.graphic-download-btn')?.addEventListener('click', () => downloadGraphicAsset(asset));
+        card.querySelector('.graphic-delete-btn')?.addEventListener('click', () => deleteGraphicAsset(asset));
+        return card;
+    }
+
+    function renderGraphicGallery(items, container, emptyState) {
+        if (!container || !emptyState) return;
+        container.replaceChildren();
+        emptyState.hidden = items.length > 0;
+        items.forEach(item => container.appendChild(createGraphicAssetCard(item)));
+    }
+
+    function observeGraphicAssetPreviews() {
+        graphicAssetPreviewObserver?.disconnect();
+        const cards = Array.from(document.querySelectorAll('.graphic-asset-card.is-loading-preview[data-graphic-asset-id]'));
+        if (!cards.length) return;
+        if (!('IntersectionObserver' in window)) {
+            cards.forEach(card => {
+                const asset = currentGraphicAssets.find(item => String(item.id) === card.dataset.graphicAssetId);
+                if (asset) loadGraphicAssetDetail(asset, card);
+            });
+            return;
+        }
+        graphicAssetPreviewObserver = new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+                if (!entry.isIntersecting) return;
+                graphicAssetPreviewObserver?.unobserve(entry.target);
+                const asset = currentGraphicAssets.find(item => String(item.id) === entry.target.dataset.graphicAssetId);
+                if (asset) loadGraphicAssetDetail(asset, entry.target);
+            });
+        }, { rootMargin: '240px 0px' });
+        cards.forEach(card => graphicAssetPreviewObserver.observe(card));
+    }
+
+    function renderLatestInfographic(items) {
+        if (!infographicLatestPreview) return;
+        const latest = items[0];
+        if (!latest?.data_url) {
+            infographicLatestPreview.innerHTML = latest
+                ? '<div class="graphics-preview-empty is-working"><span>◇</span><strong>Ladataan infografiikkaa…</strong><small>Esikatselu avautuu hetken kuluttua.</small></div>'
+                : '<div class="graphics-preview-empty"><span>◇</span><strong>Infografiikka ilmestyy tähän</strong><small>Valitse tyyppi ja paina Luo infografiikka.</small></div>';
+            if (infographicPreviewTitle) infographicPreviewTitle.textContent = latest?.title || 'Esikatselu';
+            return;
+        }
+        infographicLatestPreview.replaceChildren();
+        const image = document.createElement('img');
+        image.src = latest.data_url;
+        image.alt = latest.title || 'Uusin infografiikka';
+        infographicLatestPreview.appendChild(image);
+        if (infographicPreviewTitle) infographicPreviewTitle.textContent = latest.title || 'Uusin infografiikka';
+    }
+
+    function renderGraphicAssets(items = []) {
+        currentGraphicAssets = Array.isArray(items) ? items : [];
+        const ordered = [...currentGraphicAssets].sort((left, right) => {
+            return new Date(right.created_at || 0).getTime() - new Date(left.created_at || 0).getTime();
+        });
+        const visualItems = ordered.filter(item => item.asset_type === 'book_visual_image');
+        const infographicItems = ordered.filter(item => item.asset_type === 'infographic');
+        renderGraphicGallery(visualItems, visualGallery, visualEmptyState);
+        renderGraphicGallery(infographicItems, infographicGallery, infographicEmptyState);
+        renderLatestInfographic(infographicItems);
+        updateGraphicLoadMoreButtons();
+        observeGraphicAssetPreviews();
+    }
+
+    function addGraphicAsset(asset, expectedProjectId = activeGraphicProjectId()) {
+        const projectId = String(expectedProjectId || '');
+        if (!asset?.id || !projectId || activeGraphicProjectId() !== projectId || String(asset.project_id || '') !== projectId) return false;
+        const cacheWasLoaded = graphicAssetsLoadedProjectId === projectId;
+        if (!cacheWasLoaded) graphicAssetsLoadSequence += 1;
+        currentGraphicAssets = [asset, ...currentGraphicAssets.filter(item => String(item.id) !== String(asset.id))];
+        renderGraphicAssets(currentGraphicAssets);
+        graphicAssetsLoadedProjectId = cacheWasLoaded ? projectId : null;
+        return true;
+    }
+
+    function updateGraphicLoadMoreButtons() {
+        [
+            ['book_visual_image', visualLoadMoreBtn, 'Lataa lisää kuvaehdotuksia'],
+            ['infographic', infographicLoadMoreBtn, 'Lataa lisää infografiikoita'],
+        ].forEach(([assetType, button, label]) => {
+            if (!button) return;
+            const state = graphicAssetPagination[assetType];
+            button.hidden = !state.nextCursor;
+            button.disabled = state.loading;
+            button.textContent = state.loading ? 'Ladataan…' : label;
+        });
+    }
+
+    function mergeGraphicAssetMetadata(items) {
+        const existing = new Map(currentGraphicAssets.map(item => [String(item.id), item]));
+        return (Array.isArray(items) ? items : []).map(item => {
+            const previous = existing.get(String(item.id));
+            return previous?.data_url ? { ...item, data_url: previous.data_url } : item;
+        });
+    }
+
+    async function requestGraphicAssetPage(projectId, assetType, cursor = null) {
+        const params = new URLSearchParams({ asset_type: assetType, limit: String(GRAPHIC_ASSET_PAGE_SIZE) });
+        if (cursor) params.set('cursor', String(cursor));
+        const response = await apiFetch(`/api/projects/${projectId}/graphic-assets?${params.toString()}`);
+        const data = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(data?.detail || 'Grafiikka-aineistojen lataus epäonnistui.');
+        return {
+            items: Array.isArray(data?.items) ? data.items : [],
+            nextCursor: data?.next_cursor || null,
+        };
+    }
+
+    async function loadGraphicAssets(showFeedback = false, options = {}) {
+        const projectId = window.manuscriptData?.id;
+        const force = Boolean(options?.force);
+        if (!projectId) {
+            invalidateGraphicAssetCache(true);
+            if (showFeedback) {
+                setVisualStatus('Valitse projekti nähdäksesi kuvaehdotukset.');
+                setInfographicStatus('Valitse projekti nähdäksesi infografiikat.');
+            }
+            return [];
+        }
+        const requestedProjectId = String(projectId);
+        if (!force && graphicAssetsLoadedProjectId === requestedProjectId) return currentGraphicAssets;
+        const loadSequence = ++graphicAssetsLoadSequence;
+        try {
+            const [visualPage, infographicPage] = await Promise.all([
+                requestGraphicAssetPage(projectId, 'book_visual_image'),
+                requestGraphicAssetPage(projectId, 'infographic'),
+            ]);
+            if (loadSequence !== graphicAssetsLoadSequence || String(window.manuscriptData?.id || '') !== requestedProjectId) return [];
+            graphicAssetPreviewObserver?.disconnect();
+            graphicAssetDetailRequests.clear();
+            graphicAssetPagination.book_visual_image.nextCursor = visualPage.nextCursor;
+            graphicAssetPagination.infographic.nextCursor = infographicPage.nextCursor;
+            const firstPageItems = mergeGraphicAssetMetadata([...visualPage.items, ...infographicPage.items]);
+            graphicAssetsLoadedProjectId = requestedProjectId;
+            renderGraphicAssets(firstPageItems);
+            return currentGraphicAssets;
+        } catch (error) {
+            if (loadSequence !== graphicAssetsLoadSequence) return [];
+            const message = error.message || 'Grafiikka-aineistojen lataus epäonnistui.';
+            setVisualStatus(message, true);
+            setInfographicStatus(message, true);
+            return [];
+        }
+    }
+
+    async function loadMoreGraphicAssets(assetType) {
+        const projectId = activeGraphicProjectId();
+        const state = graphicAssetPagination[assetType];
+        if (!projectId || !state?.nextCursor || state.loading) return;
+        const cursor = state.nextCursor;
+        state.loading = true;
+        updateGraphicLoadMoreButtons();
+        try {
+            const page = await requestGraphicAssetPage(projectId, assetType, cursor);
+            if (activeGraphicProjectId() !== projectId) return;
+            state.nextCursor = page.nextCursor;
+            const mergedPage = mergeGraphicAssetMetadata(page.items);
+            const ids = new Set(mergedPage.map(item => String(item.id)));
+            currentGraphicAssets = [...currentGraphicAssets.filter(item => !ids.has(String(item.id))), ...mergedPage];
+            renderGraphicAssets(currentGraphicAssets);
+        } catch (error) {
+            graphicAssetStatusSetter({ asset_type: assetType })(error.message || 'Grafiikka-aineistojen lataus epäonnistui.', true);
+        } finally {
+            state.loading = false;
+            updateGraphicLoadMoreButtons();
+        }
+    }
+
+    async function deleteGraphicAsset(asset) {
+        const projectId = window.manuscriptData?.id;
+        if (!projectId || !asset?.id || !canEditProject(window.manuscriptData || {})) return;
+        if (String(asset.project_id || '') !== String(projectId)) return;
+        const kind = asset.asset_type === 'infographic' ? 'infografiikka' : 'kuvaehdotus';
+        if (!confirm(`Poistetaanko ${kind}?`)) return;
+        const setStatus = asset.asset_type === 'infographic' ? setInfographicStatus : setVisualStatus;
+        setStatus(`Poistetaan ${kind}a…`);
+        try {
+            const response = await apiFetch(`/api/projects/${projectId}/assets/${asset.id}`, { method: 'DELETE' });
+            if (!response.ok) throw new Error(await apiErrorMessage(response, 'Grafiikka-aineiston poisto epäonnistui.'));
+            if (activeGraphicProjectId() !== String(projectId)) return;
+            currentGraphicAssets = currentGraphicAssets.filter(item => String(item.id) !== String(asset.id));
+            renderGraphicAssets(currentGraphicAssets);
+            setStatus(`${kind === 'infografiikka' ? 'Infografiikka' : 'Kuvaehdotus'} poistettu.`);
+        } catch (error) {
+            setStatus(error.message || 'Grafiikka-aineiston poisto epäonnistui.', true);
+        }
+    }
+
+    function defaultInfographicTitle() {
+        const label = infographicTypeLabels[infographicTypeSelect?.value] || 'Infografiikka';
+        const title = String(window.manuscriptData?.title || '').trim();
+        return title ? `${title} · ${label}` : label;
+    }
+
+    function populateInfographicDefaults(force = false) {
+        if (!infographicTitleInput) return;
+        const projectId = String(window.manuscriptData?.id || 'unsaved');
+        const projectChanged = infographicTitleInput.dataset.projectId !== projectId;
+        if (force || projectChanged || !infographicTitleInput.value.trim() || infographicTitleInput.dataset.autoTitle === 'true') {
+            infographicTitleInput.value = defaultInfographicTitle();
+            infographicTitleInput.dataset.autoTitle = 'true';
+        }
+        infographicTitleInput.dataset.projectId = projectId;
+    }
+
+    async function generateInfographic() {
+        if (infographicGenerateBtn?.dataset.running === 'true') return;
+        const projectId = await ensureGraphicProject();
+        if (!projectId) {
+            setInfographicStatus('Valitse tai tallenna käsikirjoitus ennen infografiikan luontia.', true);
+            return;
+        }
+        if (String(projectId) !== activeGraphicProjectId()) return;
+        populateInfographicDefaults();
+        const type = infographicTypeSelect?.value || 'timeline';
+        const title = infographicTitleInput?.value.trim() || defaultInfographicTitle();
+        if (infographicGenerateBtn) {
+            infographicGenerateBtn.dataset.running = 'true';
+            infographicGenerateBtn.textContent = 'Luodaan infografiikkaa…';
+        }
+        syncGraphicsControls();
+        setInfographicStatus(`Luodaan: ${infographicTypeLabels[type] || 'Infografiikka'}. Tässä voi mennä hetki.`);
+        if (infographicLatestPreview) {
+            infographicLatestPreview.innerHTML = '<div class="graphics-preview-empty is-working"><span>◇</span><strong>Jäsennetään projektin tietoja…</strong><small>Analyysi ja projektimuisti ohjaavat sisältöä valintojesi mukaan.</small></div>';
+        }
+        try {
+            const response = await apiFetch(`/api/projects/${projectId}/infographics`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    infographic_type: type,
+                    title,
+                    focus: (infographicFocusInput?.value || '').trim(),
+                    theme: infographicThemeSelect?.value || 'paper',
+                    use_analysis: Boolean(infographicUseAnalysis?.checked),
+                    use_project_memory: Boolean(infographicUseMemory?.checked),
+                }),
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'Infografiikan luonti epäonnistui.');
+            if (!addGraphicAsset(data, String(projectId))) return;
+            if (graphicAssetsLoadedProjectId !== String(projectId)) {
+                await loadGraphicAssets(false, { force: true });
+                if (activeGraphicProjectId() !== String(projectId)) return;
+            }
+            setInfographicStatus('Infografiikka luotiin ja tallennettiin projektiin.');
+            loadUsage();
+        } catch (error) {
+            if (activeGraphicProjectId() === String(projectId)) {
+                setInfographicStatus(networkFailureMessage(error), true);
+                renderLatestInfographic(currentGraphicAssets.filter(item => item.asset_type === 'infographic'));
+            }
+        } finally {
+            if (infographicGenerateBtn) {
+                delete infographicGenerateBtn.dataset.running;
+                infographicGenerateBtn.textContent = 'Luo infografiikka';
+            }
+            syncGraphicsControls();
+        }
+    }
+
+    graphicsTabButtons.forEach(button => {
+        button.addEventListener('click', () => setGraphicsTab(button.dataset.graphicsPanel));
+        button.addEventListener('keydown', handleGraphicsTabKeydown);
+    });
+    visualAddRowBtn?.addEventListener('click', () => addVisualBatchRow({
+        section_label: 'Koko teos',
+        visual_kind: 'atmosphere',
+        aspect_ratio: '3:4',
+    }, { focus: true }));
+    visualGenerateAllBtn?.addEventListener('click', generateVisualBatch);
+    visualLoadMoreBtn?.addEventListener('click', () => loadMoreGraphicAssets('book_visual_image'));
+    visualStopBtn?.addEventListener('click', () => {
+        if (!visualBatchController || visualBatchController.stopRequested) return;
+        requestVisualBatchStop('Pysäytetään kuvaerää nykyisen pyynnön jälkeen…');
+    });
+    infographicTypeSelect?.addEventListener('change', () => {
+        if (infographicTitleInput?.dataset.autoTitle === 'true' || !infographicTitleInput?.value.trim()) {
+            populateInfographicDefaults(true);
+        }
+    });
+    infographicTitleInput?.addEventListener('input', () => {
+        infographicTitleInput.dataset.autoTitle = infographicTitleInput.value.trim() ? 'false' : 'true';
+    });
+    infographicGenerateBtn?.addEventListener('click', generateInfographic);
+    infographicLoadMoreBtn?.addEventListener('click', () => loadMoreGraphicAssets('infographic'));
 
     function coverAssetTypeLabel(item) {
         return item?.asset_type === 'full_cover_image'
@@ -11819,7 +12761,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 { id: 'proofread', title: 'Oikoluku ja viimeistely luvuittain', detail: 'Haetaan selkeät virheet ja hyväksytään suorat korjaukset.', status: 'pending' },
                 { id: 'product', title: 'Tuotetiedot', detail: 'Päätellään kohderyhmä, luokitukset, kuvaukset ja ONIX-kooste.', status: 'pending' },
                 { id: 'marketing', title: 'Markkinointiaineistot', detail: 'Luodaan lyhyt ja pitkä kuvaus, some-tekstit, videokäsikirjoitus ja hashtagit.', status: 'pending' },
-                { id: 'covers', title: 'Kansi ja kuvitus', detail: 'Luodaan etukannen ja takakannen luonnokset analyysin perusteella.', status: 'pending' }
+                { id: 'covers', title: 'Kansi ja grafiikka', detail: 'Luodaan kannet, kuvaehdotukset ja infografiikat projektitiedon pohjalta.', status: 'pending' }
             );
             steps.push({ id: 'audio', title: 'Audiotuotanto', detail: 'Äänikirjan tuotanto on työnkulun viimeinen vaihe ja edellyttää äänen valintaa.', status: 'pending' });
         }
@@ -15011,8 +15953,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     });
     if (layoutOpenCoverBtn) layoutOpenCoverBtn.addEventListener('click', () => {
         window.openModule('view-kuvitus');
-        loadImageModels();
-        loadCoverImages();
+        setGraphicsTab('graphics-panel-cover', { focus: true });
     });
     if (layoutOpenMaterialsBtn) layoutOpenMaterialsBtn.addEventListener('click', () => {
         window.openModule('view-muut-toiminnot');
@@ -15028,7 +15969,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     document.getElementById('publication-package-build-btn')?.addEventListener('click', buildPublicationPackage);
     document.getElementById('publication-package-download-btn')?.addEventListener('click', downloadPublicationPackage);
     document.getElementById('publication-package-cover-select')?.addEventListener('change', renderPublicationPackageCover);
-    document.getElementById('publication-package-open-cover-btn')?.addEventListener('click', () => openModule('view-kuvitus'));
+    document.getElementById('publication-package-open-cover-btn')?.addEventListener('click', () => {
+        openModule('view-kuvitus');
+        setGraphicsTab('graphics-panel-cover', { focus: true });
+    });
     document.getElementById('publication-package-translate-btn')?.addEventListener('click', () => {
         openModule('view-monikielinen-julkaisu');
     });
@@ -15394,6 +16338,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     }
 
     function clearActiveManuscript() {
+        requestVisualBatchStopForProjectChange('');
+        invalidateGraphicAssetCache(true);
         window.manuscriptData = null;
         projectVersions = [];
         loadedVersionsProjectId = null;
@@ -15445,6 +16391,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             refreshTuotantoFrame(currentViewId);
         }
         renderCoverImages([]);
+        visualRowsInitializedProjectId = null;
+        renderVisualBatchDefaults(true);
     }
 
     function isGeneratedPlaceholderChapter(chapter) {
@@ -15504,6 +16452,11 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
         cleanupGeneratedPlaceholderChapters(data);
         normalizeImportedFallbackChapter(data);
+        const nextProjectId = String(data.id || '');
+        if (activeGraphicProjectId() !== nextProjectId) {
+            requestVisualBatchStopForProjectChange(nextProjectId);
+            invalidateGraphicAssetCache(true);
+        }
         const versionsProjectChanged = String(loadedVersionsProjectId || '') !== String(data.id || '');
         if (versionsProjectChanged) {
             projectVersions = [];
@@ -15554,7 +16507,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         updateFinnishTranslationProjectSelect();
         updateMiscProjectSelect();
         loadMiscAssetsForActiveProject(true);
-        if (currentViewId === 'view-kuvitus') loadCoverImages();
+        if (currentViewId === 'view-kuvitus') initializeGraphicsWorkspace();
         if (currentViewId === 'view-monikielinen-julkaisu') loadMultilingualPublication();
         if (currentViewId === 'view-markkinointi') {
             renderMarketingMaterialsFromAnalysis(true);

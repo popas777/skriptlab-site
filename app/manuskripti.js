@@ -28,6 +28,7 @@
   let projectStageAssets = {
     misc: [],
     covers: [],
+    graphics: [],
     layout: [],
     publication: null,
     translations: [],
@@ -423,12 +424,13 @@
 
   async function apiListProjectStageAssets(projectId) {
     if (demoMode) return {
-      misc: [], covers: [], layout: [], publication: null,
+      misc: [], covers: [], graphics: [], layout: [], publication: null,
       translations: [], knowledge: [], versionCount: 0,
     };
-    const [misc, covers, layout, publication, translations, workspace] = await Promise.allSettled([
+    const [misc, covers, graphics, layout, publication, translations, workspace] = await Promise.allSettled([
       api("/projects/" + projectId + "/misc-assets"),
       api("/projects/" + projectId + "/cover-images"),
+      api("/projects/" + projectId + "/graphic-assets?limit=1"),
       api("/projects/" + projectId + "/layout-assets"),
       api("/projects/" + projectId + "/publication-package/readiness"),
       api("/projects/" + projectId + "/translations"),
@@ -437,6 +439,7 @@
     return {
       misc: misc.status === "fulfilled" && Array.isArray(misc.value) ? misc.value : [],
       covers: covers.status === "fulfilled" && Array.isArray(covers.value) ? covers.value : [],
+      graphics: graphics.status === "fulfilled" && Array.isArray(graphics.value?.items) ? graphics.value.items : [],
       layout: layout.status === "fulfilled" && Array.isArray(layout.value) ? layout.value : [],
       publication: publication.status === "fulfilled" && publication.value && typeof publication.value === "object"
         ? publication.value : null,
@@ -892,6 +895,12 @@
     );
   }
 
+  function hasGraphicAssets() {
+    return (projectStageAssets.graphics || []).some((asset) =>
+      ["book_visual_image", "infographic"].includes(asset.asset_type)
+    );
+  }
+
   function hasFullCoverAssets() {
     return (projectStageAssets.covers || []).some((asset) => asset.asset_type === "full_cover_image");
   }
@@ -963,8 +972,8 @@
         status: projectStageStatus(developmentDone, developmentStarted), moduleView: "view-kehityseditointi" },
       { id: "oikoluku", num: 4, name: "Oikoluku ja viimeistely", desc: "Kielenhuolto ja viimeistelty versio",
         status: projectStageStatus(proofreadDone, proofreadStarted), moduleView: "view-oikoluku" },
-      { id: "kansi", num: 5, name: "Kansi", desc: "Etukansi, selkä, takakansi ja leikkuuvarat",
-        status: projectStageStatus(hasFullCoverAssets(), hasCoverAssets() || coverPromptStarted), moduleView: "view-kuvitus" },
+      { id: "kansi", num: 5, name: "Kansi ja grafiikka", desc: "Kansi, kuvamaailma ja infografiikat",
+        status: projectStageStatus(hasFullCoverAssets(), hasCoverAssets() || hasGraphicAssets() || coverPromptStarted), moduleView: "view-kuvitus" },
       { id: "taitto", num: 6, name: "Tuotanto ja taitto", desc: productDone ? "Tuotetiedot, PDF, EPUB ja taittotiedostot" : "Täydennä tuotetiedot ja muodosta taittotiedostot",
         status: projectStageStatus(hasLayoutAssets() && productDone, hasLayoutAssets() || productStarted || hasMiscAssets()), moduleView: "view-kirja" },
       { id: "julkaisupaketti", num: 7, name: "Tiedostopaketti", desc: "Lukittu lähde ja toimituspaketti",
