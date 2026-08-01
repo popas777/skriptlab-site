@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=80">
+    <link rel="stylesheet" href="styles.css?v=81">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -1848,6 +1848,12 @@
 
             <!-- 6. VIEW: KANSI JA GRAFIIKKA -->
             <div id="view-kuvitus" class="view-section hidden">
+                <div class="graphics-tabs" role="tablist" aria-label="Kansi ja grafiikka -työtilat">
+                    <button class="graphics-tab is-active" id="graphics-tab-cover" type="button" role="tab" aria-selected="true" aria-controls="graphics-panel-cover" data-graphics-panel="graphics-panel-cover">Kansi</button>
+                    <button class="graphics-tab" id="graphics-tab-images" type="button" role="tab" aria-selected="false" aria-controls="graphics-panel-images" data-graphics-panel="graphics-panel-images" tabindex="-1">Kuvamaailma</button>
+                    <button class="graphics-tab" id="graphics-tab-infographics" type="button" role="tab" aria-selected="false" aria-controls="graphics-panel-infographics" data-graphics-panel="graphics-panel-infographics" tabindex="-1">Infografiikka</button>
+                </div>
+
                 <header class="production-workspace-hero cover-workspace-hero">
                     <div class="production-workspace-hero-copy">
                         <p class="production-workspace-eyebrow">VISUAALINEN STUDIO · KANSI · KUVAT · INFOGRAFIIKKA</p>
@@ -1860,12 +1866,6 @@
                         <p>Hyödynnä teoksen analyysiä ja projektimuistia yhtenäisen visuaalisen maailman luomisessa.</p>
                     </div>
                 </header>
-
-                <div class="graphics-tabs" role="tablist" aria-label="Kansi ja grafiikka -työtilat">
-                    <button class="graphics-tab is-active" id="graphics-tab-cover" type="button" role="tab" aria-selected="true" aria-controls="graphics-panel-cover" data-graphics-panel="graphics-panel-cover">Kansi</button>
-                    <button class="graphics-tab" id="graphics-tab-images" type="button" role="tab" aria-selected="false" aria-controls="graphics-panel-images" data-graphics-panel="graphics-panel-images" tabindex="-1">Kuvamaailma</button>
-                    <button class="graphics-tab" id="graphics-tab-infographics" type="button" role="tab" aria-selected="false" aria-controls="graphics-panel-infographics" data-graphics-panel="graphics-panel-infographics" tabindex="-1">Infografiikka</button>
-                </div>
 
                 <section id="graphics-panel-cover" class="graphics-tab-panel" role="tabpanel" aria-labelledby="graphics-tab-cover" aria-hidden="false" tabindex="0">
                 <div class="illustration-section cover-workspace-section" style="margin-bottom: 40px;">
