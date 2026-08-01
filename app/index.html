@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=83">
+    <link rel="stylesheet" href="styles.css?v=84">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -130,15 +130,15 @@
                     <li data-view="view-mobiilieditori">Mobiili-editori</li>
                     <li data-view="view-oikoluku">Oikoluku ja viimeistely</li>
                     <li data-view="view-kuvitus">Kansi ja grafiikka</li>
-                    <li data-view="view-kirja">Valmis kirja & taitto</li>
+                    <li data-view="view-kirja">Oheisaineistot ja taitto</li>
+                    <li data-view="view-tuotetiedot">Tuotetiedot</li>
                     <li data-view="view-julkaisupaketti">Tiedostopaketti</li>
-                    <li data-view="view-monikielinen-julkaisu">Monikielinen julkaisu</li>
+                    <li data-view="view-monikielinen-julkaisu">Kieliversiot</li>
                     <li data-view="view-julkaise">Julkaise</li>
                     <li data-view="view-ai-tyonkulku">AI-työnkulku</li>
                     <li data-view="view-kaannokset">Käännökset</li>
                     <li data-view="view-kaannostyotila">Käännöstyötila</li>
                     <li data-view="view-elamakerta">Elämäkerta</li>
-                    <li data-view="view-tuotetiedot">Tuotetiedot</li>
                     <li data-view="view-markkinointi">Markkinointi</li>
                     <li data-view="view-audio">Audiotuotanto</li>
                     <li data-view="view-sopimukset">Sopimukset</li>
@@ -1048,13 +1048,13 @@
                 <iframe
                     id="tuotanto-frame-kirja"
                     class="tuotanto-frame"
-                    title="Valmis kirja ja taitto"
-                    src="tuotanto.html?tab=kirja&v=3"
+                    title="Oheisaineistot ja taitto"
+                    src="tuotanto.html?tab=kirja&v=4"
                     loading="lazy"
                 ></iframe>
                 <div class="header">
                     <div class="header-info">
-                        <h2>Valmis kirja & taitto</h2>
+                        <h2>Oheisaineistot ja taitto</h2>
                         <p>Käsikirjoitus: [Ei aktiivista teosta] (lukeminen, vienti ja taitto)</p>
                     </div>
                     <div class="header-actions">
@@ -1297,14 +1297,14 @@
                 </section>
             </div>
 
-            <!-- 1.7 VIEW: MONIKIELINEN JULKAISU -->
+            <!-- 1.7 VIEW: KIELIVERSIOT -->
             <div id="view-monikielinen-julkaisu" class="view-section hidden">
                 <div class="multilingual-publication-hero">
                     <div class="multilingual-publication-hero-copy">
                         <span class="multilingual-publication-eyebrow">Tiedostopaketti → kieliversiot</span>
                         <h2>Yksi kirja.<br><span>Useita markkinoita.</span></h2>
                         <p id="multilingual-publication-current-project">Valitse käsikirjoitus, josta kieliversiot muodostetaan.</p>
-                        <div class="multilingual-publication-stats" aria-label="Monikielisen julkaisun yhteenveto">
+                        <div class="multilingual-publication-stats" aria-label="Kieliversioiden yhteenveto">
                             <div><strong id="multilingual-publication-version">V0</strong><span>lähdepaketti</span></div>
                             <div><strong id="multilingual-publication-edition-count">0</strong><span>kieliversiota</span></div>
                             <div><strong id="multilingual-publication-market-count">5</strong><span>markkinaa</span></div>
@@ -1618,7 +1618,7 @@
                     id="manuskripti-frame-analyysi"
                     class="manuskripti-frame"
                     title="Analyysi"
-                    src="manuskripti.html?step=analyysi&v=13"
+                    src="manuskripti.html?step=analyysi&v=14"
                     loading="lazy"
                 ></iframe>
                 <div id="legacy-analyysi-view" hidden aria-hidden="true">
@@ -3714,6 +3714,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=140"></script>
+    <script src="app.js?v=141"></script>
 </body>
 </html>

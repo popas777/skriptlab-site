@@ -1686,6 +1686,11 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 .sidebar.module-menu-open {
     overflow: hidden;
 }
+.sidebar:not(.module-menu-open):not(.hidden) {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    overscroll-behavior: contain;
+}
 .sidebar.hidden {
     width: 0; padding-left: 0; padding-right: 0; opacity: 0; overflow: hidden; border: none;
 }
@@ -1703,6 +1708,12 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 }
 .sidebar-nav.has-overflow {
     min-height: 50px;
+}
+.sidebar-nav.has-overflow:not(.is-expanded) {
+    flex: 0 0 auto;
+}
+.sidebar-nav.has-overflow:not(.is-expanded) + .ai-meta-box {
+    margin-top: 12px;
 }
 .sidebar-nav.is-expanded {
     position: absolute;
@@ -1724,6 +1735,10 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     scrollbar-width: thin;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
+}
+.sidebar-nav.has-overflow:not(.is-expanded) #nav-menu {
+    flex: 0 0 auto;
+    overflow-y: visible;
 }
 .sidebar-nav.is-expanded #nav-menu {
     min-height: 0;

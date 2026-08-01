@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Tuotanto – oheisaineistot, valmis kirja ja taitto
+   Tuotanto – oheisaineistot ja taitto
    API-sopimus (production-paketti):
      POST   {api}/misc-tools/run
      GET    {api}/projects/{id}/misc-assets

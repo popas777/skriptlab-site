@@ -4578,9 +4578,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             ['view-kirjoita-editoi', 'Työpöytäeditori'],
             ['view-oikoluku', 'Oikoluku ja viimeistely'],
             ['view-kuvitus', 'Kansi ja grafiikka'],
-            ['view-kirja', 'Tuotanto ja taitto'],
+            ['view-kirja', 'Oheisaineistot ja taitto'],
+            ['view-tuotetiedot', 'Tuotetiedot'],
             ['view-julkaisupaketti', 'Tiedostopaketti'],
-            ['view-monikielinen-julkaisu', 'Monikielinen julkaisu'],
+            ['view-monikielinen-julkaisu', 'Kieliversiot'],
             ['view-markkinointi', 'Kampanjastudio']
         ];
         const visibleDemoViews = new Set(demoNavConfig.map(([viewId]) => viewId));
@@ -22247,7 +22248,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         params.set('tab', nextTab);
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '3');
+        params.set('v', '4');
         updateEmbeddedModuleFrame(frame, 'tuotanto.html', params);
     }
 
