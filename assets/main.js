@@ -54,11 +54,11 @@ const metaTranslations = {
   process: {
     fi: {
       title: "Työnkulku - SkriptLab",
-      description: "SkriptLabin työnkulku käsikirjoituksen tuomisesta analyysiin, versiointiin ja jatkotyön aineistoihin."
+      description: "Tuo käsikirjoitus ja etene analyysin, kehityspalautteen ja teoksen tietopankin kautta editointiin, oikolukuun, kuvitukseen, taittoon, audioon ja käännöksiin."
     },
     en: {
       title: "Workflow - SkriptLab",
-      description: "The SkriptLab workflow from importing a manuscript to analysis, revision and materials for further work."
+      description: "Import your manuscript and move through analysis, developmental feedback and the manuscript knowledge base to editing, proofreading, illustration, layout, audio and translation."
     }
   },
   pricing: {
@@ -181,7 +181,7 @@ const pageTranslations = {
     { selector: ".hero-trust", fi: "Tekstin oikeudet säilyvät sinulla. SkriptLab on ohjelmistoyritys — emme julkaise teoksia. Palvelun oma data käsitellään EU-alueella.", en: "You retain the rights to your text. SkriptLab is a software company — we do not publish works. The service's own data is processed in the EU." },
     { selector: ".product-shot-label", fi: "SkriptLab", en: "SkriptLab" },
     { selector: ".product-shot-bar strong", fi: "Kirjoita ja editoi", en: "Write and edit" },
-    { selector: ".product-shot img", attr: "alt", fi: "SkriptLabin kirjoitus- ja editointinäkymä: kirjamuisti, käsikirjoitus ja oikolukutehtävät rinnakkain.", en: "SkriptLab writing and editing view with manuscript memory, the text and proofreading tasks side by side." },
+    { selector: ".product-shot-open img", attr: "alt", fi: "SkriptLabin kirjoitus- ja editointinäkymä: teoksen tietopankki, käsikirjoitus ja oikolukutehtävät rinnakkain.", en: "SkriptLab writing and editing view with the manuscript knowledge base, text and proofreading tasks side by side." },
     { selector: ".product-shot figcaption", fi: "Kirjoita tekstiä, pidä teoksen tiedot mukana ja oikolue valitsemasi osio.", en: "Write your text, keep the work's details close and proofread the section you choose." }
   ],
   audience: [
@@ -220,7 +220,7 @@ const pageTranslations = {
     { selector: ".feature-card:nth-child(5) h2", fi: "Kansi ja kuvitus", en: "Cover and illustration" },
     { selector: ".feature-card:nth-child(5) p", fi: "Suunnittele etu- ja takakansi sekä kuvamaailma käsikirjoituksen tietojen pohjalta.", en: "Plan front and back covers and a visual direction using manuscript context." },
     { selector: ".feature-card:nth-child(5) .card-link", fi: "Tutustu visuaaliseen suunnitteluun", en: "Explore visual planning" },
-    { selector: ".feature-card:nth-child(6) h2", fi: "Taitto ja valmis kirja", en: "Layout and finished book" },
+    { selector: ".feature-card:nth-child(6) h2", fi: "Taitto", en: "Layout" },
     { selector: ".feature-card:nth-child(6) p", fi: "Tarkastele kokonaisuutta lukutilassa ja valmistele tiedostot seuraavaan tuotantovaiheeseen.", en: "Read the complete work and prepare files for the next production stage." },
     { selector: ".feature-card:nth-child(6) .card-link", fi: "Tutustu kirjan valmisteluun", en: "Explore book preparation" },
     { selector: ".feature-card:nth-child(7) h2", fi: "Käännökset", en: "Translations" },
@@ -232,18 +232,31 @@ const pageTranslations = {
   ],
   process: [
     { selector: ".section-label", fi: "Työnkulku", en: "Workflow" },
-    { selector: ".section-title", fi: "Selkeät vaiheet", en: "Clear steps" },
-    { selector: ".section-intro", fi: "Työkalu auttaa jäsentämään työn, löytämään tarkistettavat kohdat ja viemään tekstin kohti viimeistellympää versiota. Ihminen tekee päätökset.", en: "The workspace helps structure the work, identify what needs review and move the text toward a more finished version. The decisions stay with the human." },
-    { selector: ".workflow-step:nth-child(1) h2", fi: "Tuo käsikirjoitus", en: "Import the manuscript" },
-    { selector: ".workflow-step:nth-child(1) p", fi: "Lataa teksti ja valitse käsittelyn tavoite.", en: "Upload the text and choose the purpose of the work." },
-    { selector: ".workflow-step:nth-child(2) h2", fi: "Saa analyysi", en: "Review the analysis" },
-    { selector: ".workflow-step:nth-child(2) p", fi: "Näe vahvuudet, riskit, toistot, aukot ja korjauskohdat.", en: "See strengths, risks, repetition, gaps and areas for revision." },
-    { selector: ".workflow-step:nth-child(3) h2", fi: "Tarkista virheet", en: "Check the issues" },
-    { selector: ".workflow-step:nth-child(3) p", fi: "Etsi kieliasun, jatkuvuuden ja ilmaisun kohtia, jotka kaipaavat korjausta tai täsmennystä.", en: "Find language, continuity and phrasing issues that need correction or clarification." },
-    { selector: ".workflow-step:nth-child(4) h2", fi: "Jalosta versiota", en: "Refine the version" },
-    { selector: ".workflow-step:nth-child(4) p", fi: "Tee muutokset, hyödynnä parannusehdotuksia, kirjaa päätökset ja vertaa versioita.", en: "Make revisions, use improvement suggestions, record decisions and compare versions." },
-    { selector: ".workflow-step:nth-child(5) h2", fi: "Vie jatkotyöhön", en: "Prepare for the next stage" },
-    { selector: ".workflow-step:nth-child(5) p", fi: "Luo synopsis, raportti, metadata, toimitussuunnitelma tai viimeisen oikoluvun tarkistuslista.", en: "Create a synopsis, report, metadata, editing plan or final proofreading checklist." }
+    { selector: ".section-title", fi: "Hallitse käsikirjoituksen koko työnkulku", en: "Manage your entire manuscript workflow" },
+    { selector: ".section-intro", fi: "Tuo teksti ja etene analyysistä kehityseditointipalautteen kautta editointiin, oikolukuun, kuvitukseen, taittoon, audiotyöversioon ja käännökseen. Valitse vain projektillesi sopivat vaiheet — sinä hyväksyt muutokset ja päätät lopputuloksesta.", en: "Import your text and move from analysis and developmental editing feedback to editing, proofreading, illustration, layout, an audio work version and translation. Use only the stages your project needs—you approve the changes and decide the final result." },
+    { selector: ".workflow-step:nth-child(1) h2", fi: "Tuo käsikirjoitus", en: "Import your manuscript" },
+    { selector: ".workflow-step:nth-child(1) p", fi: "Aloita tyhjästä tai tuo valmis teksti ja pidä luvut sekä rakenne yhdessä projektissa.", en: "Start from a blank page or import an existing text, keeping its chapters and structure in one project." },
+    { selector: ".workflow-step:nth-child(2) h2", fi: "Analysoi kokonaisuus", en: "Analyse the whole work" },
+    { selector: ".workflow-step:nth-child(2) p", fi: "Tunnista rakenteen, tyylin, henkilöiden, rytmin ja jatkuvuuden vahvuudet sekä kehityskohdat.", en: "Identify strengths and areas to improve in structure, style, characters, pacing and continuity." },
+    { selector: ".workflow-step:nth-child(3) h2", fi: "Saa kehityseditointipalaute", en: "Get developmental editing feedback" },
+    { selector: ".workflow-step:nth-child(3) p", fi: "SkriptLab kokoaa analyysiin perustuvan, priorisoidun palautteen rakenteesta, kerronnasta, henkilöistä ja seuraavista muokkausaskelista.", en: "SkriptLab turns the analysis into prioritised feedback on structure, narrative, characters and the next revision steps." },
+    { selector: ".workflow-step:nth-child(4) h2", fi: "Kokoa teoksen tietopankki", en: "Build the manuscript knowledge base" },
+    { selector: ".workflow-step:nth-child(4) p", fi: "Tarkista analyysin kokoamat henkilöt, paikat, aikajana, termit ja pysyvät faktat. Täydennä niitä editorin tueksi.", en: "Review the characters, places, timeline, terms and established facts gathered by the analysis. Expand them to support your editing." },
+    { selector: ".workflow-step:nth-child(5) h2", fi: "Jalosta ja editoi", en: "Revise and edit" },
+    { selector: ".workflow-step:nth-child(5) p", fi: "Kirjoita lisää, muokkaa luku kerrallaan ja hyväksy vain haluamasi ehdotukset.", en: "Keep writing, edit one chapter at a time and accept only the suggestions you want." },
+    { selector: ".workflow-step:nth-child(6) h2", fi: "Oikolue ja viimeistele", en: "Proofread and finalise" },
+    { selector: ".workflow-step:nth-child(6) p", fi: "Tarkista kieli- ja kirjoitusvirheet, käy korjaukset läpi ja kokoa viimeistelty versio.", en: "Check language and spelling, review each correction and assemble a polished version." },
+    { selector: ".workflow-step:nth-child(7) h2", fi: "Luo kuvitus", en: "Create illustrations" },
+    { selector: ".workflow-step:nth-child(7) p", fi: "Suunnittele kansi ja luo kuvitusvaihtoehtoja käsikirjoituksen sisällön ja tyylin pohjalta.", en: "Plan the cover and create illustration options based on the manuscript's content and style." },
+    { selector: ".workflow-step:nth-child(8) h2", fi: "Taita", en: "Lay out" },
+    { selector: ".workflow-step:nth-child(8) p", fi: "Muotoile teos, tarkista sivut lukutilassa ja vie taittotiedostot seuraavaan tuotantovaiheeseen.", en: "Format the work, review its pages in reading view and export the layout files for the next production stage." },
+    { selector: ".workflow-step:nth-child(9) .workflow-step-title", fi: "Valmistele äänikäsikirjoitus ja kuuntele", en: "Prepare the audio script and listen" },
+    { selector: ".workflow-step:nth-child(9) .coming-soon", fi: "Tulossa", en: "Coming soon" },
+    { selector: ".workflow-step:nth-child(9) p", fi: "Muokkaa teksti ääneen toimivaksi ja kuuntele audiotyöversio suoraan ohjelmistossa.", en: "Shape the text for spoken delivery and listen to an audio work version directly in the application." },
+    { selector: ".workflow-step:nth-child(10) h2", fi: "Käännä", en: "Translate" },
+    { selector: ".workflow-step:nth-child(10) p", fi: "Luo vaihtoehtoisia käännösversioita, vertaa lähdettä ja käännöstä rinnakkain ja viimeistele valittu versio.", en: "Create alternative translation versions, compare source and translation side by side, and refine the selected version." },
+    { selector: ".workflow-actions .btn-primary", fi: "Pyydä käyttöoikeus", en: "Request access" },
+    { selector: ".workflow-actions .btn-ghost", fi: "Tutustu ominaisuuksiin", en: "Explore features" }
   ],
   pricing: [
     { selector: ".pricing-section .section-inner > .section-label", fi: "Hinnoittelu", en: "Pricing" },
@@ -592,6 +605,39 @@ if (toggle && menu) {
     if (event.target.closest("a")) {
       setMenuOpen(false);
     }
+  });
+}
+
+const productShotOpenButton = document.querySelector("[data-product-shot-open]");
+const productShotDialog = document.querySelector("[data-product-shot-dialog]");
+const productShotCloseButton = document.querySelector("[data-product-shot-close]");
+
+if (productShotOpenButton && productShotDialog && productShotCloseButton) {
+  productShotOpenButton.addEventListener("click", () => {
+    if (typeof productShotDialog.showModal !== "function") {
+      const imageUrl = productShotOpenButton.querySelector("img")?.src || "assets/skriptlab-editor.jpg";
+      window.open(imageUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    document.body.classList.add("product-shot-modal-open");
+    productShotDialog.showModal();
+    productShotCloseButton.focus();
+  });
+
+  productShotCloseButton.addEventListener("click", () => {
+    productShotDialog.close();
+  });
+
+  productShotDialog.addEventListener("click", (event) => {
+    if (event.target === productShotDialog) {
+      productShotDialog.close();
+    }
+  });
+
+  productShotDialog.addEventListener("close", () => {
+    document.body.classList.remove("product-shot-modal-open");
+    productShotOpenButton.focus();
   });
 }
 

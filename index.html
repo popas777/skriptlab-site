@@ -71,15 +71,59 @@
             <span class="product-shot-status"><i aria-hidden="true"></i><span class="product-shot-label">SkriptLab</span></span>
             <strong>Kirjoita ja editoi</strong>
           </div>
-          <img
-            src="assets/skriptlab-editor.jpg"
-            width="1280"
-            height="720"
-            alt="SkriptLabin kirjoitus- ja editointinäkymä: kirjamuisti, käsikirjoitus ja oikolukutehtävät rinnakkain."
-            fetchpriority="high"
+          <button
+            class="product-shot-open"
+            type="button"
+            data-product-shot-open
+            aria-haspopup="dialog"
+            aria-controls="product-shot-dialog"
+            aria-label="Avaa sovelluskuva suurempana"
+            data-fi="Avaa sovelluskuva suurempana"
+            data-en="Open application screenshot in a larger view"
+            data-i18n-attr="aria-label"
           >
+            <img
+              src="assets/skriptlab-editor.jpg"
+              width="1280"
+              height="720"
+              alt="SkriptLabin kirjoitus- ja editointinäkymä: teoksen tietopankki, käsikirjoitus ja oikolukutehtävät rinnakkain."
+              fetchpriority="high"
+            >
+            <span class="product-shot-open-label" aria-hidden="true" data-fi="Suurenna" data-en="Enlarge">Suurenna</span>
+          </button>
           <figcaption>Kirjoita tekstiä, pidä teoksen tiedot mukana ja oikolue valitsemasi osio.</figcaption>
         </figure>
+
+        <dialog
+          id="product-shot-dialog"
+          class="product-shot-dialog"
+          data-product-shot-dialog
+          aria-label="SkriptLabin sovelluskuva"
+          data-fi="SkriptLabin sovelluskuva"
+          data-en="SkriptLab application screenshot"
+          data-i18n-attr="aria-label"
+        >
+          <div class="product-shot-dialog-inner">
+            <button
+              class="product-shot-dialog-close"
+              type="button"
+              data-product-shot-close
+              aria-label="Sulje suurennettu kuva"
+              data-fi="Sulje suurennettu kuva"
+              data-en="Close enlarged screenshot"
+              data-i18n-attr="aria-label"
+            >×</button>
+            <img
+              src="assets/skriptlab-editor.jpg"
+              width="1280"
+              height="720"
+              alt="SkriptLabin kirjoitus- ja editointinäkymä: teoksen tietopankki, käsikirjoitus ja oikolukutehtävät rinnakkain."
+              data-fi="SkriptLabin kirjoitus- ja editointinäkymä: teoksen tietopankki, käsikirjoitus ja oikolukutehtävät rinnakkain."
+              data-en="SkriptLab writing and editing view with the manuscript knowledge base, text and proofreading tasks side by side."
+              data-i18n-attr="alt"
+            >
+          </div>
+        </dialog>
       </div>
     </section>
   </main>

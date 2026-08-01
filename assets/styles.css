@@ -410,8 +410,10 @@ a {
 
 .product-shot {
   width: 100%;
+  max-width: 640px;
   min-width: 0;
   margin: 0;
+  justify-self: center;
   overflow: hidden;
   background: #f2f0eb;
   border: 1px solid rgba(26, 18, 8, 0.16);
@@ -455,7 +457,23 @@ a {
   font-weight: 600;
 }
 
-.product-shot img {
+.product-shot-open {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: zoom-in;
+}
+
+.product-shot-open:focus-visible {
+  outline: 3px solid var(--amber);
+  outline-offset: -3px;
+}
+
+.product-shot-open img {
   display: block;
   width: 100%;
   height: auto;
@@ -464,12 +482,95 @@ a {
   background: #eceae5;
 }
 
+.product-shot-open-label {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  padding: 0.42rem 0.65rem;
+  border: 1px solid rgba(250, 247, 242, 0.55);
+  border-radius: 999px;
+  background: rgba(26, 18, 8, 0.78);
+  color: var(--cream);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: 0 4px 14px rgba(26, 18, 8, 0.18);
+}
+
+.product-shot-open:hover .product-shot-open-label,
+.product-shot-open:focus-visible .product-shot-open-label {
+  background: var(--sienna);
+}
+
 .product-shot figcaption {
   padding: 0.8rem 1rem 0.9rem;
   border-top: 1px solid rgba(26, 18, 8, 0.1);
   background: rgba(250, 247, 242, 0.96);
   color: var(--muted);
   font-size: 0.8rem;
+}
+
+.product-shot-dialog {
+  width: min(1280px, calc(100vw - 2rem));
+  max-width: none;
+  max-height: calc(100dvh - 2rem);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.product-shot-dialog::backdrop {
+  background: rgba(26, 18, 8, 0.82);
+  backdrop-filter: blur(3px);
+}
+
+.product-shot-dialog-inner {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(250, 247, 242, 0.25);
+  border-radius: 12px;
+  background: #eceae5;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+}
+
+.product-shot-dialog img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: calc(100dvh - 2rem);
+  object-fit: contain;
+}
+
+.product-shot-dialog-close {
+  position: absolute;
+  z-index: 1;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(250, 247, 242, 0.55);
+  border-radius: 50%;
+  background: rgba(26, 18, 8, 0.82);
+  color: var(--cream);
+  font: inherit;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.product-shot-dialog-close:hover,
+.product-shot-dialog-close:focus-visible {
+  background: var(--sienna);
+  outline: 2px solid var(--cream);
+  outline-offset: 2px;
+}
+
+body.product-shot-modal-open {
+  overflow: hidden;
 }
 
 .vision-strip {
@@ -819,6 +920,7 @@ a {
 .workflow {
   counter-reset: steps;
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
   margin-top: 3rem;
 }
@@ -847,6 +949,17 @@ a {
 .workflow-step h3 {
   margin-bottom: 0.25rem;
   font-size: 1.35rem;
+}
+
+.workflow-step p {
+  color: var(--muted);
+}
+
+.workflow-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2rem;
 }
 
 .trust-item {
@@ -1306,6 +1419,12 @@ a {
 
   .feature-points {
     gap: 1px;
+  }
+}
+
+@media (max-width: 900px) {
+  .workflow {
+    grid-template-columns: 1fr;
   }
 }
 
