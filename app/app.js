@@ -262,6 +262,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let visualRowsInitializedProjectId = null;
     let visualBatchRowSequence = 0;
     let visualBatchController = null;
+    let visualPromptPlanController = null;
     let proofreadSuggestions = [];
     let proofreadSelection = { cIndex: null };
     let proofreadExtraFindings = [];
@@ -779,6 +780,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const graphicsTabPanels = Array.from(document.querySelectorAll('.graphics-tab-panel'));
     const visualModelSelect = document.getElementById('visual-model-select');
     const visualSharedPrompt = document.getElementById('visual-shared-prompt');
+    const visualPromptCount = document.getElementById('visual-prompt-count');
+    const visualGeneratePromptsBtn = document.getElementById('visual-generate-prompts-btn');
     const visualUseAnalysis = document.getElementById('visual-use-analysis');
     const visualUseMemory = document.getElementById('visual-use-memory');
     const visualWithoutText = document.getElementById('visual-without-text');
@@ -7278,7 +7281,50 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         ].filter(Boolean).join(' ').slice(0, 1200);
     }
 
+    function storedVisualPromptPlan() {
+        const raw = window.manuscriptData?.analysis?.visual_world;
+        if (!raw || typeof raw !== 'object') return null;
+        const visualStyle = String(raw.visual_style || raw.shared_style || '').trim().slice(0, 700);
+        const sourcePrompts = Array.isArray(raw.prompts)
+            ? raw.prompts
+            : Array.isArray(raw.chapter_prompts) ? raw.chapter_prompts : [];
+        const prompts = sourcePrompts.map(item => {
+            const entry = visualChapterEntry(item?.chapter_custom_id);
+            const prompt = String(item?.prompt || '').trim().slice(0, 1200);
+            if (!entry || !prompt) return null;
+            return {
+                chapter_custom_id: String(entry.chapter.id || ''),
+                section_label: String(item.section_label || structureDisplayTitle(entry.chapter, entry.index) || `Luku ${entry.index + 1}`),
+                visual_kind: String(item.visual_kind || 'scene'),
+                aspect_ratio: String(item.aspect_ratio || '3:4'),
+                prompt,
+                prompt_source: ['fallback', 'generated', 'manual'].includes(String(item.prompt_source || ''))
+                    ? String(item.prompt_source)
+                    : 'generated',
+            };
+        }).filter(Boolean).slice(0, 10);
+        if (!visualStyle && !prompts.length) return null;
+        return {
+            visual_style: visualStyle,
+            prompts,
+            generated_by: String(raw.generated_by || ''),
+            updated_at: String(raw.updated_at || ''),
+        };
+    }
+
+    function rememberVisualPromptPlan(data, prompts) {
+        if (!window.manuscriptData) return;
+        window.manuscriptData.analysis = window.manuscriptData.analysis || {};
+        window.manuscriptData.analysis.visual_world = {
+            visual_style: String(data?.visual_style || '').trim().slice(0, 700),
+            prompts: prompts.map(item => ({ ...item })),
+            generated_by: String(data?.generated_by || ''),
+            updated_at: new Date().toISOString(),
+        };
+    }
+
     function nextUnusedVisualChapterEntry() {
+        if ((visualBatchRows?.children.length || 0) >= 10) return null;
         const used = new Set(Array.from(visualBatchRows?.querySelectorAll('.visual-row-chapter') || []).map(select => String(select.value || '')));
         return visualChapterEntries().find(({ chapter }) => !used.has(String(chapter.id || ''))) || null;
     }
@@ -7331,10 +7377,13 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const chapterId = String(selectedEntry.chapter.id || '');
         const sectionLabel = String(initial.section_label || structureDisplayTitle(selectedEntry.chapter, selectedEntry.index) || `Luku ${selectedEntry.index + 1}`);
         const chapterPrompt = String(initial.prompt || visualChapterPrompt(selectedEntry.chapter, selectedEntry.index));
+        const promptSource = ['fallback', 'generated', 'manual'].includes(String(initial.prompt_source || ''))
+            ? String(initial.prompt_source)
+            : initial.prompt ? 'manual' : 'fallback';
         const row = document.createElement('article');
         row.className = 'visual-batch-row glass-panel';
         row.dataset.visualRowId = rowId;
-        row.dataset.visualPromptAuto = initial.prompt ? 'false' : 'true';
+        row.dataset.visualPromptSource = promptSource;
         row.innerHTML = `
             <div class="visual-batch-row-header">
                 <span class="visual-batch-row-number">00</span>
@@ -7373,9 +7422,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             if (!entry) return;
             if (labelInput) labelInput.value = structureDisplayTitle(entry.chapter, entry.index) || `Luku ${entry.index + 1}`;
             if (promptInput) promptInput.value = visualChapterPrompt(entry.chapter, entry.index);
-            row.dataset.visualPromptAuto = 'true';
+            row.dataset.visualPromptSource = 'fallback';
         });
-        promptInput?.addEventListener('input', () => { row.dataset.visualPromptAuto = 'false'; });
+        promptInput?.addEventListener('input', () => { row.dataset.visualPromptSource = 'manual'; });
         row.querySelector('.visual-row-remove')?.addEventListener('click', () => {
             row.remove();
             renumberVisualBatchRows();
@@ -7393,7 +7442,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function refreshAutomaticVisualChapterPrompts() {
         visualBatchRows?.querySelectorAll('.visual-batch-row').forEach(row => {
-            if (row.dataset.visualPromptAuto !== 'true') return;
+            if (row.dataset.visualPromptSource !== 'fallback') return;
             const entry = visualChapterEntry(row.querySelector('.visual-row-chapter')?.value || '');
             const promptInput = row.querySelector('.visual-row-prompt');
             if (entry && promptInput) promptInput.value = visualChapterPrompt(entry.chapter, entry.index);
@@ -7410,16 +7459,21 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         if (visualBatchController) return;
         visualBatchRows.replaceChildren();
-        const entries = visualChapterEntries().slice(0, 3);
-        if (entries.length) {
+        const savedPlan = storedVisualPromptPlan();
+        if (projectChanged && visualSharedPrompt) visualSharedPrompt.value = savedPlan?.visual_style || '';
+        if (savedPlan?.prompts.length) {
+            savedPlan.prompts.forEach(item => addVisualBatchRow(item));
+            if (visualPromptCount) visualPromptCount.value = String(savedPlan.prompts.length);
+        } else {
+            const entries = visualChapterEntries().slice(0, 10);
             entries.forEach(({ chapter, index }) => addVisualBatchRow({
                 chapter_custom_id: String(chapter.id || ''),
                 section_label: structureDisplayTitle(chapter, index) || `Luku ${index + 1}`,
                 visual_kind: 'scene',
                 aspect_ratio: '3:4',
             }));
+            if (visualPromptCount) visualPromptCount.value = String(Math.min(10, Math.max(1, entries.length || 10)));
         }
-        if (projectChanged && visualSharedPrompt) visualSharedPrompt.value = '';
         visualRowsInitializedProjectId = projectId;
         if (visualProgress) {
             visualProgress.max = Math.max(1, visualBatchRows.children.length);
@@ -7428,7 +7482,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         setVisualStatus(!window.manuscriptData
             ? 'Valitse projekti ennen kuvien generointia.'
             : visualBatchRows.children.length
-                ? `${visualBatchRows.children.length} luvun promptit muodostettiin ja kuvaehdotukset ovat valmiina ajoon.`
+                ? savedPlan?.prompts.length
+                    ? `${visualBatchRows.children.length} tallennettua lukupromptia ja yhteinen kuvatyyli ladattiin.`
+                    : `${visualBatchRows.children.length} luvun peruspromptit muodostettiin. Voit luoda analyysistä yhteisen tyylin ja tarkemmat promptit.`
                 : 'Projektista ei löytynyt varsinaisia tekstillisiä lukuja Kuvamaailmaa varten.',
             Boolean(window.manuscriptData && !visualBatchRows.children.length));
         syncGraphicsControls();
@@ -7466,13 +7522,126 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         return window.manuscriptData?.id || null;
     }
 
+    function visualPromptPlanChapterIds(count) {
+        const limit = Math.min(10, Math.max(1, Number(count) || 10));
+        const ids = [];
+        const seen = new Set();
+        Array.from(visualBatchRows?.querySelectorAll('.visual-row-chapter') || []).forEach(select => {
+            const chapterId = String(select.value || '');
+            if (!chapterId || seen.has(chapterId) || !visualChapterEntry(chapterId) || ids.length >= limit) return;
+            seen.add(chapterId);
+            ids.push(chapterId);
+        });
+        visualChapterEntries().forEach(({ chapter }) => {
+            const chapterId = String(chapter.id || '');
+            if (!chapterId || seen.has(chapterId) || ids.length >= limit) return;
+            seen.add(chapterId);
+            ids.push(chapterId);
+        });
+        return ids;
+    }
+
+    function applyVisualPromptPlan(data) {
+        const visualStyle = String(data?.visual_style || '').trim().slice(0, 700);
+        const prompts = (Array.isArray(data?.prompts) ? data.prompts : []).map(item => {
+            const entry = visualChapterEntry(item?.chapter_custom_id);
+            const prompt = String(item?.prompt || '').trim().slice(0, 1200);
+            if (!entry || !prompt) return null;
+            return {
+                chapter_custom_id: String(entry.chapter.id || ''),
+                section_label: String(item.section_label || structureDisplayTitle(entry.chapter, entry.index) || `Luku ${entry.index + 1}`),
+                visual_kind: String(item.visual_kind || 'scene'),
+                aspect_ratio: String(item.aspect_ratio || '3:4'),
+                prompt,
+                prompt_source: ['fallback', 'generated'].includes(String(item.prompt_source || ''))
+                    ? String(item.prompt_source)
+                    : 'generated',
+            };
+        }).filter(Boolean).slice(0, 10);
+        if (!prompts.length) throw new Error('Kuvapromptteja ei saatu muodostettua valituille luvuille.');
+        if (visualSharedPrompt) visualSharedPrompt.value = visualStyle;
+        visualBatchRows?.replaceChildren();
+        prompts.forEach(item => addVisualBatchRow(item));
+        rememberVisualPromptPlan({ ...data, visual_style: visualStyle }, prompts);
+        visualRowsInitializedProjectId = String(window.manuscriptData?.id || 'unsaved');
+        if (visualPromptCount) visualPromptCount.value = String(prompts.length);
+        if (visualProgress) {
+            visualProgress.max = Math.max(1, prompts.length);
+            visualProgress.value = 0;
+        }
+        return prompts;
+    }
+
+    async function generateVisualPromptPlan() {
+        if (visualPromptPlanController || visualBatchController) return;
+        const projectId = await ensureGraphicProject();
+        if (visualPromptPlanController || visualBatchController) return;
+        if (!projectId) {
+            setVisualStatus('Valitse tai tallenna käsikirjoitus ennen tyylin ja lukupromptien luontia.', true);
+            return;
+        }
+        if (String(projectId) !== activeGraphicProjectId()) return;
+        const availableCount = visualChapterEntries().length;
+        if (!availableCount) {
+            setVisualStatus('Projektista ei löytynyt varsinaisia tekstillisiä lukuja.', true);
+            return;
+        }
+        const count = Math.min(10, availableCount, Math.max(1, Number(visualPromptCount?.value) || 10));
+        if (visualPromptCount) visualPromptCount.value = String(count);
+        const chapterIds = visualPromptPlanChapterIds(count);
+        if (!chapterIds.length) {
+            setVisualStatus('Valitse vähintään yksi varsinainen luku prompttisuunnitelmaan.', true);
+            return;
+        }
+        const promptRun = { projectId: String(projectId) };
+        visualPromptPlanController = promptRun;
+        syncGraphicsControls();
+        setVisualStatus(`Muodostetaan koko kirjan analyysistä yhteinen tyyli ja ${chapterIds.length} lukupromptia…`);
+        try {
+            const response = await apiFetch(`/api/projects/${projectId}/visual-prompts`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    chapter_custom_ids: chapterIds,
+                    count: chapterIds.length,
+                    style_hint: visualSharedPrompt?.value.trim() || null,
+                    use_analysis: Boolean(visualUseAnalysis?.checked),
+                    use_project_memory: Boolean(visualUseMemory?.checked),
+                }),
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'Tyylin ja lukupromptien luonti epäonnistui.');
+            if (visualPromptPlanController !== promptRun || activeGraphicProjectId() !== String(projectId)) return;
+            const prompts = applyVisualPromptPlan(data);
+            const warnings = Array.isArray(data?.warnings) ? data.warnings.filter(Boolean) : [];
+            setVisualStatus([
+                `Yhteinen kuvatyyli ja ${prompts.length} lukukohtaista promptia luotiin ja tallennettiin projektiin.`,
+                warnings.length ? warnings.join(' ') : '',
+            ].filter(Boolean).join(' '));
+            loadUsage();
+        } catch (error) {
+            if (visualPromptPlanController === promptRun && activeGraphicProjectId() === String(projectId)) {
+                setVisualStatus(networkFailureMessage(error), true);
+            }
+        } finally {
+            if (visualPromptPlanController === promptRun) visualPromptPlanController = null;
+            syncGraphicsControls();
+        }
+    }
+
     function syncGraphicsControls() {
         const hasProject = Boolean(window.manuscriptData);
         const editable = hasProject && canEditProject(window.manuscriptData);
         const batchRunning = Boolean(visualBatchController);
-        if (visualAddRowBtn) visualAddRowBtn.disabled = !editable || batchRunning || !nextUnusedVisualChapterEntry();
+        const promptRunning = Boolean(visualPromptPlanController);
+        const graphicsRunning = batchRunning || promptRunning;
+        if (visualAddRowBtn) visualAddRowBtn.disabled = !editable || graphicsRunning || !nextUnusedVisualChapterEntry();
+        if (visualGeneratePromptsBtn) {
+            visualGeneratePromptsBtn.disabled = !editable || graphicsRunning || !visualChapterEntries().length;
+            visualGeneratePromptsBtn.textContent = promptRunning ? 'Luodaan tyyliä ja prompteja…' : 'Luo tyyli ja lukupromptit';
+        }
         if (visualGenerateAllBtn) {
-            visualGenerateAllBtn.disabled = !editable || batchRunning || !visualBatchRows?.children.length;
+            visualGenerateAllBtn.disabled = !editable || graphicsRunning || !visualBatchRows?.children.length;
             visualGenerateAllBtn.textContent = batchRunning ? 'Generoidaan kuvaerää…' : 'Generoi kaikki ehdotukset';
         }
         if (visualStopBtn) {
@@ -7480,8 +7649,11 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             visualStopBtn.disabled = !batchRunning || visualBatchController?.stopRequested;
         }
         visualBatchRows?.querySelectorAll('input, select, textarea, button').forEach(field => {
-            field.disabled = !editable || batchRunning;
+            field.disabled = !editable || graphicsRunning;
         });
+        [visualPromptCount, visualSharedPrompt, visualUseAnalysis, visualUseMemory, visualWithoutText, visualModelSelect]
+            .filter(Boolean)
+            .forEach(field => { field.disabled = !editable || graphicsRunning; });
         if (infographicGenerateBtn) infographicGenerateBtn.disabled = !editable || infographicGenerateBtn.dataset.running === 'true';
     }
 
@@ -8815,7 +8987,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 return;
             }
             select.innerHTML = imageModels
-                .map(model => `<option value="${escapeHtml(`${model.provider}:${model.model_name}`)}">${escapeHtml(model.display_name)}</option>`)
+                .map(model => `<option value="${escapeHtml(`${model.provider}:${model.model_name}`)}">${escapeHtml(`${model.display_name} · ${model.model_name}`)}</option>`)
                 .join('');
             if (currentValue && Array.from(select.options).some(option => option.value === currentValue)) {
                 select.value = currentValue;
@@ -9278,6 +9450,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         setVisualStatus(`${visualBatchRows.children.length} luvun promptit ovat valmiina ajoon.`);
     });
     visualGenerateAllBtn?.addEventListener('click', generateVisualBatch);
+    visualGeneratePromptsBtn?.addEventListener('click', generateVisualPromptPlan);
     visualLoadMoreBtn?.addEventListener('click', () => loadMoreGraphicAssets('book_visual_image'));
     visualStopBtn?.addEventListener('click', () => {
         if (!visualBatchController || visualBatchController.stopRequested) return;

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=81">
+    <link rel="stylesheet" href="styles.css?v=82">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -2067,10 +2067,21 @@
                                     <option value="">Ladataan kuvamalleja...</option>
                                 </select>
                             </label>
+                            <label class="graphics-field">
+                                <span>Luotavien lukupromptien määrä (1–10)</span>
+                                <input id="visual-prompt-count" type="number" min="1" max="10" step="1" value="10">
+                            </label>
                             <label class="graphics-field graphics-field-wide">
-                                <span>Yhteinen visuaalinen ohje</span>
+                                <span>Yhteinen kuvallinen tyyli</span>
                                 <textarea id="visual-shared-prompt" rows="3" maxlength="700" placeholder="Esimerkiksi: hillitty pohjoismainen väripaletti, luonnollinen valo ja sama kuvallinen rytmi kaikissa ehdotuksissa."></textarea>
                             </label>
+                            <div class="visual-prompt-plan-action graphics-field-wide">
+                                <div>
+                                    <strong>Yhtenäinen kuvasarja analyysin pohjalta</strong>
+                                    <span>Luo tai korvaa yhteinen tyyli ja valitun määrän lukukohtaisia kohtausprompteja. Tämä ei vielä luo kuvia.</span>
+                                </div>
+                                <button class="btn btn-secondary" id="visual-generate-prompts-btn" type="button">Luo tyyli ja lukupromptit</button>
+                            </div>
                         </div>
                         <div class="graphics-context-options" aria-label="Kuvamaailman lähdetiedot">
                             <label><input id="visual-use-analysis" type="checkbox" checked> Hyödynnä analyysiä</label>
@@ -2082,7 +2093,7 @@
                     <div class="graphics-batch-heading">
                         <div>
                             <h3>Kuvaerän luvut</h3>
-                            <p>Ensimmäiset rivit muodostetaan automaattisesti vain varsinaisista tekstillisistä luvuista. Alkuosat, osaotsikot ja lopputekstit ohitetaan.</p>
+                            <p>Enintään 10 varsinaista lukua muodostetaan riveiksi. Alkuosat, osaotsikot ja lopputekstit ohitetaan. Kymmenen kuvan erä käyttää 10 kuvapyyntöä.</p>
                         </div>
                         <button class="btn btn-secondary" id="visual-add-row-btn" type="button">+ Lisää luku</button>
                     </div>
@@ -3669,6 +3680,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=136"></script>
+    <script src="app.js?v=137"></script>
 </body>
 </html>

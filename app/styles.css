@@ -412,6 +412,33 @@
 .graphics-field-wide {
     grid-column: 1 / -1;
 }
+.visual-prompt-plan-action {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 14px 16px;
+    border: 1px solid rgba(56, 189, 248, .18);
+    border-radius: 12px;
+    background: rgba(56, 189, 248, .045);
+}
+.visual-prompt-plan-action strong,
+.visual-prompt-plan-action span {
+    display: block;
+}
+.visual-prompt-plan-action strong {
+    color: var(--text-primary);
+    font-size: 13px;
+}
+.visual-prompt-plan-action span {
+    margin-top: 4px;
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.5;
+}
+.visual-prompt-plan-action .btn {
+    flex: 0 0 auto;
+}
 .graphics-context-options {
     display: flex;
     flex-wrap: wrap;
@@ -838,6 +865,10 @@
     }
     .graphics-run-actions .btn {
         flex: 1 1 0;
+    }
+    .visual-prompt-plan-action {
+        align-items: stretch;
+        flex-direction: column;
     }
     .infographic-preview-card {
         min-height: 420px;
