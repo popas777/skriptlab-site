@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=86">
+    <link rel="stylesheet" href="styles.css?v=87">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -2611,11 +2611,12 @@
                 </div>
 
                 <div class="audio-workspace-tabs" role="tablist" aria-label="Audiotuotannon näkymät">
-                    <button class="audio-workspace-tab active" type="button" data-audio-workspace-panel="audio-production-panel" role="tab" aria-selected="true">Tuota äänikirja</button>
-                    <button class="audio-workspace-tab" type="button" data-audio-workspace-panel="audio-legacy-panel" role="tab" aria-selected="false">Valmistelu ja äänitestit</button>
+                    <button class="audio-workspace-tab active" id="audio-production-tab" type="button" data-audio-workspace-panel="audio-production-panel" role="tab" aria-selected="true" aria-controls="audio-production-panel" tabindex="0">Tuota äänikirja</button>
+                    <button class="audio-workspace-tab" id="audio-parts-tab" type="button" data-audio-workspace-panel="audio-parts-panel" role="tab" aria-selected="false" aria-controls="audio-parts-panel" tabindex="-1">Muokkaa äänikirjan osia</button>
+                    <button class="audio-workspace-tab" id="audio-legacy-tab" type="button" data-audio-workspace-panel="audio-legacy-panel" role="tab" aria-selected="false" aria-controls="audio-legacy-panel" tabindex="-1">Valmistelu ja äänitestit</button>
                 </div>
 
-                <section id="audio-production-panel" class="audio-workspace-panel" role="tabpanel">
+                <section id="audio-production-panel" class="audio-workspace-panel" role="tabpanel" aria-labelledby="audio-production-tab">
                     <div class="audio-production-grid">
                         <article class="card glass-panel audio-production-setup">
                             <div class="audio-production-heading">
@@ -2730,7 +2731,30 @@
                     </article>
                 </section>
 
-                <section id="audio-legacy-panel" class="audio-workspace-panel hidden" role="tabpanel">
+                <section id="audio-parts-panel" class="audio-workspace-panel hidden" role="tabpanel" aria-labelledby="audio-parts-tab">
+                    <article class="card glass-panel audio-parts-overview">
+                        <div class="audio-parts-overview-heading">
+                            <div>
+                                <p class="audio-eyebrow">Valmiin tuotannon jälkikorjaus</p>
+                                <h3>Muokkaa äänikirjan osia</h3>
+                                <p>Kuuntele nykyinen osa, korjaa tarvittaessa lausuttavaa tekstiä ja tee vain valittu osa uudelleen. Muut valmiit osat säilyvät, minkä jälkeen koko äänikirja kootaan automaattisesti uudelleen.</p>
+                            </div>
+                            <div class="audio-parts-overview-actions">
+                                <span id="audio-parts-production-state" class="audio-production-state">EI TUOTANTOA</span>
+                                <button class="btn btn-secondary" id="audio-parts-refresh-btn" type="button">Päivitä osat</button>
+                            </div>
+                        </div>
+                        <div class="audio-parts-summary" aria-label="Muokattavan äänikirjatuotannon tiedot">
+                            <strong id="audio-parts-summary">Luo ensin valmis äänikirja.</strong>
+                            <span id="audio-parts-production-details">Valmiin tuotannon malli ja lukijaääni näkyvät tässä.</span>
+                        </div>
+                        <p class="audio-parts-help">Voit esimerkiksi kirjoittaa nimen lausuttavampaan muotoon tai tuottaa huonosti onnistuneen kohdan samalla tekstillä uudelleen. Uudelleenluonti käyttää alkuperäisen tuotannon mallia ja lukijaääntä.</p>
+                        <p id="audio-parts-status" class="audio-parts-status" role="status" aria-live="polite">Ladataan viimeisimmän tuotannon osia…</p>
+                    </article>
+                    <div id="audio-parts-list" class="audio-parts-list" aria-label="Äänikirjan muokattavat osat" aria-busy="false"></div>
+                </section>
+
+                <section id="audio-legacy-panel" class="audio-workspace-panel hidden" role="tabpanel" aria-labelledby="audio-legacy-tab">
                 <p id="audio-status" class="audio-status" role="status">Valitse osio ja aloita lyhyellä testinäytteellä.</p>
 
                 <div class="audio-main-tabs" role="tablist" aria-label="Audio-osion näkymät">
@@ -3736,6 +3760,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=142"></script>
+    <script src="app.js?v=143"></script>
 </body>
 </html>
