@@ -20018,6 +20018,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             });
             updateTranslationChunkAdvice('translation');
             updateTranslationChunkAdvice('finnish-translation');
+            renderTranslationParts();
+            renderFinnishTranslationParts();
             renderTranslationWorkspaceReview();
             renderFinnishTranslationAiCheck();
         } catch (err) {
