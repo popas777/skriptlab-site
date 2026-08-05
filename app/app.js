@@ -22860,7 +22860,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         params.set('mode', 'kirjoita');
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '6');
+        params.set('v', '7');
         updateEmbeddedModuleFrame(frame, 'tyosto.html', params);
     }
 

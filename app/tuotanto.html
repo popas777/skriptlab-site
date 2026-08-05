@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="tuotanto.css?v=4">
+<link rel="stylesheet" href="tuotanto.css?v=5">
 </head>
 <body>
 
@@ -25,13 +25,13 @@
   <div class="step-body">
     <div class="mode-switch" id="production-tabs" role="tablist" aria-label="Tuotannon vaiheet">
       <button id="tab-aineistot" class="is-active" role="tab">Oheisaineistot</button>
-      <button id="tab-kirja" role="tab">Kirjan sisältö</button>
+      <button id="tab-kirja" role="tab">Esikatselu</button>
       <button id="tab-taitto" role="tab">Taitto ja tiedostot</button>
     </div>
 
     <!-- ======================= AINEISTOT ======================= -->
     <section id="panel-aineistot" aria-label="Oheisaineistot">
-      <p class="step-intro">Muodosta kirjan oheisaineistot tekoälyllä. Nimiölehti ja sisällysluettelo syntyvät automaattisesti Kirja-vaiheessa, joten niitä ei tarvitse tehdä täällä.</p>
+      <p class="step-intro">Muodosta kirjan oheisaineistot tekoälyllä. Nimiölehti ja sisällysluettelo syntyvät automaattisesti esikatselu- ja taittovaiheessa, joten niitä ei tarvitse tehdä täällä.</p>
 
       <div class="tool-chips" id="tool-chips" role="radiogroup" aria-label="Aineistotyyppi"></div>
 
@@ -49,8 +49,42 @@
       <div id="assets-list"></div>
     </section>
 
-    <!-- ======================= KIRJA ======================= -->
-    <section id="panel-kirja" aria-label="Valmis kirja" hidden>
+    <!-- ======================= ESIKATSELU ======================= -->
+    <section id="panel-kirja" aria-label="Kirjan esikatselu" hidden>
+      <p class="step-intro">Kokeile kirjan formaattia, tavutusta ja tekstipalstan leveyttä. Formaatti ja tavutus siirtyvät sellaisinaan taittotiedostoihin.</p>
+
+      <div class="preview-settings" aria-label="Esikatselun asetukset">
+        <div class="preview-settings-grid">
+          <label class="field">
+            <span class="field-label">Formaatti</span>
+            <select id="preview-size">
+              <option value="A5">A5 · 148 × 210 mm</option>
+              <option value="B5">B5 · 176 × 250 mm</option>
+              <option value="G5">G5 · 169 × 239 mm</option>
+              <option value="Pokkari">Pokkari · 110 × 178 mm</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">Tavutus</span>
+            <select id="preview-hyphenation">
+              <option value="balanced">Tasapainoinen</option>
+              <option value="light">Kevyt</option>
+              <option value="strong">Runsas</option>
+              <option value="none">Ei tavutusta</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">Palstanleveys</span>
+            <select id="preview-column-width">
+              <option value="narrow">Kapea</option>
+              <option value="medium" selected>Normaali</option>
+              <option value="wide">Leveä</option>
+            </select>
+          </label>
+        </div>
+        <p class="preview-format-meta" id="preview-format-meta" role="status" aria-live="polite"></p>
+      </div>
+
       <div id="book-included-wrap" hidden>
         <h3 class="list-title" style="margin-top:14px">Kirjaan liitetyt aineistot</h3>
         <p class="hint" style="margin-bottom:8px">Järjestä nuolilla. Copysivu sijoittuu kirjan alkuun, muut loppuun.</p>
@@ -65,7 +99,11 @@
         <button class="btn btn-ghost" id="btn-download-txt" style="flex:none">Lataa TXT</button>
       </div>
 
-      <div class="reader-card" id="book-preview" style="font-size:16px">Ladataan…</div>
+      <div class="book-preview-stage">
+        <div class="reader-card book-page-preview" id="book-preview">
+          <div class="book-preview-text" id="book-preview-text" lang="fi" style="font-size:16px">Ladataan…</div>
+        </div>
+      </div>
     </section>
 
     <!-- ======================= TAITTO ======================= -->
@@ -185,6 +223,6 @@
     };
   })();
 </script>
-<script src="tuotanto.js?v=4"></script>
+<script src="tuotanto.js?v=5"></script>
 </body>
 </html>

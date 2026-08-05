@@ -29,6 +29,23 @@
   const TOOL_LABELS = Object.fromEntries(TOOLS);
   const FRONT_KINDS = ["copyright_page"];
   const SIZES = ["A5", "B5", "G5", "Pokkari"];
+  const SIZE_DETAILS = {
+    A5: { dimensions: "148 × 210 mm", pageWidth: "560px", ratio: "148 / 210" },
+    B5: { dimensions: "176 × 250 mm", pageWidth: "680px", ratio: "176 / 250" },
+    G5: { dimensions: "169 × 239 mm", pageWidth: "640px", ratio: "169 / 239" },
+    Pokkari: { dimensions: "110 × 178 mm", pageWidth: "460px", ratio: "110 / 178" },
+  };
+  const HYPHENATION_LABELS = {
+    balanced: "tasapainoinen tavutus",
+    light: "kevyt tavutus",
+    strong: "runsas tavutus",
+    none: "ei tavutusta",
+  };
+  const COLUMN_WIDTHS = {
+    narrow: { label: "kapea palsta", width: "68%" },
+    medium: { label: "normaali palsta", width: "82%" },
+    wide: { label: "leveä palsta", width: "100%" },
+  };
   const VALID_TABS = new Set(["aineistot", "kirja", "taitto"]);
   const MODULE = ["aineistot", "taitto"].includes(CONFIG.module) ? CONFIG.module : "all";
   const AVAILABLE_TABS = MODULE === "aineistot"
@@ -45,6 +62,8 @@
     : (MODULE === "taitto" ? "taitto" : "aineistot");
   let selectedTool = "copyright_page";
   let selectedSize = "A5";
+  let selectedHyphenation = "balanced";
+  let selectedColumnWidth = "medium";
   let assets = [];           // GET /misc-assets
   let pendingResult = null;  // { tool, title, result }
   let viewedAsset = null;
@@ -315,7 +334,7 @@
     const activeId = requireProjectId();
     return api("/projects/" + activeId + "/layout/run", jsonOptions("POST", {
       layout_style: selectedSize,
-      hyphenation_level: $("layout-hyphenation").value,
+      hyphenation_level: selectedHyphenation,
       include_title_page: $("opt-title-page").checked,
       include_toc: $("opt-toc").checked,
     }));
@@ -348,6 +367,7 @@
     tab = next;
     for (const name of ["aineistot", "kirja", "taitto"]) {
       $("tab-" + name).classList.toggle("is-active", name === tab);
+      $("tab-" + name).setAttribute("aria-selected", String(name === tab));
       $("panel-" + name).hidden = name !== tab;
     }
     if (refresh && tab === "kirja") refreshBook();
@@ -501,11 +521,30 @@
     renderIncludedList();
     try {
       const book = await apiGetBook();
-      $("book-preview").textContent = book.full_text || "(Kirjassa ei ole vielä sisältöä.)";
+      $("book-preview-text").textContent = book.full_text || "(Kirjassa ei ole vielä sisältöä.)";
       $("book-word-count").textContent = book.word_count ? book.word_count + " sanaa" : "";
     } catch (error) {
-      $("book-preview").textContent = "Esikatselun lataus epäonnistui: " + error.message;
+      $("book-preview-text").textContent = "Esikatselun lataus epäonnistui: " + error.message;
     }
+  }
+
+  function applyPreviewSettings() {
+    const size = SIZE_DETAILS[selectedSize] || SIZE_DETAILS.A5;
+    const column = COLUMN_WIDTHS[selectedColumnWidth] || COLUMN_WIDTHS.medium;
+    const preview = $("book-preview");
+    preview.dataset.format = selectedSize.toLowerCase();
+    preview.dataset.hyphenation = selectedHyphenation;
+    preview.style.setProperty("--preview-page-width", size.pageWidth);
+    preview.style.setProperty("--preview-page-ratio", size.ratio);
+    preview.style.setProperty("--preview-column-width", column.width);
+
+    $("preview-size").value = selectedSize;
+    $("preview-hyphenation").value = selectedHyphenation;
+    $("preview-column-width").value = selectedColumnWidth;
+    $("layout-hyphenation").value = selectedHyphenation;
+    $("preview-format-meta").textContent =
+      selectedSize + " · " + size.dimensions + " · " +
+      HYPHENATION_LABELS[selectedHyphenation] + " · " + column.label;
   }
 
   function renderIncludedList() {
@@ -593,7 +632,11 @@
       chip.textContent = size;
       chip.setAttribute("role", "radio");
       chip.setAttribute("aria-checked", String(size === selectedSize));
-      chip.addEventListener("click", () => { selectedSize = size; renderSizeChips(); });
+      chip.addEventListener("click", () => {
+        selectedSize = size;
+        renderSizeChips();
+        applyPreviewSettings();
+      });
       container.appendChild(chip);
     }
   }
@@ -686,6 +729,23 @@
     $("btn-download-txt").addEventListener("click", downloadTxt);
     $("btn-font-smaller").addEventListener("click", () => setFontSize(fontSize - 1));
     $("btn-font-larger").addEventListener("click", () => setFontSize(fontSize + 1));
+    $("preview-size").addEventListener("change", (event) => {
+      selectedSize = event.target.value;
+      renderSizeChips();
+      applyPreviewSettings();
+    });
+    $("preview-hyphenation").addEventListener("change", (event) => {
+      selectedHyphenation = event.target.value;
+      applyPreviewSettings();
+    });
+    $("preview-column-width").addEventListener("change", (event) => {
+      selectedColumnWidth = event.target.value;
+      applyPreviewSettings();
+    });
+    $("layout-hyphenation").addEventListener("change", (event) => {
+      selectedHyphenation = event.target.value;
+      applyPreviewSettings();
+    });
 
     $("btn-run-layout").addEventListener("click", runLayout);
 
@@ -697,7 +757,7 @@
 
   function setFontSize(next) {
     fontSize = Math.min(24, Math.max(12, next));
-    $("book-preview").style.fontSize = fontSize + "px";
+    $("book-preview-text").style.fontSize = fontSize + "px";
   }
 
   async function boot() {
@@ -705,6 +765,7 @@
     bindEvents();
     renderToolChips();
     renderSizeChips();
+    applyPreviewSettings();
     resolveProjectId();
     projectTitle = cachedProjectTitle(projectId) || "Käsikirjoitus";
     $("project-title").textContent = projectTitle;
@@ -724,7 +785,7 @@
         $("status-text").textContent = "Demotila";
       } else {
         $("status-text").textContent = "Käsikirjoitusta ei voitu avata";
-        $("book-preview").textContent = error.message;
+        $("book-preview-text").textContent = error.message;
         $("btn-download-txt").disabled = true;
         $("btn-run-layout").disabled = true;
         toast(error.message);
