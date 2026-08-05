@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="tuotanto.css?v=8">
+<link rel="stylesheet" href="tuotanto.css?v=10">
 </head>
 <body>
 
@@ -28,6 +28,95 @@
       <button id="tab-kirja" role="tab">Esikatselu</button>
       <button id="tab-taitto" role="tab">Taitto ja tiedostot</button>
     </div>
+
+    <section class="layout-common" id="layout-common" aria-label="Yhteiset taittoasetukset" hidden>
+      <p class="step-intro">Samat taittoasetukset ohjaavat sekä esikatselua että muodostettavia PDF-, EPUB- ja LaTeX-aineistoja.</p>
+      <div class="layout-settings-card">
+        <div class="layout-settings-heading">
+          <h3 class="list-title">Kirjan taittoasetukset</h3>
+          <p class="hint">Muutos näkyy kummallakin välilehdellä ja päivittyy heti esikatseluun.</p>
+        </div>
+        <div class="layout-settings-grid">
+          <label class="field">
+            <span class="field-label">Formaatti</span>
+            <select id="layout-size">
+              <option value="A5">A5 · 148 × 210 mm</option>
+              <option value="B5">B5 · 176 × 250 mm</option>
+              <option value="G5">G5 · 169 × 239 mm</option>
+              <option value="Pokkari">Pokkari · 110 × 178 mm</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">Tavutus</span>
+            <select id="layout-hyphenation">
+              <option value="balanced">Tasapainoinen</option>
+              <option value="light">Kevyt</option>
+              <option value="strong">Runsas</option>
+              <option value="none">Ei tavutusta</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">Palstanleveys</span>
+            <select id="layout-column-width">
+              <option value="narrow">Kapea</option>
+              <option value="narrow-medium">Kapeahko</option>
+              <option value="medium" selected>Normaali</option>
+              <option value="medium-wide">Leveähkö</option>
+              <option value="wide">Leveä</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">Kirjasin</span>
+            <select id="layout-font-family">
+              <option value="times" selected>Times · klassinen antiikva</option>
+              <option value="helvetica">Helvetica · selkeä groteski</option>
+              <option value="courier">Courier · tasalevyinen</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">Leipätekstin koko</span>
+            <select id="layout-font-size">
+              <option value="8">8 pt</option>
+              <option value="8.5">8,5 pt</option>
+              <option value="9">9 pt</option>
+              <option value="9.5">9,5 pt</option>
+              <option value="10">10 pt</option>
+              <option value="10.5" selected>10,5 pt</option>
+              <option value="11">11 pt</option>
+              <option value="11.5">11,5 pt</option>
+              <option value="12">12 pt</option>
+              <option value="12.5">12,5 pt</option>
+              <option value="13">13 pt</option>
+              <option value="13.5">13,5 pt</option>
+              <option value="14">14 pt</option>
+              <option value="14.5">14,5 pt</option>
+              <option value="15">15 pt</option>
+              <option value="15.5">15,5 pt</option>
+              <option value="16">16 pt</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">Kappaleiden sisennys</span>
+            <select id="layout-paragraph-indent">
+              <option value="none">Ei sisennystä</option>
+              <option value="small">Pieni · 0,75 em</option>
+              <option value="medium" selected>Normaali · 1,25 em</option>
+              <option value="large">Suuri · 2 em</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">Kappaleväli</span>
+            <select id="layout-paragraph-spacing">
+              <option value="none" selected>Ei kappaleväliä</option>
+              <option value="small">Tiivis · 0,3 em</option>
+              <option value="medium">Normaali · 0,6 em</option>
+              <option value="large">Väljä · 1 em</option>
+            </select>
+          </label>
+        </div>
+        <p class="layout-settings-meta" id="layout-settings-meta" role="status" aria-live="polite"></p>
+      </div>
+    </section>
 
     <!-- ======================= AINEISTOT ======================= -->
     <section id="panel-aineistot" aria-label="Oheisaineistot">
@@ -51,51 +140,9 @@
 
     <!-- ======================= ESIKATSELU ======================= -->
     <section id="panel-kirja" aria-label="Kirjan esikatselu" hidden>
-      <p class="step-intro">Kokeile kirjan formaattia, tavutusta ja tekstipalstan leveyttä käsikirjoituksen sivuilla 1–20. Esikatselu avautuu noin sivulta 10, jotta nimiöt ja omistuskirjoitukset eivät hallitse näkymää.</p>
-
-      <div class="preview-settings" aria-label="Esikatselun asetukset">
-        <div class="preview-settings-grid">
-          <label class="field">
-            <span class="field-label">Formaatti</span>
-            <select id="preview-size">
-              <option value="A5">A5 · 148 × 210 mm</option>
-              <option value="B5">B5 · 176 × 250 mm</option>
-              <option value="G5">G5 · 169 × 239 mm</option>
-              <option value="Pokkari">Pokkari · 110 × 178 mm</option>
-            </select>
-          </label>
-          <label class="field">
-            <span class="field-label">Tavutus</span>
-            <select id="preview-hyphenation">
-              <option value="balanced">Tasapainoinen</option>
-              <option value="light">Kevyt</option>
-              <option value="strong">Runsas</option>
-              <option value="none">Ei tavutusta</option>
-            </select>
-          </label>
-          <label class="field">
-            <span class="field-label">Palstanleveys</span>
-            <select id="preview-column-width">
-              <option value="narrow">Kapea</option>
-              <option value="narrow-medium">Kapeahko</option>
-              <option value="medium" selected>Normaali</option>
-              <option value="medium-wide">Leveähkö</option>
-              <option value="wide">Leveä</option>
-            </select>
-          </label>
-        </div>
-        <p class="preview-format-meta" id="preview-format-meta" role="status" aria-live="polite"></p>
-      </div>
-
-      <div id="book-included-wrap" hidden>
-        <h3 class="list-title" style="margin-top:14px">Kirjaan liitetyt aineistot</h3>
-        <p class="hint" style="margin-bottom:8px">Järjestä nuolilla. Copysivu sijoittuu kirjan alkuun, muut loppuun.</p>
-        <div id="book-included-list"></div>
-      </div>
+      <p class="step-intro layout-tab-intro">Selaa käsikirjoituksen arvioituja sivuja 1–20. Näkymä avautuu noin sivulta 10, jotta nimiöt ja omistuskirjoitukset eivät hallitse esimerkkiä.</p>
 
       <div class="reader-controls">
-        <button class="fmt-btn" id="btn-font-smaller" aria-label="Pienennä taiton fonttikokoa">A−</button>
-        <button class="fmt-btn" id="btn-font-larger" aria-label="Suurenna taiton fonttikokoa">A+</button>
         <strong class="preview-sample-label">Käsikirjoituksen sivuesikatselu</strong>
         <span class="spacer"></span>
         <button class="btn btn-ghost" id="btn-download-txt" style="flex:none">Lataa TXT</button>
@@ -124,7 +171,7 @@
 
     <!-- ======================= TAITTO ======================= -->
     <section id="panel-taitto" aria-label="Taitto" hidden>
-      <p class="step-intro">Muodosta kirjamainen PDF, EPUB ja LaTeX-lähde suoraan käsikirjoituksen rakenteesta. Taitto ei käytä tekoälyä.</p>
+      <p class="step-intro layout-tab-intro">Muodosta yhteisillä asetuksilla kirjamainen PDF, EPUB ja LaTeX-lähde. Taitto ei käytä tekoälyä.</p>
 
       <div class="layout-basics" aria-label="Perustaiton ominaisuudet">
         <span>✓ Jokainen luku alkaa uudelta sivulta</span>
@@ -132,68 +179,18 @@
         <span>✓ Nimiölehti, sisällys ja valitut oheisaineistot tulevat mukaan</span>
       </div>
 
-      <h3 class="list-title">Taittoasetukset</h3>
+      <h3 class="list-title">Muodostettavien aineistojen sisältö</h3>
       <label class="check-row"><input type="checkbox" id="opt-title-page" checked> Lisää automaattinen nimiölehti</label>
       <label class="check-row"><input type="checkbox" id="opt-toc" checked> Lisää automaattinen sisällysluettelo</label>
 
-      <h3 class="list-title" style="margin-top:18px">Kirjan koko</h3>
-      <div class="tool-chips" id="size-chips" role="radiogroup" aria-label="Kirjan koko"></div>
-
-      <label class="field" style="margin-top:18px">
-        <span class="field-label">Tavutus</span>
-        <select id="layout-hyphenation">
-          <option value="balanced">Tasapainoinen tavutus</option>
-          <option value="light">Kevyt tavutus</option>
-          <option value="strong">Runsas tavutus</option>
-          <option value="none">Ei tavutusta</option>
-        </select>
-      </label>
-
-      <div class="layout-settings-grid">
-        <label class="field">
-          <span class="field-label">Palstanleveys</span>
-          <select id="layout-column-width">
-            <option value="narrow">Kapea</option>
-            <option value="narrow-medium">Kapeahko</option>
-            <option value="medium" selected>Normaali</option>
-            <option value="medium-wide">Leveähkö</option>
-            <option value="wide">Leveä</option>
-          </select>
-        </label>
-        <label class="field">
-          <span class="field-label">Kirjasin</span>
-          <select id="layout-font-family">
-            <option value="times" selected>Times · klassinen antiikva</option>
-            <option value="helvetica">Helvetica · selkeä groteski</option>
-            <option value="courier">Courier · tasalevyinen</option>
-          </select>
-        </label>
-        <label class="field">
-          <span class="field-label">Leipätekstin koko</span>
-          <select id="layout-font-size">
-            <option value="8">8 pt</option>
-            <option value="8.5">8,5 pt</option>
-            <option value="9">9 pt</option>
-            <option value="9.5">9,5 pt</option>
-            <option value="10">10 pt</option>
-            <option value="10.5" selected>10,5 pt</option>
-            <option value="11">11 pt</option>
-            <option value="11.5">11,5 pt</option>
-            <option value="12">12 pt</option>
-            <option value="12.5">12,5 pt</option>
-            <option value="13">13 pt</option>
-            <option value="13.5">13,5 pt</option>
-            <option value="14">14 pt</option>
-            <option value="14.5">14,5 pt</option>
-            <option value="15">15 pt</option>
-            <option value="15.5">15,5 pt</option>
-            <option value="16">16 pt</option>
-          </select>
-        </label>
+      <div id="book-included-wrap" hidden>
+        <h3 class="list-title" style="margin-top:18px">Kirjaan liitetyt aineistot</h3>
+        <p class="hint" style="margin-bottom:8px">Järjestä nuolilla. Copysivu sijoittuu kirjan alkuun, muut loppuun.</p>
+        <div id="book-included-list"></div>
       </div>
 
       <div class="row" style="margin-top:12px">
-        <button class="btn btn-primary" id="btn-run-layout">Muodosta taittotiedostot</button>
+        <button class="btn btn-primary" id="btn-run-layout">Muodosta taittoaineistot</button>
       </div>
 
       <div class="warnings" id="layout-warnings" hidden style="margin-top:12px"></div>
@@ -282,6 +279,6 @@
     };
   })();
 </script>
-<script src="tuotanto.js?v=8"></script>
+<script src="tuotanto.js?v=10"></script>
 </body>
 </html>

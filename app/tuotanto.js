@@ -28,7 +28,6 @@
   ];
   const TOOL_LABELS = Object.fromEntries(TOOLS);
   const FRONT_KINDS = ["copyright_page"];
-  const SIZES = ["A5", "B5", "G5", "Pokkari"];
   const SIZE_DETAILS = {
     A5: { dimensions: "148 × 210 mm", pageWidth: "560px", ratio: "148 / 210", pageCapacity: 2200 },
     B5: { dimensions: "176 × 250 mm", pageWidth: "680px", ratio: "176 / 250", pageCapacity: 3000 },
@@ -55,6 +54,18 @@
     helvetica: { label: "Helvetica", css: '"Helvetica Neue", Arial, sans-serif' },
     courier: { label: "Courier", css: 'Courier, "Courier New", monospace' },
   };
+  const PARAGRAPH_INDENTS = {
+    none: { label: "ei sisennystä", css: "0", capacity: 1.015 },
+    small: { label: "pieni sisennys", css: "0.75em", capacity: 1 },
+    medium: { label: "normaali sisennys", css: "1.25em", capacity: 0.99 },
+    large: { label: "suuri sisennys", css: "2em", capacity: 0.975 },
+  };
+  const PARAGRAPH_SPACINGS = {
+    none: { label: "ei kappaleväliä", css: "0", capacity: 1 },
+    small: { label: "tiivis kappaleväli", css: "0.3em", capacity: 0.94 },
+    medium: { label: "normaali kappaleväli", css: "0.6em", capacity: 0.88 },
+    large: { label: "väljä kappaleväli", css: "1em", capacity: 0.81 },
+  };
   const VALID_TABS = new Set(["aineistot", "kirja", "taitto"]);
   const MODULE = ["aineistot", "taitto"].includes(CONFIG.module) ? CONFIG.module : "all";
   const AVAILABLE_TABS = MODULE === "aineistot"
@@ -75,6 +86,8 @@
   let selectedColumnWidth = "medium";
   let selectedFontFamily = "times";
   let selectedFontSize = 10.5;
+  let selectedParagraphIndent = "medium";
+  let selectedParagraphSpacing = "none";
   let assets = [];           // GET /misc-assets
   let pendingResult = null;  // { tool, title, result }
   let viewedAsset = null;
@@ -370,6 +383,8 @@
       column_width: selectedColumnWidth,
       font_family: selectedFontFamily,
       font_size: selectedFontSize,
+      paragraph_indent: selectedParagraphIndent,
+      paragraph_spacing: selectedParagraphSpacing,
       include_title_page: $("opt-title-page").checked,
       include_toc: $("opt-toc").checked,
     }));
@@ -400,6 +415,7 @@
   function switchTab(next, refresh = true) {
     if (!AVAILABLE_TABS.has(next)) return;
     tab = next;
+    $("layout-common").hidden = !(tab === "kirja" || tab === "taitto");
     for (const name of ["aineistot", "kirja", "taitto"]) {
       $("tab-" + name).classList.toggle("is-active", name === tab);
       $("tab-" + name).setAttribute("aria-selected", String(name === tab));
@@ -434,6 +450,7 @@
       assets = [];
     }
     renderAssets();
+    renderIncludedList();
   }
 
   function renderAssets() {
@@ -578,10 +595,15 @@
   function previewPageCapacity() {
     const size = SIZE_DETAILS[selectedSize] || SIZE_DETAILS.A5;
     const column = COLUMN_WIDTHS[selectedColumnWidth] || COLUMN_WIDTHS.medium;
+    const paragraphIndent = PARAGRAPH_INDENTS[selectedParagraphIndent] || PARAGRAPH_INDENTS.medium;
+    const paragraphSpacing = PARAGRAPH_SPACINGS[selectedParagraphSpacing] || PARAGRAPH_SPACINGS.none;
     const columnRatio = parseFloat(column.width) / 82;
     const fontRatio = Math.pow(10.5 / selectedFontSize, 1.65);
     const hyphenationRatio = selectedHyphenation === "none" ? 0.96 : 1;
-    return Math.max(650, Math.round(size.pageCapacity * columnRatio * fontRatio * hyphenationRatio));
+    return Math.max(650, Math.round(
+      size.pageCapacity * columnRatio * fontRatio * hyphenationRatio *
+      paragraphIndent.capacity * paragraphSpacing.capacity
+    ));
   }
 
   function paginateText(text, capacity) {
@@ -647,7 +669,17 @@
       return;
     }
     currentPreviewPage = Math.min(usableCount, Math.max(1, currentPreviewPage));
-    $("book-preview-text").textContent = previewPages[currentPreviewPage - 1];
+    const previewText = $("book-preview-text");
+    previewText.replaceChildren();
+    const blocks = previewPages[currentPreviewPage - 1]
+      .split(/\n\s*\n/)
+      .map((block) => block.trim())
+      .filter(Boolean);
+    for (const block of blocks) {
+      const paragraph = document.createElement("p");
+      paragraph.textContent = block;
+      previewText.appendChild(paragraph);
+    }
     $("preview-page-status").textContent =
       "Arvioitu sivu " + currentPreviewPage + " / noin " + estimatedBookPageCount +
       (pageCount > PREVIEW_MAX_PAGES ? " · selattavissa 1–" + PREVIEW_MAX_PAGES : "");
@@ -672,6 +704,8 @@
         font_family: selectedFontFamily,
         font_size: selectedFontSize,
         hyphenation_level: selectedHyphenation,
+        paragraph_indent: selectedParagraphIndent,
+        paragraph_spacing: selectedParagraphSpacing,
         updated_at: new Date().toISOString(),
       }));
     } catch (error) {
@@ -700,6 +734,8 @@
     const size = SIZE_DETAILS[selectedSize] || SIZE_DETAILS.A5;
     const column = COLUMN_WIDTHS[selectedColumnWidth] || COLUMN_WIDTHS.medium;
     const font = FONT_FAMILIES[selectedFontFamily] || FONT_FAMILIES.times;
+    const paragraphIndent = PARAGRAPH_INDENTS[selectedParagraphIndent] || PARAGRAPH_INDENTS.medium;
+    const paragraphSpacing = PARAGRAPH_SPACINGS[selectedParagraphSpacing] || PARAGRAPH_SPACINGS.none;
     const preview = $("book-preview");
     preview.dataset.format = selectedSize.toLowerCase();
     preview.dataset.hyphenation = selectedHyphenation;
@@ -708,18 +744,21 @@
     preview.style.setProperty("--preview-column-width", column.width);
     preview.style.setProperty("--preview-font-family", font.css);
     preview.style.setProperty("--preview-font-size", (16 * selectedFontSize / 10.5).toFixed(1) + "px");
+    preview.style.setProperty("--preview-paragraph-indent", paragraphIndent.css);
+    preview.style.setProperty("--preview-paragraph-spacing", paragraphSpacing.css);
 
-    $("preview-size").value = selectedSize;
-    $("preview-hyphenation").value = selectedHyphenation;
-    $("preview-column-width").value = selectedColumnWidth;
+    $("layout-size").value = selectedSize;
     $("layout-hyphenation").value = selectedHyphenation;
     $("layout-column-width").value = selectedColumnWidth;
     $("layout-font-family").value = selectedFontFamily;
     $("layout-font-size").value = String(selectedFontSize);
-    $("preview-format-meta").textContent =
+    $("layout-paragraph-indent").value = selectedParagraphIndent;
+    $("layout-paragraph-spacing").value = selectedParagraphSpacing;
+    $("layout-settings-meta").textContent =
       selectedSize + " · " + size.dimensions + " · " +
       HYPHENATION_LABELS[selectedHyphenation] + " · " + column.label + " · " +
-      font.label + " · " + String(selectedFontSize).replace(".", ",") + " pt";
+      font.label + " · " + String(selectedFontSize).replace(".", ",") + " pt · " +
+      paragraphIndent.label + " · " + paragraphSpacing.label;
     if (bookPreviewSource) rebuildPreviewPages(false);
   }
 
@@ -797,25 +836,6 @@
   }
 
   /* ------------------------------------------------------------ taitto */
-
-  function renderSizeChips() {
-    const container = $("size-chips");
-    container.innerHTML = "";
-    for (const size of SIZES) {
-      const chip = document.createElement("button");
-      chip.type = "button";
-      chip.className = "tool-chip" + (size === selectedSize ? " is-active" : "");
-      chip.textContent = size;
-      chip.setAttribute("role", "radio");
-      chip.setAttribute("aria-checked", String(size === selectedSize));
-      chip.addEventListener("click", () => {
-        selectedSize = size;
-        renderSizeChips();
-        applyPreviewSettings();
-      });
-      container.appendChild(chip);
-    }
-  }
 
   function fileCard(asset) {
     const labels = { layout_latex: ["TEX", "LaTeX-lähde", ".tex"],
@@ -903,23 +923,12 @@
     $("opt-title-page").addEventListener("change", scheduleBookRefresh);
     $("opt-toc").addEventListener("change", scheduleBookRefresh);
     $("btn-download-txt").addEventListener("click", downloadTxt);
-    $("btn-font-smaller").addEventListener("click", () => setFontSize(selectedFontSize - 0.5));
-    $("btn-font-larger").addEventListener("click", () => setFontSize(selectedFontSize + 0.5));
     $("btn-preview-first").addEventListener("click", () => setPreviewPage(1));
     $("btn-preview-prev").addEventListener("click", () => setPreviewPage(currentPreviewPage - 1));
     $("btn-preview-next").addEventListener("click", () => setPreviewPage(currentPreviewPage + 1));
     $("preview-page-range").addEventListener("input", (event) => setPreviewPage(event.target.value));
-    $("preview-size").addEventListener("change", (event) => {
+    $("layout-size").addEventListener("change", (event) => {
       selectedSize = event.target.value;
-      renderSizeChips();
-      applyPreviewSettings();
-    });
-    $("preview-hyphenation").addEventListener("change", (event) => {
-      selectedHyphenation = event.target.value;
-      applyPreviewSettings();
-    });
-    $("preview-column-width").addEventListener("change", (event) => {
-      selectedColumnWidth = event.target.value;
       applyPreviewSettings();
     });
     $("layout-hyphenation").addEventListener("change", (event) => {
@@ -936,6 +945,14 @@
     });
     $("layout-font-size").addEventListener("change", (event) => {
       setFontSize(Number(event.target.value));
+    });
+    $("layout-paragraph-indent").addEventListener("change", (event) => {
+      selectedParagraphIndent = event.target.value;
+      applyPreviewSettings();
+    });
+    $("layout-paragraph-spacing").addEventListener("change", (event) => {
+      selectedParagraphSpacing = event.target.value;
+      applyPreviewSettings();
     });
 
     $("btn-run-layout").addEventListener("click", runLayout);
@@ -955,7 +972,6 @@
     configureModuleUi();
     bindEvents();
     renderToolChips();
-    renderSizeChips();
     applyPreviewSettings();
     resolveProjectId();
     projectTitle = cachedProjectTitle(projectId) || "Käsikirjoitus";
