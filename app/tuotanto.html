@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="tuotanto.css?v=6">
+<link rel="stylesheet" href="tuotanto.css?v=7">
 </head>
 <body>
 
@@ -51,7 +51,7 @@
 
     <!-- ======================= ESIKATSELU ======================= -->
     <section id="panel-kirja" aria-label="Kirjan esikatselu" hidden>
-      <p class="step-intro">Kokeile kirjan formaattia, tavutusta ja tekstipalstan leveyttä ensimmäisen luvun otteella. Valinnat siirtyvät taittoasetuksiin.</p>
+      <p class="step-intro">Kokeile kirjan formaattia, tavutusta ja tekstipalstan leveyttä käsikirjoituksen sivuilla 1–20. Esikatselu avautuu noin sivulta 10, jotta nimiöt ja omistuskirjoitukset eivät hallitse näkymää.</p>
 
       <div class="preview-settings" aria-label="Esikatselun asetukset">
         <div class="preview-settings-grid">
@@ -96,13 +96,21 @@
       <div class="reader-controls">
         <button class="fmt-btn" id="btn-font-smaller" aria-label="Pienennä taiton fonttikokoa">A−</button>
         <button class="fmt-btn" id="btn-font-larger" aria-label="Suurenna taiton fonttikokoa">A+</button>
-        <strong class="preview-sample-label">Ensimmäisen luvun esikatselu</strong>
+        <strong class="preview-sample-label">Käsikirjoituksen sivuesikatselu</strong>
         <span class="hint" id="book-word-count"></span>
         <span class="spacer"></span>
         <button class="btn btn-ghost" id="btn-download-txt" style="flex:none">Lataa TXT</button>
       </div>
 
-      <div class="book-preview-stage">
+      <div class="preview-page-nav" aria-label="Esikatselun sivut">
+        <button class="btn btn-ghost" id="btn-preview-first" type="button" disabled>Alkuun</button>
+        <button class="fmt-btn" id="btn-preview-prev" type="button" aria-label="Edellinen esikatselusivu" disabled>←</button>
+        <input id="preview-page-range" type="range" min="1" max="1" value="1" aria-label="Esikatselusivu" disabled>
+        <span id="preview-page-status" role="status" aria-live="polite">Ladataan sivuja…</span>
+        <button class="fmt-btn" id="btn-preview-next" type="button" aria-label="Seuraava esikatselusivu" disabled>→</button>
+      </div>
+
+      <div class="book-preview-stage" id="book-preview-stage">
         <div class="reader-card book-page-preview" id="book-preview">
           <div class="book-preview-text" id="book-preview-text" lang="fi" style="font-size:16px">Ladataan…</div>
         </div>
@@ -269,6 +277,6 @@
     };
   })();
 </script>
-<script src="tuotanto.js?v=6"></script>
+<script src="tuotanto.js?v=7"></script>
 </body>
 </html>

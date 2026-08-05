@@ -30,11 +30,13 @@
   const FRONT_KINDS = ["copyright_page"];
   const SIZES = ["A5", "B5", "G5", "Pokkari"];
   const SIZE_DETAILS = {
-    A5: { dimensions: "148 × 210 mm", pageWidth: "560px", ratio: "148 / 210" },
-    B5: { dimensions: "176 × 250 mm", pageWidth: "680px", ratio: "176 / 250" },
-    G5: { dimensions: "169 × 239 mm", pageWidth: "640px", ratio: "169 / 239" },
-    Pokkari: { dimensions: "110 × 178 mm", pageWidth: "460px", ratio: "110 / 178" },
+    A5: { dimensions: "148 × 210 mm", pageWidth: "560px", ratio: "148 / 210", pageCapacity: 2200 },
+    B5: { dimensions: "176 × 250 mm", pageWidth: "680px", ratio: "176 / 250", pageCapacity: 3000 },
+    G5: { dimensions: "169 × 239 mm", pageWidth: "640px", ratio: "169 / 239", pageCapacity: 2750 },
+    Pokkari: { dimensions: "110 × 178 mm", pageWidth: "460px", ratio: "110 / 178", pageCapacity: 1100 },
   };
+  const PREVIEW_START_PAGE = 10;
+  const PREVIEW_MAX_PAGES = 20;
   const HYPHENATION_LABELS = {
     balanced: "tasapainoinen tavutus",
     light: "kevyt tavutus",
@@ -76,6 +78,10 @@
   let assets = [];           // GET /misc-assets
   let pendingResult = null;  // { tool, title, result }
   let viewedAsset = null;
+  let bookPreviewSource = "";
+  let bookWordCount = 0;
+  let previewPages = [];
+  let currentPreviewPage = PREVIEW_START_PAGE;
   let bookTimer = null;
 
   /* ------------------------------------------------------------ apurit */
@@ -544,15 +550,112 @@
     renderIncludedList();
     try {
       const book = await apiGetBook();
-      const previewText = book.preview_text || book.body_text || book.full_text || "";
-      const previewWords = book.preview_word_count || previewText.split(/\s+/).filter(Boolean).length;
-      $("book-preview-text").textContent = previewText || "(Kirjassa ei ole vielä sisältöä.)";
-      $("book-word-count").textContent = previewWords
-        ? previewWords + " sanaa esikatselussa" + (book.word_count ? " · " + book.word_count + " sanaa kirjassa" : "")
-        : "";
+      bookPreviewSource = book.body_text || book.preview_text || book.full_text || "";
+      bookWordCount = Number(book.word_count || 0);
+      rebuildPreviewPages(true);
     } catch (error) {
+      bookPreviewSource = "";
+      previewPages = [];
       $("book-preview-text").textContent = "Esikatselun lataus epäonnistui: " + error.message;
+      $("preview-page-status").textContent = "Sivuja ei voitu ladata";
+      updatePreviewPageControls(0);
     }
+  }
+
+  function previewPageCapacity() {
+    const size = SIZE_DETAILS[selectedSize] || SIZE_DETAILS.A5;
+    const column = COLUMN_WIDTHS[selectedColumnWidth] || COLUMN_WIDTHS.medium;
+    const columnRatio = parseFloat(column.width) / 82;
+    const fontRatio = Math.pow(10.5 / selectedFontSize, 1.65);
+    const hyphenationRatio = selectedHyphenation === "none" ? 0.96 : 1;
+    return Math.max(650, Math.round(size.pageCapacity * columnRatio * fontRatio * hyphenationRatio));
+  }
+
+  function paginateText(text, capacity) {
+    const blocks = String(text || "").trim().split(/\n\s*\n/).map((block) => block.trim()).filter(Boolean);
+    const pages = [];
+    let current = "";
+
+    function appendChunk(chunk) {
+      if (!chunk) return;
+      const candidate = current ? current + "\n\n" + chunk : chunk;
+      if (current && candidate.length > capacity) {
+        pages.push(current);
+        current = chunk;
+      } else {
+        current = candidate;
+      }
+    }
+
+    for (const block of blocks) {
+      if (block.length <= capacity) {
+        appendChunk(block);
+        continue;
+      }
+      let chunk = "";
+      for (const word of block.split(/\s+/)) {
+        const candidate = chunk ? chunk + " " + word : word;
+        if (chunk && candidate.length > capacity) {
+          appendChunk(chunk);
+          chunk = word;
+        } else {
+          chunk = candidate;
+        }
+      }
+      appendChunk(chunk);
+    }
+    if (current) pages.push(current);
+    return pages;
+  }
+
+  function updatePreviewPageControls(pageCount) {
+    const usableCount = Math.min(pageCount, PREVIEW_MAX_PAGES);
+    const hasPages = usableCount > 0;
+    $("btn-preview-first").disabled = !hasPages || currentPreviewPage <= 1;
+    $("btn-preview-prev").disabled = !hasPages || currentPreviewPage <= 1;
+    $("btn-preview-next").disabled = !hasPages || currentPreviewPage >= usableCount;
+    $("preview-page-range").disabled = !hasPages;
+    $("preview-page-range").max = String(Math.max(1, usableCount));
+    $("preview-page-range").value = String(hasPages ? currentPreviewPage : 1);
+    $("preview-page-range").setAttribute(
+      "aria-valuetext",
+      hasPages ? "Arvioitu sivu " + currentPreviewPage : "Ei esikatselusivuja"
+    );
+  }
+
+  function renderPreviewPage() {
+    const pageCount = previewPages.length;
+    const usableCount = Math.min(pageCount, PREVIEW_MAX_PAGES);
+    if (!usableCount) {
+      $("book-preview-text").textContent = "(Kirjassa ei ole vielä sisältöä.)";
+      $("preview-page-status").textContent = "Ei esikatselusivuja";
+      $("book-word-count").textContent = "";
+      updatePreviewPageControls(0);
+      return;
+    }
+    currentPreviewPage = Math.min(usableCount, Math.max(1, currentPreviewPage));
+    $("book-preview-text").textContent = previewPages[currentPreviewPage - 1];
+    $("preview-page-status").textContent =
+      "Arvioitu sivu " + currentPreviewPage + " / noin " + pageCount +
+      (pageCount > PREVIEW_MAX_PAGES ? " · selattavissa 1–" + PREVIEW_MAX_PAGES : "");
+    $("book-word-count").textContent = bookWordCount ? bookWordCount + " sanaa kirjassa" : "";
+    updatePreviewPageControls(pageCount);
+  }
+
+  function rebuildPreviewPages(resetToStart) {
+    if (!bookPreviewSource) {
+      renderPreviewPage();
+      return;
+    }
+    previewPages = paginateText(bookPreviewSource, previewPageCapacity());
+    if (resetToStart) currentPreviewPage = Math.min(PREVIEW_START_PAGE, previewPages.length || 1);
+    renderPreviewPage();
+  }
+
+  function setPreviewPage(nextPage) {
+    currentPreviewPage = Number(nextPage) || 1;
+    renderPreviewPage();
+    $("book-preview-stage").scrollTop = 0;
   }
 
   function applyPreviewSettings() {
@@ -579,6 +682,7 @@
       selectedSize + " · " + size.dimensions + " · " +
       HYPHENATION_LABELS[selectedHyphenation] + " · " + column.label + " · " +
       font.label + " · " + String(selectedFontSize).replace(".", ",") + " pt";
+    if (bookPreviewSource) rebuildPreviewPages(false);
   }
 
   function renderIncludedList() {
@@ -763,6 +867,10 @@
     $("btn-download-txt").addEventListener("click", downloadTxt);
     $("btn-font-smaller").addEventListener("click", () => setFontSize(selectedFontSize - 0.5));
     $("btn-font-larger").addEventListener("click", () => setFontSize(selectedFontSize + 0.5));
+    $("btn-preview-first").addEventListener("click", () => setPreviewPage(1));
+    $("btn-preview-prev").addEventListener("click", () => setPreviewPage(currentPreviewPage - 1));
+    $("btn-preview-next").addEventListener("click", () => setPreviewPage(currentPreviewPage + 1));
+    $("preview-page-range").addEventListener("input", (event) => setPreviewPage(event.target.value));
     $("preview-size").addEventListener("change", (event) => {
       selectedSize = event.target.value;
       renderSizeChips();
