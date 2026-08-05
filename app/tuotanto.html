@@ -167,7 +167,7 @@
         if (token) headers.Authorization = "Bearer " + token;
         requestOptions.headers = headers;
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 20000);
+        const timeout = setTimeout(() => controller.abort(), 60000);
         if (!requestOptions.signal) requestOptions.signal = controller.signal;
         try {
           const response = await fetch(url, requestOptions);
