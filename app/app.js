@@ -9150,6 +9150,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         'manufacturing_country'
     ]);
 
+    const productDerivedFieldKeys = new Set([
+        'estimated_page_count',
+        'word_count',
+        'character_count'
+    ]);
+
     function setProductStatus(message, isError = false) {
         const status = document.getElementById('product-status');
         if (!status) return;
@@ -9282,7 +9288,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function setProductFields(info, force = false) {
         Object.entries(productFieldMap).forEach(([key, id]) => {
-            setMarketingFieldValue(id, info?.[key] || '', force);
+            setMarketingFieldValue(id, info?.[key] || '', force || productDerivedFieldKeys.has(key));
         });
         markProductMissingFields();
     }
