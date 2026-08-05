@@ -66,6 +66,9 @@
     medium: { label: "normaali kappaleväli", css: "0.6em", capacity: 0.88 },
     large: { label: "väljä kappaleväli", css: "1em", capacity: 0.81 },
   };
+  const OUTPUT_FORMAT_ORDER = ["pdf", "epub", "latex", "md", "docx", "rtf", "icml", "idml"];
+  const READY_OUTPUT_FORMATS = new Set(["pdf", "epub", "latex", "md", "docx", "rtf"]);
+  const PENDING_OUTPUT_FORMATS = new Set(["icml", "idml"]);
   const VALID_TABS = new Set(["aineistot", "kirja", "taitto"]);
   const MODULE = ["aineistot", "taitto"].includes(CONFIG.module) ? CONFIG.module : "all";
   const AVAILABLE_TABS = MODULE === "aineistot"
@@ -364,16 +367,29 @@
   }
 
   async function apiRunLayout() {
+    const outputFormats = selectedOutputFormats();
     if (demoMode) {
       await new Promise((r) => setTimeout(r, 700));
-      const latex = "% Demotila: suppea LaTeX-näyte\n\\documentclass{book}\n\\begin{document}\n" +
-        demo.project.title + "\n\\end{document}\n";
+      const content = demo.bookText($("opt-title-page").checked, $("opt-toc").checked);
+      const demoTypes = {
+        pdf: ["layout_pdf", "application/pdf"],
+        epub: ["layout_epub", "application/epub+zip"],
+        latex: ["layout_latex", "application/x-latex"],
+        md: ["layout_md", "text/markdown"],
+        docx: ["layout_docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+        rtf: ["layout_rtf", "application/rtf"],
+      };
+      const generated = outputFormats.filter((value) => READY_OUTPUT_FORMATS.has(value)).map((value) => ({
+        asset_type: demoTypes[value][0],
+        title: demo.project.title + " – " + value.toUpperCase() + " (demo)",
+        mime_type: demoTypes[value][1],
+        data_url: "data:text/plain;base64," + btoa(unescape(encodeURIComponent(content))),
+      }));
       return {
-        latex: { asset_type: "layout_latex", title: demo.project.title + " – LaTeX (demo)",
-                 mime_type: "application/x-latex",
-                 data_url: "data:application/x-latex;base64," + btoa(unescape(encodeURIComponent(latex))) },
-        pdf: null, epub: null,
-        warnings: ["Demotila: PDF ja EPUB vaativat backendin."],
+        assets: generated,
+        warnings: outputFormats.filter((value) => PENDING_OUTPUT_FORMATS.has(value)).map((value) =>
+          value.toUpperCase() + "-vienti on vielä kehitteillä."
+        ),
       };
     }
     const activeId = requireProjectId();
@@ -385,6 +401,7 @@
       font_size: selectedFontSize,
       paragraph_indent: selectedParagraphIndent,
       paragraph_spacing: selectedParagraphSpacing,
+      output_formats: outputFormats,
       include_title_page: $("opt-title-page").checked,
       include_toc: $("opt-toc").checked,
     }));
@@ -840,7 +857,10 @@
   function fileCard(asset) {
     const labels = { layout_latex: ["TEX", "LaTeX-lähde", ".tex"],
                      layout_pdf: ["PDF", "PDF-tarkistusvedos", ".pdf"],
-                     layout_epub: ["EPUB", "EPUB-luonnos", ".epub"] };
+                     layout_epub: ["EPUB", "EPUB-luonnos", ".epub"],
+                     layout_md: ["MD", "Markdown-lähde", ".md"],
+                     layout_docx: ["DOCX", "Muokattava DOCX-taittopohja", ".docx"],
+                     layout_rtf: ["RTF", "RTF-tekstilähde", ".rtf"] };
     const [icon, label, extension] = labels[asset.asset_type] || ["?", asset.asset_type, ".bin"];
     const card = document.createElement("div");
     card.className = "file-card";
@@ -864,7 +884,7 @@
     container.innerHTML = "";
     const usable = (items || []).filter(Boolean);
     $("layout-empty").hidden = usable.length > 0;
-    const order = ["layout_pdf", "layout_epub", "layout_latex"];
+    const order = ["layout_pdf", "layout_epub", "layout_latex", "layout_md", "layout_docx", "layout_rtf"];
     usable.sort((a, b) => order.indexOf(a.asset_type) - order.indexOf(b.asset_type));
     for (const asset of usable) container.appendChild(fileCard(asset));
   }
@@ -878,14 +898,22 @@
   }
 
   async function runLayout() {
+    const outputFormats = selectedOutputFormats();
+    if (!outputFormats.length) {
+      toast("Valitse vähintään yksi tiedostomuoto.");
+      return;
+    }
     try {
-      working(true, "Muodostetaan taittotiedostoja…");
+      working(true, "Muodostetaan valittuja taittoaineistoja…");
       const result = await apiRunLayout();
       const warnings = $("layout-warnings");
       warnings.hidden = !(result.warnings || []).length;
       warnings.textContent = (result.warnings || []).join("\n");
-      renderLayoutFiles([result.pdf, result.epub, result.latex]);
-      toast("Taittotiedostot valmiit.");
+      const generated = Array.isArray(result.assets)
+        ? result.assets
+        : [result.pdf, result.epub, result.latex].filter(Boolean);
+      renderLayoutFiles(generated);
+      toast(generated.length ? "Valitut taittoaineistot ovat valmiit." : "Valittujen formaattien vienti on vielä kehitteillä.");
     } catch (error) {
       toast(error.message);
     } finally {
@@ -894,6 +922,27 @@
   }
 
   /* ------------------------------------------------------------ arkit */
+
+  function selectedOutputFormats() {
+    const selected = new Set(
+      Array.from(document.querySelectorAll("[data-layout-format]:checked"))
+        .map((input) => input.value)
+    );
+    return OUTPUT_FORMAT_ORDER.filter((value) => selected.has(value));
+  }
+
+  function updateOutputFormatSelection() {
+    const selected = selectedOutputFormats();
+    document.querySelectorAll("[data-layout-format]").forEach((input) => {
+      input.closest(".output-format-option")?.classList.toggle("is-selected", input.checked);
+    });
+    $("output-format-count").textContent = selected.length + " valittuna";
+    const button = $("btn-run-layout");
+    button.textContent = selected.length
+      ? "Muodosta " + selected.length + " valittua aineistoa"
+      : "Valitse tiedostomuoto";
+    button.disabled = selected.length === 0 || button.dataset.projectUnavailable === "true";
+  }
 
   function openSheet(id) {
     $("sheet-backdrop").hidden = false;
@@ -954,6 +1003,9 @@
       selectedParagraphSpacing = event.target.value;
       applyPreviewSettings();
     });
+    document.querySelectorAll("[data-layout-format]").forEach((input) => {
+      input.addEventListener("change", updateOutputFormatSelection);
+    });
 
     $("btn-run-layout").addEventListener("click", runLayout);
 
@@ -973,6 +1025,7 @@
     bindEvents();
     renderToolChips();
     applyPreviewSettings();
+    updateOutputFormatSelection();
     resolveProjectId();
     projectTitle = cachedProjectTitle(projectId) || "Käsikirjoitus";
     $("project-title").textContent = projectTitle;
@@ -994,6 +1047,7 @@
         $("status-text").textContent = "Käsikirjoitusta ei voitu avata";
         $("book-preview-text").textContent = error.message;
         $("btn-download-txt").disabled = true;
+        $("btn-run-layout").dataset.projectUnavailable = "true";
         $("btn-run-layout").disabled = true;
         toast(error.message);
         working(false);

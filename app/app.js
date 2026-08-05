@@ -10631,15 +10631,29 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function layoutFileName(asset) {
         const safeTitle = (window.manuscriptData?.title || 'kasikirjoitus').toLowerCase().replace(/[^a-z0-9åäö]+/gi, '-').replace(/^-|-$/g, '') || 'kasikirjoitus';
-        if (asset.asset_type === 'layout_pdf') return `${safeTitle}.pdf`;
-        if (asset.asset_type === 'layout_epub') return `${safeTitle}.epub`;
-        return `${safeTitle}.tex`;
+        const extensions = {
+            layout_pdf: 'pdf', layout_epub: 'epub', layout_latex: 'tex',
+            layout_md: 'md', layout_docx: 'docx', layout_rtf: 'rtf'
+        };
+        return `${safeTitle}.${extensions[asset.asset_type] || 'bin'}`;
     }
 
     function layoutAssetLabel(asset) {
-        if (asset.asset_type === 'layout_pdf') return 'PDF-taittovedos';
-        if (asset.asset_type === 'layout_epub') return 'EPUB-e-kirja';
-        return 'LaTeX-lähde';
+        return ({
+            layout_pdf: 'PDF-taittovedos',
+            layout_epub: 'EPUB-e-kirja',
+            layout_latex: 'LaTeX-lähde',
+            layout_md: 'Markdown-lähde',
+            layout_docx: 'DOCX-taittopohja',
+            layout_rtf: 'RTF-tekstilähde'
+        })[asset.asset_type] || 'Taittoaineisto';
+    }
+
+    function layoutAssetFormat(asset) {
+        return ({
+            layout_pdf: 'PDF', layout_epub: 'EPUB', layout_latex: 'LaTeX',
+            layout_md: 'MD', layout_docx: 'DOCX', layout_rtf: 'RTF'
+        })[asset.asset_type] || 'tiedosto';
     }
 
     function downloadAsset(asset) {
@@ -10670,7 +10684,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 <strong>${escapeHtml(layoutAssetLabel(asset))}</strong>
                 <p class="card-meta">${escapeHtml(asset.title || '')}</p>
                 <p class="card-meta">${escapeHtml(asset.model || 'python:layout-generator')}</p>
-                <button class="btn btn-secondary layout-download-btn" type="button">Lataa ${asset.asset_type === 'layout_pdf' ? 'PDF' : asset.asset_type === 'layout_epub' ? 'EPUB' : 'LaTeX'}</button>
+                <button class="btn btn-secondary layout-download-btn" type="button">Lataa ${layoutAssetFormat(asset)}</button>
             `;
             card.querySelector('.layout-download-btn')?.addEventListener('click', () => downloadAsset(asset));
             container.appendChild(card);
@@ -10716,7 +10730,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             });
             const data = await res.json().catch(() => null);
             if (!res.ok) throw new Error(data?.detail || 'Taiton ajo epäonnistui.');
-            renderLayoutAssets([data.pdf, data.epub, data.latex].filter(Boolean));
+            renderLayoutAssets(Array.isArray(data.assets) ? data.assets : [data.pdf, data.epub, data.latex].filter(Boolean));
         } catch (err) {
             if (status) status.textContent = err.message;
             alert('Taiton ajo epäonnistui: ' + err.message);
@@ -22902,7 +22916,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (step) params.set('step', step);
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '11');
+        params.set('v', '15');
         const reloaded = updateEmbeddedModuleFrame(frame, 'manuskripti.html', params);
         if (!reloaded && frame.contentWindow) {
             frame.contentWindow.postMessage({ type: 'skriptlab:refresh-workflow-status' }, window.location.origin);
@@ -22953,7 +22967,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         params.set('tab', nextTab);
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '11');
+        params.set('v', '12');
         updateEmbeddedModuleFrame(frame, 'tuotanto.html', params);
     }
 

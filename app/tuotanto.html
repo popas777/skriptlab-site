@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="tuotanto.css?v=10">
+<link rel="stylesheet" href="tuotanto.css?v=11">
 </head>
 <body>
 
@@ -30,7 +30,7 @@
     </div>
 
     <section class="layout-common" id="layout-common" aria-label="Yhteiset taittoasetukset" hidden>
-      <p class="step-intro">Samat taittoasetukset ohjaavat sekä esikatselua että muodostettavia PDF-, EPUB- ja LaTeX-aineistoja.</p>
+      <p class="step-intro">Samat taittoasetukset ohjaavat sekä esikatselua että kaikkia muodostettavia tiedostoja.</p>
       <div class="layout-settings-card">
         <div class="layout-settings-heading">
           <h3 class="list-title">Kirjan taittoasetukset</h3>
@@ -171,7 +171,7 @@
 
     <!-- ======================= TAITTO ======================= -->
     <section id="panel-taitto" aria-label="Taitto" hidden>
-      <p class="step-intro layout-tab-intro">Muodosta yhteisillä asetuksilla kirjamainen PDF, EPUB ja LaTeX-lähde. Taitto ei käytä tekoälyä.</p>
+      <p class="step-intro layout-tab-intro">Muodosta yhteisillä asetuksilla valitut taitto- ja tekstiaineistot. Taitto ei käytä tekoälyä.</p>
 
       <div class="layout-basics" aria-label="Perustaiton ominaisuudet">
         <span>✓ Jokainen luku alkaa uudelta sivulta</span>
@@ -183,6 +183,56 @@
       <label class="check-row"><input type="checkbox" id="opt-title-page" checked> Lisää automaattinen nimiölehti</label>
       <label class="check-row"><input type="checkbox" id="opt-toc" checked> Lisää automaattinen sisällysluettelo</label>
 
+      <fieldset class="output-formats" aria-describedby="output-formats-help">
+        <legend>Tiedostomuodot</legend>
+        <div class="output-formats-heading">
+          <p class="hint" id="output-formats-help">Valitse yksi tai useampi aineisto. ICML ja IDML ovat näkyvissä työnkulkua varten, mutta niiden Adobe-vienti on vielä kehitteillä.</p>
+          <strong id="output-format-count" aria-live="polite">3 valittuna</strong>
+        </div>
+        <div class="output-formats-grid">
+          <label class="output-format-option">
+            <input type="checkbox" value="pdf" data-layout-format checked>
+            <span class="output-format-code">PDF</span>
+            <span><strong>PDF</strong><small>Painettava taittovedos</small></span>
+          </label>
+          <label class="output-format-option">
+            <input type="checkbox" value="epub" data-layout-format checked>
+            <span class="output-format-code">EPUB</span>
+            <span><strong>EPUB</strong><small>Mukautuva e-kirja</small></span>
+          </label>
+          <label class="output-format-option">
+            <input type="checkbox" value="latex" data-layout-format checked>
+            <span class="output-format-code">TEX</span>
+            <span><strong>LaTeX</strong><small>Jatkotaitettava lähde</small></span>
+          </label>
+          <label class="output-format-option">
+            <input type="checkbox" value="md" data-layout-format>
+            <span class="output-format-code">MD</span>
+            <span><strong>Markdown</strong><small>Rakenteinen tekstilähde</small></span>
+          </label>
+          <label class="output-format-option">
+            <input type="checkbox" value="docx" data-layout-format>
+            <span class="output-format-code">DOCX</span>
+            <span><strong>DOCX</strong><small>Muokattava taittopohja</small></span>
+          </label>
+          <label class="output-format-option">
+            <input type="checkbox" value="rtf" data-layout-format>
+            <span class="output-format-code">RTF</span>
+            <span><strong>RTF</strong><small>Yhteensopiva tekstivienti</small></span>
+          </label>
+          <label class="output-format-option is-pending">
+            <input type="checkbox" value="icml" data-layout-format>
+            <span class="output-format-code">ICML</span>
+            <span><strong>ICML <em>Adobe · kehitteillä</em></strong><small>InCopy-työnkulku</small></span>
+          </label>
+          <label class="output-format-option is-pending">
+            <input type="checkbox" value="idml" data-layout-format>
+            <span class="output-format-code">IDML</span>
+            <span><strong>IDML <em>Adobe · kehitteillä</em></strong><small>InDesign-työnkulku</small></span>
+          </label>
+        </div>
+      </fieldset>
+
       <div id="book-included-wrap" hidden>
         <h3 class="list-title" style="margin-top:18px">Kirjaan liitetyt aineistot</h3>
         <p class="hint" style="margin-bottom:8px">Järjestä nuolilla. Copysivu sijoittuu kirjan alkuun, muut loppuun.</p>
@@ -190,7 +240,7 @@
       </div>
 
       <div class="row" style="margin-top:12px">
-        <button class="btn btn-primary" id="btn-run-layout">Muodosta taittoaineistot</button>
+        <button class="btn btn-primary" id="btn-run-layout">Muodosta 3 valittua aineistoa</button>
       </div>
 
       <div class="warnings" id="layout-warnings" hidden style="margin-top:12px"></div>
@@ -279,6 +329,6 @@
     };
   })();
 </script>
-<script src="tuotanto.js?v=10"></script>
+<script src="tuotanto.js?v=11"></script>
 </body>
 </html>

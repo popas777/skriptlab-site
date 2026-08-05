@@ -907,7 +907,8 @@
 
   function hasLayoutAssets() {
     return (projectStageAssets.layout || []).some((asset) =>
-      ["layout_latex", "layout_pdf", "layout_epub"].includes(asset.asset_type)
+      ["layout_pdf", "layout_epub", "layout_latex", "layout_md", "layout_docx", "layout_rtf"]
+        .includes(asset.asset_type)
     );
   }
 

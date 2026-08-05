@@ -1073,6 +1073,96 @@ details.mass-section .mass-body { padding: 0 14px 14px; }
 
 .layout-tab-intro { margin-top: 2px; }
 
+.output-formats {
+  margin: 18px 0 14px;
+  padding: 0;
+  border: 0;
+}
+
+.output-formats legend {
+  margin-bottom: 6px;
+  padding: 0;
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--muste);
+}
+
+.output-formats-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.output-formats-heading .hint { margin: 0; }
+.output-formats-heading > strong {
+  flex: none;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: var(--mustikka-vaalea);
+  color: var(--mustikka);
+  font-size: 12px;
+}
+
+.output-formats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.output-format-option {
+  display: grid;
+  grid-template-columns: 20px 48px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 70px;
+  padding: 10px 12px;
+  border: 1px solid var(--raja);
+  border-radius: var(--radius-s);
+  background: var(--kortti);
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease;
+}
+
+.output-format-option:hover { border-color: var(--mustikka); }
+.output-format-option.is-selected {
+  border-color: var(--mustikka);
+  background: var(--mustikka-vaalea);
+  box-shadow: 0 0 0 1px rgba(75, 70, 125, 0.12);
+}
+
+.output-format-option.is-pending { border-style: dashed; }
+.output-format-option input { width: 18px; height: 18px; accent-color: var(--mustikka); }
+.output-format-option > span:last-child { min-width: 0; }
+.output-format-option strong { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 14px; }
+.output-format-option small { display: block; margin-top: 2px; color: var(--muste-45); font-size: 12px; line-height: 1.35; }
+.output-format-option em {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--hilla-vaalea);
+  color: var(--hilla);
+  font-family: var(--sans);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.output-format-code {
+  display: grid;
+  place-items: center;
+  min-height: 36px;
+  border-radius: 8px;
+  background: var(--paperi-tumma);
+  color: var(--mustikka);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
 .asset-card {
   background: var(--kortti);
   border: 1px solid var(--raja);
@@ -1230,6 +1320,9 @@ details.mass-section .mass-body { padding: 0 14px 14px; }
 @media (max-width: 680px) {
   .layout-settings-grid { grid-template-columns: 1fr; }
   .layout-settings-grid > .field:last-child { grid-column: auto; }
+  .output-formats-heading { display: block; }
+  .output-formats-heading > strong { display: inline-block; margin-top: 8px; }
+  .output-formats-grid { grid-template-columns: 1fr; }
   .reader-card.book-page-preview { padding: 30px 22px; }
   .preview-sample-label { width: 100%; order: 3; }
   .preview-page-nav { flex-wrap: wrap; }
