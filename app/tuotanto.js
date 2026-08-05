@@ -43,8 +43,15 @@
   };
   const COLUMN_WIDTHS = {
     narrow: { label: "kapea palsta", width: "68%" },
+    "narrow-medium": { label: "kapeahko palsta", width: "75%" },
     medium: { label: "normaali palsta", width: "82%" },
+    "medium-wide": { label: "leveähkö palsta", width: "91%" },
     wide: { label: "leveä palsta", width: "100%" },
+  };
+  const FONT_FAMILIES = {
+    times: { label: "Times", css: '"Times New Roman", Times, serif' },
+    helvetica: { label: "Helvetica", css: '"Helvetica Neue", Arial, sans-serif' },
+    courier: { label: "Courier", css: 'Courier, "Courier New", monospace' },
   };
   const VALID_TABS = new Set(["aineistot", "kirja", "taitto"]);
   const MODULE = ["aineistot", "taitto"].includes(CONFIG.module) ? CONFIG.module : "all";
@@ -64,10 +71,11 @@
   let selectedSize = "A5";
   let selectedHyphenation = "balanced";
   let selectedColumnWidth = "medium";
+  let selectedFontFamily = "times";
+  let selectedFontSize = 10.5;
   let assets = [];           // GET /misc-assets
   let pendingResult = null;  // { tool, title, result }
   let viewedAsset = null;
-  let fontSize = 16;
   let bookTimer = null;
 
   /* ------------------------------------------------------------ apurit */
@@ -201,6 +209,15 @@
       for (const asset of backs) parts.push(asset._text);
       return parts.join("\n\n\n***\n\n\n");
     },
+
+    previewText() {
+      const chapter = this.project.chapters.find((item) =>
+        item.kind !== "part" && ((item.paragraphs || []).length || item.toc_title)
+      );
+      return chapter
+        ? chapter.toc_title + "\n\n" + (chapter.paragraphs || []).join("\n\n")
+        : "";
+    },
   };
 
   /* ------------------------------------------------------------ API */
@@ -301,7 +318,10 @@
     const includeToc = $("opt-toc").checked;
     if (demoMode) {
       const full = demo.bookText(includeTitle, includeToc);
-      return { title: demo.project.title, full_text: full,
+      const preview = demo.previewText();
+      return { title: demo.project.title, full_text: full, body_text: preview,
+               preview_text: preview,
+               preview_word_count: preview.split(/\s+/).filter(Boolean).length,
                word_count: full.split(/\s+/).filter(Boolean).length };
     }
     const activeId = requireProjectId();
@@ -335,6 +355,9 @@
     return api("/projects/" + activeId + "/layout/run", jsonOptions("POST", {
       layout_style: selectedSize,
       hyphenation_level: selectedHyphenation,
+      column_width: selectedColumnWidth,
+      font_family: selectedFontFamily,
+      font_size: selectedFontSize,
       include_title_page: $("opt-title-page").checked,
       include_toc: $("opt-toc").checked,
     }));
@@ -521,8 +544,12 @@
     renderIncludedList();
     try {
       const book = await apiGetBook();
-      $("book-preview-text").textContent = book.full_text || "(Kirjassa ei ole vielä sisältöä.)";
-      $("book-word-count").textContent = book.word_count ? book.word_count + " sanaa" : "";
+      const previewText = book.preview_text || book.body_text || book.full_text || "";
+      const previewWords = book.preview_word_count || previewText.split(/\s+/).filter(Boolean).length;
+      $("book-preview-text").textContent = previewText || "(Kirjassa ei ole vielä sisältöä.)";
+      $("book-word-count").textContent = previewWords
+        ? previewWords + " sanaa esikatselussa" + (book.word_count ? " · " + book.word_count + " sanaa kirjassa" : "")
+        : "";
     } catch (error) {
       $("book-preview-text").textContent = "Esikatselun lataus epäonnistui: " + error.message;
     }
@@ -531,20 +558,27 @@
   function applyPreviewSettings() {
     const size = SIZE_DETAILS[selectedSize] || SIZE_DETAILS.A5;
     const column = COLUMN_WIDTHS[selectedColumnWidth] || COLUMN_WIDTHS.medium;
+    const font = FONT_FAMILIES[selectedFontFamily] || FONT_FAMILIES.times;
     const preview = $("book-preview");
     preview.dataset.format = selectedSize.toLowerCase();
     preview.dataset.hyphenation = selectedHyphenation;
     preview.style.setProperty("--preview-page-width", size.pageWidth);
     preview.style.setProperty("--preview-page-ratio", size.ratio);
     preview.style.setProperty("--preview-column-width", column.width);
+    preview.style.setProperty("--preview-font-family", font.css);
+    preview.style.setProperty("--preview-font-size", (16 * selectedFontSize / 10.5).toFixed(1) + "px");
 
     $("preview-size").value = selectedSize;
     $("preview-hyphenation").value = selectedHyphenation;
     $("preview-column-width").value = selectedColumnWidth;
     $("layout-hyphenation").value = selectedHyphenation;
+    $("layout-column-width").value = selectedColumnWidth;
+    $("layout-font-family").value = selectedFontFamily;
+    $("layout-font-size").value = String(selectedFontSize);
     $("preview-format-meta").textContent =
       selectedSize + " · " + size.dimensions + " · " +
-      HYPHENATION_LABELS[selectedHyphenation] + " · " + column.label;
+      HYPHENATION_LABELS[selectedHyphenation] + " · " + column.label + " · " +
+      font.label + " · " + String(selectedFontSize).replace(".", ",") + " pt";
   }
 
   function renderIncludedList() {
@@ -727,8 +761,8 @@
     $("opt-title-page").addEventListener("change", scheduleBookRefresh);
     $("opt-toc").addEventListener("change", scheduleBookRefresh);
     $("btn-download-txt").addEventListener("click", downloadTxt);
-    $("btn-font-smaller").addEventListener("click", () => setFontSize(fontSize - 1));
-    $("btn-font-larger").addEventListener("click", () => setFontSize(fontSize + 1));
+    $("btn-font-smaller").addEventListener("click", () => setFontSize(selectedFontSize - 0.5));
+    $("btn-font-larger").addEventListener("click", () => setFontSize(selectedFontSize + 0.5));
     $("preview-size").addEventListener("change", (event) => {
       selectedSize = event.target.value;
       renderSizeChips();
@@ -746,6 +780,17 @@
       selectedHyphenation = event.target.value;
       applyPreviewSettings();
     });
+    $("layout-column-width").addEventListener("change", (event) => {
+      selectedColumnWidth = event.target.value;
+      applyPreviewSettings();
+    });
+    $("layout-font-family").addEventListener("change", (event) => {
+      selectedFontFamily = event.target.value;
+      applyPreviewSettings();
+    });
+    $("layout-font-size").addEventListener("change", (event) => {
+      setFontSize(Number(event.target.value));
+    });
 
     $("btn-run-layout").addEventListener("click", runLayout);
 
@@ -756,8 +801,8 @@
   }
 
   function setFontSize(next) {
-    fontSize = Math.min(24, Math.max(12, next));
-    $("book-preview-text").style.fontSize = fontSize + "px";
+    selectedFontSize = Math.round(Math.min(16, Math.max(8, Number(next) || 10.5)) * 2) / 2;
+    applyPreviewSettings();
   }
 
   async function boot() {

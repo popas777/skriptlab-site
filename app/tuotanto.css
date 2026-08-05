@@ -1049,6 +1049,13 @@ details.mass-section .mass-body { padding: 0 14px 14px; }
   gap: 12px;
 }
 
+.layout-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
 .preview-settings .field { margin: 0; }
 
 .preview-format-meta {
@@ -1136,6 +1143,8 @@ details.mass-section .mass-body { padding: 0 14px 14px; }
   width: var(--preview-column-width, 82%);
   max-width: 46rem;
   margin: 0 auto;
+  font-family: var(--preview-font-family, "Times New Roman", Times, serif);
+  font-size: var(--preview-font-size, 16px);
   line-height: 1.72;
   text-align: justify;
   white-space: pre-wrap;
@@ -1164,10 +1173,12 @@ details.mass-section .mass-body { padding: 0 14px 14px; }
 
 .reader-controls { display: flex; align-items: center; gap: 8px; margin: 12px 0; }
 .reader-controls .spacer { flex: 1; }
+.preview-sample-label { font-size: 13px; color: var(--muste-70); }
 
 @media (max-width: 680px) {
-  .preview-settings-grid { grid-template-columns: 1fr; }
+  .preview-settings-grid, .layout-settings-grid { grid-template-columns: 1fr; }
   .reader-card.book-page-preview { padding: 30px 22px; }
+  .preview-sample-label { width: 100%; order: 3; }
 }
 
 .file-card {

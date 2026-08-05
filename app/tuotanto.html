@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="tuotanto.css?v=5">
+<link rel="stylesheet" href="tuotanto.css?v=6">
 </head>
 <body>
 
@@ -51,7 +51,7 @@
 
     <!-- ======================= ESIKATSELU ======================= -->
     <section id="panel-kirja" aria-label="Kirjan esikatselu" hidden>
-      <p class="step-intro">Kokeile kirjan formaattia, tavutusta ja tekstipalstan leveyttä. Formaatti ja tavutus siirtyvät sellaisinaan taittotiedostoihin.</p>
+      <p class="step-intro">Kokeile kirjan formaattia, tavutusta ja tekstipalstan leveyttä ensimmäisen luvun otteella. Valinnat siirtyvät taittoasetuksiin.</p>
 
       <div class="preview-settings" aria-label="Esikatselun asetukset">
         <div class="preview-settings-grid">
@@ -77,7 +77,9 @@
             <span class="field-label">Palstanleveys</span>
             <select id="preview-column-width">
               <option value="narrow">Kapea</option>
+              <option value="narrow-medium">Kapeahko</option>
               <option value="medium" selected>Normaali</option>
+              <option value="medium-wide">Leveähkö</option>
               <option value="wide">Leveä</option>
             </select>
           </label>
@@ -92,8 +94,9 @@
       </div>
 
       <div class="reader-controls">
-        <button class="fmt-btn" id="btn-font-smaller" aria-label="Pienennä tekstiä">A−</button>
-        <button class="fmt-btn" id="btn-font-larger" aria-label="Suurenna tekstiä">A+</button>
+        <button class="fmt-btn" id="btn-font-smaller" aria-label="Pienennä taiton fonttikokoa">A−</button>
+        <button class="fmt-btn" id="btn-font-larger" aria-label="Suurenna taiton fonttikokoa">A+</button>
+        <strong class="preview-sample-label">Ensimmäisen luvun esikatselu</strong>
         <span class="hint" id="book-word-count"></span>
         <span class="spacer"></span>
         <button class="btn btn-ghost" id="btn-download-txt" style="flex:none">Lataa TXT</button>
@@ -132,6 +135,49 @@
           <option value="none">Ei tavutusta</option>
         </select>
       </label>
+
+      <div class="layout-settings-grid">
+        <label class="field">
+          <span class="field-label">Palstanleveys</span>
+          <select id="layout-column-width">
+            <option value="narrow">Kapea</option>
+            <option value="narrow-medium">Kapeahko</option>
+            <option value="medium" selected>Normaali</option>
+            <option value="medium-wide">Leveähkö</option>
+            <option value="wide">Leveä</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="field-label">Kirjasin</span>
+          <select id="layout-font-family">
+            <option value="times" selected>Times · klassinen antiikva</option>
+            <option value="helvetica">Helvetica · selkeä groteski</option>
+            <option value="courier">Courier · tasalevyinen</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="field-label">Leipätekstin koko</span>
+          <select id="layout-font-size">
+            <option value="8">8 pt</option>
+            <option value="8.5">8,5 pt</option>
+            <option value="9">9 pt</option>
+            <option value="9.5">9,5 pt</option>
+            <option value="10">10 pt</option>
+            <option value="10.5" selected>10,5 pt</option>
+            <option value="11">11 pt</option>
+            <option value="11.5">11,5 pt</option>
+            <option value="12">12 pt</option>
+            <option value="12.5">12,5 pt</option>
+            <option value="13">13 pt</option>
+            <option value="13.5">13,5 pt</option>
+            <option value="14">14 pt</option>
+            <option value="14.5">14,5 pt</option>
+            <option value="15">15 pt</option>
+            <option value="15.5">15,5 pt</option>
+            <option value="16">16 pt</option>
+          </select>
+        </label>
+      </div>
 
       <div class="row" style="margin-top:12px">
         <button class="btn btn-primary" id="btn-run-layout">Muodosta taittotiedostot</button>
@@ -223,6 +269,6 @@
     };
   })();
 </script>
-<script src="tuotanto.js?v=5"></script>
+<script src="tuotanto.js?v=6"></script>
 </body>
 </html>
