@@ -329,7 +329,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         return 'view-mobiilieditori';
     }
     let currentViewId = defaultViewForUser();
-    let tuotantoActiveTab = 'kirja';
     let workflowRunning = false;
     let workflowSteps = [];
     let projectVersions = [];
@@ -591,10 +590,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         'view-om-kokonaisuus',
         'view-om-vienti'
     ]);
-    const writerViews = new Set(['view-kirjani', 'view-analyysi', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-kirja', 'view-julkaisupaketti', 'view-audio', 'view-viimeistely']);
+    const writerViews = new Set(['view-kirjani', 'view-analyysi', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-oikoluku', 'view-kuvitus', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-julkaisupaketti', 'view-audio', 'view-viimeistely']);
     const betaCoreViews = new Set([...writerViews, 'view-monikielinen-julkaisu', 'view-markkinointi']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset', 'view-kaannostyotila']);
-    const biographyViews = new Set(['view-kirjani', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-ai-tyonkulku', 'view-viimeistely', 'view-elamakerta', 'view-oikoluku', 'view-kuvitus', 'view-tuotetiedot', 'view-taitto', 'view-markkinointi', 'view-audio', 'view-kirja', 'view-julkaisupaketti', 'view-julkaise']);
+    const biographyViews = new Set(['view-kirjani', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-ai-tyonkulku', 'view-viimeistely', 'view-elamakerta', 'view-oikoluku', 'view-kuvitus', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-markkinointi', 'view-audio', 'view-julkaisupaketti', 'view-julkaise']);
     const accessModuleViews = {
         manuscripts: ['view-kirjani'],
         analysis: ['view-analyysi'],
@@ -603,9 +602,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         write: ['view-mobiilieditori'],
         editing: ['view-mobiilieditori'],
         proofread: ['view-oikoluku'],
-        support_materials: ['view-kirja'],
+        support_materials: ['view-oheisaineistot'],
         cover_illustration: ['view-kuvitus'],
-        book_layout: ['view-kirja', 'view-taitto'],
+        book_layout: ['view-taitto'],
         publication_package: ['view-julkaisupaketti'],
         publish: ['view-julkaise'],
         ai_workflow: ['view-ai-tyonkulku'],
@@ -4652,7 +4651,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             ['view-kirjoita-editoi', 'Työpöytäeditori'],
             ['view-oikoluku', 'Oikoluku ja viimeistely'],
             ['view-kuvitus', 'Kansi ja grafiikka'],
-            ['view-kirja', 'Oheisaineistot ja taitto'],
+            ['view-oheisaineistot', 'Oheisaineistot'],
+            ['view-taitto', 'Taitto'],
             ['view-tuotetiedot', 'Tuotetiedot'],
             ['view-julkaisupaketti', 'Tiedostopaketti'],
             ['view-monikielinen-julkaisu', 'Kieliversiot'],
@@ -4674,14 +4674,13 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function canonicalViewId(viewId) {
         if (viewId === 'view-kirjoita' || viewId === 'view-toimitus') return 'view-mobiilieditori';
         if (viewId === 'view-rakenne') return 'view-analyysi';
+        if (viewId === 'view-kirja') return 'view-taitto';
+        if (viewId === 'view-muut-toiminnot') return 'view-oheisaineistot';
         return viewId;
     }
 
     function navViewFor(viewId) {
         viewId = canonicalViewId(viewId);
-        if (viewId === 'view-rakenne') return 'view-analyysi';
-        if (viewId === 'view-taitto') return 'view-kirja';
-        if (viewId === 'view-muut-toiminnot') return 'view-kirja';
         if (viewId === 'view-suomentaja') return 'view-kaannokset';
         return viewId;
     }
@@ -4764,16 +4763,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function openModule(viewId) {
         viewId = canonicalViewId(viewId);
-        const requestedViewId = viewId;
         let activeNavViewId = viewId;
-        if (viewId === 'view-taitto') {
-            viewId = 'view-kirja';
-            activeNavViewId = viewId;
-        }
-        if (viewId === 'view-muut-toiminnot') {
-            viewId = 'view-kirja';
-            activeNavViewId = viewId;
-        }
         if (viewId === 'view-kaannokset' && isViewAllowed(viewId)) {
             setTranslationUiMode('assistant');
             viewId = 'view-suomentaja';
@@ -4800,8 +4790,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             }
         });
         refreshModuleMenuOverflow();
-        if (viewId === 'view-kirja') {
-            refreshTuotantoFrame(viewId, requestedViewId);
+        if (['view-oheisaineistot', 'view-taitto'].includes(viewId)) {
+            refreshTuotantoFrame(viewId);
         }
         if (['view-kirjani', 'view-analyysi', 'view-rakenne'].includes(viewId)) {
             refreshManuskriptiFrame(viewId);
@@ -4853,9 +4843,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             persistPendingModuleEdits(nextViewId);
             openModule(nextViewId);
             if (isMobileShell()) setSidebarDrawer(false);
-            if (nextViewId === 'view-kirja') {
+            if (nextViewId === 'view-oheisaineistot') {
                 loadMiscAssetsForActiveProject(true);
-                renderBookOverview();
             }
             if (nextViewId === 'view-julkaise') {
                 renderPublishView();
@@ -4884,7 +4873,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 loadTranslationModels();
                 initializeTranslationWorkspace();
             }
-            if (nextViewId === 'view-muut-toiminnot') {
+            if (nextViewId === 'view-oheisaineistot') {
                 loadMiscModels();
                 updateMiscProjectSelect();
                 loadMiscAssetsForActiveProject();
@@ -18044,7 +18033,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         updateTranslationProjectSelect();
         updateFinnishTranslationProjectSelect();
         updateMiscProjectSelect();
-        if (['view-kirja', 'view-muut-toiminnot'].includes(currentViewId)) {
+        if (['view-oheisaineistot', 'view-taitto'].includes(currentViewId)) {
             refreshTuotantoFrame(currentViewId);
         }
         renderCoverImages([]);
@@ -18149,7 +18138,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (!options.skipWriteEditorFrameRefresh && currentViewId === 'view-kirjoita-editoi') {
             refreshWriteEditorFrame();
         }
-        if (!options.skipTuotantoFrameRefresh && ['view-kirja', 'view-muut-toiminnot'].includes(currentViewId)) {
+        if (!options.skipTuotantoFrameRefresh && ['view-oheisaineistot', 'view-taitto'].includes(currentViewId)) {
             refreshTuotantoFrame(currentViewId);
         }
         renderAnalysisSummary(window.manuscriptData.analysis);
@@ -22888,29 +22877,26 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         pendingWriteEditorChapterId = null;
     }
 
-    function tuotantoFrameTab(viewId, requestedViewId = null) {
-        if (requestedViewId === 'view-taitto') return 'taitto';
-        if (requestedViewId === 'view-kirja') return 'kirja';
-        if (requestedViewId === 'view-muut-toiminnot') return 'aineistot';
-        if (viewId === 'view-muut-toiminnot') return 'aineistot';
-        return tuotantoActiveTab || 'kirja';
+    function tuotantoFrameTab(viewId) {
+        return viewId === 'view-oheisaineistot' ? 'aineistot' : 'taitto';
     }
 
-    function refreshTuotantoFrame(viewId = currentViewId, requestedViewId = null) {
+    function refreshTuotantoFrame(viewId = currentViewId) {
         const frameId = {
-            'view-kirja': 'tuotanto-frame-kirja'
+            'view-oheisaineistot': 'tuotanto-frame-oheisaineistot',
+            'view-taitto': 'tuotanto-frame-taitto'
         }[viewId];
         if (!frameId) return;
         const frame = document.getElementById(frameId);
         if (!frame) return;
         const params = new URLSearchParams();
         const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
-        const nextTab = tuotantoFrameTab(viewId, requestedViewId);
-        if (nextTab !== 'aineistot') tuotantoActiveTab = nextTab;
+        const nextTab = tuotantoFrameTab(viewId);
+        params.set('module', viewId === 'view-oheisaineistot' ? 'aineistot' : 'taitto');
         params.set('tab', nextTab);
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '4');
+        params.set('v', '5');
         updateEmbeddedModuleFrame(frame, 'tuotanto.html', params);
     }
 

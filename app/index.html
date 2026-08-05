@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=87">
+    <link rel="stylesheet" href="styles.css?v=88">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -130,7 +130,8 @@
                     <li data-view="view-mobiilieditori">Mobiili-editori</li>
                     <li data-view="view-oikoluku">Oikoluku ja viimeistely</li>
                     <li data-view="view-kuvitus">Kansi ja grafiikka</li>
-                    <li data-view="view-kirja">Oheisaineistot ja taitto</li>
+                    <li data-view="view-oheisaineistot">Oheisaineistot</li>
+                    <li data-view="view-taitto">Taitto</li>
                     <li data-view="view-tuotetiedot">Tuotetiedot</li>
                     <li data-view="view-julkaisupaketti">Tiedostopaketti</li>
                     <li data-view="view-monikielinen-julkaisu">Kieliversiot</li>
@@ -1071,13 +1072,13 @@
                 </div>
             </div>
 
-            <!-- 1.5 VIEW: VALMIS KIRJA -->
-            <div id="view-kirja" class="view-section hidden">
+            <!-- 1.5 VIEW: OHEISAINEISTOT -->
+            <div id="view-oheisaineistot" class="view-section hidden">
                 <iframe
-                    id="tuotanto-frame-kirja"
+                    id="tuotanto-frame-oheisaineistot"
                     class="tuotanto-frame"
-                    title="Oheisaineistot ja taitto"
-                    src="tuotanto.html?tab=kirja&v=4"
+                    title="Oheisaineistot"
+                    src="tuotanto.html?module=aineistot&tab=aineistot&v=5"
                     loading="lazy"
                 ></iframe>
                 <div class="header">
@@ -2598,6 +2599,13 @@
 
             <!-- 9. VIEW: TAITTO -->
             <div id="view-taitto" class="view-section hidden">
+                <iframe
+                    id="tuotanto-frame-taitto"
+                    class="tuotanto-frame"
+                    title="Taitto"
+                    src="tuotanto.html?module=taitto&tab=taitto&v=5"
+                    loading="lazy"
+                ></iframe>
             </div>
 
             <!-- 10. VIEW: AUDIO -->
@@ -3760,6 +3768,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=144"></script>
+    <script src="app.js?v=145"></script>
 </body>
 </html>

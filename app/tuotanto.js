@@ -30,11 +30,19 @@
   const FRONT_KINDS = ["copyright_page"];
   const SIZES = ["A5", "B5", "G5", "Pokkari"];
   const VALID_TABS = new Set(["aineistot", "kirja", "taitto"]);
+  const MODULE = ["aineistot", "taitto"].includes(CONFIG.module) ? CONFIG.module : "all";
+  const AVAILABLE_TABS = MODULE === "aineistot"
+    ? new Set(["aineistot"])
+    : MODULE === "taitto"
+      ? new Set(["kirja", "taitto"])
+      : VALID_TABS;
 
   let demoMode = CONFIG.demo === true;
   let projectId = CONFIG.projectId;
   let projectTitle = "";
-  let tab = VALID_TABS.has(CONFIG.tab) ? CONFIG.tab : "aineistot";
+  let tab = AVAILABLE_TABS.has(CONFIG.tab)
+    ? CONFIG.tab
+    : (MODULE === "taitto" ? "taitto" : "aineistot");
   let selectedTool = "copyright_page";
   let selectedSize = "A5";
   let assets = [];           // GET /misc-assets
@@ -307,7 +315,7 @@
     const activeId = requireProjectId();
     return api("/projects/" + activeId + "/layout/run", jsonOptions("POST", {
       layout_style: selectedSize,
-      hyphenation_level: "none",
+      hyphenation_level: $("layout-hyphenation").value,
       include_title_page: $("opt-title-page").checked,
       include_toc: $("opt-toc").checked,
     }));
@@ -320,7 +328,23 @@
 
   /* ------------------------------------------------------------ välilehdet */
 
+  function configureModuleUi() {
+    const moduleTitle = MODULE === "aineistot"
+      ? "Oheisaineistot"
+      : MODULE === "taitto"
+        ? "Taitto"
+        : "Oheisaineistot ja taitto";
+    document.title = moduleTitle + " – SkriptLab";
+    $("module-title").textContent = moduleTitle;
+    $("production-screen").setAttribute("aria-label", moduleTitle);
+    $("tab-aineistot").hidden = !AVAILABLE_TABS.has("aineistot");
+    $("tab-kirja").hidden = !AVAILABLE_TABS.has("kirja");
+    $("tab-taitto").hidden = !AVAILABLE_TABS.has("taitto");
+    $("production-tabs").hidden = AVAILABLE_TABS.size < 2;
+  }
+
   function switchTab(next, refresh = true) {
+    if (!AVAILABLE_TABS.has(next)) return;
     tab = next;
     for (const name of ["aineistot", "kirja", "taitto"]) {
       $("tab-" + name).classList.toggle("is-active", name === tab);
@@ -377,7 +401,7 @@
       const toggle = document.createElement("button");
       toggle.type = "button";
       toggle.className = "pill-toggle" + (asset.include_in_book ? " is-on" : "");
-      toggle.textContent = asset.include_in_book ? "Kirjassa ✓" : "Ei kirjassa";
+      toggle.textContent = asset.include_in_book ? "Taitossa ✓" : "Ei taitossa";
       toggle.addEventListener("click", () => toggleInBook(asset));
 
       head.appendChild(titleBtn);
@@ -387,7 +411,7 @@
       const meta = document.createElement("p");
       meta.className = "asset-meta";
       const section = asset.include_in_book
-        ? (asset.book_section === "front" ? " · kirjan alkuun" : " · kirjan loppuun") : "";
+        ? (asset.book_section === "front" ? " · taiton alkuun" : " · taiton loppuun") : "";
       meta.textContent = (TOOL_LABELS[asset.material_kind] || asset.material_kind || "aineisto") + section;
       card.appendChild(meta);
 
@@ -399,7 +423,7 @@
     try {
       await apiUpdateAsset(asset.id, { include_in_book: !asset.include_in_book });
       await refreshAssets();
-      toast(!asset.include_in_book ? "Liitetty kirjaan." : "Poistettu kirjasta (aineisto säilyy).");
+      toast(!asset.include_in_book ? "Liitetty kirjan taittoon." : "Poistettu taitosta (aineisto säilyy).");
     } catch (error) {
       toast(error.message);
     }
@@ -677,6 +701,7 @@
   }
 
   async function boot() {
+    configureModuleUi();
     bindEvents();
     renderToolChips();
     renderSizeChips();

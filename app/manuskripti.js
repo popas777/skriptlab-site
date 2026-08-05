@@ -911,17 +911,6 @@
     );
   }
 
-  function publicationCheckStatus(key) {
-    return (projectStageAssets.publication?.checks || []).find((item) => item.key === key)?.status || "";
-  }
-
-  function productInfoStarted(productInfo) {
-    if (!productInfo || typeof productInfo !== "object") return false;
-    return Object.entries(productInfo).some(([key, value]) =>
-      key !== "missing_fields" && String(value || "").trim()
-    );
-  }
-
   function marketingStageState(analysis) {
     const concept = String(analysis.campaign_concept || "").trim();
     const tagline = String(analysis.marketing_tagline || "").trim();
@@ -950,10 +939,6 @@
     const proofreadDone = Boolean(analysis.finishing && typeof analysis.finishing === "object")
       || workflowState.proofread?.status === "done";
     const proofreadStarted = proofreadDone || workflowState.proofread?.status === "progress";
-    const productInfo = analysis.product_info && typeof analysis.product_info === "object" ? analysis.product_info : {};
-    const productStarted = productInfoStarted(productInfo);
-    const productDone = publicationCheckStatus("metadata") === "ready"
-      || (productStarted && Array.isArray(productInfo.missing_fields) && productInfo.missing_fields.length === 0);
     const coverPromptStarted = Boolean(analysis.cover_prompt || analysis.cover_prompts || analysis.cover_image_note);
     const translations = projectStageAssets.translations || [];
     const translationDone = translations.some((item) =>
@@ -974,13 +959,15 @@
         status: projectStageStatus(proofreadDone, proofreadStarted), moduleView: "view-oikoluku" },
       { id: "kansi", num: 5, name: "Kansi ja grafiikka", desc: "Kansi, kuvamaailma ja infografiikat",
         status: projectStageStatus(hasFullCoverAssets(), hasCoverAssets() || hasGraphicAssets() || coverPromptStarted), moduleView: "view-kuvitus" },
-      { id: "taitto", num: 6, name: "Oheisaineistot ja taitto", desc: productDone ? "Tuotetiedot, PDF, EPUB ja taittotiedostot" : "Täydennä tuotetiedot ja muodosta taittotiedostot",
-        status: projectStageStatus(hasLayoutAssets() && productDone, hasLayoutAssets() || productStarted || hasMiscAssets()), moduleView: "view-kirja" },
-      { id: "julkaisupaketti", num: 7, name: "Tiedostopaketti", desc: "Lukittu lähde ja toimituspaketti",
+      { id: "oheisaineistot", num: 6, name: "Oheisaineistot", desc: "Copysivu, hakemistot ja lähdeluettelo",
+        status: projectStageStatus(hasMiscAssets(), false), moduleView: "view-oheisaineistot" },
+      { id: "taitto", num: 7, name: "Taitto", desc: "Kirjan asetukset sekä PDF-, EPUB- ja LaTeX-tiedostot",
+        status: projectStageStatus(hasLayoutAssets(), false), moduleView: "view-taitto" },
+      { id: "julkaisupaketti", num: 8, name: "Tiedostopaketti", desc: "Lukittu lähde ja toimituspaketti",
         status: projectStageStatus(Boolean(projectStageAssets.publication?.latest_package), false), moduleView: "view-julkaisupaketti" },
-      { id: "monikielinen", num: 8, name: "Kieliversiot", desc: "Käännös ja tarkastettu kieliversio",
+      { id: "monikielinen", num: 9, name: "Kieliversiot", desc: "Käännös ja tarkastettu kieliversio",
         status: projectStageStatus(translationDone, translations.length > 0), moduleView: "view-monikielinen-julkaisu" },
-      { id: "markkinointi", num: 9, name: "Kampanjastudio", desc: "Konsepti, kanavatekstit ja kampanjapaketti",
+      { id: "markkinointi", num: 10, name: "Kampanjastudio", desc: "Konsepti, kanavatekstit ja kampanjapaketti",
         status: projectStageStatus(marketing.done, marketing.started), moduleView: "view-markkinointi" },
     ];
   }
