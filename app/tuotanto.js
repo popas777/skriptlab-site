@@ -79,8 +79,11 @@
   let pendingResult = null;  // { tool, title, result }
   let viewedAsset = null;
   let bookPreviewSource = "";
+  let bookFullSource = "";
   let bookWordCount = 0;
+  let bookCharacterCount = 0;
   let previewPages = [];
+  let estimatedBookPageCount = 0;
   let currentPreviewPage = PREVIEW_START_PAGE;
   let bookTimer = null;
 
@@ -326,9 +329,12 @@
       const full = demo.bookText(includeTitle, includeToc);
       const preview = demo.previewText();
       return { title: demo.project.title, full_text: full, body_text: preview,
+               body_word_count: preview.split(/\s+/).filter(Boolean).length,
+               body_character_count: preview.length,
                preview_text: preview,
                preview_word_count: preview.split(/\s+/).filter(Boolean).length,
-               word_count: full.split(/\s+/).filter(Boolean).length };
+               word_count: full.split(/\s+/).filter(Boolean).length,
+               character_count: full.length };
     }
     const activeId = requireProjectId();
     return api("/projects/" + activeId + "/book?include_title_page=" + includeTitle +
@@ -551,13 +557,20 @@
     try {
       const book = await apiGetBook();
       bookPreviewSource = book.body_text || book.preview_text || book.full_text || "";
-      bookWordCount = Number(book.word_count || 0);
+      bookFullSource = book.full_text || bookPreviewSource;
+      bookWordCount = Number(book.word_count || bookFullSource.split(/\s+/).filter(Boolean).length);
+      bookCharacterCount = Number(book.character_count || bookFullSource.length);
       rebuildPreviewPages(true);
     } catch (error) {
       bookPreviewSource = "";
+      bookFullSource = "";
+      bookWordCount = 0;
+      bookCharacterCount = 0;
       previewPages = [];
+      estimatedBookPageCount = 0;
       $("book-preview-text").textContent = "Esikatselun lataus epäonnistui: " + error.message;
       $("preview-page-status").textContent = "Sivuja ei voitu ladata";
+      renderBookMetrics();
       updatePreviewPageControls(0);
     }
   }
@@ -629,17 +642,41 @@
     if (!usableCount) {
       $("book-preview-text").textContent = "(Kirjassa ei ole vielä sisältöä.)";
       $("preview-page-status").textContent = "Ei esikatselusivuja";
-      $("book-word-count").textContent = "";
+      renderBookMetrics();
       updatePreviewPageControls(0);
       return;
     }
     currentPreviewPage = Math.min(usableCount, Math.max(1, currentPreviewPage));
     $("book-preview-text").textContent = previewPages[currentPreviewPage - 1];
     $("preview-page-status").textContent =
-      "Arvioitu sivu " + currentPreviewPage + " / noin " + pageCount +
+      "Arvioitu sivu " + currentPreviewPage + " / noin " + estimatedBookPageCount +
       (pageCount > PREVIEW_MAX_PAGES ? " · selattavissa 1–" + PREVIEW_MAX_PAGES : "");
-    $("book-word-count").textContent = bookWordCount ? bookWordCount + " sanaa kirjassa" : "";
+    renderBookMetrics();
     updatePreviewPageControls(pageCount);
+  }
+
+  function renderBookMetrics() {
+    const formatter = new Intl.NumberFormat("fi-FI");
+    $("book-estimated-pages").textContent = estimatedBookPageCount ? "≈ " + formatter.format(estimatedBookPageCount) : "—";
+    $("book-word-count-value").textContent = bookWordCount ? formatter.format(bookWordCount) : "—";
+    $("book-character-count-value").textContent = bookCharacterCount ? formatter.format(bookCharacterCount) : "—";
+    if (!projectId || !estimatedBookPageCount) return;
+    try {
+      localStorage.setItem("skriptlab_book_metrics_" + projectId, JSON.stringify({
+        project_id: String(projectId),
+        estimated_page_count: estimatedBookPageCount,
+        word_count: bookWordCount,
+        character_count: bookCharacterCount,
+        layout_style: selectedSize,
+        column_width: selectedColumnWidth,
+        font_family: selectedFontFamily,
+        font_size: selectedFontSize,
+        hyphenation_level: selectedHyphenation,
+        updated_at: new Date().toISOString(),
+      }));
+    } catch (error) {
+      // Selaimen yksityisyysasetukset voivat estää paikallisen välimuistin.
+    }
   }
 
   function rebuildPreviewPages(resetToStart) {
@@ -648,6 +685,7 @@
       return;
     }
     previewPages = paginateText(bookPreviewSource, previewPageCapacity());
+    estimatedBookPageCount = paginateText(bookFullSource || bookPreviewSource, previewPageCapacity()).length;
     if (resetToStart) currentPreviewPage = Math.min(PREVIEW_START_PAGE, previewPages.length || 1);
     renderPreviewPage();
   }

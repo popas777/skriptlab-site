@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=88">
+    <link rel="stylesheet" href="styles.css?v=89">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -1078,7 +1078,7 @@
                     id="tuotanto-frame-oheisaineistot"
                     class="tuotanto-frame"
                     title="Oheisaineistot"
-                    src="tuotanto.html?module=aineistot&tab=aineistot&v=9"
+                    src="tuotanto.html?module=aineistot&tab=aineistot&v=10"
                     loading="lazy"
                 ></iframe>
                 <div class="header">
@@ -2254,6 +2254,9 @@
                         <div class="production-workspace-stats">
                             <div><strong id="product-completed-count">0</strong><span>täytettyä kenttää</span></div>
                             <div><strong id="product-missing-count">—</strong><span>täydennettävää</span></div>
+                            <div><strong id="product-book-pages">—</strong><span>arvioitua sivua</span></div>
+                            <div><strong id="product-book-words">—</strong><span>sanaa</span></div>
+                            <div><strong id="product-book-characters">—</strong><span>merkkiä</span></div>
                             <div><strong>ONIX</strong><span>julkaisumetadata</span></div>
                         </div>
                     </div>
@@ -2370,6 +2373,9 @@
 	                        </div>
 	                        <div class="settings-row product-field-row" data-product-key="translation_note"><label>Käännöshuomio</label><input id="product-translation-note" type="text" placeholder="Esim. käännetty alkuperäiskielestä"></div>
 	                        <div class="settings-row product-field-row" data-product-key="page_count"><label>Sivumäärä</label><input id="product-page-count" type="text"></div>
+	                        <div class="settings-row product-field-row product-derived" data-product-key="estimated_page_count"><label>Arvioitu sivumäärä nykyisillä taittoasetuksilla</label><input id="product-estimated-page-count" type="text" readonly aria-readonly="true"></div>
+	                        <div class="settings-row product-field-row product-derived" data-product-key="word_count"><label>Kirjan sanamäärä</label><input id="product-word-count" type="text" readonly aria-readonly="true"></div>
+	                        <div class="settings-row product-field-row product-derived" data-product-key="character_count"><label>Kirjan merkkimäärä</label><input id="product-character-count" type="text" readonly aria-readonly="true"></div>
 	                        <div class="settings-row product-field-row" data-product-key="illustrations"><label>Kuvitus</label><input id="product-illustrations" type="text"></div>
 	                    </section>
 
@@ -2603,7 +2609,7 @@
                     id="tuotanto-frame-taitto"
                     class="tuotanto-frame"
                     title="Taitto"
-                    src="tuotanto.html?module=taitto&tab=taitto&v=9"
+                    src="tuotanto.html?module=taitto&tab=taitto&v=10"
                     loading="lazy"
                 ></iframe>
             </div>
@@ -3768,6 +3774,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=149"></script>
+    <script src="app.js?v=150"></script>
 </body>
 </html>

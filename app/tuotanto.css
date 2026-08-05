@@ -1191,6 +1191,26 @@ details.mass-section .mass-body { padding: 0 14px 14px; }
 .preview-page-nav span { min-width: 190px; text-align: center; font-size: 13px; color: var(--muste-70); }
 .preview-page-nav button:disabled, .preview-page-nav input:disabled { opacity: 0.38; cursor: default; }
 
+.book-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 12px;
+}
+
+.book-metrics div {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 11px 13px;
+  border: 1px solid var(--raja);
+  border-radius: var(--radius-s);
+  background: var(--kortti);
+}
+
+.book-metrics strong { color: var(--mustikka); font-size: 20px; font-variant-numeric: tabular-nums; }
+.book-metrics span { color: var(--muste-45); font-size: 12px; }
+
 @media (max-width: 680px) {
   .preview-settings-grid, .layout-settings-grid { grid-template-columns: 1fr; }
   .reader-card.book-page-preview { padding: 30px 22px; }
@@ -1198,6 +1218,7 @@ details.mass-section .mass-body { padding: 0 14px 14px; }
   .preview-page-nav { flex-wrap: wrap; }
   .preview-page-nav input[type="range"] { order: 4; flex-basis: 100%; }
   .preview-page-nav span { flex: 1; min-width: 145px; }
+  .book-metrics { grid-template-columns: 1fr; }
 }
 
 .file-card {

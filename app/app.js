@@ -9056,6 +9056,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         is_translation: 'product-is-translation',
         translation_note: 'product-translation-note',
         page_count: 'product-page-count',
+        estimated_page_count: 'product-estimated-page-count',
+        word_count: 'product-word-count',
+        character_count: 'product-character-count',
         illustrations: 'product-illustrations',
         main_content: 'product-main-content',
         other_content: 'product-other-content',
@@ -9201,6 +9204,43 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         return missing.size;
     }
 
+    function currentProductBookMetrics() {
+        const projectId = window.manuscriptData?.id;
+        const manuscriptText = getFullManuscriptText(window.manuscriptData);
+        let wordCount = countWords(manuscriptText);
+        let characterCount = manuscriptText.length;
+        let estimatedPageCount = wordCount
+            ? Math.ceil((Math.ceil(wordCount / 250) + 8) / 4) * 4
+            : 0;
+
+        if (projectId) {
+            try {
+                const cached = JSON.parse(localStorage.getItem(`skriptlab_book_metrics_${projectId}`) || 'null');
+                if (cached && String(cached.project_id || '') === String(projectId)) {
+                    estimatedPageCount = Number(cached.estimated_page_count || estimatedPageCount);
+                    wordCount = Number(cached.word_count || wordCount);
+                    characterCount = Number(cached.character_count || characterCount);
+                }
+            } catch (error) {
+                // Käytetään käsikirjoituksesta laskettuja arvoja.
+            }
+        }
+        return {
+            estimated_page_count: Math.max(0, Math.round(estimatedPageCount || 0)),
+            word_count: Math.max(0, Math.round(wordCount || 0)),
+            character_count: Math.max(0, Math.round(characterCount || 0)),
+        };
+    }
+
+    function renderProductBookMetrics(metrics = currentProductBookMetrics()) {
+        const pages = document.getElementById('product-book-pages');
+        const words = document.getElementById('product-book-words');
+        const characters = document.getElementById('product-book-characters');
+        if (pages) pages.textContent = metrics.estimated_page_count ? `≈ ${formatNumber(metrics.estimated_page_count)}` : '—';
+        if (words) words.textContent = metrics.word_count ? formatNumber(metrics.word_count) : '—';
+        if (characters) characters.textContent = metrics.character_count ? formatNumber(metrics.character_count) : '—';
+    }
+
     function productInfoFromAnalysis() {
         const analysis = window.manuscriptData?.analysis || {};
         const saved = analysis.product_info && typeof analysis.product_info === 'object' ? analysis.product_info : {};
@@ -9230,6 +9270,11 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         info.long_description = info.long_description || analysis.marketing_long || '';
         info.backcover = info.backcover || analysis.backcover || analysis.backcover_text || '';
         info.onix_summary = info.onix_summary || analysis.onix || '';
+        const bookMetrics = currentProductBookMetrics();
+        info.estimated_page_count = String(bookMetrics.estimated_page_count || '');
+        info.word_count = String(bookMetrics.word_count || '');
+        info.character_count = String(bookMetrics.character_count || '');
+        renderProductBookMetrics(bookMetrics);
         info.missing_fields = Array.isArray(saved.missing_fields) ? saved.missing_fields : [];
         info.missing_fields = productMissingFieldKeys(info);
         return info;
@@ -9307,6 +9352,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         if (!window.manuscriptData) {
             setProductFields({}, true);
+            renderProductBookMetrics({ estimated_page_count: 0, word_count: 0, character_count: 0 });
             setProductStatus('Valitse käsikirjoitus ensin.', true);
             return;
         }
@@ -9352,6 +9398,11 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             const data = await res.json().catch(() => null);
             if (!res.ok) throw new Error(data?.detail || 'Tuotetietojen generointi epäonnistui.');
             const merged = mergeProductInfo(collectProductFields(), data);
+            const bookMetrics = currentProductBookMetrics();
+            merged.estimated_page_count = String(bookMetrics.estimated_page_count || '');
+            merged.word_count = String(bookMetrics.word_count || '');
+            merged.character_count = String(bookMetrics.character_count || '');
+            renderProductBookMetrics(bookMetrics);
             applyProductInfoToAnalysis(merged);
             const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
             if (savedProject?.id) window.manuscriptData = savedProject;
@@ -22896,7 +22947,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         params.set('tab', nextTab);
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '9');
+        params.set('v', '10');
         updateEmbeddedModuleFrame(frame, 'tuotanto.html', params);
     }
 

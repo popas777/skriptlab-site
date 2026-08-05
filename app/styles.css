@@ -10522,6 +10522,13 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     outline: 3px solid rgba(67, 64, 110, .12);
 }
 
+#view-tuotetiedot .product-field-row.product-derived input {
+    color: #43406e;
+    background: #f6f3ec;
+    font-weight: 650;
+    cursor: default;
+}
+
 #view-tuotetiedot .product-field-row.product-missing label {
     color: #8a5a14;
 }

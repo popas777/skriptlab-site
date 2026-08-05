@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="tuotanto.css?v=7">
+<link rel="stylesheet" href="tuotanto.css?v=8">
 </head>
 <body>
 
@@ -97,7 +97,6 @@
         <button class="fmt-btn" id="btn-font-smaller" aria-label="Pienennä taiton fonttikokoa">A−</button>
         <button class="fmt-btn" id="btn-font-larger" aria-label="Suurenna taiton fonttikokoa">A+</button>
         <strong class="preview-sample-label">Käsikirjoituksen sivuesikatselu</strong>
-        <span class="hint" id="book-word-count"></span>
         <span class="spacer"></span>
         <button class="btn btn-ghost" id="btn-download-txt" style="flex:none">Lataa TXT</button>
       </div>
@@ -108,6 +107,12 @@
         <input id="preview-page-range" type="range" min="1" max="1" value="1" aria-label="Esikatselusivu" disabled>
         <span id="preview-page-status" role="status" aria-live="polite">Ladataan sivuja…</span>
         <button class="fmt-btn" id="btn-preview-next" type="button" aria-label="Seuraava esikatselusivu" disabled>→</button>
+      </div>
+
+      <div class="book-metrics" aria-label="Kirjan arvioidut laajuustiedot">
+        <div><strong id="book-estimated-pages">—</strong><span>arvioitua sivua</span></div>
+        <div><strong id="book-word-count-value">—</strong><span>sanaa</span></div>
+        <div><strong id="book-character-count-value">—</strong><span>merkkiä</span></div>
       </div>
 
       <div class="book-preview-stage" id="book-preview-stage">
@@ -277,6 +282,6 @@
     };
   })();
 </script>
-<script src="tuotanto.js?v=7"></script>
+<script src="tuotanto.js?v=8"></script>
 </body>
 </html>
