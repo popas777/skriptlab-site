@@ -1123,11 +1123,11 @@
                 const count = template.modules.length;
                 return `
                     <button class="workflow-template-card${active ? ' is-active' : ''}" type="button"
-                        data-workflow-template="${escapeHtml(templateId)}" role="listitem" aria-pressed="${active ? 'true' : 'false'}"${running ? ' disabled' : ''}>
+                        data-workflow-template="${escapeHtml(templateId)}" aria-pressed="${active ? 'true' : 'false'}"
+                        aria-label="${escapeHtml(`${template.label}: ${template.description}`)}" title="${escapeHtml(template.description)}"${running ? ' disabled' : ''}>
                         <span class="workflow-template-icon" aria-hidden="true">${escapeHtml(template.icon)}</span>
                         <span class="workflow-template-copy">
                             <strong>${escapeHtml(template.label)}</strong>
-                            <small>${escapeHtml(template.description)}</small>
                         </span>
                         <span class="workflow-template-count">${count ? `${count} moduulia` : 'Tyhjä pohja'}</span>
                     </button>`;
@@ -1170,6 +1170,9 @@
             const container = getElement('workflow-steps');
             const empty = getElement('workflow-empty-state');
             if (!container) return;
+            const openStepIds = new Set(Array.from(container.querySelectorAll('details.workflow-step-details[open]'))
+                .map(details => details.closest('[data-workflow-step]')?.dataset.workflowStep)
+                .filter(Boolean));
             container.classList.toggle('hidden', !plan.modules.length);
             if (empty) empty.classList.toggle('hidden', Boolean(plan.modules.length));
             container.innerHTML = plan.modules.map((step, index) => {
@@ -1177,41 +1180,35 @@
                 const modeOptions = definition.supportsBatch
                     ? `${optionMarkup('direct', 'Suora ajo', step.runMode === 'direct')}${optionMarkup('batch', 'Eräajo · enintään 24 h', step.runMode === 'batch')}`
                     : optionMarkup('direct', 'Suora ajo', true);
-                const badges = [
-                    definition.modelType === 'none' ? 'Ei AI:ta' : 'AI',
-                    step.runMode === 'batch' ? 'Eräajo' : 'Suora',
-                    CATEGORIES[definition.category]?.label || definition.category
-                ];
+                const open = openStepIds.has(step.id) || ['running', 'queued', 'error'].includes(step.status);
+                const modeLabel = step.runMode === 'batch' ? 'Eräajo · enintään 24 h' : 'Suora ajo';
                 return `
                     <article class="workflow-step ${escapeHtml(step.status)}" data-workflow-step="${escapeHtml(step.id)}">
-                        <div class="workflow-step-rail" aria-hidden="true">
-                            <span class="workflow-step-number">${String(index + 1).padStart(2, '0')}</span>
-                            <span class="workflow-step-icon">${escapeHtml(STATUS_META[step.status]?.icon || definition.icon)}</span>
-                        </div>
+                        <span class="workflow-step-number" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span>
                         <div class="workflow-step-main">
                             <div class="workflow-step-heading">
                                 <div class="workflow-step-title">
                                     <span class="workflow-step-module-icon" aria-hidden="true">${escapeHtml(definition.icon)}</span>
                                     <div><strong>${escapeHtml(definition.label)}</strong><small>${escapeHtml(moduleEstimateLabel(step.id))}</small></div>
                                 </div>
-                                <div class="workflow-step-badges">${badges.map(badge => `<span>${escapeHtml(badge)}</span>`).join('')}</div>
+                                ${statusMarkup(step)}
                             </div>
-                            <p>${escapeHtml(definition.description)}</p>
-                            <div class="workflow-step-io">
-                                <span><small>Syöte</small>${escapeHtml(definition.inputs)}</span>
-                                <span><small>Tuotos</small>${escapeHtml(definition.outputs)}</span>
-                            </div>
-                            ${statusMarkup(step)}
-                            <div class="workflow-step-controls">
-                                <label><span>Ajotapa</span><select class="workflow-run-mode-select" data-workflow-step-id="${escapeHtml(step.id)}"${running ? ' disabled' : ''}>${modeOptions}</select></label>
-                                <label><span>Malli</span>${moduleModelSelect(step, definition)}</label>
-                            </div>
-                            <div class="workflow-step-actions">
-                                <button type="button" data-workflow-action="open" data-workflow-step-id="${escapeHtml(step.id)}">Avaa osio</button>
-                                <button type="button" data-workflow-action="up" data-workflow-step-id="${escapeHtml(step.id)}" aria-label="Siirrä ${escapeHtml(definition.label)} ylöspäin"${running || index === 0 ? ' disabled' : ''}>↑ Ylös</button>
-                                <button type="button" data-workflow-action="down" data-workflow-step-id="${escapeHtml(step.id)}" aria-label="Siirrä ${escapeHtml(definition.label)} alaspäin"${running || index === plan.modules.length - 1 ? ' disabled' : ''}>↓ Alas</button>
-                                <button class="workflow-step-remove" type="button" data-workflow-action="remove" data-workflow-step-id="${escapeHtml(step.id)}"${running ? ' disabled' : ''}>Poista</button>
-                            </div>
+                            <details class="workflow-step-details"${open ? ' open' : ''}>
+                                <summary><span>Asetukset ja toiminnot</span><small>${escapeHtml(modeLabel)}</small></summary>
+                                <div class="workflow-step-details-body">
+                                    <p class="workflow-step-description">${escapeHtml(definition.description)}</p>
+                                    <div class="workflow-step-controls">
+                                        <label><span>Ajotapa</span><select class="workflow-run-mode-select" data-workflow-step-id="${escapeHtml(step.id)}"${running ? ' disabled' : ''}>${modeOptions}</select></label>
+                                        <label><span>Malli</span>${moduleModelSelect(step, definition)}</label>
+                                    </div>
+                                    <div class="workflow-step-actions">
+                                        <button type="button" data-workflow-action="open" data-workflow-step-id="${escapeHtml(step.id)}">Avaa osio</button>
+                                        <button type="button" data-workflow-action="up" data-workflow-step-id="${escapeHtml(step.id)}" aria-label="Siirrä ${escapeHtml(definition.label)} ylöspäin"${running || index === 0 ? ' disabled' : ''}>↑ Ylös</button>
+                                        <button type="button" data-workflow-action="down" data-workflow-step-id="${escapeHtml(step.id)}" aria-label="Siirrä ${escapeHtml(definition.label)} alaspäin"${running || index === plan.modules.length - 1 ? ' disabled' : ''}>↓ Alas</button>
+                                        <button class="workflow-step-remove" type="button" data-workflow-action="remove" data-workflow-step-id="${escapeHtml(step.id)}"${running ? ' disabled' : ''}>Poista</button>
+                                    </div>
+                                </div>
+                            </details>
                         </div>
                     </article>`;
             }).join('');
@@ -1256,6 +1253,8 @@
                 'workflow-chapter-count': formatInteger(metrics.chapters),
                 'workflow-char-count': formatInteger(metrics.characters),
                 'workflow-ready-date': project ? readyDateLabel(lastEstimate.readyAt) : '—',
+                'workflow-mobile-cost': costText,
+                'workflow-mobile-ready': project ? readyDateLabel(lastEstimate.readyAt, true) : '—',
                 'workflow-hero-cost': costText,
                 'workflow-hero-ready': project ? readyDateLabel(lastEstimate.readyAt, true) : '—',
                 'workflow-hero-modules': String(plan.modules.length)
@@ -1320,20 +1319,13 @@
             container.innerHTML = visibleIds.map(id => {
                 const definition = MODULES[id];
                 const selected = selectedIds.has(id);
-                const tags = [
-                    definition.modelType === 'none' ? 'Ei AI:ta' : 'AI',
-                    definition.supportsBatch ? 'Eräajo mahdollinen' : 'Suora ajo'
-                ];
                 return `<article class="workflow-module-card${selected ? ' is-selected' : ''}" data-workflow-module="${escapeHtml(id)}">
                     <div class="workflow-module-card-main">
                         <span class="workflow-module-card-icon" aria-hidden="true">${escapeHtml(definition.icon)}</span>
                         <div><strong>${escapeHtml(definition.label)}</strong><p>${escapeHtml(definition.description)}</p></div>
                     </div>
-                    <div class="workflow-module-card-footer">
-                        <div>${tags.map(tag => `<span class="workflow-module-badge">${escapeHtml(tag)}</span>`).join('')}</div>
-                        <button class="workflow-module-add" type="button" data-workflow-toggle-module="${escapeHtml(id)}"
-                            aria-pressed="${selected ? 'true' : 'false'}"${running ? ' disabled' : ''}>${selected ? '✓ Lisätty' : '＋ Lisää'}</button>
-                    </div>
+                    <button class="workflow-module-add" type="button" data-workflow-toggle-module="${escapeHtml(id)}"
+                        aria-pressed="${selected ? 'true' : 'false'}"${running ? ' disabled' : ''}>${selected ? '✓ Lisätty' : '＋ Lisää'}</button>
                 </article>`;
             }).join('');
             const count = getElement('workflow-library-selection-count');
@@ -1387,11 +1379,12 @@
             }
             const issues = dependencyIssues();
             const hasBlockingIssues = issues.some(issue => issue.severity === 'error');
-            const startButton = getElement('workflow-start-btn');
-            if (startButton) {
+            ['workflow-start-btn', 'workflow-mobile-start-btn'].forEach(id => {
+                const startButton = getElement(id);
+                if (!startButton) return;
                 startButton.disabled = running || !project || !plan.modules.length || hasBlockingIssues;
-                startButton.textContent = running ? 'Työnkulku käynnissä…' : 'Käynnistä työnkulku';
-            }
+                startButton.textContent = running ? 'Käynnissä…' : (id === 'workflow-mobile-start-btn' ? 'Käynnistä' : 'Käynnistä työnkulku');
+            });
             ['workflow-refresh-btn', 'workflow-settings-btn', 'workflow-estimator-settings-btn', 'workflow-add-module-btn', 'workflow-empty-add-btn'].forEach(id => {
                 const button = getElement(id);
                 if (button) button.disabled = running && id !== 'workflow-refresh-btn';
@@ -1937,6 +1930,7 @@
             getElement('workflow-steps')?.addEventListener('click', handleStaticClick);
             getElement('workflow-steps')?.addEventListener('change', handleDynamicChange);
             getElement('workflow-start-btn')?.addEventListener('click', handleStart);
+            getElement('workflow-mobile-start-btn')?.addEventListener('click', handleStart);
             getElement('workflow-refresh-btn')?.addEventListener('click', () => refreshEstimates(true));
             getElement('workflow-add-module-btn')?.addEventListener('click', event => openDialog('library', event.currentTarget));
             getElement('workflow-empty-add-btn')?.addEventListener('click', event => openDialog('library', event.currentTarget));

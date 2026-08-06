@@ -6,7 +6,7 @@
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css?v=91">
-    <link rel="stylesheet" href="workflow-studio.css?v=1">
+    <link rel="stylesheet" href="workflow-studio.css?v=2">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -583,20 +583,14 @@
             </div>
 
             <!-- 1.25 VIEW: AI-TYÖNKULKU -->
-            <div id="view-ai-tyonkulku" class="view-section hidden">
+            <div id="view-ai-tyonkulku" class="view-section editorial-paper-workspace hidden">
                 <section class="workflow-studio-hero" aria-labelledby="workflow-studio-title">
                     <div class="workflow-studio-hero-copy">
-                        <p class="workflow-studio-eyebrow">Automaatiostudio</p>
-                        <h2 id="workflow-studio-title">Rakenna kirjalle valmis tuotantopolku</h2>
-                        <p id="workflow-current-project">Valitse käsikirjoitus, kokoa tarvittavat työvaiheet ja näe aika- sekä kustannusarvio ennen käynnistystä.</p>
-                        <div class="workflow-studio-hero-stats" aria-label="Työnkulun yhteenveto">
-                            <div><strong id="workflow-hero-modules">0</strong><span>moduulia</span></div>
-                            <div><strong id="workflow-hero-cost">—</strong><span>arvioitu hinta</span></div>
-                            <div><strong id="workflow-hero-ready">—</strong><span>valmis arviolta</span></div>
-                        </div>
+                        <p class="workflow-studio-eyebrow">AI-TYÖNKULKU</p>
+                        <h2 id="workflow-studio-title">Työnkulku</h2>
+                        <p id="workflow-current-project">Valitse käsikirjoitus ja sopiva työnkulku.</p>
                     </div>
                     <div class="workflow-studio-hero-actions">
-                        <button class="btn btn-secondary" id="workflow-refresh-btn" type="button">Päivitä arviot</button>
                         <button class="btn btn-secondary" id="workflow-settings-btn" type="button" aria-controls="workflow-settings-dialog" aria-haspopup="dialog">Asetukset</button>
                         <button class="btn btn-primary" id="workflow-start-btn" type="button">Käynnistä työnkulku</button>
                     </div>
@@ -605,22 +599,19 @@
                 <section class="workflow-template-section" aria-labelledby="workflow-template-title">
                     <div class="workflow-section-heading">
                         <div>
-                            <p class="workflow-section-kicker">01 · Lähtökohta</p>
                             <h3 id="workflow-template-title">Valitse työnkulku</h3>
-                            <p>Pohja kokoaa suositellut moduulit. Voit muuttaa jokaista vaihetta ennen ajoa.</p>
+                            <p>Pohja lisää suositellut työvaiheet. Voit muokata niitä ennen ajoa.</p>
                         </div>
-                        <span id="workflow-template-selection" class="workflow-selection-note">Kirjailija</span>
                     </div>
-                    <div id="workflow-template-list" class="workflow-template-list" role="list"></div>
+                    <div id="workflow-template-list" class="workflow-template-list" role="group" aria-label="Työnkulkupohjat"></div>
                 </section>
 
                 <div class="workflow-studio-layout">
                     <section class="workflow-builder" aria-labelledby="workflow-builder-title">
                         <div class="workflow-builder-toolbar">
                             <div>
-                                <p class="workflow-section-kicker">02 · Rakenne</p>
-                                <h3 id="workflow-builder-title">Työvaiheet</h3>
-                                <p>Järjestys määrää, mitä valmistuu ensin. Eräajot voivat jatkua taustalla 24–48 tuntia.</p>
+                                <h3 id="workflow-builder-title">Valitut työvaiheet</h3>
+                                <p>Avaa vaihe vain, kun haluat vaihtaa mallia, ajotapaa tai järjestystä.</p>
                             </div>
                             <button class="btn btn-secondary workflow-add-module-btn" id="workflow-add-module-btn" type="button" aria-controls="workflow-module-library" aria-haspopup="dialog">
                                 <span aria-hidden="true">＋</span> Lisää moduuli
@@ -635,12 +626,15 @@
                             <p>Lisää ensimmäinen moduuli tai valitse valmis pohja yllä.</p>
                             <button class="btn btn-secondary" id="workflow-empty-add-btn" type="button">Lisää moduuli</button>
                         </div>
+                        <div class="workflow-mobile-action-bar" aria-label="Työnkulun käynnistys">
+                            <div><span>Arvio</span><strong id="workflow-mobile-cost">—</strong><small id="workflow-mobile-ready">—</small></div>
+                            <button class="btn btn-primary" id="workflow-mobile-start-btn" type="button">Käynnistä</button>
+                        </div>
                     </section>
 
                     <aside class="workflow-estimator glass-panel" aria-labelledby="workflow-estimator-title">
                         <div class="workflow-estimator-heading">
                             <div>
-                                <p class="workflow-section-kicker">03 · Arvio</p>
                                 <h3 id="workflow-estimator-title">Aika ja hinta</h3>
                             </div>
                             <span id="workflow-estimate-badge" class="workflow-estimate-badge">Suuntaa-antava</span>
@@ -648,31 +642,41 @@
 
                         <div class="workflow-estimator-primary">
                             <div>
-                                <span>Kokonaisarvio</span>
+                                <span>Arvioitu hinta</span>
                                 <strong id="workflow-cost-estimate">—</strong>
+                            </div>
+                            <div>
+                                <span>Valmistuu</span>
+                                <strong class="workflow-ready-value" id="workflow-ready-date">—</strong>
                             </div>
                             <p id="workflow-cost-range">Valitse käsikirjoitus, jotta arvio voidaan laskea.</p>
                         </div>
+                        <details class="workflow-estimator-details">
+                            <summary>Näytä tarkempi arvio</summary>
+                            <div class="workflow-estimator-details-body">
+                                <dl class="workflow-estimator-metrics">
+                                    <div><dt>Aktiivinen käsittely</dt><dd id="workflow-active-time">—</dd></div>
+                                    <div><dt>Kokonaisaika</dt><dd id="workflow-total-time">—</dd></div>
+                                    <div><dt>Käsikirjoitus</dt><dd><span id="workflow-chapter-count">0</span> lukua · <span id="workflow-char-count">0</span> merkkiä</dd></div>
+                                    <div><dt>Eräajosäästö</dt><dd id="workflow-batch-savings">0 €</dd></div>
+                                </dl>
 
-                        <dl class="workflow-estimator-metrics">
-                            <div><dt>Aktiivinen käsittely</dt><dd id="workflow-active-time">—</dd></div>
-                            <div><dt>Kokonaisaika</dt><dd id="workflow-total-time">—</dd></div>
-                            <div><dt>Käsikirjoitus</dt><dd><span id="workflow-chapter-count">0</span> lukua · <span id="workflow-char-count">0</span> merkkiä</dd></div>
-                            <div><dt>Eräajosäästö</dt><dd id="workflow-batch-savings">0 €</dd></div>
-                        </dl>
+                                <div class="workflow-schedule" aria-labelledby="workflow-schedule-title">
+                                    <div class="workflow-schedule-heading">
+                                        <h4 id="workflow-schedule-title">Valmistumisen rytmi</h4>
+                                    </div>
+                                    <div id="workflow-schedule-list" class="workflow-schedule-list"></div>
+                                </div>
 
-                        <div class="workflow-schedule" aria-labelledby="workflow-schedule-title">
-                            <div class="workflow-schedule-heading">
-                                <h4 id="workflow-schedule-title">Valmistumisen rytmi</h4>
-                                <span id="workflow-ready-date">—</span>
+                                <p class="workflow-estimator-disclaimer" id="workflow-estimator-disclaimer">
+                                    Arvio käyttää valittujen mallien hintoja, tekstin pituutta ja eräajojen tavoitesäästöä.
+                                </p>
+                                <div class="workflow-estimator-actions">
+                                    <button class="btn btn-secondary" id="workflow-refresh-btn" type="button">Päivitä arviot</button>
+                                    <button class="workflow-estimator-settings-link" id="workflow-estimator-settings-btn" type="button">Muokkaa asetuksia</button>
+                                </div>
                             </div>
-                            <div id="workflow-schedule-list" class="workflow-schedule-list"></div>
-                        </div>
-
-                        <p class="workflow-estimator-disclaimer" id="workflow-estimator-disclaimer">
-                            Arvio käyttää valittujen mallien hintoja, tekstin pituutta ja eräajojen 50 % tavoitesäästöä. Lopullinen veloitus perustuu toteutuneeseen käyttöön.
-                        </p>
-                        <button class="workflow-estimator-settings-link" id="workflow-estimator-settings-btn" type="button">Muokkaa laskennan asetuksia →</button>
+                        </details>
                     </aside>
                 </div>
 
@@ -4058,7 +4062,7 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="workflow-studio.js?v=1"></script>
+    <script src="workflow-studio.js?v=2"></script>
     <script src="app.js?v=160"></script>
 </body>
 </html>
