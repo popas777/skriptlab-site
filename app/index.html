@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=89">
+    <link rel="stylesheet" href="styles.css?v=91">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -2427,6 +2427,24 @@
 
             <!-- 8. VIEW: MARKKINOINTI -->
             <div id="view-markkinointi" class="view-section hidden">
+                <div class="marketing-workspace-toolbar">
+                    <div class="marketing-workspace-tabs" role="tablist" aria-label="Markkinoinnin työkalut">
+                        <button class="marketing-workspace-tab active" id="marketing-campaign-tab" type="button" data-marketing-panel="marketing-campaign-panel" role="tab" aria-selected="true" aria-controls="marketing-campaign-panel" tabindex="0">Kampanjastudio</button>
+                        <button class="marketing-workspace-tab" id="marketing-html-tab" type="button" data-marketing-panel="marketing-html-panel" role="tab" aria-selected="false" aria-controls="marketing-html-panel" tabindex="-1">Luo kirjan HTML-markkinointisivu</button>
+                    </div>
+                    <label class="marketing-cover-picker marketing-shared-cover-picker">Valittu kansikuva <span>Pakollinen HTML-sivulle</span><select id="marketing-cover-select"><option value="">Valitse kansikuva</option></select></label>
+                </div>
+
+                <section id="marketing-campaign-panel" class="marketing-workspace-panel" role="tabpanel" aria-labelledby="marketing-campaign-tab" aria-hidden="false">
+                <div class="marketing-campaign-stage-tabs" role="tablist" aria-label="Kampanjastudion työvaiheet">
+                    <button class="marketing-campaign-stage-tab active" id="marketing-campaign-plan-tab" type="button" data-marketing-campaign-panel="marketing-campaign-plan-panel" role="tab" aria-selected="true" aria-controls="marketing-campaign-plan-panel" tabindex="0"><span>01</span><strong>Suunnittelu</strong><small>Konsepti ja ydinviestit</small></button>
+                    <button class="marketing-campaign-stage-tab" id="marketing-campaign-preview-tab" type="button" data-marketing-campaign-panel="marketing-campaign-preview-panel" role="tab" aria-selected="false" aria-controls="marketing-campaign-preview-panel" tabindex="-1"><span>02</span><strong>Esikatselut</strong><small>Kansi ja pääviesti</small></button>
+                    <button class="marketing-campaign-stage-tab" id="marketing-campaign-copy-tab" type="button" data-marketing-campaign-panel="marketing-campaign-copy-panel" role="tab" aria-selected="false" aria-controls="marketing-campaign-copy-panel" tabindex="-1"><span>03</span><strong>Tekstit ja kanavat</strong><small>Myynti, some ja media</small></button>
+                    <button class="marketing-campaign-stage-tab" id="marketing-campaign-launch-tab" type="button" data-marketing-campaign-panel="marketing-campaign-launch-panel" role="tab" aria-selected="false" aria-controls="marketing-campaign-launch-panel" tabindex="-1"><span>04</span><strong>Aikataulu ja paketti</strong><small>Lanseeraus ja ZIP</small></button>
+                </div>
+                <p id="marketing-status" class="marketing-studio-status" role="status">Tee ensin analyysi, jotta kampanja voidaan muodostaa teoksen metatiedoista.</p>
+
+                <div id="marketing-campaign-plan-panel" class="marketing-campaign-stage-panel" role="tabpanel" aria-labelledby="marketing-campaign-plan-tab" aria-hidden="false" tabindex="0">
                 <div class="marketing-studio-hero">
                     <div class="marketing-studio-hero-copy">
                         <span class="marketing-studio-eyebrow">KAMPANJASTUDIO · KIRJASTA ILMIÖKSI</span>
@@ -2451,8 +2469,6 @@
                         </div>
                     </div>
                 </div>
-                <p id="marketing-status" class="marketing-studio-status" role="status">Tee ensin analyysi, jotta kampanja voidaan muodostaa teoksen metatiedoista.</p>
-
                 <section class="marketing-studio-section">
                     <div class="marketing-studio-section-heading">
                         <div><span class="marketing-studio-step">01</span><div><h3>Kampanjan suunta</h3><p>Määritä tavoite ja luova punainen lanka ennen kanavakohtaisia aineistoja.</p></div></div>
@@ -2487,11 +2503,13 @@
                         </div>
                     </div>
                 </section>
+                </div>
 
+                <div id="marketing-campaign-preview-panel" class="marketing-campaign-stage-panel" role="tabpanel" aria-labelledby="marketing-campaign-preview-tab" aria-hidden="true" tabindex="0" hidden>
                 <section class="marketing-studio-section">
                     <div class="marketing-studio-section-heading">
                         <div><span class="marketing-studio-step">02</span><div><h3>Kampanja herää eloon</h3><p>Esikatselut käyttävät valittua oikeaa kansikuvaa ja kampanjan pääviestiä.</p></div></div>
-                        <label class="marketing-cover-picker">Kampanjakansi<select id="marketing-cover-select"><option value="">Ei kansikuvaa</option></select></label>
+                        <span class="marketing-cover-selection-note">Yläreunassa valittu kansi näkyy kaikissa aineistoissa.</span>
                     </div>
                     <div class="marketing-preview-grid">
                         <article class="marketing-preview-card marketing-preview-square">
@@ -2522,7 +2540,9 @@
                         </article>
                     </div>
                 </section>
+                </div>
 
+                <div id="marketing-campaign-copy-panel" class="marketing-campaign-stage-panel" role="tabpanel" aria-labelledby="marketing-campaign-copy-tab" aria-hidden="true" tabindex="0" hidden>
                 <section class="marketing-studio-section">
                     <div class="marketing-studio-section-heading">
                         <div><span class="marketing-studio-step">03</span><div><h3>Myynti- ja kanavatekstit</h3><p>Kaikki aineistot ovat muokattavia, kopioitavia ja jaettavia.</p></div></div>
@@ -2577,7 +2597,9 @@
                         <article class="marketing-copy-card"><div><span>MEDIAPITCH</span><button class="marketing-copy-icon marketing-copy-btn" type="button" data-copy-target="marketing-press-pitch">Kopioi</button></div><textarea id="marketing-press-pitch" placeholder="Tiivis pitch medialle ja vaikuttajille"></textarea></article>
                     </div>
                 </section>
+                </div>
 
+                <div id="marketing-campaign-launch-panel" class="marketing-campaign-stage-panel" role="tabpanel" aria-labelledby="marketing-campaign-launch-tab" aria-hidden="true" tabindex="0" hidden>
                 <section class="marketing-studio-section">
                     <div class="marketing-studio-section-heading">
                         <div><span class="marketing-studio-step">04</span><div><h3>Lanseerauksen rytmi</h3><p>Neljä selkeää vaihetta pitää kampanjan tarinan yhtenäisenä.</p></div></div>
@@ -2600,6 +2622,97 @@
                         <div class="marketing-package-files"><span>BRIEF</span><span>SOME</span><span>VIDEO</span><span>MEDIA</span><span>KANSI</span></div>
                     </div>
                     <button class="btn btn-primary" id="marketing-download-package-btn" type="button">Muodosta ja lataa ZIP</button>
+                </section>
+                </div>
+                </section>
+
+                <section id="marketing-html-panel" class="marketing-workspace-panel" role="tabpanel" aria-labelledby="marketing-html-tab" aria-hidden="true" hidden>
+                    <div class="marketing-html-hero">
+                        <div class="marketing-html-hero-copy">
+                            <span class="marketing-studio-eyebrow">HTML-LANDING PAGE · YKSI ITSENÄINEN TIEDOSTO</span>
+                            <h2>Luo kirjalle oma<br><span>markkinointisivu.</span></h2>
+                            <p>Muodosta kirjan analyysistä, projektimuistista ja valitusta kannesta responsiivinen HTML-sivu. Tiedosto toimii sellaisenaan ja on valmis jatkomuokkaukseen tai julkaistavaksi omassa verkkopalvelussa.</p>
+                        </div>
+                        <div class="marketing-html-cover-stage">
+                            <div class="marketing-html-cover" id="marketing-html-cover"><span>KANSI VAADITAAN</span></div>
+                            <div class="marketing-html-cover-copy">
+                                <span>ESIKATSELU</span>
+                                <strong id="marketing-html-preview-title">Valitse kirja ja kansi</strong>
+                                <p id="marketing-html-preview-tagline">Teoksen oma sivu syntyy analyysin ja projektimuistin pohjalta.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p id="marketing-html-status" class="marketing-studio-status marketing-html-status" role="status">Tarkistetaan analyysiä, projektimuistia ja kansikuvaa.</p>
+
+                    <div class="marketing-html-readiness" aria-label="HTML-markkinointisivun valmius">
+                        <article id="marketing-html-analysis-readiness" class="marketing-html-readiness-item">
+                            <span class="marketing-html-readiness-icon" aria-hidden="true">01</span>
+                            <div><strong>Analyysi</strong><small id="marketing-html-analysis-detail">Odottaa aktiivista projektia</small></div>
+                        </article>
+                        <article id="marketing-html-memory-readiness" class="marketing-html-readiness-item">
+                            <span class="marketing-html-readiness-icon" aria-hidden="true">02</span>
+                            <div><strong>Projektimuisti</strong><small id="marketing-html-memory-detail">Odottaa projektimuistin tietoja</small></div>
+                        </article>
+                        <article id="marketing-html-cover-readiness" class="marketing-html-readiness-item">
+                            <span class="marketing-html-readiness-icon" aria-hidden="true">03</span>
+                            <div><strong>Kansikuva</strong><small id="marketing-html-cover-detail">Valitse kansi yläreunasta</small></div>
+                        </article>
+                    </div>
+
+                    <div class="marketing-html-workspace-grid">
+                        <article class="marketing-html-settings-card">
+                            <div class="marketing-html-card-heading">
+                                <span>ASETUKSET</span>
+                                <h3>Sivun ilme ja toimintakehotteet</h3>
+                                <p>Kampanjastudion nykyinen tagline ja esittelytekstit siirtyvät luonnin lähtöaineistoksi automaattisesti.</p>
+                            </div>
+
+                            <div class="marketing-html-form">
+                                <label>Sivun visuaalinen tyyli
+                                    <select id="marketing-html-style">
+                                        <option value="editorial">Kirjallinen ja toimituksellinen</option>
+                                        <option value="modern">Moderni ja tumma</option>
+                                        <option value="minimal">Pelkistetty ja vaalea</option>
+                                    </select>
+                                </label>
+                                <div class="marketing-html-cta-grid">
+                                    <label>Pääpainikkeen teksti<input id="marketing-html-primary-label" type="text" value="Tutustu kirjaan" maxlength="160"></label>
+                                    <label>Pääpainikkeen URL<input id="marketing-html-primary-url" type="url" inputmode="url" placeholder="https://kirjakauppa.example/kirja" maxlength="2000"></label>
+                                    <label>Toisen painikkeen teksti<input id="marketing-html-secondary-label" type="text" placeholder="Kuuntele näyte" maxlength="160"></label>
+                                    <label>Toisen painikkeen URL<input id="marketing-html-secondary-url" type="url" inputmode="url" placeholder="https://aanikirjapalvelu.example/kirja" maxlength="2000"></label>
+                                </div>
+                                <label>Lisäohje sivun sisältöön
+                                    <textarea id="marketing-html-instructions" maxlength="3000" placeholder="Esim. korosta teoksen historiallista miljöötä ja vältä juonipaljastuksia."></textarea>
+                                </label>
+                            </div>
+
+                            <div class="marketing-html-create-row">
+                                <button class="btn btn-primary" id="marketing-html-generate-btn" type="button" disabled>Luo HTML-markkinointisivu</button>
+                                <p>Luonti käyttää aina projektin analyysiä, tarkistettua projektimuistia ja valittua kansikuvaa.</p>
+                            </div>
+                        </article>
+
+                        <article class="marketing-html-preview-card">
+                            <div class="marketing-html-card-heading marketing-html-preview-heading">
+                                <div><span>SELAINESIKATSELU</span><h3>Valmis sivu</h3></div>
+                                <span class="marketing-html-file-badge">.HTML</span>
+                            </div>
+                            <div class="marketing-html-browser-frame">
+                                <div class="marketing-html-browser-bar" aria-hidden="true"><span></span><span></span><span></span><div>kirjan-markkinointisivu.html</div></div>
+                                <iframe id="marketing-html-preview-frame" title="Luodun HTML-markkinointisivun esikatselu" sandbox hidden></iframe>
+                                <div class="marketing-html-preview-empty" id="marketing-html-preview-empty">
+                                    <span class="marketing-html-preview-empty-icon" aria-hidden="true">&lt;/&gt;</span>
+                                    <strong>Esikatselu avautuu tähän</strong>
+                                    <p>Kun kaikki kolme lähtöaineistoa ovat valmiina, luo ensimmäinen sivu.</p>
+                                </div>
+                            </div>
+                            <div class="marketing-html-result-row">
+                                <div><strong id="marketing-html-result-name">Ei vielä luotua tiedostoa</strong><small id="marketing-html-result-meta">Yhden tiedoston HTML · upotettu kansikuva · responsiivinen</small></div>
+                                <button class="btn btn-secondary" id="marketing-html-download-btn" type="button" disabled>Lataa HTML</button>
+                            </div>
+                        </article>
+                    </div>
                 </section>
             </div>
 
@@ -3779,6 +3892,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=156"></script>
+    <script src="app.js?v=158"></script>
 </body>
 </html>

@@ -246,9 +246,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 	    let currentMiscAssets = [];
 	    let currentLayoutAssets = [];
     let currentCoverImages = [];
-    let currentGraphicAssets = [];
-    let marketingContextCovers = [];
-    let selectedCoverReference = null;
+	    let currentGraphicAssets = [];
+	    let marketingContextCovers = [];
+	    let marketingContextSummary = {
+	        projectId: null,
+	        analysisAvailable: false,
+	        projectMemoryCount: 0
+	    };
+	    let marketingHtmlGenerating = false;
+	    let latestMarketingHtmlPage = null;
+	    let selectedCoverReference = null;
 	let latestCoverLayout = null;
 	let coverLayoutDefaultsProjectId = null;
 	    let imageModels = [];
@@ -9432,18 +9439,63 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
     }
 
-    function marketingAnalysisText(analysis, keys, fallback = '') {
-        for (const key of keys) {
-            const value = analysis?.[key];
-            if (typeof value === 'string' && value.trim()) return value.trim();
-        }
-        return fallback;
-    }
+	    function marketingAnalysisText(analysis, keys, fallback = '') {
+	        for (const key of keys) {
+	            const value = analysis?.[key];
+	            if (typeof value === 'string' && value.trim()) return value.trim();
+	        }
+	        return fallback;
+	    }
 
-    function selectedMarketingCover() {
-        const selectedId = document.getElementById('marketing-cover-select')?.value || '';
-        return marketingContextCovers.find(item => String(item.id) === String(selectedId)) || null;
-    }
+	    function showMarketingPanel(panelId, focus = false) {
+	        const panelIds = ['marketing-campaign-panel', 'marketing-html-panel'];
+	        const selectedPanelId = panelIds.includes(panelId) ? panelId : panelIds[0];
+	        document.querySelectorAll('.marketing-workspace-tab').forEach(tab => {
+	            const active = tab.dataset.marketingPanel === selectedPanelId;
+	            tab.classList.toggle('active', active);
+	            tab.setAttribute('aria-selected', active ? 'true' : 'false');
+	            tab.tabIndex = active ? 0 : -1;
+	            if (active && focus) tab.focus();
+	        });
+	        panelIds.forEach(id => {
+	            const panel = document.getElementById(id);
+	            if (!panel) return;
+	            const active = id === selectedPanelId;
+	            panel.hidden = !active;
+	            panel.setAttribute('aria-hidden', active ? 'false' : 'true');
+	        });
+	        if (selectedPanelId === 'marketing-html-panel') renderMarketingHtmlWorkspace();
+	    }
+
+	    function showMarketingCampaignPanel(panelId, focus = false) {
+	        const panelIds = [
+	            'marketing-campaign-plan-panel',
+	            'marketing-campaign-preview-panel',
+	            'marketing-campaign-copy-panel',
+	            'marketing-campaign-launch-panel'
+	        ];
+	        const selectedPanelId = panelIds.includes(panelId) ? panelId : panelIds[0];
+	        document.querySelectorAll('#marketing-campaign-panel .marketing-campaign-stage-tab').forEach(tab => {
+	            const active = tab.dataset.marketingCampaignPanel === selectedPanelId;
+	            tab.classList.toggle('active', active);
+	            tab.setAttribute('aria-selected', active ? 'true' : 'false');
+	            tab.tabIndex = active ? 0 : -1;
+	            if (active && focus) tab.focus();
+	        });
+	        panelIds.forEach(id => {
+	            const panel = document.getElementById(id);
+	            if (!panel) return;
+	            const active = id === selectedPanelId;
+	            panel.hidden = !active;
+	            panel.setAttribute('aria-hidden', active ? 'false' : 'true');
+	        });
+	        if (selectedPanelId === 'marketing-campaign-preview-panel') renderMarketingStudioVisuals();
+	    }
+
+	    function selectedMarketingCover() {
+	        const selectedId = document.getElementById('marketing-cover-select')?.value || '';
+	        return marketingContextCovers.find(item => String(item.id) === String(selectedId)) || null;
+	    }
 
     function renderMarketingCoverTarget(element, cover) {
         if (!element) return;
@@ -9452,12 +9504,117 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             : '<span>KANSI</span>';
     }
 
-    function marketingFieldValue(id, fallback = '') {
-        return document.getElementById(id)?.value?.trim() || fallback;
-    }
+	    function marketingFieldValue(id, fallback = '') {
+	        return document.getElementById(id)?.value?.trim() || fallback;
+	    }
 
-    function renderMarketingStudioVisuals() {
-        const cover = selectedMarketingCover();
+	    function setMarketingHtmlStatus(message, isError = false) {
+	        const status = document.getElementById('marketing-html-status');
+	        if (!status) return;
+	        status.textContent = message || '';
+	        status.classList.toggle('is-error', Boolean(isError));
+	        status.style.color = isError ? '#ffb4b4' : 'var(--text-secondary)';
+	    }
+
+	    function clearMarketingHtmlResult() {
+	        latestMarketingHtmlPage = null;
+	        const frame = document.getElementById('marketing-html-preview-frame');
+	        const empty = document.getElementById('marketing-html-preview-empty');
+	        const download = document.getElementById('marketing-html-download-btn');
+	        const name = document.getElementById('marketing-html-result-name');
+	        const meta = document.getElementById('marketing-html-result-meta');
+	        if (frame) {
+	            frame.removeAttribute('src');
+	            frame.hidden = true;
+	        }
+	        if (empty) empty.hidden = false;
+	        if (download) download.disabled = true;
+	        if (name) name.textContent = 'Ei vielä luotua tiedostoa';
+	        if (meta) meta.textContent = 'Yhden tiedoston HTML · upotettu kansikuva · responsiivinen';
+	    }
+
+	    function renderMarketingHtmlWorkspace() {
+	        const project = window.manuscriptData;
+	        const cover = selectedMarketingCover();
+	        const coverTarget = document.getElementById('marketing-html-cover');
+	        renderMarketingCoverTarget(coverTarget, cover);
+	        if (coverTarget && !cover) coverTarget.innerHTML = '<span>KANSI VAADITAAN</span>';
+
+	        const title = project?.title || 'Valitse kirja ja kansi';
+	        const tagline = marketingFieldValue(
+	            'marketing-tagline',
+	            project ? `${title} — teoksen oma sivu analyysin ja projektimuistin pohjalta.` : 'Teoksen oma sivu syntyy analyysin ja projektimuistin pohjalta.'
+	        );
+	        const previewTitle = document.getElementById('marketing-html-preview-title');
+	        const previewTagline = document.getElementById('marketing-html-preview-tagline');
+	        if (previewTitle) previewTitle.textContent = title;
+	        if (previewTagline) previewTagline.textContent = tagline;
+
+	        const contextMatches = Boolean(
+	            project?.id && String(marketingContextSummary.projectId || '') === String(project.id)
+	        );
+	        const analysisReady = contextMatches && marketingContextSummary.analysisAvailable;
+	        const memoryCount = contextMatches ? Number(marketingContextSummary.projectMemoryCount || 0) : 0;
+	        const memoryReady = memoryCount > 0;
+	        const coverReady = Boolean(cover);
+	        const readiness = [
+	            ['marketing-html-analysis-readiness', analysisReady],
+	            ['marketing-html-memory-readiness', memoryReady],
+	            ['marketing-html-cover-readiness', coverReady]
+	        ];
+	        readiness.forEach(([id, ready]) => {
+	            const item = document.getElementById(id);
+	            if (!item) return;
+	            item.classList.toggle('is-ready', ready);
+	            item.classList.toggle('is-missing', Boolean(project) && !ready);
+	        });
+
+	        const analysisDetail = document.getElementById('marketing-html-analysis-detail');
+	        const memoryDetail = document.getElementById('marketing-html-memory-detail');
+	        const coverDetail = document.getElementById('marketing-html-cover-detail');
+	        if (analysisDetail) {
+	            analysisDetail.textContent = !project
+	                ? 'Odottaa aktiivista projektia'
+	                : analysisReady ? 'Tallennettu analyysi käytettävissä' : 'Tee projektin analyysi ensin';
+	        }
+	        if (memoryDetail) {
+	            memoryDetail.textContent = !project
+	                ? 'Odottaa aktiivista projektia'
+	                : memoryReady ? `${memoryCount} käyttökelpoista muistimerkintää` : 'Täydennä ja tarkista projektimuisti';
+	        }
+	        if (coverDetail) {
+	            coverDetail.textContent = coverReady ? (cover.title || 'Kansikuva valittu') : 'Valitse kansi yläreunasta';
+	        }
+
+	        if (latestMarketingHtmlPage && (
+	            String(latestMarketingHtmlPage.projectId) !== String(project?.id || '')
+	            || String(latestMarketingHtmlPage.coverAssetId) !== String(cover?.id || '')
+	        )) clearMarketingHtmlResult();
+
+	        const ready = Boolean(project?.id && analysisReady && memoryReady && coverReady);
+	        const button = document.getElementById('marketing-html-generate-btn');
+	        if (button) button.disabled = marketingHtmlGenerating || !ready;
+	        if (!marketingHtmlGenerating) {
+	            if (!project) {
+	                setMarketingHtmlStatus('Valitse ensin käsikirjoitus.', true);
+	            } else if (!contextMatches) {
+	                setMarketingHtmlStatus('Tarkistetaan projektin lähtöaineistoja…');
+	            } else if (!analysisReady) {
+	                setMarketingHtmlStatus('HTML-sivu vaatii tallennetun analyysin.', true);
+	            } else if (!memoryReady) {
+	                setMarketingHtmlStatus('HTML-sivu vaatii vahvistettua tai tarkistettavaa projektimuistia.', true);
+	            } else if (!coverReady) {
+	                setMarketingHtmlStatus('Valitse vähintään yksi kansikuva yläreunasta.', true);
+	            } else if (latestMarketingHtmlPage) {
+	                setMarketingHtmlStatus('HTML-markkinointisivu on valmis esikatseltavaksi ja ladattavaksi.');
+	            } else {
+	                setMarketingHtmlStatus('Kaikki lähtöaineistot ovat valmiina. Voit luoda HTML-markkinointisivun.');
+	            }
+	        }
+	    }
+
+	    function renderMarketingStudioVisuals() {
+	        const cover = selectedMarketingCover();
         renderMarketingCoverTarget(document.getElementById('marketing-hero-cover'), cover);
         renderMarketingCoverTarget(document.getElementById('marketing-preview-instagram-cover'), cover);
         renderMarketingCoverTarget(document.getElementById('marketing-preview-story-cover'), cover);
@@ -9488,17 +9645,18 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 marketingFieldValue('marketing-tiktok'),
                 marketingFieldValue('marketing-video')
             ].some(Boolean) ? 'channels' : ''
-        ].filter(Boolean).length;
-        setText('marketing-readiness-count', `${readiness}/4`);
-    }
+	        ].filter(Boolean).length;
+	        setText('marketing-readiness-count', `${readiness}/4`);
+	        renderMarketingHtmlWorkspace();
+	    }
 
     function populateMarketingCovers(covers = []) {
         marketingContextCovers = Array.isArray(covers) ? covers : [];
         const select = document.getElementById('marketing-cover-select');
         if (!select) return;
         const previous = select.value;
-        select.innerHTML = [
-            '<option value="">Ei kansikuvaa</option>',
+	        select.innerHTML = [
+	            '<option value="">Valitse kansikuva</option>',
             ...marketingContextCovers.map((cover, index) => (
                 `<option value="${cover.id}">${escapeHtml(cover.title || `Kansi ${index + 1}`)}</option>`
             ))
@@ -9508,28 +9666,43 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         } else if (marketingContextCovers.length) {
             select.value = String(marketingContextCovers[0].id);
         }
-        renderMarketingStudioVisuals();
-    }
+	        renderMarketingStudioVisuals();
+	    }
 
-    async function loadMarketingContext() {
-        if (!window.manuscriptData?.id) {
-            populateMarketingCovers([]);
-            return;
-        }
-        try {
-            const response = await apiFetch(`/api/projects/${window.manuscriptData.id}/marketing/context`);
-            const data = await response.json().catch(() => null);
-            if (!response.ok) throw new Error(data?.detail || 'Kampanjan kansien lataus epäonnistui.');
-            populateMarketingCovers(data?.covers || []);
+	    async function loadMarketingContext() {
+	        const requestedProjectId = window.manuscriptData?.id || null;
+	        if (!requestedProjectId) {
+	            marketingContextSummary = { projectId: null, analysisAvailable: false, projectMemoryCount: 0 };
+	            populateMarketingCovers([]);
+	            return;
+	        }
+	        if (String(marketingContextSummary.projectId || '') !== String(requestedProjectId)) {
+	            marketingContextSummary = { projectId: null, analysisAvailable: false, projectMemoryCount: 0 };
+	            populateMarketingCovers([]);
+	        }
+	        try {
+	            const response = await apiFetch(`/api/projects/${requestedProjectId}/marketing/context`);
+	            const data = await response.json().catch(() => null);
+	            if (!response.ok) throw new Error(data?.detail || 'Kampanjan kansien lataus epäonnistui.');
+	            if (String(window.manuscriptData?.id || '') !== String(requestedProjectId)) return;
+	            marketingContextSummary = {
+	                projectId: requestedProjectId,
+	                analysisAvailable: Boolean(data?.analysis_available),
+	                projectMemoryCount: Number(data?.project_memory_count || 0)
+	            };
+	            populateMarketingCovers(data?.covers || []);
             const genre = document.getElementById('marketing-genre-badge');
             const audience = document.getElementById('marketing-audience-badge');
             if (genre) genre.textContent = data?.genre || 'Genre odottaa analyysiä';
-            if (audience) audience.textContent = data?.audience || 'Kohderyhmä odottaa analyysiä';
-        } catch (error) {
-            populateMarketingCovers([]);
-            setMarketingStatus(error.message, true);
-        }
-    }
+	            if (audience) audience.textContent = data?.audience || 'Kohderyhmä odottaa analyysiä';
+	        } catch (error) {
+	            if (String(window.manuscriptData?.id || '') !== String(requestedProjectId)) return;
+	            marketingContextSummary = { projectId: requestedProjectId, analysisAvailable: false, projectMemoryCount: 0 };
+	            populateMarketingCovers([]);
+	            setMarketingStatus(error.message, true);
+	            setMarketingHtmlStatus(error.message, true);
+	        }
+	    }
 
     function renderMarketingMaterialsFromAnalysis(force = false) {
         const current = document.getElementById('marketing-current-project');
@@ -9639,10 +9812,11 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             window.manuscriptData.analysis.marketing_email_subject = data.email_subject || '';
             window.manuscriptData.analysis.marketing_press_pitch = data.press_pitch || '';
             window.manuscriptData.analysis.marketing_content_calendar = data.content_calendar || '';
-            window.manuscriptData.analysis.marketing_campaign_focus = marketingFieldValue('marketing-campaign-focus');
-            await window.saveManuscriptToDB(window.manuscriptData);
-            renderProductInfo(false);
-            renderMarketingStudioVisuals();
+	            window.manuscriptData.analysis.marketing_campaign_focus = marketingFieldValue('marketing-campaign-focus');
+	            await window.saveManuscriptToDB(window.manuscriptData);
+	            renderProductInfo(false);
+	            clearMarketingHtmlResult();
+	            renderMarketingStudioVisuals();
             setMarketingStatus(data.warnings ? `${data.warnings} Lähde: ${data.generated_by}.` : `Kampanjapaketti valmis muokattavaksi. Lähde: ${data.generated_by}.`);
             loadUsage();
             return data;
@@ -9684,7 +9858,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         };
     }
 
-    async function downloadMarketingPackage() {
+	    async function downloadMarketingPackage() {
         const button = document.getElementById('marketing-download-package-btn');
         if (!window.manuscriptData?.id) {
             setMarketingStatus('Valitse käsikirjoitus ensin.', true);
@@ -9723,10 +9897,132 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 button.disabled = false;
                 button.textContent = 'Muodosta ja lataa ZIP';
             }
-        }
-    }
+	        }
+	    }
 
-    async function copyMarketingField(targetId) {
+	    function downloadLatestMarketingHtmlPage() {
+	        if (!latestMarketingHtmlPage?.dataUrl) {
+	            setMarketingHtmlStatus('Luo HTML-markkinointisivu ennen lataamista.', true);
+	            return;
+	        }
+	        const link = document.createElement('a');
+	        link.href = latestMarketingHtmlPage.dataUrl;
+	        link.download = latestMarketingHtmlPage.filename || 'kirjan-markkinointisivu.html';
+	        document.body.appendChild(link);
+	        link.click();
+	        link.remove();
+	        setMarketingHtmlStatus(`HTML-tiedosto ladattu: ${latestMarketingHtmlPage.filename}.`);
+	    }
+
+	    async function generateMarketingHtmlPage() {
+	        const project = window.manuscriptData;
+	        const cover = selectedMarketingCover();
+	        const contextMatches = Boolean(
+	            project?.id && String(marketingContextSummary.projectId || '') === String(project.id)
+	        );
+	        if (!project?.id) {
+	            setMarketingHtmlStatus('Valitse käsikirjoitus ensin.', true);
+	            return;
+	        }
+	        if (!contextMatches || !marketingContextSummary.analysisAvailable) {
+	            setMarketingHtmlStatus('Tee ja tallenna projektin analyysi ennen HTML-sivun luontia.', true);
+	            return;
+	        }
+	        if (Number(marketingContextSummary.projectMemoryCount || 0) < 1) {
+	            setMarketingHtmlStatus('Täydennä projektimuistiin vähintään yksi vahvistettu tai tarkistettava tieto.', true);
+	            return;
+	        }
+	        if (!cover?.id) {
+	            setMarketingHtmlStatus('Valitse vähintään yksi kansikuva yläreunasta.', true);
+	            return;
+	        }
+
+	        const urlInputs = [
+	            document.getElementById('marketing-html-primary-url'),
+	            document.getElementById('marketing-html-secondary-url')
+	        ];
+	        const invalidUrl = urlInputs.find(input => input?.value?.trim() && !input.checkValidity());
+	        if (invalidUrl) {
+	            invalidUrl.focus();
+	            setMarketingHtmlStatus('Kirjoita toimintakehotteen osoite kokonaisena https://-osoitteena.', true);
+	            return;
+	        }
+
+	        const payload = {
+	            project_id: project.id,
+	            cover_asset_id: Number(cover.id),
+	            visual_style: document.getElementById('marketing-html-style')?.value || 'editorial',
+	            primary_cta_label: marketingFieldValue('marketing-html-primary-label', 'Tutustu kirjaan'),
+	            primary_cta_url: marketingFieldValue('marketing-html-primary-url'),
+	            secondary_cta_label: marketingFieldValue('marketing-html-secondary-label'),
+	            secondary_cta_url: marketingFieldValue('marketing-html-secondary-url'),
+	            tagline: marketingFieldValue('marketing-tagline'),
+	            short_description: marketingFieldValue('marketing-short'),
+	            long_description: marketingFieldValue('marketing-long'),
+	            additional_instructions: marketingFieldValue('marketing-html-instructions')
+	        };
+	        const button = document.getElementById('marketing-html-generate-btn');
+	        marketingHtmlGenerating = true;
+	        if (button) button.textContent = 'Luodaan HTML-sivua…';
+	        setMarketingHtmlStatus('Muodostetaan tekstit analyysistä ja projektimuistista sekä rakennetaan itsenäinen HTML-tiedosto…');
+	        renderMarketingHtmlWorkspace();
+
+	        let finalStatus = null;
+	        try {
+	            const response = await apiFetch('/api/marketing/landing-page', {
+	                method: 'POST',
+	                headers: {'Content-Type': 'application/json'},
+	                body: JSON.stringify(payload)
+	            });
+	            const data = await response.json().catch(() => null);
+	            if (!response.ok) throw new Error(data?.detail || 'HTML-markkinointisivun luonti epäonnistui.');
+	            if (!data?.page?.data_url) throw new Error('Valmiin HTML-tiedoston sisältöä ei saatu.');
+	            if (
+	                String(window.manuscriptData?.id || '') !== String(project.id)
+	                || String(selectedMarketingCover()?.id || '') !== String(cover.id)
+	            ) return;
+
+	            latestMarketingHtmlPage = {
+	                projectId: project.id,
+	                coverAssetId: cover.id,
+	                dataUrl: data.page.data_url,
+	                filename: data.filename || 'kirjan-markkinointisivu.html'
+	            };
+	            const frame = document.getElementById('marketing-html-preview-frame');
+	            const empty = document.getElementById('marketing-html-preview-empty');
+	            const download = document.getElementById('marketing-html-download-btn');
+	            const name = document.getElementById('marketing-html-result-name');
+	            const meta = document.getElementById('marketing-html-result-meta');
+	            if (frame) {
+	                frame.src = data.page.data_url;
+	                frame.hidden = false;
+	            }
+	            if (empty) empty.hidden = true;
+	            if (download) download.disabled = false;
+	            if (name) name.textContent = latestMarketingHtmlPage.filename;
+	            if (meta) {
+	                meta.textContent = `Analyysi · ${Number(data.project_memory_items_used || 0)} projektimuistin merkintää · valittu kansi`;
+	            }
+	            const warnings = Array.isArray(data.warnings) ? data.warnings.filter(Boolean) : [];
+	            finalStatus = {
+	                message: warnings.length
+	                    ? `HTML-markkinointisivu valmis. ${warnings.join(' ')}`
+	                    : 'HTML-markkinointisivu valmis esikatseltavaksi ja ladattavaksi.',
+	                isError: false
+	            };
+	            loadUsage();
+	        } catch (error) {
+	            finalStatus = { message: networkFailureMessage(error), isError: true };
+	            loadUsage();
+	        } finally {
+	            marketingHtmlGenerating = false;
+	            if (button) button.textContent = 'Luo HTML-markkinointisivu';
+	            renderMarketingHtmlWorkspace();
+	            if (finalStatus) setMarketingHtmlStatus(finalStatus.message, finalStatus.isError);
+	        }
+	    }
+
+	    async function copyMarketingField(targetId) {
         const element = document.getElementById(targetId);
         const text = element?.value || '';
         if (!text.trim()) {
@@ -18058,9 +18354,12 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         visualEstimateController?.abort();
         latestVisualEstimate = null;
         latestVisualEstimateKey = '';
-        invalidateGraphicAssetCache(true);
-        window.manuscriptData = null;
-        projectVersions = [];
+	        invalidateGraphicAssetCache(true);
+	        window.manuscriptData = null;
+	        marketingContextSummary = { projectId: null, analysisAvailable: false, projectMemoryCount: 0 };
+	        populateMarketingCovers([]);
+	        clearMarketingHtmlResult();
+	        projectVersions = [];
         loadedVersionsProjectId = null;
         activeProjectVersionNumber = 0;
         pendingRestoreVersionId = null;
@@ -24267,10 +24566,12 @@ ${state.validation || 'Ei validointia.'}`;
     const audioVoiceSelect = document.getElementById('audio-voice-select');
     const audioRefreshVoicesBtn = document.getElementById('audio-refresh-voices-btn');
     const audioPreviewVoiceBtn = document.getElementById('audio-preview-voice-btn');
-    const marketingGenerateBtn = document.getElementById('marketing-generate-btn');
-    const marketingDownloadPackageBtn = document.getElementById('marketing-download-package-btn');
-    const marketingCoverSelect = document.getElementById('marketing-cover-select');
-    const marketingOpenProductInfoBtn = document.getElementById('marketing-open-product-info-btn');
+	    const marketingGenerateBtn = document.getElementById('marketing-generate-btn');
+	    const marketingDownloadPackageBtn = document.getElementById('marketing-download-package-btn');
+	    const marketingCoverSelect = document.getElementById('marketing-cover-select');
+	    const marketingOpenProductInfoBtn = document.getElementById('marketing-open-product-info-btn');
+	    const marketingHtmlGenerateBtn = document.getElementById('marketing-html-generate-btn');
+	    const marketingHtmlDownloadBtn = document.getElementById('marketing-html-download-btn');
     const bioLoadBtn = document.getElementById('bio-load-btn');
     const bioSaveBtn = document.getElementById('bio-save-btn');
     const bioAddMaterialBtn = document.getElementById('bio-add-material-btn');
@@ -24701,10 +25002,45 @@ ${state.validation || 'Ei validointia.'}`;
     });
     if (audioRefreshVoicesBtn) audioRefreshVoicesBtn.addEventListener('click', () => loadElevenLabsVoices(true));
     if (audioPreviewVoiceBtn) audioPreviewVoiceBtn.addEventListener('click', playSelectedVoicePreview);
-    if (marketingGenerateBtn) marketingGenerateBtn.addEventListener('click', generateMarketingMaterials);
-    if (marketingDownloadPackageBtn) marketingDownloadPackageBtn.addEventListener('click', downloadMarketingPackage);
-    if (marketingCoverSelect) marketingCoverSelect.addEventListener('change', renderMarketingStudioVisuals);
-    if (marketingOpenProductInfoBtn) marketingOpenProductInfoBtn.addEventListener('click', () => openModule('view-tuotetiedot'));
+	    const marketingWorkspaceTabs = Array.from(document.querySelectorAll('.marketing-workspace-tab'));
+	    marketingWorkspaceTabs.forEach((tab, index) => {
+	        tab.addEventListener('click', () => showMarketingPanel(tab.dataset.marketingPanel));
+	        tab.addEventListener('keydown', event => {
+	            let nextIndex = null;
+	            if (event.key === 'ArrowRight') nextIndex = (index + 1) % marketingWorkspaceTabs.length;
+	            if (event.key === 'ArrowLeft') nextIndex = (index - 1 + marketingWorkspaceTabs.length) % marketingWorkspaceTabs.length;
+	            if (event.key === 'Home') nextIndex = 0;
+	            if (event.key === 'End') nextIndex = marketingWorkspaceTabs.length - 1;
+	            if (nextIndex === null) return;
+	            event.preventDefault();
+	            const nextTab = marketingWorkspaceTabs[nextIndex];
+	            showMarketingPanel(nextTab.dataset.marketingPanel, true);
+	        });
+	    });
+	    const marketingCampaignTabs = Array.from(document.querySelectorAll('#marketing-campaign-panel .marketing-campaign-stage-tab'));
+	    marketingCampaignTabs.forEach((tab, index) => {
+	        tab.addEventListener('click', () => showMarketingCampaignPanel(tab.dataset.marketingCampaignPanel));
+	        tab.addEventListener('keydown', event => {
+	            let nextIndex = null;
+	            if (event.key === 'ArrowRight') nextIndex = (index + 1) % marketingCampaignTabs.length;
+	            if (event.key === 'ArrowLeft') nextIndex = (index - 1 + marketingCampaignTabs.length) % marketingCampaignTabs.length;
+	            if (event.key === 'Home') nextIndex = 0;
+	            if (event.key === 'End') nextIndex = marketingCampaignTabs.length - 1;
+	            if (nextIndex === null) return;
+	            event.preventDefault();
+	            const nextTab = marketingCampaignTabs[nextIndex];
+	            showMarketingCampaignPanel(nextTab.dataset.marketingCampaignPanel, true);
+	        });
+	    });
+	    if (marketingGenerateBtn) marketingGenerateBtn.addEventListener('click', generateMarketingMaterials);
+	    if (marketingDownloadPackageBtn) marketingDownloadPackageBtn.addEventListener('click', downloadMarketingPackage);
+	    if (marketingHtmlGenerateBtn) marketingHtmlGenerateBtn.addEventListener('click', generateMarketingHtmlPage);
+	    if (marketingHtmlDownloadBtn) marketingHtmlDownloadBtn.addEventListener('click', downloadLatestMarketingHtmlPage);
+	    if (marketingCoverSelect) marketingCoverSelect.addEventListener('change', () => {
+	        clearMarketingHtmlResult();
+	        renderMarketingStudioVisuals();
+	    });
+	    if (marketingOpenProductInfoBtn) marketingOpenProductInfoBtn.addEventListener('click', () => openModule('view-tuotetiedot'));
     [
         'marketing-campaign-concept',
         'marketing-tagline',
@@ -24714,8 +25050,27 @@ ${state.validation || 'Ei validointia.'}`;
         'marketing-tiktok',
         'marketing-video',
         'marketing-email-subject',
-        'marketing-press-pitch'
-    ].forEach(id => document.getElementById(id)?.addEventListener('input', renderMarketingStudioVisuals));
+	        'marketing-press-pitch'
+	    ].forEach(id => document.getElementById(id)?.addEventListener('input', renderMarketingStudioVisuals));
+	    [
+	        'marketing-tagline',
+	        'marketing-short',
+	        'marketing-long',
+	        'marketing-html-style',
+	        'marketing-html-primary-label',
+	        'marketing-html-primary-url',
+	        'marketing-html-secondary-label',
+	        'marketing-html-secondary-url',
+	        'marketing-html-instructions'
+	    ].forEach(id => {
+	        const element = document.getElementById(id);
+	        if (!element) return;
+	        const eventName = element.tagName === 'SELECT' ? 'change' : 'input';
+	        element.addEventListener(eventName, () => {
+	            if (latestMarketingHtmlPage) clearMarketingHtmlResult();
+	            renderMarketingHtmlWorkspace();
+	        });
+	    });
     document.querySelectorAll('.marketing-copy-btn').forEach(button => {
         button.addEventListener('click', () => copyMarketingField(button.dataset.copyTarget));
     });
