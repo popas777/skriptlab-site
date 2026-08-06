@@ -19218,9 +19218,30 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     function translationBatchModelSupported(modelValue) {
         const model = String(modelValue || '').trim().toLowerCase();
         if (!model) return true;
-        return model.includes('gemini-3.5-flash-lite')
-            || model.includes('gemini-3.5-flash')
-            || model.includes('gemini-3.6-flash');
+        const separatorIndex = model.indexOf(':');
+        if (separatorIndex >= 0 && model.slice(0, separatorIndex) !== 'gemini') return false;
+        const modelName = separatorIndex >= 0 ? model.slice(separatorIndex + 1) : model;
+        return modelName.includes('gemini-3.5-flash-lite')
+            || modelName.includes('gemini-3.5-flash')
+            || modelName.includes('gemini-3.6-flash');
+    }
+
+    function preferredTranslationBatchModelValue(select) {
+        const options = Array.from(select?.options || []).filter(option => (
+            !option.disabled && String(option.value || '').trim()
+        ));
+        const selected = String(select?.value || '').trim();
+        if (selected && translationBatchModelSupported(selected)) return selected;
+        const preferences = [
+            'gemini-3.5-flash-lite',
+            'gemini-3.5-flash',
+            'gemini-3.6-flash'
+        ];
+        for (const preferred of preferences) {
+            const match = options.find(option => String(option.value || '').toLowerCase().includes(preferred));
+            if (match) return match.value;
+        }
+        return options.find(option => translationBatchModelSupported(option.value))?.value || '';
     }
 
     function translationChunkRecommendationText(modelValue, chunkWords, isFinnish = false, compact = false) {
@@ -19437,7 +19458,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
         if (importSelect) {
             const importPrevious = importSelect.value;
-            importSelect.innerHTML = '<option value="">Luo uusi projekti</option>';
+            importSelect.innerHTML = '<option value="">Luo ja tallenna uusi projekti</option>';
             availableProjects
                 .filter(project => projectDisplayCharCount(project) === 0)
                 .forEach(project => {
@@ -19834,12 +19855,16 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (bilingual) bilingual.disabled = translationWorkspaceReviewRunning || reviewedCount === 0;
         const batchButton = document.getElementById('translation-workspace-review-batch-btn');
         if (batchButton) {
-            const selectedModel = document.getElementById('translation-workspace-review-model')?.value || '';
-            const supported = translationBatchModelSupported(selectedModel);
-            batchButton.disabled = translationWorkspaceReviewRunning || !supported;
-            batchButton.title = supported
-                ? 'Lähetä koko tarkastus Gemini Batch APIin. Tavoiteaika on enintään 24 tuntia.'
-                : 'Eräajo vaatii tuetun Gemini Flash -mallin.';
+            const reviewModelSelect = document.getElementById('translation-workspace-review-model');
+            const selectedModel = String(reviewModelSelect?.value || '').trim();
+            const batchModel = preferredTranslationBatchModelValue(reviewModelSelect);
+            const selectedModelSupported = selectedModel && translationBatchModelSupported(selectedModel);
+            batchButton.disabled = translationWorkspaceReviewRunning || !batchModel;
+            batchButton.title = !batchModel
+                ? 'Eräajo vaatii käytettävissä olevan Gemini Flash -mallin.'
+                : selectedModelSupported
+                    ? 'Lähetä koko tarkastus Gemini Batch APIin. Tavoiteaika on enintään 24 tuntia.'
+                    : 'Eräajo valitsee automaattisesti edullisen Gemini Flash -mallin.';
         }
         if (status && !options.preserveStatus) {
             status.textContent = `${translationWorkspaceVersionLabel(item)} · tarkastettu ${reviewedCount}/${chunks.length} segmenttiä.`;
@@ -20006,9 +20031,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const status = document.getElementById(
             workspace ? 'translation-workspace-review-status' : 'finnish-translation-ai-check-status'
         );
-        const model = document.getElementById(
+        const modelSelect = document.getElementById(
             workspace ? 'translation-workspace-review-model' : 'finnish-translation-ai-check-model'
-        )?.value || null;
+        );
+        let model = String(modelSelect?.value || '').trim();
         const repeatReviewed = document.getElementById(
             workspace ? 'translation-workspace-review-repeat' : 'finnish-translation-ai-check-repeat'
         )?.checked === true;
@@ -20016,9 +20042,16 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             alert('Valitse ensin tarkastettava käännös.');
             return;
         }
-        if (!existingJob && !translationBatchModelSupported(model)) {
-            alert('Tarkastuksen eräajo vaatii tuetun Gemini Flash -mallin.');
-            return;
+        if (!existingJob) {
+            const batchModel = preferredTranslationBatchModelValue(modelSelect);
+            if (!batchModel) {
+                alert('Tarkastuksen eräajo vaatii käytettävissä olevan Gemini Flash -mallin.');
+                return;
+            }
+            if (batchModel !== model) {
+                model = batchModel;
+                modelSelect.value = batchModel;
+            }
         }
         if (translationReviewBatchJobId && !existingJob) return;
 
@@ -20216,6 +20249,13 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             });
             const data = await res.json().catch(() => null);
             if (!res.ok) throw new Error(data?.detail || 'Rinnakkaiskäsikirjoituksen tuonti epäonnistui.');
+            await activateProject(data.project, {
+                skipManuskriptiFrameRefresh: true,
+                skipTyostoFrameRefresh: true,
+                skipWriteEditorFrameRefresh: true,
+                skipTuotantoFrameRefresh: true,
+                skipVersionsRefresh: true
+            });
             await loadProjects();
             updateTranslationWorkspaceProjectSelect(data.project.id);
             const projectSelect = document.getElementById('translation-workspace-project-select');
@@ -20225,7 +20265,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             renderTranslationWorkspaceReview();
             showTranslationWorkspacePanel('translation-workspace-review-panel');
             if (status) {
-                status.textContent = `${data.segments_count} segmenttiä tuotiin projektiin ${data.project.title}.${revisionInfoFile ? ' Revision info liitettiin tarkastusavuksi.' : ''}`;
+                const projectMessage = projectId
+                    ? `projektiin ${data.project.title}`
+                    : `uuteen tallennettuun projektiin ${data.project.title}`;
+                status.textContent = `${data.segments_count} segmenttiä tuotiin ${projectMessage}.${revisionInfoFile ? ' Revision info liitettiin tarkastusavuksi.' : ''}`;
             }
         } catch (err) {
             if (status) status.textContent = networkFailureMessage(err);
@@ -22202,11 +22245,15 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             }
         }
         if (batchBtn) {
-            const supported = translationBatchModelSupported(modelSelect?.value || '');
-            batchBtn.disabled = finnishTranslationAiCheckAllRunning || !supported;
-            batchBtn.title = supported
-                ? 'Lähetä koko tarkastus Gemini Batch APIin. Tavoiteaika on enintään 24 tuntia.'
-                : 'Eräajo vaatii tuetun Gemini Flash -mallin.';
+            const selectedModel = String(modelSelect?.value || '').trim();
+            const batchModel = preferredTranslationBatchModelValue(modelSelect);
+            const selectedModelSupported = selectedModel && translationBatchModelSupported(selectedModel);
+            batchBtn.disabled = finnishTranslationAiCheckAllRunning || !batchModel;
+            batchBtn.title = !batchModel
+                ? 'Eräajo vaatii käytettävissä olevan Gemini Flash -mallin.'
+                : selectedModelSupported
+                    ? 'Lähetä koko tarkastus Gemini Batch APIin. Tavoiteaika on enintään 24 tuntia.'
+                    : 'Eräajo valitsee automaattisesti edullisen Gemini Flash -mallin.';
         }
     }
 
