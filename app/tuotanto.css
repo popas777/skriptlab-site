@@ -1263,17 +1263,17 @@ details.mass-section .mass-body { padding: 0 14px 14px; }
 }
 
 .book-page-preview[data-hyphenation="light"] .book-preview-text {
-  hyphens: auto;
+  hyphens: manual;
   hyphenate-limit-chars: 9 4 4;
 }
 
 .book-page-preview[data-hyphenation="balanced"] .book-preview-text {
-  hyphens: auto;
+  hyphens: manual;
   hyphenate-limit-chars: 7 3 3;
 }
 
 .book-page-preview[data-hyphenation="strong"] .book-preview-text {
-  hyphens: auto;
+  hyphens: manual;
   hyphenate-limit-chars: 5 2 2;
 }
 

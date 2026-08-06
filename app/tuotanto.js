@@ -18,6 +18,7 @@
   const CONFIG = window.TUOTANTO_CONFIG || {};
   const API_BASE = (CONFIG.apiBase || "/api").replace(/\/$/, "");
   const doFetch = CONFIG.fetchImpl || ((url, options) => fetch(url, options));
+  const FINNISH_HYPHENATION = window.SkriptLabFinnishHyphenation || null;
 
   const TOOLS = [
     ["copyright_page", "Copysivu"],
@@ -102,10 +103,59 @@
   let estimatedBookPageCount = 0;
   let currentPreviewPage = PREVIEW_START_PAGE;
   let bookTimer = null;
+  let previewResizeTimer = null;
+  let previewObservedWidth = 0;
+  let previewResizeObserver = null;
+  const previewMeasureCanvas = document.createElement("canvas");
+  const previewMeasureContext = previewMeasureCanvas.getContext("2d");
 
   /* ------------------------------------------------------------ apurit */
 
   const $ = (id) => document.getElementById(id);
+
+  function previewFont(style) {
+    if (style.font && style.font !== "") return style.font;
+    return [style.fontStyle, style.fontVariant, style.fontWeight, style.fontSize, style.fontFamily]
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  function hyphenatePreviewSource(text) {
+    const source = String(text || "");
+    const previewText = $("book-preview-text");
+    if (!FINNISH_HYPHENATION || !previewMeasureContext || !previewText) return source;
+
+    const maxWidth = previewText.getBoundingClientRect().width;
+    if (!Number.isFinite(maxWidth) || maxWidth < 40) return source;
+
+    const style = window.getComputedStyle(previewText);
+    const indent = PARAGRAPH_INDENTS[selectedParagraphIndent] || PARAGRAPH_INDENTS.medium;
+    const indentEm = parseFloat(indent.css) || 0;
+    const fontSize = parseFloat(style.fontSize) || (16 * selectedFontSize / 10.5);
+    previewMeasureContext.font = previewFont(style);
+    const measureText = (value) => previewMeasureContext.measureText(String(value || "")).width;
+    const spaceWidth = Math.max(0.01, measureText(" "));
+    const firstLineWidth = Math.max(spaceWidth, maxWidth - indentEm * fontSize);
+    previewObservedWidth = maxWidth;
+
+    return source
+      .split(/(\n\s*\n)/)
+      .map((part, index) => {
+        if (index % 2 === 1 || !part.trim()) return part;
+        return FINNISH_HYPHENATION.layoutText(part, {
+          level: selectedHyphenation,
+          maxWidth,
+          firstLineWidth,
+          measureText,
+          spaceWidth,
+        }).text;
+      })
+      .join("");
+  }
+
+  function visibleTextLength(value) {
+    return String(value || "").replace(/\u00ad/g, "").length;
+  }
 
   function escapeHtml(text) {
     const div = document.createElement("div");
@@ -631,7 +681,7 @@
     function appendChunk(chunk) {
       if (!chunk) return;
       const candidate = current ? current + "\n\n" + chunk : chunk;
-      if (current && candidate.length > capacity) {
+      if (current && visibleTextLength(candidate) > capacity) {
         pages.push(current);
         current = chunk;
       } else {
@@ -640,14 +690,14 @@
     }
 
     for (const block of blocks) {
-      if (block.length <= capacity) {
+      if (visibleTextLength(block) <= capacity) {
         appendChunk(block);
         continue;
       }
       let chunk = "";
       for (const word of block.split(/\s+/)) {
         const candidate = chunk ? chunk + " " + word : word;
-        if (chunk && candidate.length > capacity) {
+        if (chunk && visibleTextLength(candidate) > capacity) {
           appendChunk(chunk);
           chunk = word;
         } else {
@@ -735,10 +785,31 @@
       renderPreviewPage();
       return;
     }
-    previewPages = paginateText(bookPreviewSource, previewPageCapacity());
+    const previewSource = hyphenatePreviewSource(bookPreviewSource);
+    previewPages = paginateText(previewSource, previewPageCapacity());
     estimatedBookPageCount = paginateText(bookFullSource || bookPreviewSource, previewPageCapacity()).length;
     if (resetToStart) currentPreviewPage = Math.min(PREVIEW_START_PAGE, previewPages.length || 1);
     renderPreviewPage();
+  }
+
+  function observePreviewLayout() {
+    const previewText = $("book-preview-text");
+    if (!previewText || typeof ResizeObserver !== "function") return;
+    previewResizeObserver = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect?.width || 0;
+      if (!bookPreviewSource || tab !== "kirja" || width < 40 || Math.abs(width - previewObservedWidth) < 1) {
+        return;
+      }
+      clearTimeout(previewResizeTimer);
+      previewResizeTimer = setTimeout(() => rebuildPreviewPages(false), 80);
+    });
+    previewResizeObserver.observe(previewText);
+
+    if (document.fonts?.ready) {
+      document.fonts.ready.then(() => {
+        if (bookPreviewSource && tab === "kirja") rebuildPreviewPages(false);
+      });
+    }
   }
 
   function setPreviewPage(nextPage) {
@@ -1023,6 +1094,7 @@
   async function boot() {
     configureModuleUi();
     bindEvents();
+    observePreviewLayout();
     renderToolChips();
     applyPreviewSettings();
     updateOutputFormatSelection();
