@@ -68,8 +68,7 @@
     large: { label: "väljä kappaleväli", css: "1em", capacity: 0.81 },
   };
   const OUTPUT_FORMAT_ORDER = ["pdf", "epub", "latex", "md", "docx", "rtf", "icml", "idml"];
-  const READY_OUTPUT_FORMATS = new Set(["pdf", "epub", "latex", "md", "docx", "rtf"]);
-  const PENDING_OUTPUT_FORMATS = new Set(["icml", "idml"]);
+  const READY_OUTPUT_FORMATS = new Set(["pdf", "epub", "latex", "md", "docx", "rtf", "icml", "idml"]);
   const VALID_TABS = new Set(["aineistot", "kirja", "taitto"]);
   const MODULE = ["aineistot", "taitto"].includes(CONFIG.module) ? CONFIG.module : "all";
   const AVAILABLE_TABS = MODULE === "aineistot"
@@ -428,6 +427,8 @@
         md: ["layout_md", "text/markdown"],
         docx: ["layout_docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
         rtf: ["layout_rtf", "application/rtf"],
+        icml: ["layout_icml", "application/vnd.adobe.incopy-icml"],
+        idml: ["layout_idml", "application/vnd.adobe.indesign-idml-package"],
       };
       const generated = outputFormats.filter((value) => READY_OUTPUT_FORMATS.has(value)).map((value) => ({
         asset_type: demoTypes[value][0],
@@ -437,9 +438,7 @@
       }));
       return {
         assets: generated,
-        warnings: outputFormats.filter((value) => PENDING_OUTPUT_FORMATS.has(value)).map((value) =>
-          value.toUpperCase() + "-vienti on vielä kehitteillä."
-        ),
+        warnings: [],
       };
     }
     const activeId = requireProjectId();
@@ -931,7 +930,9 @@
                      layout_epub: ["EPUB", "EPUB-luonnos", ".epub"],
                      layout_md: ["MD", "Markdown-lähde", ".md"],
                      layout_docx: ["DOCX", "Muokattava DOCX-taittopohja", ".docx"],
-                     layout_rtf: ["RTF", "RTF-tekstilähde", ".rtf"] };
+                     layout_rtf: ["RTF", "RTF-tekstilähde", ".rtf"],
+                     layout_icml: ["ICML", "InCopy-tekstiaineisto", ".icml"],
+                     layout_idml: ["IDML", "InDesign-taittopohja", ".idml"] };
     const [icon, label, extension] = labels[asset.asset_type] || ["?", asset.asset_type, ".bin"];
     const card = document.createElement("div");
     card.className = "file-card";
@@ -955,7 +956,10 @@
     container.innerHTML = "";
     const usable = (items || []).filter(Boolean);
     $("layout-empty").hidden = usable.length > 0;
-    const order = ["layout_pdf", "layout_epub", "layout_latex", "layout_md", "layout_docx", "layout_rtf"];
+    const order = [
+      "layout_pdf", "layout_epub", "layout_latex", "layout_md", "layout_docx", "layout_rtf",
+      "layout_icml", "layout_idml"
+    ];
     usable.sort((a, b) => order.indexOf(a.asset_type) - order.indexOf(b.asset_type));
     for (const asset of usable) container.appendChild(fileCard(asset));
   }
@@ -984,7 +988,7 @@
         ? result.assets
         : [result.pdf, result.epub, result.latex].filter(Boolean);
       renderLayoutFiles(generated);
-      toast(generated.length ? "Valitut taittoaineistot ovat valmiit." : "Valittujen formaattien vienti on vielä kehitteillä.");
+      toast(generated.length ? "Valitut taittoaineistot ovat valmiit." : "Taittoaineistoja ei muodostunut.");
     } catch (error) {
       toast(error.message);
     } finally {

@@ -10949,7 +10949,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const safeTitle = (window.manuscriptData?.title || 'kasikirjoitus').toLowerCase().replace(/[^a-z0-9åäö]+/gi, '-').replace(/^-|-$/g, '') || 'kasikirjoitus';
         const extensions = {
             layout_pdf: 'pdf', layout_epub: 'epub', layout_latex: 'tex',
-            layout_md: 'md', layout_docx: 'docx', layout_rtf: 'rtf'
+            layout_md: 'md', layout_docx: 'docx', layout_rtf: 'rtf',
+            layout_icml: 'icml', layout_idml: 'idml'
         };
         return `${safeTitle}.${extensions[asset.asset_type] || 'bin'}`;
     }
@@ -10961,14 +10962,17 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             layout_latex: 'LaTeX-lähde',
             layout_md: 'Markdown-lähde',
             layout_docx: 'DOCX-taittopohja',
-            layout_rtf: 'RTF-tekstilähde'
+            layout_rtf: 'RTF-tekstilähde',
+            layout_icml: 'InCopy-tekstiaineisto',
+            layout_idml: 'InDesign-taittopohja'
         })[asset.asset_type] || 'Taittoaineisto';
     }
 
     function layoutAssetFormat(asset) {
         return ({
             layout_pdf: 'PDF', layout_epub: 'EPUB', layout_latex: 'LaTeX',
-            layout_md: 'MD', layout_docx: 'DOCX', layout_rtf: 'RTF'
+            layout_md: 'MD', layout_docx: 'DOCX', layout_rtf: 'RTF',
+            layout_icml: 'ICML', layout_idml: 'IDML'
         })[asset.asset_type] || 'tiedosto';
     }
 
