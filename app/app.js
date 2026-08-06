@@ -19885,6 +19885,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     async function importTranslationWorkspaceBilingual(event) {
         event.preventDefault();
         const file = document.getElementById('translation-workspace-import-file')?.files?.[0];
+        const revisionInfoFile = document.getElementById('translation-workspace-import-revision-info-file')?.files?.[0];
         const status = document.getElementById('translation-workspace-import-status');
         const button = document.getElementById('translation-workspace-import-btn');
         if (!file) {
@@ -19893,6 +19894,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
         const form = new FormData();
         form.append('file', file);
+        if (revisionInfoFile) form.append('revision_info_file', revisionInfoFile);
         const projectId = document.getElementById('translation-workspace-import-project')?.value || '';
         if (projectId) form.append('project_id', projectId);
         form.append('project_title', document.getElementById('translation-workspace-import-title')?.value || '');
@@ -19918,7 +19920,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             renderTranslationWorkspaceReview();
             showTranslationWorkspacePanel('translation-workspace-review-panel');
             if (status) {
-                status.textContent = `${data.segments_count} segmenttiä tuotiin projektiin ${data.project.title}.`;
+                status.textContent = `${data.segments_count} segmenttiä tuotiin projektiin ${data.project.title}.${revisionInfoFile ? ' Revision info liitettiin tarkastusavuksi.' : ''}`;
             }
         } catch (err) {
             if (status) status.textContent = networkFailureMessage(err);

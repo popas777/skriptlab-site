@@ -3612,7 +3612,7 @@
                 <section id="translation-workspace-review-panel" class="translation-workspace-panel hidden">
                     <details class="card glass-panel translation-workspace-import" open>
                         <summary>Tuo rinnakkainen käsikirjoitus tarkastettavaksi</summary>
-                        <p class="card-meta">Valitse paikallisen kääntäjän <strong>bilingual_manuscript.md</strong>. Voit liittää sen tyhjään projektiin tai antaa tuonnin luoda uuden projektin.</p>
+                        <p class="card-meta">Valitse paikallisen kääntäjän <strong>bilingual_manuscript.md</strong>. Voit liittää mukaan valinnaisen <strong>revising_info.md</strong>- tai <strong>revision_info.md</strong>-tiedoston tarkastuksen lisäkontekstiksi.</p>
                         <form id="translation-workspace-import-form">
                             <div class="translation-workspace-import-grid">
                                 <div class="settings-row">
@@ -3657,8 +3657,12 @@
                                     </select>
                                 </div>
                                 <div class="settings-row translation-workspace-file-input">
-                                    <label for="translation-workspace-import-file">Markdown-tiedosto</label>
+                                    <label for="translation-workspace-import-file">Bilingual manuscript</label>
                                     <input id="translation-workspace-import-file" type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" required>
+                                </div>
+                                <div class="settings-row translation-workspace-file-input">
+                                    <label for="translation-workspace-import-revision-info-file">Revision info <span class="card-meta">(valinnainen)</span></label>
+                                    <input id="translation-workspace-import-revision-info-file" type="file" accept=".md,.markdown,.txt,text/markdown,text/plain">
                                 </div>
                             </div>
                             <div class="translation-workspace-actions">
@@ -3775,6 +3779,6 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=154"></script>
+    <script src="app.js?v=155"></script>
 </body>
 </html>
