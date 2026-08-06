@@ -337,7 +337,11 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
     let currentViewId = defaultViewForUser();
     let workflowRunning = false;
-    let workflowSteps = [];
+    let workflowStudio = null;
+    let workflowLatestTranslation = null;
+    let workflowPlanSaveTimer = null;
+    let workflowRunSaveTimer = null;
+    let workflowResumeScheduledKey = '';
     let projectVersions = [];
     let loadedVersionsProjectId = null;
     let activeProjectVersionNumber = 0;
@@ -4656,6 +4660,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const demoNavConfig = [
             ['view-kirjani', 'Yleiskuva'],
             ['view-analyysi', 'Analyysi ja projektimuisti'],
+            ['view-ai-tyonkulku', 'Työnkulkustudio'],
             ['view-kehityseditointi', 'Kehityspalaute'],
             ['view-kirjoita-editoi', 'Työpöytäeditori'],
             ['view-oikoluku', 'Oikoluku ja viimeistely'],
@@ -4833,6 +4838,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         if (viewId === 'view-suomentaja') {
             void resumeTranslationReviewBatchJob('finnish');
+        }
+        if (viewId === 'view-ai-tyonkulku') {
+            renderWorkflowView();
+            workflowStudio?.refreshEstimates?.(false).catch(error => {
+                console.warn('Työnkulun arviota ei saatu päivitettyä.', error);
+            });
         }
         updateHelpAgentContext();
     }
@@ -9383,7 +9394,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
     }
 
-    async function generateProductInfo() {
+    async function generateProductInfo(options = {}) {
         if (!window.manuscriptData) {
             setProductStatus('Valitse käsikirjoitus ensin.', true);
             return null;
@@ -9408,7 +9419,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             const res = await apiFetch('/api/product-info/generate', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ project_id: window.manuscriptData.id })
+                body: JSON.stringify({
+                    project_id: window.manuscriptData.id,
+                    model: typeof options?.model === 'string' ? options.model : null
+                })
             });
             const data = await res.json().catch(() => null);
             if (!res.ok) throw new Error(data?.detail || 'Tuotetietojen generointi epäonnistui.');
@@ -9746,7 +9760,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
     }
 
-    async function generateMarketingMaterials() {
+    async function generateMarketingMaterials(options = {}) {
         if (!window.manuscriptData) {
             setMarketingStatus('Valitse käsikirjoitus ensin.', true);
             return;
@@ -9781,7 +9795,11 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             const res = await apiFetch('/api/marketing/materials', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ project_id: window.manuscriptData.id, campaign_goal: campaignGoal })
+                body: JSON.stringify({
+                    project_id: window.manuscriptData.id,
+                    model: typeof options?.model === 'string' ? options.model : null,
+                    campaign_goal: campaignGoal
+                })
             });
             const data = await res.json().catch(() => null);
             if (!res.ok) throw new Error(data?.detail || 'Markkinointiaineistojen luonti epäonnistui.');
@@ -12769,7 +12787,7 @@ Säännöt:
 ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userInstruction, 1800)}` : ''}`;
     }
 
-    async function extractKnowledgeSuggestions() {
+    async function extractKnowledgeSuggestions(options = {}) {
         if (!window.manuscriptData?.chapters?.length) {
             setKnowledgeStatus('Valitse tekstillinen käsikirjoitus ensin.', true);
             return;
@@ -12837,6 +12855,7 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
                 );
                 const payload = await requestLongEdit({
                         purpose: 'development_editing',
+                        model: typeof options?.model === 'string' ? options.model : undefined,
                         temperature: 0.1,
                         max_output_tokens: 2200,
                         prompt: checkedInput.prompt,
@@ -13800,7 +13819,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         syncMultiCallRunControls('development_feedback');
     }
 
-    async function requestDevelopmentEdit({ text, prompt, temperature, maxOutputTokens, retryLabel }, run) {
+    async function requestDevelopmentEdit({ text, prompt, temperature, maxOutputTokens, retryLabel, model }, run) {
         const checkedInput = checkedLongEditInput(text, prompt, retryLabel || 'Kehityseditoinnin mallipyyntö');
         let lastError = null;
         for (let attempt = 1; attempt <= DEVELOPMENT_REQUEST_ATTEMPTS; attempt += 1) {
@@ -13809,6 +13828,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 const payload = await requestLongEdit({
                         text: checkedInput.text,
                         purpose: 'development_editing',
+                        model: model || null,
                         temperature,
                         max_output_tokens: maxOutputTokens,
                         prompt: checkedInput.prompt
@@ -13859,7 +13879,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         return dev;
     }
 
-    async function runDevelopmentEditing() {
+    async function runDevelopmentEditing(options = {}) {
         if (!window.manuscriptData?.chapters?.length) {
             setDevelopmentStatus('Valitse tekstillinen käsikirjoitus ensin.', true);
             return;
@@ -13945,6 +13965,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                             temperature: 0.2,
                             maxOutputTokens: 1400,
                             prompt: buildDevelopmentChunkPrompt(index, chunks.length),
+                            model: options.model || null,
                             retryLabel: `Osan ${index + 1}/${chunks.length} käsittely`
                         }, run);
                         return { index, report, error: null };
@@ -14008,6 +14029,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     temperature: 0.25,
                     maxOutputTokens: 3200,
                     prompt: buildDevelopmentFeedbackPrompt(),
+                    model: options.model || null,
                     retryLabel: 'Loppuraportin yhdistäminen'
                 }, run);
             } catch (error) {
@@ -14220,92 +14242,64 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         URL.revokeObjectURL(url);
     }
 
-    function defaultWorkflowSteps(mode = 'light') {
-        const steps = [
-            { id: 'analysis', title: 'Analyysi', detail: 'Muodostetaan kokonaiskuva, tyyli, synopsis ja metatiedot.', status: 'pending' },
-            { id: 'structure', title: 'Kirjan osiot', detail: 'Tarkistetaan ja tallennetaan etusivut, päätekstin osiot ja lopputekstit.', status: 'pending' },
-            { id: 'misc', title: 'Oheisaineistot', detail: 'Luodaan nimiölehti, copysivu, sisällysluettelo ja tarvittavat hakemistot.', status: 'pending' },
-            { id: 'layout', title: 'Taitto ja e-kirja', detail: 'Luodaan PDF-taittovedos, LaTeX-lähde ja EPUB-luonnos.', status: 'pending' }
-        ];
-        if (mode === 'heavy') {
-            steps.splice(2, 0,
-                { id: 'edit', title: 'Editointi luvuittain', detail: 'Käydään luvut läpi ja sujuvoitetaan teksti varovaisesti.', status: 'pending' },
-                { id: 'proofread', title: 'Oikoluku ja viimeistely luvuittain', detail: 'Haetaan selkeät virheet ja hyväksytään suorat korjaukset.', status: 'pending' },
-                { id: 'product', title: 'Tuotetiedot', detail: 'Päätellään kohderyhmä, luokitukset, kuvaukset ja ONIX-kooste.', status: 'pending' },
-                { id: 'marketing', title: 'Markkinointiaineistot', detail: 'Luodaan lyhyt ja pitkä kuvaus, some-tekstit, videokäsikirjoitus ja hashtagit.', status: 'pending' },
-                { id: 'covers', title: 'Kansi ja grafiikka', detail: 'Luodaan kannet, kuvaehdotukset ja infografiikat projektitiedon pohjalta.', status: 'pending' }
-            );
-            steps.push({ id: 'audio', title: 'Audiotuotanto', detail: 'Äänikirjan tuotanto on työnkulun viimeinen vaihe ja edellyttää äänen valintaa.', status: 'pending' });
-        }
-        return steps;
-    }
-
-    function renderWorkflowSteps() {
-        const container = document.getElementById('workflow-steps');
-        if (!container) return;
-        container.innerHTML = workflowSteps.map((step, index) => {
-            const icon = step.status === 'done' ? '✓' : step.status === 'error' ? '!' : step.status === 'running' ? '…' : String(index + 1);
-            return `
-                <div class="workflow-step ${escapeHtml(step.status || 'pending')}">
-                    <div class="workflow-step-icon">${escapeHtml(icon)}</div>
-                    <div>
-                        <strong>${escapeHtml(step.title)}</strong>
-                        <p>${escapeHtml(step.detail || '')}</p>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-
     function setWorkflowStep(id, status, detail) {
-        const step = workflowSteps.find(item => item.id === id);
-        if (!step) return;
-        step.status = status;
-        if (detail) step.detail = detail;
-        renderWorkflowSteps();
+        workflowStudio?.setStepStatus(id, status, detail);
     }
 
     function setWorkflowStatus(message, isError = false) {
-        const status = document.getElementById('workflow-status');
-        if (!status) return;
-        status.textContent = message;
-        status.style.color = isError ? '#ffb4b4' : 'var(--text-secondary)';
+        workflowStudio?.setStatus(message, isError);
     }
 
     function renderWorkflowView() {
-        const mode = document.getElementById('workflow-mode')?.value || 'light';
+        workflowStudio?.render();
+    }
+
+    function persistWorkflowPlan(plan) {
         const project = window.manuscriptData;
-        const current = document.getElementById('workflow-current-project');
-        const desc = document.getElementById('workflow-mode-description');
-        const startButton = document.getElementById('workflow-start-btn');
-        const chapterCount = document.getElementById('workflow-chapter-count');
-        const charCount = document.getElementById('workflow-char-count');
-        const estimate = document.getElementById('workflow-estimate');
-        const bodyCount = bodyChapterEntries().length;
-        const chars = getFullManuscriptText(project).length;
-        const heavyLocked = currentUser?.role === 'kirjailija' && mode === 'heavy';
-        if (!workflowSteps.length) workflowSteps = defaultWorkflowSteps(mode);
-        if (current) current.textContent = project ? `Käsikirjoitus: ${project.title || 'Nimetön'}` : 'Valitse käsikirjoitus ja käynnistä koko tuotantopolku yhdellä napilla.';
-        if (desc) {
-            desc.textContent = heavyLocked
-                ? 'Raskas versio kuuluu laajempaan tilaukseen. Kirjailijan perusnäkymässä käytössä on kevyt työnkulku.'
-                : mode === 'heavy'
-                ? 'Raskas versio analysoi, editoi ja oikolukee luvut, luo tuotetiedot, markkinointiaineistot, oheisaineistot, kannet, taittotiedostot, EPUB-luonnoksen ja lisää audion valmisteluvaiheeksi.'
-                : 'Kevyt versio analysoi tekstin, tarkistaa luvutuksen, tekee oheisaineistot ja ajaa taiton.';
-        }
-        if (chapterCount) chapterCount.textContent = formatNumber(bodyCount || (project?.chapters || []).length);
-        if (charCount) charCount.textContent = formatNumber(chars);
-        if (estimate) estimate.textContent = mode === 'heavy'
-            ? `${Math.max(8, bodyCount * 2)}+ min`
-            : `${Math.max(3, Math.ceil(chars / 180000))}+ min`;
-        if (startButton && !workflowRunning) {
-            startButton.disabled = heavyLocked;
-            startButton.textContent = heavyLocked ? 'Päivitä tilauksesi' : 'Käynnistä työnkulku';
-        }
-        if (heavyLocked) setWorkflowStatus('Päivitä tilauksesi', true);
-        else if (!project) setWorkflowStatus('Valitse käsikirjoitus ensin.');
-        else if (!workflowRunning) setWorkflowStatus('Valmis käynnistämään työnkulku.');
-        renderWorkflowSteps();
+        if (!project || !plan || typeof plan !== 'object') return;
+        const snapshot = {
+            version: 2,
+            template_id: plan.templateId || plan.template_id || 'custom',
+            customized: Boolean(plan.customized),
+            modules: Array.isArray(plan.modules) ? plan.modules.map(module => ({
+                id: module.id,
+                execution_mode: module.executionMode || module.execution_mode || module.execution || 'direct',
+                run_mode_override: Boolean(module.runModeOverride || module.run_mode_override),
+                model: module.model || module.modelOverride || '',
+                status: module.status || 'pending',
+                detail: module.detail || ''
+            })) : [],
+            settings: plan.settings && typeof plan.settings === 'object' ? { ...plan.settings } : {},
+            updated_at: plan.updatedAt || plan.updated_at || new Date().toISOString()
+        };
+        const analysis = project.analysis && typeof project.analysis === 'object' ? project.analysis : {};
+        project.analysis = { ...analysis, workflow_config: snapshot };
+        localStorage.setItem('skriptlab_manuscript', JSON.stringify(project));
+        window.clearTimeout(workflowPlanSaveTimer);
+        if (!project.id) return;
+        workflowPlanSaveTimer = window.setTimeout(async () => {
+            try {
+                const response = await apiFetch(`/api/projects/${project.id}/metadata`, {
+                    method: 'PATCH',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ analysis: { workflow_config: snapshot } })
+                });
+                const saved = await response.json().catch(() => null);
+                if (response.ok && saved?.id && String(window.manuscriptData?.id || '') === String(saved.id)) {
+                    const currentConfig = window.manuscriptData?.analysis?.workflow_config;
+                    window.manuscriptData = saved;
+                    if (currentConfig) {
+                        window.manuscriptData.analysis = {
+                            ...(window.manuscriptData.analysis || {}),
+                            workflow_config: currentConfig
+                        };
+                    }
+                    updateAvailableProject(window.manuscriptData);
+                }
+            } catch (error) {
+                console.warn('Työnkulkusuunnitelman palvelintallennus epäonnistui.', error);
+            }
+        }, 500);
     }
 
     async function ensureWorkflowProject() {
@@ -14319,12 +14313,15 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         return window.manuscriptData;
     }
 
-    async function runWorkflowAnalysis() {
+    async function runWorkflowAnalysis(options = {}) {
         setWorkflowStep('analysis', 'running', 'Analyysi käynnistyy taustatyönä.');
         const startRes = await apiFetch('/api/analyze/jobs', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ project_id: window.manuscriptData.id })
+            body: JSON.stringify({
+                project_id: window.manuscriptData.id,
+                model: options.model || null
+            })
         });
         const startedJob = await startRes.json().catch(() => null);
         if (!startRes.ok) throw new Error(startedJob?.detail || 'Analyysin käynnistys epäonnistui.');
@@ -14347,10 +14344,13 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         setWorkflowStep('structure', 'done', `${window.manuscriptData.chapters.length} osaa tallennettu.`);
     }
 
-    async function runWorkflowEditChapters() {
+    async function runWorkflowEditChapters(options = {}) {
         const entries = bodyChapterEntries();
-        setWorkflowStep('edit', 'running', `Editoidaan ${entries.length} lukua.`);
-        if (entries.length) {
+        const checkpoint = workflowStepCheckpoint('edit');
+        const completedIndexes = new Set((checkpoint.completedChapterIndexes || []).map(Number));
+        const pendingEntries = entries.filter(entry => !completedIndexes.has(Number(entry.index)));
+        setWorkflowStep('edit', 'running', `Editoidaan ${pendingEntries.length}/${entries.length} käsittelemätöntä lukua.`);
+        if (pendingEntries.length && completedIndexes.size === 0) {
             await createProjectVersion({
                 label: 'Ennen tekoälyeditointia',
                 source: 'ai_edit',
@@ -14358,7 +14358,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             });
         }
         let edited = 0;
-        for (const { chapter, index } of entries) {
+        for (const { chapter, index } of pendingEntries) {
             const sourceText = (chapter.paragraphs || []).join('\n\n').trim();
             if (!sourceText) continue;
             if (sourceText.length > 60000) {
@@ -14373,6 +14373,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     body: JSON.stringify({
                         text: sourceText,
                         purpose: 'ai_workflow',
+                        model: options.model || null,
                         temperature: 0.25,
                         prompt: 'Editoi luku varovaisesti. Korjaa selvät kieli- ja rytmiongelmat, poista turhaa toistoa ja säilytä kirjailijan ääni. Säilytä kappalejako mahdollisimman hyvin. Palauta vain valmis luku.'
                     })
@@ -14390,6 +14391,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                         body: JSON.stringify({
                             text: paragraph,
                             purpose: 'ai_workflow',
+                            model: options.model || null,
                             temperature: 0.2,
                             prompt: 'Korjaa selvät kieli-, rytmi- ja toisto-ongelmat varovaisesti. Säilytä kirjailijan ääni. Palauta vain korjattu kappale.'
                         })
@@ -14400,16 +14402,21 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             }
             await window.saveProjectChapterToDB(window.manuscriptData, index);
             edited++;
+            completedIndexes.add(Number(index));
+            workflowStepCheckpointPatch('edit', { completedChapterIndexes: Array.from(completedIndexes).sort((a, b) => a - b) });
         }
         renderBookOverview();
         renderWritingView();
-        setWorkflowStep('edit', 'done', `${edited} lukua editoitu ja tallennettu.`);
+        setWorkflowStep('edit', 'done', `${completedIndexes.size}/${entries.length} lukua editoitu ja tallennettu.`);
     }
 
-    async function runWorkflowProofreadChapters() {
+    async function runWorkflowProofreadChapters(options = {}) {
         const entries = bodyChapterEntries();
-        setWorkflowStep('proofread', 'running', `Oikoluetaan ${entries.length} lukua.`);
-        if (entries.length) {
+        const checkpoint = workflowStepCheckpoint('proofread');
+        const completedIndexes = new Set((checkpoint.completedChapterIndexes || []).map(Number));
+        const pendingEntries = entries.filter(entry => !completedIndexes.has(Number(entry.index)));
+        setWorkflowStep('proofread', 'running', `Oikoluetaan ${pendingEntries.length}/${entries.length} käsittelemätöntä lukua.`);
+        if (pendingEntries.length && completedIndexes.size === 0) {
             await createProjectVersion({
                 label: 'Ennen automaattista oikolukua',
                 source: 'ai_proofread',
@@ -14418,13 +14425,17 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
         let applied = 0;
         const failed = [];
-        for (const { chapter, index } of entries) {
+        for (const { chapter, index } of pendingEntries) {
             setWorkflowStep('proofread', 'running', `${chapter.title}: oikoluku käynnissä.`);
             try {
                 const res = await apiFetch('/api/proofread/chapter', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ project_id: window.manuscriptData.id, chapter_index: index })
+                    body: JSON.stringify({
+                        project_id: window.manuscriptData.id,
+                        chapter_index: index,
+                        model: options.model || null
+                    })
                 });
                 const data = await res.json().catch(() => null);
                 if (!res.ok) throw new Error(data?.detail || 'Oikoluku epäonnistui.');
@@ -14432,6 +14443,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     if (applyProofreadSuggestionToChapter(chapter, suggestion)) applied++;
                 });
                 await window.saveProjectChapterToDB(window.manuscriptData, index);
+                completedIndexes.add(Number(index));
+                workflowStepCheckpointPatch('proofread', { completedChapterIndexes: Array.from(completedIndexes).sort((a, b) => a - b) });
             } catch (err) {
                 failed.push(chapter.title || `Luku ${index + 1}`);
             }
@@ -14440,15 +14453,18 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         renderWritingView();
         setWorkflowStep('proofread', failed.length ? 'error' : 'done', failed.length
             ? `${applied} korjausta hyväksytty. Epäonnistui: ${failed.join(', ')}.`
-            : `${applied} selkeää korjausta hyväksytty.`);
+            : `${completedIndexes.size}/${entries.length} lukua tarkistettu, ${applied} selkeää korjausta hyväksytty.`);
+        if (failed.length) throw new Error(`Oikoluku jäi kesken luvuissa: ${failed.join(', ')}.`);
     }
 
-    async function runWorkflowMisc(mode) {
-        const tools = mode === 'heavy'
+    async function runWorkflowMisc(options = {}) {
+        const tools = options.extended
             ? ['title_page', 'copyright_page', 'table_of_contents', 'character_index', 'place_index', 'subject_index', 'bibliography']
             : ['title_page', 'copyright_page', 'table_of_contents', 'character_index'];
-        setWorkflowStep('misc', 'running', `Luodaan ${tools.length} oheisaineistoa.`);
-        for (const tool of tools) {
+        const completedTools = new Set(workflowStepCheckpoint('misc').completedTools || []);
+        const pendingTools = tools.filter(tool => !completedTools.has(tool));
+        setWorkflowStep('misc', 'running', `Luodaan ${pendingTools.length}/${tools.length} puuttuvaa oheisaineistoa.`);
+        for (const tool of pendingTools) {
             const title = miscToolLabel(tool);
             setWorkflowStep('misc', 'running', `${title} työn alla.`);
             const res = await apiFetch('/api/misc-tools/run', {
@@ -14459,7 +14475,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     tool,
                     title: window.manuscriptData.title || '',
                     author: window.manuscriptData.author || '',
-                    chapters: window.manuscriptData.chapters || []
+                    chapters: window.manuscriptData.chapters || [],
+                    model: options.model || null
                 })
             });
             const data = await res.json().catch(() => null);
@@ -14476,20 +14493,26 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             });
             const saved = await saveRes.json().catch(() => null);
             if (!saveRes.ok) throw new Error(saved?.detail || `${title} tallennus epäonnistui.`);
+            completedTools.add(tool);
+            workflowStepCheckpointPatch('misc', { completedTools: Array.from(completedTools) });
         }
         await loadMiscAssetsForActiveProject(true);
-        setWorkflowStep('misc', 'done', 'Oheisaineistot luotu ja lisätty valmiiseen kirjaan.');
+        setWorkflowStep('misc', 'done', `${completedTools.size}/${tools.length} oheisaineistoa luotu ja lisätty valmiiseen kirjaan.`);
     }
 
-    async function runWorkflowCovers() {
-        setWorkflowStep('covers', 'running', 'Luodaan etukansi ja takakansi.');
-        for (const side of ['front', 'back']) {
+    async function runWorkflowCovers(options = {}) {
+        const sides = ['front', 'back'];
+        const completedSides = new Set(workflowStepCheckpoint('covers').completedSides || []);
+        const pendingSides = sides.filter(side => !completedSides.has(side));
+        setWorkflowStep('covers', 'running', `Luodaan ${pendingSides.length}/${sides.length} puuttuvaa kansikuvaa.`);
+        for (const side of pendingSides) {
             const prompt = side === 'back' ? analysisBackCoverText() : analysisCoverPrompt();
             const res = await apiFetch(`/api/projects/${window.manuscriptData.id}/cover-images`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                     prompt,
+                    model: options.model || null,
                     cover_side: side,
                     aspect_ratio: '9:16',
                     cover_format: 'portrait_1000x1500',
@@ -14499,21 +14522,23 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             });
             const data = await res.json().catch(() => null);
             if (!res.ok) throw new Error(data?.detail || `${side === 'back' ? 'Takakansi' : 'Kansikuva'} epäonnistui.`);
+            completedSides.add(side);
+            workflowStepCheckpointPatch('covers', { completedSides: Array.from(completedSides) });
         }
         await loadCoverImages();
         setWorkflowStep('covers', 'done', 'Etukansi ja takakansi tallennettu kuvituksiin.');
     }
 
-    async function runWorkflowProductInfo() {
+    async function runWorkflowProductInfo(options = {}) {
         setWorkflowStep('product', 'running', 'Generoidaan tuotetietoja.');
-        const data = await generateProductInfo();
+        const data = await generateProductInfo(options);
         if (!data) throw new Error('Tuotetietoja ei saatu generoitua.');
         setWorkflowStep('product', 'done', 'Tuotetiedot ja ONIX-kooste tallennettu.');
     }
 
-    async function runWorkflowMarketingMaterials() {
+    async function runWorkflowMarketingMaterials(options = {}) {
         setWorkflowStep('marketing', 'running', 'Luodaan markkinointiaineistoja.');
-        const data = await generateMarketingMaterials();
+        const data = await generateMarketingMaterials(options);
         if (!data) throw new Error('Markkinointiaineistoja ei saatu generoitua.');
         setWorkflowStep('marketing', 'done', 'Markkinointiaineistot luotu ja tallennettu analyysitietoihin.');
     }
@@ -14537,10 +14562,727 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         setWorkflowStep('layout', 'done', 'PDF-taittovedos, LaTeX-lähde ja EPUB-luonnos tallennettu.');
     }
 
-    function runWorkflowAudioPlaceholder() {
-        setWorkflowStep('audio', 'running', 'Audiotuotanto valmistellaan viimeiseksi tuotantovaiheeksi.');
-        renderAudioView();
-        setWorkflowStep('audio', 'done', 'Valitse Audiotuotannossa malli ja ääni, tarkista arviot ja käynnistä koko kirjan tuotanto.');
+    function workflowModuleExecutionMode(module) {
+        const value = module?.executionMode || module?.execution_mode || module?.execution || 'direct';
+        return value === 'batch' ? 'batch' : 'direct';
+    }
+
+    function workflowSetting(plan, ...keys) {
+        const settings = plan?.settings && typeof plan.settings === 'object' ? plan.settings : {};
+        for (const key of keys) {
+            if (settings[key] !== undefined && settings[key] !== null && settings[key] !== '') return settings[key];
+        }
+        return '';
+    }
+
+    function workflowModuleModel(module, plan) {
+        if (module?.resolvedModel || module?.resolved_model) return module.resolvedModel || module.resolved_model;
+        if (module?.model) return module.model;
+        if (['translation', 'translation_review'].includes(module?.id)) {
+            return workflowSetting(plan, 'translationModel', 'translation_model');
+        }
+        if (module?.id === 'covers') return workflowSetting(plan, 'imageModel', 'image_model');
+        if (module?.id === 'audio') return workflowSetting(plan, 'audioModel', 'audio_model');
+        return workflowSetting(plan, 'textModel', 'text_model');
+    }
+
+    function workflowRunStatePatch(patch = {}) {
+        if (!workflowStudio) return {};
+        const current = workflowStudio.getRunState?.() || {};
+        const next = { ...current, ...patch, updatedAt: new Date().toISOString() };
+        workflowStudio.setRunState?.(next);
+        const project = window.manuscriptData;
+        if (project) {
+            const analysis = project.analysis && typeof project.analysis === 'object' ? project.analysis : {};
+            project.analysis = { ...analysis, workflow_run_state: next };
+            localStorage.setItem('skriptlab_manuscript', JSON.stringify(project));
+            window.clearTimeout(workflowRunSaveTimer);
+            if (project.id) {
+                workflowRunSaveTimer = window.setTimeout(() => {
+                    persistWorkflowRunStateNow(next, project.id).catch(error => {
+                        console.warn('Työnkulun ajotilaa ei saatu synkronoitua palvelimelle.', error);
+                    });
+                }, 350);
+            }
+        }
+        return next;
+    }
+
+    async function persistWorkflowRunStateNow(state = workflowStudio?.getRunState?.(), projectId = window.manuscriptData?.id) {
+        if (!projectId || !state || typeof state !== 'object') return state;
+        window.clearTimeout(workflowRunSaveTimer);
+        const response = await apiFetch(`/api/projects/${projectId}/metadata`, {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ analysis: { workflow_run_state: state } })
+        });
+        if (!response.ok) throw new Error('Työnkulun ajotilan tallennus epäonnistui.');
+        return state;
+    }
+
+    function workflowStepCheckpoint(stepId) {
+        const checkpoints = workflowStudio?.getRunState?.()?.checkpoints;
+        const checkpoint = checkpoints && typeof checkpoints === 'object' ? checkpoints[stepId] : null;
+        return checkpoint && typeof checkpoint === 'object' ? checkpoint : {};
+    }
+
+    function workflowStepCheckpointPatch(stepId, patch = {}) {
+        const runState = workflowStudio?.getRunState?.() || {};
+        const checkpoints = runState.checkpoints && typeof runState.checkpoints === 'object'
+            ? runState.checkpoints
+            : {};
+        const current = checkpoints[stepId] && typeof checkpoints[stepId] === 'object'
+            ? checkpoints[stepId]
+            : {};
+        return workflowRunStatePatch({
+            checkpoints: {
+                ...checkpoints,
+                [stepId]: { ...current, ...patch, updatedAt: new Date().toISOString() }
+            }
+        });
+    }
+
+    function workflowLaunchIntent(stepId) {
+        const intents = workflowStudio?.getRunState?.()?.launchIntents;
+        const intent = intents && typeof intents === 'object' ? intents[stepId] : null;
+        return intent && typeof intent === 'object' ? intent : null;
+    }
+
+    function workflowLaunchIntentPatch(stepId, intent) {
+        const runState = workflowStudio?.getRunState?.() || {};
+        const intents = runState.launchIntents && typeof runState.launchIntents === 'object'
+            ? { ...runState.launchIntents }
+            : {};
+        if (intent && typeof intent === 'object') intents[stepId] = intent;
+        else delete intents[stepId];
+        return workflowRunStatePatch({ launchIntents: intents });
+    }
+
+    function workflowLaunchKey(stepId, values = []) {
+        return JSON.stringify([stepId, ...values.map(value => (
+            value === null || value === undefined ? '' : value
+        ))]);
+    }
+
+    function workflowIntentBelongsToCurrentRun(intent, stepId, launchKey) {
+        if (!intent || intent.stepId !== stepId || intent.launchKey !== launchKey) return false;
+        const runState = workflowStudio?.getRunState?.() || {};
+        return String(intent.projectId || '') === String(window.manuscriptData?.id || '')
+            && String(intent.workflowStartedAt || '') === String(runState.startedAt || '');
+    }
+
+    function workflowTimestamp(value) {
+        const text = String(value || '').trim();
+        if (!text) return NaN;
+        const hasTimezone = /(?:z|[+-]\d{2}:?\d{2})$/i.test(text);
+        return Date.parse(hasTimezone ? text : `${text}Z`);
+    }
+
+    function workflowRecordIsFromIntent(record, intent) {
+        const recordTimestamp = workflowTimestamp(record?.created_at || record?.started_at);
+        const intentTimestamp = workflowTimestamp(intent?.createdAt);
+        if (!Number.isFinite(recordTimestamp) || !Number.isFinite(intentTimestamp)) return false;
+        // Palvelin aikaleimaa sekunnin tarkkuudella, selain millisekunneilla.
+        return recordTimestamp >= intentTimestamp - 5000;
+    }
+
+    async function persistWorkflowLaunchIntent(stepId, launchKey, details = {}) {
+        const runState = workflowStudio?.getRunState?.() || {};
+        const intent = {
+            stepId,
+            launchKey,
+            projectId: window.manuscriptData?.id || null,
+            workflowStartedAt: runState.startedAt || '',
+            createdAt: new Date().toISOString(),
+            ...details
+        };
+        workflowLaunchIntentPatch(stepId, intent);
+        await persistWorkflowRunStateNow();
+        return intent;
+    }
+
+    async function clearWorkflowLaunchIntent(stepId) {
+        workflowLaunchIntentPatch(stepId, null);
+        await persistWorkflowRunStateNow();
+    }
+
+    function syncWorkflowStudioProjectContext() {
+        if (!workflowStudio) return;
+        workflowStudio.render();
+        const localRunState = workflowStudio.getRunState?.() || {};
+        const serverRunState = window.manuscriptData?.analysis?.workflow_run_state;
+        if (
+            serverRunState
+            && typeof serverRunState === 'object'
+            && (!localRunState.updatedAt || String(serverRunState.updatedAt || '') > String(localRunState.updatedAt || ''))
+        ) {
+            workflowStudio.setRunState(serverRunState);
+        }
+        const resumableRun = workflowStudio.getRunState?.() || {};
+        const projectId = String(window.manuscriptData?.id || '');
+        const resumable = ['running', 'queued'].includes(resumableRun.status)
+            && projectId
+            && String(resumableRun.projectId || '') === projectId;
+        if (!resumable || workflowRunning) return;
+        const resumeKey = [projectId, resumableRun.startedAt || '', resumableRun.currentIndex || 0].join(':');
+        if (workflowResumeScheduledKey === resumeKey) return;
+        workflowResumeScheduledKey = resumeKey;
+        setWorkflowStatus('Palautetaan aiemmin käynnistettyä työnkulkua ja sen taustatöitä.');
+        window.setTimeout(() => {
+            workflowResumeScheduledKey = '';
+            if (String(window.manuscriptData?.id || '') !== projectId || workflowRunning) return;
+            const resumePlan = resumableRun.planSnapshot?.modules?.length
+                ? resumableRun.planSnapshot
+                : workflowStudio.getPlan();
+            runAiWorkflow(resumePlan, workflowStudio);
+        }, 0);
+    }
+
+    function workflowActiveJobFor(stepId) {
+        const activeJob = workflowStudio?.getRunState?.()?.activeJob;
+        return activeJob?.stepId === stepId ? activeJob : null;
+    }
+
+    function workflowLanguageInstruction(plan) {
+        const source = workflowSetting(plan, 'sourceLanguage', 'source_language') || 'auto';
+        const target = workflowSetting(plan, 'targetLanguage', 'target_language') || 'en';
+        const sourceLabel = source === 'auto' ? 'tunnista automaattisesti' : translationLanguageLabel(source);
+        return {
+            source,
+            target,
+            text: `Lähtökieli: ${sourceLabel}.\nKohdekieli: ${translationLanguageLabel(target)}.`
+        };
+    }
+
+    async function runWorkflowProjectMemory(options = {}) {
+        setWorkflowStep('project_memory', 'running', 'Projektimuistia tarkennetaan käsikirjoituksesta.');
+        await extractKnowledgeSuggestions(options);
+        await loadKnowledgeWorkspace(false).catch(() => null);
+        const count = projectKnowledgeItems.length;
+        if (!count) throw new Error('Projektimuistiin ei saatu tallennettua tietokortteja.');
+        setWorkflowStep('project_memory', 'done', `${count} tietokorttia on myöhempien vaiheiden käytössä.`);
+    }
+
+    async function runWorkflowDevelopmentFeedback(options = {}) {
+        setWorkflowStep('development_feedback', 'running', 'Kehityspalautetta muodostetaan osissa.');
+        await runDevelopmentEditing(options);
+        const report = window.manuscriptData?.analysis?.development_editing?.feedback_report || '';
+        if (!report) throw new Error('Kehityspalautetta ei saatu valmiiksi. Voit jatkaa Kehityspalaute-näkymässä.');
+        setWorkflowStep('development_feedback', 'done', 'Kehityspalaute ja korjaussuunnitelma tallennettu.');
+    }
+
+    function workflowTranslationLaunchKey(payload) {
+        return workflowLaunchKey('translation', [
+            Number(payload.project_id || 0),
+            payload.source_kind || '',
+            payload.source_language || '',
+            payload.target_language || '',
+            payload.style || '',
+            String(payload.model || '').toLowerCase(),
+            Number(payload.chunk_words || 0),
+            payload.instructions || '',
+            payload.execution_mode || 'interactive'
+        ]);
+    }
+
+    function workflowTranslationMatchesIntent(item, payload, intent) {
+        if (!item || !workflowRecordIsFromIntent(item, intent)) return false;
+        const expectedModel = String(payload.model || '').toLowerCase();
+        return String(item.project_id || '') === String(payload.project_id || '')
+            && String(item.source_kind || '') === String(payload.source_kind || '')
+            && String(item.target_language || '') === String(payload.target_language || '')
+            && String(item.style || '') === String(payload.style || '')
+            && Number(item.chunk_words || 0) === Number(payload.chunk_words || 0)
+            && (!expectedModel || String(item.model || '').toLowerCase() === expectedModel)
+            && ['completed', 'partial'].includes(String(item.status || '').toLowerCase());
+    }
+
+    async function recoverWorkflowTranslationLaunch(intent, payload, launchKey) {
+        if (!workflowIntentBelongsToCurrentRun(intent, 'translation', launchKey)) {
+            throw new Error('Aiempi käännöksen käynnistysyritys ei vastaa tämän työnkulun asetuksia. Uutta työtä ei käynnistetty.');
+        }
+        const historyResponse = await apiFetch(`/api/projects/${encodeURIComponent(payload.project_id)}/translations`);
+        const history = await historyResponse.json().catch(() => null);
+        if (!historyResponse.ok) throw new Error(history?.detail || 'Käännöksen valmistumista ei voitu tarkistaa ennen jatkamista.');
+        const translation = (Array.isArray(history) ? history : [])
+            .find(item => workflowTranslationMatchesIntent(item, payload, intent));
+        if (translation) return { translation };
+        if (payload.execution_mode === 'batch') {
+            const activeResponse = await apiFetch(`/api/translations/jobs/active?project_id=${encodeURIComponent(payload.project_id)}`);
+            const active = await activeResponse.json().catch(() => null);
+            if (!activeResponse.ok) throw new Error(active?.detail || 'Aktiivisen käännöseräajon tarkistus epäonnistui.');
+            if (active?.job_id) {
+                const belongsToAttempt = String(active.project_id || '') === String(payload.project_id || '')
+                    && active.execution_mode === 'batch'
+                    && workflowRecordIsFromIntent(active, intent);
+                if (!belongsToAttempt) {
+                    throw new Error('Projektissa on toinen aktiivinen käännöseräajo. Sitä ei liitetä tähän työnkulkuun.');
+                }
+                // Aktiivisen työn vastaus ei sisällä mallia, kieliä eikä chunk-asetuksia.
+                // Siksi työtä ei liitetä ennen kuin valmistunut tulos voidaan tarkistaa historiasta.
+                return { pendingActive: true };
+            }
+        }
+        return {};
+    }
+
+    async function runWorkflowTranslation(module, plan) {
+        const language = workflowLanguageInstruction(plan);
+        const executionMode = workflowModuleExecutionMode(module) === 'batch' ? 'batch' : 'interactive';
+        const payload = {
+            project_id: window.manuscriptData.id,
+            source_kind: 'manuscript',
+            source_language: language.source,
+            target_language: language.target,
+            style: language.target === 'fi' ? 'fi_author_modern' : 'faithful',
+            model: workflowModuleModel(module, plan) || null,
+            chunk_words: Number(workflowSetting(plan, 'chunkWords', 'chunk_words') || 2000),
+            instructions: language.text,
+            execution_mode: executionMode
+        };
+        const launchKey = workflowTranslationLaunchKey(payload);
+        let job = workflowActiveJobFor('translation');
+        let data = null;
+        if (job?.jobId) {
+            if ((job.launchKey && job.launchKey !== launchKey)
+                || (job.projectId && String(job.projectId) !== String(payload.project_id))
+                || (job.executionMode && job.executionMode !== executionMode)) {
+                throw new Error('Tallennettu aktiivinen käännöstyö ei vastaa tämän työnkulun mallia tai asetuksia.');
+            }
+        } else {
+            setWorkflowStep('translation', 'running', executionMode === 'batch'
+                ? 'Valmistellaan käännöksen edullista 24 tunnin eräajoa.'
+                : 'Käännöstä valmistellaan ja jaetaan käsittelyosiin.');
+            let intent = workflowLaunchIntent('translation');
+            if (intent) {
+                const recovered = await recoverWorkflowTranslationLaunch(intent, payload, launchKey);
+                job = recovered.job || null;
+                data = recovered.translation || null;
+                if (!job && !data) {
+                    throw new Error(executionMode === 'batch'
+                        ? 'Aiemman käännöseräajon käynnistys jäi vahvistamatta. Uutta maksullista työtä ei käynnistetty; tarkista tila hetken kuluttua uudelleen.'
+                        : 'Aiemman suoran käännöksen käynnistys jäi vahvistamatta. Uutta maksullista työtä ei käynnistetty; odota työn valmistumista ja jatka sitten työnkulkua.');
+                }
+            } else {
+                intent = await persistWorkflowLaunchIntent('translation', launchKey, {
+                    executionMode,
+                    model: payload.model || '',
+                    sourceLanguage: payload.source_language,
+                    targetLanguage: payload.target_language,
+                    chunkWords: payload.chunk_words
+                });
+                let response;
+                try {
+                    response = await apiFetch('/api/translations/jobs', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(payload)
+                    });
+                } catch (error) {
+                    throw new Error(`Käännöstyön käynnistysvastetta ei saatu. Käynnistysyritys on tallennettu turvallista palautusta varten: ${networkFailureMessage(error)}`);
+                }
+                let started = await response.json().catch(() => null);
+                if (response.status === 409 && executionMode === 'batch') {
+                    await clearWorkflowLaunchIntent('translation').catch(() => null);
+                    throw new Error('Projektissa on jo aktiivinen käännöseräajo. Sen malli- ja kieliasetuksia ei voida vahvistaa, joten sitä ei liitetty tähän työnkulkuun.');
+                } else if (!response.ok) {
+                    if (response.status < 500) await clearWorkflowLaunchIntent('translation').catch(() => null);
+                    throw new Error(started?.detail || 'Käännös ei käynnistynyt.');
+                } else {
+                    if (!started?.job_id) throw new Error('Käännöstyö käynnistyi ilman työtunnistetta.');
+                    job = {
+                        stepId: 'translation',
+                        jobId: started.job_id,
+                        projectId: started.project_id || payload.project_id,
+                        executionMode: started.execution_mode || executionMode,
+                        targetCompletionAt: started.target_completion_at || null,
+                        launchKey
+                    };
+                }
+            }
+            if (job) {
+                workflowLaunchIntentPatch('translation', { ...intent, status: 'started', jobId: job.jobId });
+                workflowRunStatePatch({ activeJob: job });
+                await persistWorkflowRunStateNow();
+            }
+        }
+        if (!data) {
+            setWorkflowStep('translation', job.executionMode === 'batch' ? 'queued' : 'running', job.executionMode === 'batch'
+                ? `Käännös on eräajossa. Tavoitevalmistuminen ${job.targetCompletionAt ? new Date(job.targetCompletionAt).toLocaleString('fi-FI') : '24 tunnin kuluessa'}.`
+                : 'Käännös on käynnissä. Valmiit osat tallentuvat työn edetessä.');
+            setActiveTranslationJob('finnish', job.jobId);
+            try {
+                data = await pollTranslationJob(job.jobId, document.getElementById('workflow-status'), 'Käännös');
+            } finally {
+                setActiveTranslationJob('finnish', null, job.jobId);
+            }
+        }
+        if (!data?.id) throw new Error('Käännös valmistui ilman tallennettua tulosta.');
+        workflowLatestTranslation = data;
+        selectedFinnishTranslation = data;
+        workflowLaunchIntentPatch('translation', null);
+        workflowRunStatePatch({ activeJob: null, translationId: data.id });
+        const partial = String(data.status || '').toLowerCase() === 'partial' || Boolean(data.batch_job_error);
+        const detail = `${translationLanguageLabel(language.target)} · ${formatNumber(data.word_count || 0)} sanaa · ${data.chunks_count || 0} osaa tallennettu.`;
+        setWorkflowStep('translation', partial ? 'error' : 'done', detail);
+        renderFinnishTranslationHistory().catch(() => null);
+        if (partial) {
+            throw new Error(data.batch_job_error || data.warnings || `Käännös valmistui vain osittain. ${detail}`);
+        }
+        return data;
+    }
+
+    async function workflowTranslationForReview() {
+        if (workflowLatestTranslation?.id) return workflowLatestTranslation;
+        const translationId = workflowStudio?.getRunState?.()?.translationId;
+        if (!translationId) return null;
+        const data = await fetchSavedTranslation(translationId);
+        workflowLatestTranslation = data;
+        selectedFinnishTranslation = data;
+        return data;
+    }
+
+    function workflowTranslationReviewLaunchKey(translationId, model) {
+        return workflowLaunchKey('translation_review', [
+            Number(window.manuscriptData?.id || 0),
+            Number(translationId || 0),
+            String(model || '').toLowerCase(),
+            false,
+            'batch'
+        ]);
+    }
+
+    async function recoverWorkflowTranslationReviewLaunch(intent, translation, model, launchKey) {
+        if (!workflowIntentBelongsToCurrentRun(intent, 'translation_review', launchKey)
+            || Number(intent.translationId || 0) !== Number(translation.id || 0)) {
+            throw new Error('Aiempi käännöstarkastuksen käynnistysyritys ei vastaa tämän työnkulun käännöstä tai mallia.');
+        }
+        const activeResponse = await apiFetch(`/api/translations/${translation.id}/review-jobs/active`);
+        const active = await activeResponse.json().catch(() => null);
+        if (!activeResponse.ok) throw new Error(active?.detail || 'Aktiivisen tarkastuseräajon tarkistus epäonnistui.');
+        if (active?.job_id) {
+            const compatible = String(active.project_id || '') === String(window.manuscriptData?.id || '')
+                && active.execution_mode === 'batch'
+                && workflowRecordIsFromIntent(active, intent);
+            if (!compatible) {
+                throw new Error('Käännöksellä on toinen aktiivinen tarkastuseräajo, jota ei voida vahvistaa tämän työnkulun työksi.');
+            }
+            // Aktiivisen tarkastustyön vastaus ei sisällä pyydettyä mallia.
+            // Odota valmistumista ja varmista asetukset tallennetusta tuloksesta.
+            return { pendingActive: true };
+        }
+        const refreshed = await fetchSavedTranslation(translation.id);
+        const expectedModel = String(model || '').toLowerCase();
+        const chunks = translationChunkDetails(refreshed);
+        const recentMatchingChecks = chunks.filter(chunk => {
+            const check = chunk?.ai_check && typeof chunk.ai_check === 'object' ? chunk.ai_check : {};
+            const checkedAt = workflowTimestamp(check.checked_at);
+            const intentAt = workflowTimestamp(intent.createdAt);
+            return finnishTranslationAiCheckedText(chunk)
+                && check.execution_mode === 'batch'
+                && (!expectedModel || String(check.requested_model || check.model || '').toLowerCase() === expectedModel)
+                && Number.isFinite(checkedAt)
+                && Number.isFinite(intentAt)
+                && checkedAt >= intentAt - 5000;
+        });
+        const allReviewed = chunks.length > 0 && chunks.every(chunk => finnishTranslationAiCheckedText(chunk));
+        return allReviewed && recentMatchingChecks.length ? { translation: refreshed } : {};
+    }
+
+    async function runWorkflowTranslationReview(module, plan) {
+        let translation = await workflowTranslationForReview();
+        if (!translation?.id) throw new Error('Käännöksen tarkastus tarvitsee ensin valmiin käännöksen.');
+        const model = workflowModuleModel(module, plan) || null;
+        const batch = workflowModuleExecutionMode(module) === 'batch';
+        if (batch) {
+            const launchKey = workflowTranslationReviewLaunchKey(translation.id, model);
+            let job = workflowActiveJobFor('translation_review');
+            if (job?.jobId) {
+                if ((job.launchKey && job.launchKey !== launchKey)
+                    || (job.translationId && Number(job.translationId) !== Number(translation.id))
+                    || (job.executionMode && job.executionMode !== 'batch')) {
+                    throw new Error('Tallennettu aktiivinen käännöstarkastus ei vastaa tämän työnkulun käännöstä tai mallia.');
+                }
+            } else {
+                setWorkflowStep('translation_review', 'running', 'Valmistellaan tarkastuksen 24 tunnin eräajoa.');
+                let intent = workflowLaunchIntent('translation_review');
+                if (intent) {
+                    const recovered = await recoverWorkflowTranslationReviewLaunch(intent, translation, model, launchKey);
+                    job = recovered.job || null;
+                    if (recovered.translation) translation = recovered.translation;
+                    if (!job && !recovered.translation) {
+                        throw new Error('Aiemman tarkastuseräajon käynnistys jäi vahvistamatta. Uutta maksullista työtä ei käynnistetty.');
+                    }
+                } else {
+                    intent = await persistWorkflowLaunchIntent('translation_review', launchKey, {
+                        executionMode: 'batch',
+                        model: model || '',
+                        translationId: translation.id
+                    });
+                    let response;
+                    try {
+                        response = await apiFetch(`/api/translations/${translation.id}/review-jobs`, {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ model, repeat_reviewed: false })
+                        });
+                    } catch (error) {
+                        throw new Error(`Tarkastuseräajon käynnistysvastetta ei saatu. Käynnistysyritys on tallennettu palautusta varten: ${networkFailureMessage(error)}`);
+                    }
+                    const started = await response.json().catch(() => null);
+                    if (response.status === 409) {
+                        await clearWorkflowLaunchIntent('translation_review').catch(() => null);
+                        throw new Error('Käännöksellä on jo aktiivinen tarkastuseräajo. Sen mallia ei voida vahvistaa, joten sitä ei liitetty tähän työnkulkuun.');
+                    } else if (!response.ok || !started?.job_id) {
+                        if (response.status < 500) await clearWorkflowLaunchIntent('translation_review').catch(() => null);
+                        throw new Error(started?.detail || 'Käännöksen tarkastus ei käynnistynyt.');
+                    } else {
+                        job = {
+                            stepId: 'translation_review',
+                            jobId: started.job_id,
+                            projectId: started.project_id || window.manuscriptData.id,
+                            translationId: translation.id,
+                            executionMode: 'batch',
+                            targetCompletionAt: started.target_completion_at || null,
+                            launchKey
+                        };
+                    }
+                }
+                if (job) {
+                    workflowLaunchIntentPatch('translation_review', { ...intent, status: 'started', jobId: job.jobId });
+                    workflowRunStatePatch({ activeJob: job });
+                    await persistWorkflowRunStateNow();
+                }
+            }
+            if (job) {
+                setWorkflowStep('translation_review', 'queued', job.targetCompletionAt
+                    ? `AI-tarkastus on eräajossa. Tavoite ${new Date(job.targetCompletionAt).toLocaleString('fi-FI')}.`
+                    : 'AI-tarkastus on eräajossa. Tavoitevalmistuminen 24 tunnin kuluessa.');
+                translation = await pollTranslationJob(job.jobId, document.getElementById('workflow-status'), 'Käännöksen tarkastus');
+            }
+            workflowLaunchIntentPatch('translation_review', null);
+            workflowRunStatePatch({ activeJob: null, translationId: translation.id });
+            if (translation.batch_job_status === 'partial' || translation.batch_job_error) {
+                const partialMessage = translation.batch_job_error || 'Käännöksen tarkastuseräajo valmistui vain osittain.';
+                setWorkflowStep('translation_review', 'error', partialMessage);
+                throw new Error(partialMessage);
+            }
+        } else {
+            const chunks = translationChunkDetails(translation);
+            if (!chunks.length) throw new Error('Käännöksellä ei ole tarkastettavia osia.');
+            let completed = 0;
+            for (let index = 0; index < chunks.length; index += 1) {
+                setWorkflowStep('translation_review', 'running', `Tarkastetaan osa ${index + 1}/${chunks.length}.`);
+                const response = await apiFetch(`/api/translations/${translation.id}/chunks/${index}/check`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        model,
+                        current_translation: chunks[index].translation || '',
+                        save: true
+                    })
+                });
+                const data = await response.json().catch(() => null);
+                if (!response.ok) throw new Error(data?.detail || `Käännöksen osan ${index + 1} tarkastus epäonnistui.`);
+                completed += 1;
+            }
+            translation = await fetchSavedTranslation(translation.id);
+            workflowRunStatePatch({ translationId: translation.id });
+            setWorkflowStep('translation_review', 'done', `${completed}/${chunks.length} käännösosaa AI-tarkastettu.`);
+        }
+        workflowLatestTranslation = translation;
+        selectedFinnishTranslation = translation;
+        if (batch) {
+            const reviewed = translationChunkDetails(translation).filter(chunk => finnishTranslationAiCheckedText(chunk)).length;
+            setWorkflowStep('translation_review', 'done', `${reviewed}/${translationChunkDetails(translation).length} käännösosaa AI-tarkastettu eräajossa.`);
+        }
+        renderFinnishTranslationHistory().catch(() => null);
+        return translation;
+    }
+
+    function workflowAudioSelection(optionsPayload, requestedModel = '', requestedVoice = '') {
+        const normalized = normalizeAudioProductionOptions(optionsPayload || {});
+        const requestedModelText = String(requestedModel || '').toLowerCase();
+        const model = normalized.models.find(item => {
+            const full = `${item.provider}:${item.model_id}`.toLowerCase();
+            return !item.disabled && requestedModelText && (full === requestedModelText || item.model_id.toLowerCase() === requestedModelText || audioProductionOptionKey(item.provider, item.model_id) === requestedModel);
+        }) || normalized.models.find(item => item.is_default && !item.disabled) || normalized.models.find(item => !item.disabled);
+        if (!model) return {};
+        const providerVoices = normalized.voices.filter(item => item.provider === model.provider && !item.disabled);
+        const requestedVoiceText = String(requestedVoice || '').toLowerCase();
+        const voice = providerVoices.find(item => {
+            const full = `${item.provider}:${item.voice_id}`.toLowerCase();
+            return requestedVoiceText && (full === requestedVoiceText || item.voice_id.toLowerCase() === requestedVoiceText || audioProductionOptionKey(item.provider, item.voice_id) === requestedVoice);
+        }) || providerVoices.find(item => item.is_default) || providerVoices[0];
+        return { model, voice };
+    }
+
+    function workflowAudioLaunchKey(selection, executionMode) {
+        return workflowLaunchKey('audio', [
+            Number(window.manuscriptData?.id || 0),
+            selection?.model?.provider || '',
+            selection?.model?.model_id || '',
+            selection?.voice?.voice_id || '',
+            executionMode,
+            'natural',
+            1
+        ]);
+    }
+
+    function workflowAudioProductionMatches(production, selection, executionMode, intent = null) {
+        if (!production?.id) return false;
+        const matches = String(production.project_id || '') === String(window.manuscriptData?.id || '')
+            && String(production.provider || '').toLowerCase() === String(selection?.model?.provider || '').toLowerCase()
+            && String(production.model_id || '').toLowerCase() === String(selection?.model?.model_id || '').toLowerCase()
+            && String(production.voice_id || '').toLowerCase() === String(selection?.voice?.voice_id || '').toLowerCase()
+            && String(production.execution_mode || 'interactive').toLowerCase() === executionMode;
+        return matches && (!intent || workflowRecordIsFromIntent(production, intent));
+    }
+
+    async function fetchWorkflowAudioProduction(url, fallbackMessage) {
+        const response = await apiFetch(url);
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(payload?.detail || fallbackMessage);
+        return audioProductionResponseRecord(payload);
+    }
+
+    async function pollWorkflowAudioProduction(productionId) {
+        while (true) {
+            const response = await apiFetch(`/api/audio/productions/${productionId}`);
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'Audiotuotannon tilan haku epäonnistui.');
+            const production = audioProductionResponseRecord(data);
+            const status = String(production?.status || '').toLowerCase();
+            const completed = Number(production?.completed_segments || production?.completed_parts || 0);
+            const total = Number(production?.total_segments || production?.total_parts || 0);
+            if (['completed', 'complete', 'ready', 'partial'].includes(status)) return production;
+            if (['failed', 'error', 'cancelled', 'canceled', 'expired'].includes(status)) {
+                throw new Error(production?.error || production?.message || 'Audiotuotanto keskeytyi.');
+            }
+            setWorkflowStep('audio', status === 'queued' || status === 'submitting' ? 'queued' : 'running',
+                total ? `Audiotuotanto etenee: ${completed}/${total} osaa valmiina.` : 'Audiotuotanto on palvelimella käynnissä.');
+            await new Promise(resolve => window.setTimeout(resolve, production?.execution_mode === 'batch' ? 15000 : 4000));
+        }
+    }
+
+    async function runWorkflowAudio(module, plan) {
+        setWorkflowStep('audio', 'running', 'Haetaan tuotantomalli ja lukijaääni.');
+        const optionsResponse = await apiFetch(`/api/audio/productions/options?project_id=${encodeURIComponent(window.manuscriptData.id)}`);
+        const options = await optionsResponse.json().catch(() => null);
+        if (!optionsResponse.ok) throw new Error(options?.detail || 'Audiotuotannon asetuksia ei saatu ladattua.');
+        const storedAudioIntent = workflowLaunchIntent('audio');
+        const requestedAudioModel = storedAudioIntent?.modelId
+            ? `${storedAudioIntent.provider || ''}:${storedAudioIntent.modelId}`
+            : workflowModuleModel(module, plan);
+        const selection = workflowAudioSelection(
+            options,
+            requestedAudioModel,
+            storedAudioIntent?.voiceId || workflowSetting(plan, 'audioVoice', 'audio_voice')
+        );
+        if (!selection.model || !selection.voice) throw new Error('Audiotuotanto tarvitsee käytettävissä olevan mallin ja lukijaäänen.');
+        const executionMode = workflowModuleExecutionMode(module) === 'batch' ? 'batch' : 'interactive';
+        const launchKey = workflowAudioLaunchKey(selection, executionMode);
+        const runState = workflowStudio?.getRunState?.() || {};
+        let productionId = runState.activeAudioProductionId || null;
+        let finished = null;
+        if (productionId) {
+            if (runState.activeAudioLaunchKey && runState.activeAudioLaunchKey !== launchKey) {
+                throw new Error('Tallennettu audiotuotanto ei vastaa tämän työnkulun mallia, ääntä tai ajotapaa.');
+            }
+            const storedProduction = await fetchWorkflowAudioProduction(
+                `/api/audio/productions/${productionId}`,
+                'Tallennetun audiotuotannon tilaa ei saatu tarkistettua.'
+            );
+            if (!workflowAudioProductionMatches(storedProduction, selection, executionMode)) {
+                throw new Error('Tallennettu audiotuotanto ei vastaa tämän työnkulun mallia, ääntä tai ajotapaa.');
+            }
+            if (['completed', 'complete', 'ready', 'partial'].includes(String(storedProduction.status || '').toLowerCase())) {
+                finished = storedProduction;
+            }
+        }
+        if (!productionId) {
+            let intent = workflowLaunchIntent('audio');
+            let production = null;
+            if (intent) {
+                if (!workflowIntentBelongsToCurrentRun(intent, 'audio', launchKey)) {
+                    throw new Error('Aiempi audiotuotannon käynnistysyritys ei vastaa tämän työnkulun mallia, ääntä tai ajotapaa.');
+                }
+                const latest = await fetchWorkflowAudioProduction(
+                    `/api/audio/productions/latest?project_id=${encodeURIComponent(window.manuscriptData.id)}`,
+                    'Audiotuotannon palautustilaa ei saatu tarkistettua.'
+                );
+                if (!workflowAudioProductionMatches(latest, selection, executionMode, intent)) {
+                    throw new Error('Aiemman audiotuotannon käynnistystä ei voitu vahvistaa. Uutta maksullista työtä ei käynnistetty.');
+                }
+                production = latest;
+            } else {
+                intent = await persistWorkflowLaunchIntent('audio', launchKey, {
+                    executionMode,
+                    provider: selection.model.provider,
+                    modelId: selection.model.model_id,
+                    voiceId: selection.voice.voice_id
+                });
+                let response;
+                try {
+                    response = await apiFetch('/api/audio/productions', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            project_id: window.manuscriptData.id,
+                            provider: selection.model.provider,
+                            model_id: selection.model.model_id,
+                            voice_id: selection.voice.voice_id,
+                            voice_name: selection.voice.voice_name || selection.voice.display_name || selection.voice.voice_id,
+                            execution_mode: executionMode
+                        })
+                    });
+                } catch (error) {
+                    throw new Error(`Audiotuotannon käynnistysvastetta ei saatu. Käynnistysyritys on tallennettu turvallista palautusta varten: ${networkFailureMessage(error)}`);
+                }
+                const started = await response.json().catch(() => null);
+                if (response.status === 409) {
+                    const latest = await fetchWorkflowAudioProduction(
+                        `/api/audio/productions/latest?project_id=${encodeURIComponent(window.manuscriptData.id)}`,
+                        'Aktiivisen audiotuotannon asetuksia ei saatu tarkistettua.'
+                    );
+                    if (!workflowAudioProductionMatches(latest, selection, executionMode, intent)) {
+                        await clearWorkflowLaunchIntent('audio').catch(() => null);
+                        throw new Error('Projektissa on toinen audiotuotanto, jonka malli, ääni tai ajotapa ei vastaa tätä työnkulkua.');
+                    }
+                    production = latest;
+                } else if (!response.ok) {
+                    if (response.status < 500) await clearWorkflowLaunchIntent('audio').catch(() => null);
+                    throw new Error(started?.detail || 'Audiotuotanto ei käynnistynyt.');
+                } else {
+                    production = audioProductionResponseRecord(started);
+                    if (!workflowAudioProductionMatches(production, selection, executionMode)) {
+                        throw new Error('Käynnistetyn audiotuotannon asetukset eivät vastaa työnkulkua.');
+                    }
+                }
+            }
+            if (!production?.id) throw new Error('Audiotuotanto käynnistyi ilman tuotantotunnistetta.');
+            productionId = production.id;
+            if (['completed', 'complete', 'ready', 'partial'].includes(String(production.status || '').toLowerCase())) {
+                finished = production;
+            }
+            workflowLaunchIntentPatch('audio', { ...intent, status: 'started', productionId });
+            workflowRunStatePatch({ activeAudioProductionId: productionId, activeAudioLaunchKey: launchKey });
+            await persistWorkflowRunStateNow();
+            setWorkflowStep('audio', executionMode === 'batch' ? 'queued' : 'running', executionMode === 'batch'
+                ? 'Audiotuotanto on lähetetty edulliseen eräajoon.'
+                : 'Audiotuotanto on käynnissä.');
+        }
+        if (!finished) finished = await pollWorkflowAudioProduction(productionId);
+        workflowLaunchIntentPatch('audio', null);
+        workflowRunStatePatch({ activeAudioProductionId: null, activeAudioLaunchKey: null, audioProductionId: finished.id });
+        renderAudioProduction(finished);
+        const partial = String(finished.status || '').toLowerCase() === 'partial';
+        const detail = partial
+            ? 'Audiotuotanto valmistui osittain. Tarkista puuttuvat osat Audiotuotannossa.'
+            : 'Äänikirjan tuotanto ja audiopaketti ovat valmiit.';
+        setWorkflowStep('audio', partial ? 'error' : 'done', detail);
+        if (partial) throw new Error(finished.error || finished.warnings || detail);
+        return finished;
     }
 
     let audioSelectedChapterIndex = null;
@@ -17800,47 +18542,160 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
     }
 
-    async function runAiWorkflow() {
+    function workflowPlanSignature(plan) {
+        return JSON.stringify({
+            template: plan?.templateId || plan?.template_id || 'custom',
+            modules: (plan?.modules || []).map(module => [
+                module.id,
+                workflowModuleExecutionMode(module),
+                module.resolvedModel || module.resolved_model || module.model || ''
+            ]),
+            settings: plan?.settings || {}
+        });
+    }
+
+    function workflowPlanSnapshot(plan) {
+        return {
+            templateId: plan?.templateId || plan?.template_id || 'custom',
+            customized: Boolean(plan?.customized),
+            modules: (plan?.modules || []).map(module => ({
+                id: module.id,
+                executionMode: workflowModuleExecutionMode(module),
+                execution_mode: workflowModuleExecutionMode(module),
+                model: module.model || '',
+                resolvedModel: module.resolvedModel || module.resolved_model || module.model || ''
+            })),
+            settings: plan?.settings && typeof plan.settings === 'object' ? { ...plan.settings } : {}
+        };
+    }
+
+    async function executeWorkflowModule(module, plan) {
+        const options = { model: workflowModuleModel(module, plan) || null };
+        switch (module.id) {
+            case 'analysis':
+                return runWorkflowAnalysis(options);
+            case 'project_memory':
+                return runWorkflowProjectMemory(options);
+            case 'structure':
+                return runWorkflowStructure();
+            case 'development_feedback':
+                return runWorkflowDevelopmentFeedback(options);
+            case 'edit':
+                return runWorkflowEditChapters(options);
+            case 'proofread':
+                return runWorkflowProofreadChapters(options);
+            case 'translation':
+                return runWorkflowTranslation(module, plan);
+            case 'translation_review':
+                return runWorkflowTranslationReview(module, plan);
+            case 'product':
+                return runWorkflowProductInfo(options);
+            case 'marketing':
+                return runWorkflowMarketingMaterials(options);
+            case 'covers':
+                return runWorkflowCovers(options);
+            case 'misc':
+                return runWorkflowMisc({
+                    ...options,
+                    extended: (plan?.templateId || plan?.template_id) === 'publisher'
+                });
+            case 'layout':
+                return runWorkflowLayout();
+            case 'audio':
+                return runWorkflowAudio(module, plan);
+            default:
+                throw new Error(`Tuntematonta työnkulkumoduulia ei voida käynnistää: ${module.id || 'tuntematon'}.`);
+        }
+    }
+
+    async function runAiWorkflow(requestedPlan, controller = workflowStudio) {
         if (workflowRunning) return;
-        const mode = document.getElementById('workflow-mode')?.value || 'light';
-        if (currentUser?.role === 'kirjailija' && mode === 'heavy') {
-            setWorkflowStatus('Päivitä tilauksesi', true);
+        const plan = requestedPlan?.modules ? requestedPlan : controller?.getPlan?.();
+        const modules = Array.isArray(plan?.modules) ? plan.modules.filter(module => module?.id) : [];
+        if (!window.manuscriptData?.chapters?.length) {
+            setWorkflowStatus('Valitse tekstillinen käsikirjoitus ennen työnkulun käynnistämistä.', true);
             return;
         }
-        const button = document.getElementById('workflow-start-btn');
+        if (!modules.length) {
+            setWorkflowStatus('Lisää työnkulkuun vähintään yksi moduuli.', true);
+            return;
+        }
+
         workflowRunning = true;
-        workflowSteps = defaultWorkflowSteps(mode);
-        if (button) button.disabled = true;
-        renderWorkflowView();
-        setWorkflowStatus('Työnkulku käynnissä. Voit seurata vaiheita tässä näkymässä.');
+        controller?.setRunning?.(true);
+        const signature = workflowPlanSignature(plan);
+        const previousRun = controller?.getRunState?.() || {};
+        const sameRun = String(previousRun.projectId || '') === String(window.manuscriptData?.id || '')
+            && previousRun.planSignature === signature
+            && ['running', 'queued', 'error'].includes(previousRun.status);
+        let startIndex = sameRun ? Math.max(0, Number(previousRun.currentIndex || 0)) : 0;
+        if (!sameRun) {
+            startIndex = 0;
+            controller?.resetStepStatuses?.();
+            workflowLatestTranslation = null;
+            controller?.setRunState?.({});
+        } else {
+            startIndex = Math.min(startIndex, modules.length);
+        }
+        workflowRunStatePatch({
+            status: 'running',
+            running: true,
+            projectId: window.manuscriptData?.id || null,
+            planSignature: signature,
+            planSnapshot: workflowPlanSnapshot(plan),
+            currentIndex: startIndex,
+            startedAt: sameRun && previousRun.startedAt ? previousRun.startedAt : new Date().toISOString(),
+            finishedAt: null
+        });
+        setWorkflowStatus(startIndex
+            ? `Jatketaan työnkulkua vaiheesta ${startIndex + 1}/${modules.length}.`
+            : `Työnkulku käynnissä · 0/${modules.length} vaihetta valmiina.`);
+
         try {
             await ensureWorkflowProject();
-            await runWorkflowAnalysis();
-            await runWorkflowStructure();
-            if (mode === 'heavy') {
-                await runWorkflowEditChapters();
-                await runWorkflowProofreadChapters();
-                await runWorkflowProductInfo();
-                await runWorkflowMarketingMaterials();
-                await runWorkflowCovers();
-            }
-            await runWorkflowMisc(mode);
-            await runWorkflowLayout();
-            if (mode === 'heavy') {
-                runWorkflowAudioPlaceholder();
+            workflowRunStatePatch({ projectId: window.manuscriptData.id });
+            await markProjectWorkflowStage('ai_workflow', 'running');
+            for (let index = startIndex; index < modules.length; index += 1) {
+                const module = modules[index];
+                workflowRunStatePatch({ status: 'running', currentIndex: index, currentStepId: module.id });
+                setWorkflowStep(module.id, 'running', `Vaihe ${index + 1}/${modules.length} käynnistyy.`);
+                try {
+                    await executeWorkflowModule(module, plan);
+                } catch (error) {
+                    const message = networkFailureMessage(error);
+                    setWorkflowStep(module.id, 'error', message);
+                    workflowRunStatePatch({ status: 'error', running: false, currentIndex: index, currentStepId: module.id, error: message });
+                    throw error;
+                }
+                workflowRunStatePatch({
+                    status: 'running',
+                    currentIndex: index + 1,
+                    currentStepId: null,
+                    activeJob: null,
+                    error: ''
+                });
+                setWorkflowStatus(`Työnkulku etenee · ${index + 1}/${modules.length} vaihetta valmiina.`);
             }
             await loadUsage();
-            setWorkflowStatus(mode === 'heavy'
-                ? 'Raskas työnkulku valmis. Tarkista vielä editointi, oikoluku, kannet ja taittotiedostot.'
-                : 'Kevyt työnkulku valmis. Valmis kirja, oheisaineistot, PDF, LaTeX ja EPUB ovat tarkistettavissa.');
-        } catch (err) {
-            const runningStep = workflowSteps.find(step => step.status === 'running');
-            if (runningStep) setWorkflowStep(runningStep.id, 'error', err.message || 'Vaihe epäonnistui.');
-            setWorkflowStatus(networkFailureMessage(err), true);
-            alert('AI-työnkulku keskeytyi: ' + networkFailureMessage(err));
+            await markProjectWorkflowStage('ai_workflow', 'completed');
+            workflowRunStatePatch({
+                status: 'completed',
+                running: false,
+                currentIndex: modules.length,
+                currentStepId: null,
+                activeJob: null,
+                finishedAt: new Date().toISOString(),
+                error: ''
+            });
+            setWorkflowStatus(`Työnkulku valmis. Kaikki ${modules.length} valittua vaihetta on käsitelty ja tulokset on tallennettu.`);
+        } catch (error) {
+            await markProjectWorkflowStage('ai_workflow', 'error').catch(() => null);
+            workflowRunStatePatch({ status: 'error', running: false, error: networkFailureMessage(error) });
+            setWorkflowStatus(`Työnkulku odottaa jatkamista: ${networkFailureMessage(error)}`, true);
         } finally {
             workflowRunning = false;
-            if (button) button.disabled = false;
+            workflowRunStatePatch({ running: false });
+            controller?.setRunning?.(false);
             renderWorkflowView();
         }
     }
@@ -18497,6 +19352,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
         localStorage.setItem('skriptlab_manuscript', JSON.stringify(window.manuscriptData));
         if (data.id) localStorage.setItem(ACTIVE_PROJECT_ID_KEY, String(data.id));
+        syncWorkflowStudioProjectContext();
         window.updateDynamicTexts();
         biographyState = normalizeBiographyState(window.manuscriptData.analysis?.biography || {});
         renderBiography();
@@ -20697,8 +21553,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 }
                 if ((job.status === 'done' || job.status === 'completed' || job.status === 'partial') && job.translation_id) {
                     const savedTranslation = await fetchSavedTranslation(job.translation_id);
-                    if (job.status === 'partial' && (job.error || job.message)) {
-                        savedTranslation.batch_job_error = job.error || job.message;
+                    if (job.status === 'partial') {
+                        savedTranslation.batch_job_status = 'partial';
+                        if (job.error || job.message) savedTranslation.batch_job_error = job.error || job.message;
                     }
                     return savedTranslation;
                 }
@@ -24573,9 +25430,6 @@ ${state.validation || 'Ei validointia.'}`;
     const proofreadPdfFileInput = document.getElementById('pdf-file');
     const proofreadExtraSaveRulesBtn = document.getElementById('proofread-extra-save-rules-btn');
     const proofreadExtraResetRulesBtn = document.getElementById('btn-reset-rules');
-    const workflowModeSelect = document.getElementById('workflow-mode');
-    const workflowStartBtn = document.getElementById('workflow-start-btn');
-	    const workflowRefreshBtn = document.getElementById('workflow-refresh-btn');
 	    const productGenerateBtn = document.getElementById('product-generate-btn');
 	    const productRefreshBtn = document.getElementById('product-refresh-btn');
 	    const productSaveBtn = document.getElementById('product-save-btn');
@@ -24629,6 +25483,22 @@ ${state.validation || 'Ei validointia.'}`;
     const bioRunOutlineBtn = document.getElementById('bio-run-outline-btn');
     const bioRunChapterPlanBtn = document.getElementById('bio-run-chapter-plan-btn');
     const bioRunDraftBtn = document.getElementById('bio-run-draft-btn');
+    if (window.SkriptLabWorkflowStudio?.create) {
+        workflowStudio = window.SkriptLabWorkflowStudio.create({
+            getProject: () => window.manuscriptData,
+            getUser: () => currentUser,
+            apiFetch,
+            formatNumber,
+            formatDuration,
+            onStart: (plan, controller) => runAiWorkflow(plan, controller),
+            onPlanChange: persistWorkflowPlan,
+            onOpenModule: viewId => openModule(viewId)
+        });
+        await workflowStudio.init();
+        syncWorkflowStudioProjectContext();
+    } else {
+        console.error('Työnkulkustudion controlleria ei voitu ladata.');
+    }
     document.querySelectorAll('.translation-tab').forEach(tab => {
         if (tab.dataset.translationPanel) {
             tab.addEventListener('click', () => showTranslationPanel(tab.dataset.translationPanel));
@@ -24954,14 +25824,6 @@ ${state.validation || 'Ei validointia.'}`;
             scheduleProofreadPreview();
         });
     });
-    if (workflowModeSelect) {
-        workflowModeSelect.addEventListener('change', () => {
-            if (!workflowRunning) workflowSteps = defaultWorkflowSteps(workflowModeSelect.value || 'light');
-            renderWorkflowView();
-        });
-    }
-    if (workflowStartBtn) workflowStartBtn.addEventListener('click', runAiWorkflow);
-	    if (workflowRefreshBtn) workflowRefreshBtn.addEventListener('click', renderWorkflowView);
 	    if (productGenerateBtn) productGenerateBtn.addEventListener('click', generateProductInfo);
 	    if (productRefreshBtn) productRefreshBtn.addEventListener('click', () => renderProductInfo(true));
 	    if (productSaveBtn) productSaveBtn.addEventListener('click', saveProductInfo);

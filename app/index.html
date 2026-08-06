@@ -6,6 +6,7 @@
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css?v=91">
+    <link rel="stylesheet" href="workflow-studio.css?v=1">
 </head>
 <body>
     <!-- Global Task Overlay -->
@@ -136,7 +137,7 @@
                     <li data-view="view-julkaisupaketti">Tiedostopaketti</li>
                     <li data-view="view-monikielinen-julkaisu">Kieliversiot</li>
                     <li data-view="view-julkaise">Julkaise</li>
-                    <li data-view="view-ai-tyonkulku">AI-työnkulku</li>
+                    <li data-view="view-ai-tyonkulku">Työnkulkustudio</li>
                     <li data-view="view-kaannokset">Käännökset</li>
                     <li data-view="view-kaannostyotila">Käännöstyötila</li>
                     <li data-view="view-elamakerta">Elämäkerta</li>
@@ -583,45 +584,210 @@
 
             <!-- 1.25 VIEW: AI-TYÖNKULKU -->
             <div id="view-ai-tyonkulku" class="view-section hidden">
-                <div class="header">
-                    <div class="header-info">
-                        <h2>AI-työnkulku</h2>
-                        <p id="workflow-current-project">Valitse käsikirjoitus ja käynnistä koko tuotantopolku yhdellä napilla.</p>
+                <section class="workflow-studio-hero" aria-labelledby="workflow-studio-title">
+                    <div class="workflow-studio-hero-copy">
+                        <p class="workflow-studio-eyebrow">Automaatiostudio</p>
+                        <h2 id="workflow-studio-title">Rakenna kirjalle valmis tuotantopolku</h2>
+                        <p id="workflow-current-project">Valitse käsikirjoitus, kokoa tarvittavat työvaiheet ja näe aika- sekä kustannusarvio ennen käynnistystä.</p>
+                        <div class="workflow-studio-hero-stats" aria-label="Työnkulun yhteenveto">
+                            <div><strong id="workflow-hero-modules">0</strong><span>moduulia</span></div>
+                            <div><strong id="workflow-hero-cost">—</strong><span>arvioitu hinta</span></div>
+                            <div><strong id="workflow-hero-ready">—</strong><span>valmis arviolta</span></div>
+                        </div>
                     </div>
-                    <div class="header-actions">
-                        <button class="btn btn-secondary" id="workflow-refresh-btn" type="button">Päivitä tila</button>
+                    <div class="workflow-studio-hero-actions">
+                        <button class="btn btn-secondary" id="workflow-refresh-btn" type="button">Päivitä arviot</button>
+                        <button class="btn btn-secondary" id="workflow-settings-btn" type="button" aria-controls="workflow-settings-dialog" aria-haspopup="dialog">Asetukset</button>
                         <button class="btn btn-primary" id="workflow-start-btn" type="button">Käynnistä työnkulku</button>
                     </div>
+                </section>
+
+                <section class="workflow-template-section" aria-labelledby="workflow-template-title">
+                    <div class="workflow-section-heading">
+                        <div>
+                            <p class="workflow-section-kicker">01 · Lähtökohta</p>
+                            <h3 id="workflow-template-title">Valitse työnkulku</h3>
+                            <p>Pohja kokoaa suositellut moduulit. Voit muuttaa jokaista vaihetta ennen ajoa.</p>
+                        </div>
+                        <span id="workflow-template-selection" class="workflow-selection-note">Kirjailija</span>
+                    </div>
+                    <div id="workflow-template-list" class="workflow-template-list" role="list"></div>
+                </section>
+
+                <div class="workflow-studio-layout">
+                    <section class="workflow-builder" aria-labelledby="workflow-builder-title">
+                        <div class="workflow-builder-toolbar">
+                            <div>
+                                <p class="workflow-section-kicker">02 · Rakenne</p>
+                                <h3 id="workflow-builder-title">Työvaiheet</h3>
+                                <p>Järjestys määrää, mitä valmistuu ensin. Eräajot voivat jatkua taustalla 24–48 tuntia.</p>
+                            </div>
+                            <button class="btn btn-secondary workflow-add-module-btn" id="workflow-add-module-btn" type="button" aria-controls="workflow-module-library" aria-haspopup="dialog">
+                                <span aria-hidden="true">＋</span> Lisää moduuli
+                            </button>
+                        </div>
+
+                        <div id="workflow-dependency-notice" class="workflow-dependency-notice hidden" role="status"></div>
+                        <div id="workflow-steps" class="workflow-steps" aria-live="polite"></div>
+                        <div id="workflow-empty-state" class="workflow-empty-state hidden">
+                            <span aria-hidden="true">◇</span>
+                            <strong>Työnkulku on vielä tyhjä</strong>
+                            <p>Lisää ensimmäinen moduuli tai valitse valmis pohja yllä.</p>
+                            <button class="btn btn-secondary" id="workflow-empty-add-btn" type="button">Lisää moduuli</button>
+                        </div>
+                    </section>
+
+                    <aside class="workflow-estimator glass-panel" aria-labelledby="workflow-estimator-title">
+                        <div class="workflow-estimator-heading">
+                            <div>
+                                <p class="workflow-section-kicker">03 · Arvio</p>
+                                <h3 id="workflow-estimator-title">Aika ja hinta</h3>
+                            </div>
+                            <span id="workflow-estimate-badge" class="workflow-estimate-badge">Suuntaa-antava</span>
+                        </div>
+
+                        <div class="workflow-estimator-primary">
+                            <div>
+                                <span>Kokonaisarvio</span>
+                                <strong id="workflow-cost-estimate">—</strong>
+                            </div>
+                            <p id="workflow-cost-range">Valitse käsikirjoitus, jotta arvio voidaan laskea.</p>
+                        </div>
+
+                        <dl class="workflow-estimator-metrics">
+                            <div><dt>Aktiivinen käsittely</dt><dd id="workflow-active-time">—</dd></div>
+                            <div><dt>Kokonaisaika</dt><dd id="workflow-total-time">—</dd></div>
+                            <div><dt>Käsikirjoitus</dt><dd><span id="workflow-chapter-count">0</span> lukua · <span id="workflow-char-count">0</span> merkkiä</dd></div>
+                            <div><dt>Eräajosäästö</dt><dd id="workflow-batch-savings">0 €</dd></div>
+                        </dl>
+
+                        <div class="workflow-schedule" aria-labelledby="workflow-schedule-title">
+                            <div class="workflow-schedule-heading">
+                                <h4 id="workflow-schedule-title">Valmistumisen rytmi</h4>
+                                <span id="workflow-ready-date">—</span>
+                            </div>
+                            <div id="workflow-schedule-list" class="workflow-schedule-list"></div>
+                        </div>
+
+                        <p class="workflow-estimator-disclaimer" id="workflow-estimator-disclaimer">
+                            Arvio käyttää valittujen mallien hintoja, tekstin pituutta ja eräajojen 50 % tavoitesäästöä. Lopullinen veloitus perustuu toteutuneeseen käyttöön.
+                        </p>
+                        <button class="workflow-estimator-settings-link" id="workflow-estimator-settings-btn" type="button">Muokkaa laskennan asetuksia →</button>
+                    </aside>
                 </div>
 
-                <div class="grid-cards workflow-grid" style="grid-template-columns:minmax(280px,420px) minmax(0,1fr); align-items:start;">
-                    <div class="card glass-panel">
-                        <h3>Ajon laajuus</h3>
-                        <div class="settings-row">
-                            <label for="workflow-mode">Valitse työnkulku</label>
-                            <select id="workflow-mode">
-                                <option value="light">Kevyt versio</option>
-                                <option value="heavy">Raskas versio</option>
-                            </select>
+                <div id="workflow-module-library-backdrop" class="workflow-dialog-backdrop hidden" aria-hidden="true"></div>
+                <section id="workflow-module-library" class="workflow-dialog workflow-module-library hidden" role="dialog" aria-modal="true" aria-labelledby="workflow-module-library-title" aria-hidden="true">
+                    <div class="workflow-dialog-header">
+                        <div>
+                            <p class="workflow-section-kicker">Moduulikirjasto</p>
+                            <h3 id="workflow-module-library-title">Lisää työnkulkuun</h3>
+                            <p>Valitse yksi tai useampi työvaihe. Jo lisätyt moduulit näkyvät valittuina.</p>
                         </div>
-                        <p id="workflow-mode-description" style="color:var(--text-secondary); font-size:13px; line-height:1.6;">
-                            Kevyt versio analysoi tekstin, tarkistaa luvutuksen, tekee oheisaineistot ja ajaa taiton.
-                        </p>
-                        <div class="workflow-summary">
-                            <div><strong id="workflow-chapter-count">0</strong><span>lukua</span></div>
-                            <div><strong id="workflow-char-count">0</strong><span>merkkiä</span></div>
-                            <div><strong id="workflow-estimate">-</strong><span>arvio</span></div>
-                        </div>
-                        <p id="workflow-status" style="color:var(--text-secondary); font-size:13px; line-height:1.6; margin-top:14px;">
-                            Valitse käsikirjoitus ensin.
-                        </p>
+                        <button class="workflow-dialog-close" id="workflow-module-library-close" type="button" aria-label="Sulje moduulikirjasto">×</button>
                     </div>
+                    <div id="workflow-module-filters" class="workflow-module-filters" role="group" aria-label="Suodata moduuleja"></div>
+                    <div id="workflow-module-list" class="workflow-module-list"></div>
+                    <div class="workflow-dialog-footer">
+                        <span id="workflow-library-selection-count">0 moduulia valittu</span>
+                        <button class="btn btn-primary" id="workflow-module-library-done" type="button">Valmis</button>
+                    </div>
+                </section>
 
-                    <div class="card glass-panel">
-                        <h3>Vaiheet</h3>
-                        <div id="workflow-steps" class="workflow-steps"></div>
+                <div id="workflow-settings-backdrop" class="workflow-dialog-backdrop hidden" aria-hidden="true"></div>
+                <section id="workflow-settings-dialog" class="workflow-dialog workflow-settings-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="workflow-settings-title" aria-hidden="true">
+                    <div class="workflow-dialog-header">
+                        <div>
+                            <p class="workflow-section-kicker">Työnkulun asetukset</p>
+                            <h3 id="workflow-settings-title">Mallit ja ajotapa</h3>
+                            <p>Nämä ovat työnkulun oletukset. Voit ohittaa mallin tai ajotavan myös yksittäisessä moduulissa.</p>
+                        </div>
+                        <button class="workflow-dialog-close" id="workflow-settings-close" type="button" aria-label="Sulje asetukset">×</button>
                     </div>
-                </div>
+                    <div class="workflow-settings-grid">
+                        <div class="workflow-settings-group">
+                            <h4>Teksti ja laatu</h4>
+                            <div class="settings-row">
+                                <label for="workflow-text-model">Tekstimalli</label>
+                                <select id="workflow-text-model"><option value="">Ladataan malleja…</option></select>
+                                <small>Analyysi, projektimuisti, editointi ja oikoluku.</small>
+                            </div>
+                            <div class="settings-row">
+                                <label for="workflow-translation-model">Käännösmalli</label>
+                                <select id="workflow-translation-model"><option value="">Ladataan malleja…</option></select>
+                                <small>Käännös ja AI-tarkastus.</small>
+                            </div>
+                            <div class="settings-row">
+                                <label for="workflow-image-model">Kuvamalli</label>
+                                <select id="workflow-image-model"><option value="">Ladataan malleja…</option></select>
+                                <small>Kansi, kuvitus ja markkinointikuvat.</small>
+                            </div>
+                            <div class="settings-row">
+                                <label for="workflow-audio-model">Audiomalli</label>
+                                <select id="workflow-audio-model"><option value="">Ladataan malleja…</option></select>
+                                <small>Äänikirjan tuotantomalli.</small>
+                            </div>
+                        </div>
+                        <div class="workflow-settings-group">
+                            <h4>Käännös ja rytmitys</h4>
+                            <div class="workflow-settings-pair">
+                                <div class="settings-row">
+                                    <label for="workflow-source-language">Lähtökieli</label>
+                                    <select id="workflow-source-language">
+                                        <option value="auto">Tunnista automaattisesti</option>
+                                        <option value="fi">Suomi</option>
+                                        <option value="en">Englanti</option>
+                                        <option value="sv">Ruotsi</option>
+                                        <option value="de">Saksa</option>
+                                        <option value="fr">Ranska</option>
+                                        <option value="es">Espanja</option>
+                                    </select>
+                                </div>
+                                <div class="settings-row">
+                                    <label for="workflow-target-language">Kohdekieli</label>
+                                    <select id="workflow-target-language">
+                                        <option value="en">Englanti</option>
+                                        <option value="fi">Suomi</option>
+                                        <option value="sv">Ruotsi</option>
+                                        <option value="de">Saksa</option>
+                                        <option value="fr">Ranska</option>
+                                        <option value="es">Espanja</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="settings-row">
+                                <label for="workflow-chunk-words">Tekstipalan koko</label>
+                                <select id="workflow-chunk-words">
+                                    <option value="1000">1 000 sanaa · varovainen</option>
+                                    <option value="2000">2 000 sanaa · tasapainoinen</option>
+                                    <option value="3000">3 000 sanaa · nopea</option>
+                                </select>
+                                <small>Pienempi pala säilyttää tarkkuuden, suurempi valmistuu nopeammin.</small>
+                            </div>
+                            <fieldset class="workflow-strategy-fieldset">
+                                <legend>Oletusstrategia</legend>
+                                <label class="workflow-strategy-option">
+                                    <input type="radio" name="workflow-strategy" value="balanced" checked>
+                                    <span><strong>Tasapainoinen</strong><small>Käytä eräajoa käännökseen, tarkastukseen ja sitä tukevaan audioon.</small></span>
+                                </label>
+                                <label class="workflow-strategy-option">
+                                    <input type="radio" name="workflow-strategy" value="fast">
+                                    <span><strong>Nopein</strong><small>Suorat ajot aina kun mahdollista.</small></span>
+                                </label>
+                                <label class="workflow-strategy-option">
+                                    <input type="radio" name="workflow-strategy" value="economy">
+                                    <span><strong>Edullisin</strong><small>Rytmitä kaikki soveltuvat vaiheet 24–48 tunnin eräajoiksi.</small></span>
+                                </label>
+                            </fieldset>
+                        </div>
+                    </div>
+                    <div id="workflow-settings-status" class="workflow-settings-status" role="status">Asetukset tallennetaan tälle käsikirjoitukselle.</div>
+                    <div class="workflow-dialog-footer">
+                        <button class="btn btn-secondary" id="workflow-settings-reset" type="button">Palauta pohjan oletukset</button>
+                        <button class="btn btn-primary" id="workflow-settings-save" type="button">Tallenna asetukset</button>
+                    </div>
+                </section>
+                <p id="workflow-status" class="workflow-status" role="status" aria-live="polite">Valitse käsikirjoitus ensin.</p>
             </div>
 
             <!-- 1.3 VIEW: ELÄMÄKERTA -->
@@ -3892,6 +4058,7 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="app.js?v=159"></script>
+    <script src="workflow-studio.js?v=1"></script>
+    <script src="app.js?v=160"></script>
 </body>
 </html>
