@@ -50,6 +50,44 @@
             border-color: var(--accent-color);
             box-shadow: 0 0 10px rgba(121, 192, 255, 0.2);
         }
+        .credential-field {
+            position: relative;
+        }
+        .credential-field input {
+            padding-right: 52px;
+        }
+        .password-visibility-toggle {
+            position: absolute;
+            top: 50%;
+            right: 8px;
+            display: inline-flex;
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            align-items: center;
+            justify-content: center;
+            transform: translateY(-50%);
+            border: 0;
+            border-radius: 8px;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+        .password-visibility-toggle:hover {
+            background: rgba(121, 192, 255, 0.12);
+            color: var(--text-primary);
+        }
+        .password-visibility-toggle:focus-visible {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 1px;
+        }
+        .password-visibility-toggle svg {
+            width: 20px;
+            height: 20px;
+        }
+        .password-visibility-toggle svg[hidden] {
+            display: none;
+        }
         .login-btn {
             width: 100%;
             padding: 14px;
@@ -117,7 +155,29 @@
                 </div>
                 <div class="input-group">
                     <label id="credential-label" for="credential">Salasana</label>
-                    <input type="password" id="credential" autocomplete="current-password" placeholder="Kirjoita salasana" required>
+                    <div class="credential-field">
+                        <input type="password" id="credential" autocomplete="current-password" placeholder="Kirjoita salasana" required>
+                        <button
+                            type="button"
+                            class="password-visibility-toggle"
+                            id="password-visibility-toggle"
+                            aria-label="Näytä salasana"
+                            aria-controls="credential"
+                            aria-pressed="false"
+                            title="Näytä salasana"
+                        >
+                            <svg id="password-visible-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+                                <circle cx="12" cy="12" r="2.75"></circle>
+                            </svg>
+                            <svg id="password-hidden-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+                                <path d="M3 3l18 18"></path>
+                                <path d="M10.6 6.15A10.8 10.8 0 0 1 12 6c6 0 9.5 6 9.5 6a17.3 17.3 0 0 1-2.1 2.8"></path>
+                                <path d="M6.2 6.25C3.8 7.8 2.5 12 2.5 12s3.5 6 9.5 6c1.25 0 2.4-.26 3.45-.68"></path>
+                                <path d="M10.1 10.15a2.75 2.75 0 0 0 3.75 3.75"></path>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 
                 <button type="submit" class="btn btn-primary login-btn" id="login-submit">Kirjaudu sisään</button>
@@ -141,6 +201,23 @@
         let loginMode = 'password';
         const credentialInput = document.getElementById('credential');
         const credentialLabel = document.getElementById('credential-label');
+        const passwordVisibilityToggle = document.getElementById('password-visibility-toggle');
+        const passwordVisibleIcon = document.getElementById('password-visible-icon');
+        const passwordHiddenIcon = document.getElementById('password-hidden-icon');
+
+        function setPasswordVisible(visible) {
+            credentialInput.type = visible ? 'text' : 'password';
+            passwordVisibilityToggle.setAttribute('aria-pressed', String(visible));
+            passwordVisibilityToggle.setAttribute('aria-label', visible ? 'Piilota salasana' : 'Näytä salasana');
+            passwordVisibilityToggle.title = visible ? 'Piilota salasana' : 'Näytä salasana';
+            passwordVisibleIcon.toggleAttribute('hidden', visible);
+            passwordHiddenIcon.toggleAttribute('hidden', !visible);
+        }
+
+        passwordVisibilityToggle.addEventListener('click', () => {
+            setPasswordVisible(credentialInput.type === 'password');
+            credentialInput.focus();
+        });
 
         document.querySelectorAll('[data-login-mode]').forEach((button) => {
             button.addEventListener('click', () => {
@@ -151,6 +228,8 @@
                     item.setAttribute('aria-pressed', String(active));
                 });
                 const inviteMode = loginMode === 'invite';
+                setPasswordVisible(false);
+                passwordVisibilityToggle.hidden = inviteMode;
                 credentialLabel.textContent = inviteMode ? 'Kutsukoodi' : 'Salasana';
                 credentialInput.placeholder = inviteMode ? 'Kirjoita saamasi kutsukoodi' : 'Kirjoita salasana';
                 credentialInput.autocomplete = inviteMode ? 'one-time-code' : 'current-password';

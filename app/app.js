@@ -622,7 +622,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     };
     function customAccessViews() {
         if (!Array.isArray(currentUser?.allowed_modules)) return null;
-        const allowed = new Set(['view-kirjani', 'view-viimeistely']);
+        const allowed = new Set();
         currentUser.allowed_modules.forEach(moduleKey => {
             (accessModuleViews[moduleKey] || []).forEach(viewId => allowed.add(viewId));
         });
@@ -1276,6 +1276,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function renderTopVersionBadge() {
         const button = document.getElementById('top-version-btn');
         if (!button) return;
+        button.hidden = !isViewAllowed('view-viimeistely');
+        if (button.hidden) return;
         const hasProject = Boolean(window.manuscriptData?.id);
         button.disabled = !hasProject;
         button.textContent = hasProject ? `V${activeProjectVersionNumber} · Versiot` : 'V0 · Versiot';
@@ -18222,7 +18224,11 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         renderWritingView();
         renderVersionsView();
         renderTopVersionBadge();
-        if (!options.skipVersionsRefresh && (versionsProjectChanged || currentViewId === 'view-viimeistely')) loadProjectVersions(false);
+        if (
+            !options.skipVersionsRefresh
+            && isViewAllowed('view-viimeistely')
+            && (versionsProjectChanged || currentViewId === 'view-viimeistely')
+        ) loadProjectVersions(false);
         if (window.renderNavList) window.renderNavList();
         updateTranslationProjectSelect();
         updateFinnishTranslationProjectSelect();
@@ -18590,7 +18596,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (message.type === 'skriptlab:versions-changed') {
             const changedProjectId = String(message.projectId || '');
             if (changedProjectId && String(window.manuscriptData?.id || '') === changedProjectId) {
-                loadProjectVersions(false);
+                if (isViewAllowed('view-viimeistely')) loadProjectVersions(false);
             }
         }
 
