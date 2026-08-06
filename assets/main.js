@@ -64,11 +64,11 @@ const metaTranslations = {
   pricing: {
     fi: {
       title: "Hinnoittelu - SkriptLab",
-      description: "SkriptLabin kirjailijatyökalujen käyttöoikeus 99 €/kk ja 300-sivuisen teoksen käännösversioiden ohjelmistopaketti 490 €."
+      description: "SkriptLabin kirjailijatyökalujen käyttöoikeus 99 €/kk ja noin 90 000 sanan lähdekäsikirjoituksen kääntämisen ohjelmistopaketti 490 €."
     },
     en: {
       title: "Pricing - SkriptLab",
-      description: "SkriptLab writer tools cost €99/month, and the software package for translation versions of a 300-page work costs €490."
+      description: "SkriptLab writer tools cost €99/month, and the translation software package for a source manuscript of about 90,000 words costs €490."
     }
   },
   trust: {
@@ -271,15 +271,14 @@ const pageTranslations = {
     { selector: "#writer-tools-card li:nth-child(2)", fi: "Käsikirjoitusanalyysi", en: "Manuscript analysis" },
     { selector: "#writer-tools-card li:nth-child(3)", fi: "Oikoluku ja versiointi", en: "Proofreading and versioning" },
     { selector: "#writer-tools-card li:nth-child(4)", fi: "Tiedostoviennit", en: "File exports" },
-    { selector: "#translation-package-card .price-model", fi: "Teoskohtainen ohjelmistopaketti", en: "Per-work software package" },
-    { selector: "#translation-package-card h2", fi: "Käännösversiopaketti", en: "Translation version package" },
+    { selector: "#translation-package-card .price-model", fi: "Teoskohtainen käyttö", en: "Per-work access" },
+    { selector: "#translation-package-card h2", fi: "Kääntämisen ohjelmistopaketti", en: "Translation software package" },
     { selector: "#translation-package-card .price-amount strong", fi: "490 €", en: "€490" },
-    { selector: "#translation-package-card .price-amount span", fi: "esimerkkihinta", en: "example price" },
-    { selector: "#translation-package-card .price-description", fi: "300-sivuiselle lähdekäsikirjoitukselle ja yhdelle valitulle kohdekielelle.", en: "For a 300-page source manuscript and one selected target language." },
-    { selector: "#translation-package-card li:nth-child(1)", fi: "Kolme vaihtoehtoista käännösversiota", en: "Three alternative translation versions" },
-    { selector: "#translation-package-card li:nth-child(2)", fi: "Käyttäjä valitsee yhden version jatkoon", en: "You select one version to continue with" },
-    { selector: "#translation-package-card li:nth-child(3)", fi: "Valitun version lähdevertailu ja oikoluku", en: "Source comparison and proofreading for the selected version" },
-    { selector: "#translation-package-card li:nth-child(4)", fi: "Valitun version muokkaus ja tiedostovienti", en: "Editing and file export for the selected version" },
+    { selector: "#translation-package-card .price-description", fi: "Kattaa esimerkiksi 300-sivuisen lähdekäsikirjoituksen (noin 90 000 sanaa) ja yhden valitun kohdekielen.", en: "Covers, for example, a 300-page source manuscript (approximately 90,000 words) and one selected target language." },
+    { selector: "#translation-package-card li:nth-child(1)", fi: "Lähdekäsikirjoituksen analyysi, kontekstimuistin muodostaminen ja 1–3 vaihtoehtoista käännösversiota", en: "Source manuscript analysis, context memory creation and 1–3 alternative translation versions" },
+    { selector: "#translation-package-card li:nth-child(2)", fi: "Käyttäjä valitsee 1–2 versiota jatkokäsittelyyn ja tarkistukseen", en: "You select 1–2 versions for further editing and review" },
+    { selector: "#translation-package-card li:nth-child(3)", fi: "Valittujen versioiden tarkistus, vertailu lähdekäsikirjoitukseen ja oikoluku", en: "Review, source-manuscript comparison and proofreading of the selected versions" },
+    { selector: "#translation-package-card li:nth-child(4)", fi: "Lopulliseksi valitun version muokkaus sekä lopullisen version ja vertailuversioiden lataus", en: "Editing of the final selected version and download of the final and comparison versions" },
     { selector: ".software-pricing-note", attr: "aria-label", fi: "Hinnoittelun rajaus", en: "Pricing scope" },
     { selector: ".software-pricing-note strong", fi: "Ohjelmisto, ei käännös- tai oikolukupalvelu.", en: "Software, not a translation or proofreading service." },
     { selector: ".software-pricing-note p", fi: "Paketti koskee yhtä kohdekieltä kerrallaan. Hinta kattaa SkriptLabin käyttöoikeuden ja koko yllä kuvatun kokonaisuuden. Suosittelemme, että käyttäjä tai hänen valitsemansa kieliasiantuntija tarkistaa lopputuloksen ennen julkaisua. Kaikki aineistot ja oikeudet toimitetaan tilaajalle. SkriptLab ei käytä, myy eikä julkaise toimeksiantojen aineistoja.", en: "The package covers one target language at a time. The price includes access to SkriptLab and the complete package described above. We recommend that the user or a language specialist of their choice review the final result before publication. All materials and rights are delivered to the customer. SkriptLab does not use, sell or publish materials from assignments." },
