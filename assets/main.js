@@ -64,11 +64,11 @@ const metaTranslations = {
   pricing: {
     fi: {
       title: "Hinnoittelu - SkriptLab",
-      description: "SkriptLabin kirjailijatyökalujen käyttöoikeus 99 €/kk ja noin 90 000 sanan lähdekäsikirjoituksen kääntämisen ohjelmistopaketti 490 €."
+      description: "SkriptLabin kirjailijatyökalujen käyttöoikeus 99 €/kk ja 300-sivuisen, enintään 100 000 sanan romaanin kääntämisen ohjelmistopaketti 490 €."
     },
     en: {
       title: "Pricing - SkriptLab",
-      description: "SkriptLab writer tools cost €99/month, and the translation software package for a source manuscript of about 90,000 words costs €490."
+      description: "SkriptLab writer tools cost €99/month, and the translation software package for a 300-page novel of up to 100,000 words costs €490."
     }
   },
   trust: {
@@ -274,7 +274,7 @@ const pageTranslations = {
     { selector: "#translation-package-card .price-model", fi: "Teoskohtainen käyttö", en: "Per-work access" },
     { selector: "#translation-package-card h2", fi: "Kääntämisen ohjelmistopaketti", en: "Translation software package" },
     { selector: "#translation-package-card .price-amount strong", fi: "490 €", en: "€490" },
-    { selector: "#translation-package-card .price-description", fi: "Kattaa esimerkiksi 300-sivuisen lähdekäsikirjoituksen (noin 90 000 sanaa) ja yhden valitun kohdekielen.", en: "Covers, for example, a 300-page source manuscript (approximately 90,000 words) and one selected target language." },
+    { selector: "#translation-package-card .price-description", fi: "Kattaa esimerkiksi 300-sivuisen romaanin (enintään 100 000 sanaa) ja yhden valitun kohdekielen.", en: "Covers, for example, a 300-page novel (up to 100,000 words) and one selected target language." },
     { selector: "#translation-package-card li:nth-child(1)", fi: "Lähdekäsikirjoituksen analyysi, kontekstimuistin muodostaminen ja 1–3 vaihtoehtoista käännösversiota", en: "Source manuscript analysis, context memory creation and 1–3 alternative translation versions" },
     { selector: "#translation-package-card li:nth-child(2)", fi: "Käyttäjä valitsee 1–2 versiota jatkokäsittelyyn ja tarkistukseen", en: "You select 1–2 versions for further editing and review" },
     { selector: "#translation-package-card li:nth-child(3)", fi: "Valittujen versioiden tarkistus, vertailu lähdekäsikirjoitukseen ja oikoluku", en: "Review, source-manuscript comparison and proofreading of the selected versions" },
