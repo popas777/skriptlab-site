@@ -21033,6 +21033,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     async function loadTranslationWorkspaceFiles(force = false, options = {}) {
         const status = document.getElementById('translation-workspace-files-status');
         const content = document.getElementById('translation-workspace-file-content');
+        const downloadAllButton = document.getElementById('translation-workspace-files-download-all-btn');
         if (force && translationWorkspaceFileDirty && options.discardChanges !== true) {
             if (!confirmDiscardTranslationWorkspaceFileChanges()) return false;
             discardTranslationWorkspaceFileChanges();
@@ -21047,6 +21048,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             selectedTranslationWorkspaceFilePath = '';
             if (status) status.textContent = 'Luo tai valitse ensin tallennettu käännös.';
             if (content) content.value = 'Ei valittua käännöstä.';
+            if (downloadAllButton) downloadAllButton.disabled = true;
             renderTranslationWorkspaceFiles();
             resetTranslationWorkspaceFileEditState({ message: 'Ei valittua käännöstä.' });
             return false;
@@ -21057,10 +21059,12 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             }
         }
         if (!force && String(loadedTranslationWorkspaceTranslationId) === String(selected.id) && translationWorkspaceFiles.length) {
+            if (downloadAllButton) downloadAllButton.disabled = false;
             renderTranslationWorkspaceFiles();
             syncTranslationWorkspaceFileEditor();
             return true;
         }
+        if (downloadAllButton) downloadAllButton.disabled = true;
         if (status) status.textContent = 'Muodostetaan työtilan tiedostoluetteloa...';
         if (content) content.value = 'Valitse tiedosto vasemmalta.';
         setTranslationWorkspaceFileEditStatus('Muodostetaan tiedostoluetteloa...');
@@ -21069,6 +21073,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             if (!res.ok) throw new Error(await apiErrorMessage(res, 'Työtiedostojen lataus epäonnistui.'));
             translationWorkspaceFiles = await res.json();
             loadedTranslationWorkspaceTranslationId = selected.id;
+            if (downloadAllButton) downloadAllButton.disabled = !translationWorkspaceFiles.length;
             if (!translationWorkspaceFiles.some(file => file.path === selectedTranslationWorkspaceFilePath)) {
                 selectedTranslationWorkspaceFilePath = translationWorkspaceFiles.find(file => file.path === 'project.json')?.path
                     || translationWorkspaceFiles[0]?.path
@@ -21085,6 +21090,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         } catch (err) {
             translationWorkspaceFiles = [];
             loadedTranslationWorkspaceTranslationId = null;
+            if (downloadAllButton) downloadAllButton.disabled = true;
             renderTranslationWorkspaceFiles();
             if (status) status.textContent = err.message;
             resetTranslationWorkspaceFileEditState();
@@ -21236,6 +21242,48 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             if (status) status.textContent = `${path} ladattu.`;
         } catch (err) {
             if (status) status.textContent = err.message;
+        }
+    }
+
+    async function downloadTranslationWorkspaceArchive() {
+        const translationId = selectedFinnishTranslation?.id;
+        const button = document.getElementById('translation-workspace-files-download-all-btn');
+        const status = document.getElementById('translation-workspace-files-status');
+        if (!translationId || !translationWorkspaceFiles.length) return;
+        if (translationWorkspaceFileDirty && !(await saveTranslationWorkspaceFile())) return;
+
+        const originalLabel = button?.textContent || 'Lataa kaikki ZIP';
+        if (button) {
+            button.disabled = true;
+            button.textContent = 'Muodostetaan ZIP…';
+        }
+        if (status) status.textContent = 'Pakataan kaikki työtilan tiedostot...';
+        try {
+            const res = await apiFetch(`/api/translations/${translationId}/workspace-files/archive`);
+            if (!res.ok) throw new Error(await apiErrorMessage(res, 'ZIP-paketin lataus epäonnistui.'));
+            const blob = await res.blob();
+            const disposition = res.headers.get('content-disposition') || '';
+            const fileNameMatch = disposition.match(/filename="?([^";]+)"?/i);
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileNameMatch?.[1] || 'kaannostyotila.zip';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+            if (status) status.textContent = `${translationWorkspaceFiles.length} tiedostoa ladattu ZIP-pakettina.`;
+        } catch (err) {
+            if (status) status.textContent = err.message;
+        } finally {
+            if (button) {
+                button.textContent = originalLabel;
+                button.disabled = (
+                    !selectedFinnishTranslation?.id
+                    || !translationWorkspaceFiles.length
+                    || String(selectedFinnishTranslation.id) !== String(translationId)
+                );
+            }
         }
     }
 
@@ -24142,6 +24190,7 @@ ${state.validation || 'Ei validointia.'}`;
     const finnishTranslationReviewText = document.getElementById('finnish-translation-review-text');
     const translationWorkspaceTranslationSelect = document.getElementById('translation-workspace-file-translation-select');
     const translationWorkspaceRefreshBtn = document.getElementById('translation-workspace-files-refresh-btn');
+    const translationWorkspaceDownloadAllBtn = document.getElementById('translation-workspace-files-download-all-btn');
     const translationWorkspaceSearch = document.getElementById('translation-workspace-file-search');
     const translationWorkspaceDownloadBtn = document.getElementById('translation-workspace-file-download-btn');
     const translationWorkspaceFileContent = document.getElementById('translation-workspace-file-content');
@@ -24353,6 +24402,9 @@ ${state.validation || 'Ei validointia.'}`;
     }
     if (translationWorkspaceRefreshBtn) {
         translationWorkspaceRefreshBtn.addEventListener('click', () => loadTranslationWorkspaceFiles(true));
+    }
+    if (translationWorkspaceDownloadAllBtn) {
+        translationWorkspaceDownloadAllBtn.addEventListener('click', downloadTranslationWorkspaceArchive);
     }
     if (translationWorkspaceSearch) {
         translationWorkspaceSearch.addEventListener('input', renderTranslationWorkspaceFiles);
