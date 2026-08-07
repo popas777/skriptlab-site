@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab - Admin Paneeli</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=85">
+    <link rel="stylesheet" href="styles.css?v=86">
     <style>
         .admin-container {
             max-width: 1200px;
@@ -387,7 +387,6 @@
                             <option value="toimittaja">Toimittaja</option>
                             <option value="kaantaja">Kääntäjä</option>
                             <option value="elamakerta">Elämäkerta</option>
-                            <option value="oppimateriaali">Oppimateriaali</option>
                             <option value="org_admin">Org admin</option>
                             <option value="test_user">Test user</option>
                             <option value="admin">Admin</option>
@@ -646,12 +645,19 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
             ['kirjailija', 'Kirjailija'],
             ['kaantaja', 'Kääntäjä'],
             ['elamakerta', 'Elämäkerta'],
-            ['oppimateriaali', 'Oppimateriaali'],
             ['toimittaja', 'Toimittaja'],
             ['org_admin', 'Org admin'],
             ['test_user', 'Test user'],
             ['admin', 'Admin']
         ];
+
+        function userRoleOptionsHtml(user) {
+            const knownRole = userRoles.some(([value]) => value === user.role);
+            const legacyOption = knownRole
+                ? ''
+                : `<option value="${escapeHtml(user.role)}" selected disabled>Poistunut rooli: ${escapeHtml(user.role)}</option>`;
+            return `${legacyOption}${userRoles.map(([value, label]) => `<option value="${value}" ${user.role === value ? 'selected' : ''}>${label}</option>`).join('')}`;
+        }
 
         function escapeHtml(value) {
             return String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -1099,7 +1105,7 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                     </div>
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
                         <select class="user-role-select" data-id="${user.id}" style="padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; font-size: 12px;">
-                            ${userRoles.map(([value, label]) => `<option value="${value}" ${user.role === value ? 'selected' : ''}>${label}</option>`).join('')}
+                            ${userRoleOptionsHtml(user)}
                         </select>
                         <select class="user-access-group-select" data-id="${user.id}" ${['admin', 'test_user'].includes(user.role) ? 'disabled' : ''} aria-label="Käyttöoikeusryhmä">
                             <option value="" ${user.access_group_id ? '' : 'selected'}>Roolin oletusoikeudet</option>
