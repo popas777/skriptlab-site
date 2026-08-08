@@ -602,7 +602,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         support_materials: ['view-oheisaineistot'],
         cover_illustration: ['view-kuvitus'],
         book_layout: ['view-taitto'],
-        publication_package: ['view-julkaisupaketti'],
+        publication_package: ['view-julkaisupaketti', 'view-korjaukset'],
         publish: ['view-julkaise'],
         ai_workflow: ['view-ai-tyonkulku'],
         translations: ['view-kaannokset'],
