@@ -587,10 +587,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     const fullWorkspaceRoles = new Set(['admin', 'test_user']);
-    const writerViews = new Set(['view-kirjani', 'view-analyysi', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-oikoluku', 'view-kuvitus', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-julkaisupaketti', 'view-audio', 'view-viimeistely']);
+    const writerViews = new Set(['view-kirjani', 'view-analyysi', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-oikoluku', 'view-kuvitus', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-julkaisupaketti', 'view-audio', 'view-viimeistely', 'view-korjaukset']);
     const betaCoreViews = new Set([...writerViews, 'view-monikielinen-julkaisu', 'view-markkinointi']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset', 'view-kaannostyotila']);
-    const biographyViews = new Set(['view-kirjani', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-ai-tyonkulku', 'view-viimeistely', 'view-elamakerta', 'view-oikoluku', 'view-kuvitus', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-markkinointi', 'view-audio', 'view-julkaisupaketti', 'view-julkaise']);
+    const biographyViews = new Set(['view-kirjani', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-ai-tyonkulku', 'view-viimeistely', 'view-korjaukset', 'view-elamakerta', 'view-oikoluku', 'view-kuvitus', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-markkinointi', 'view-audio', 'view-julkaisupaketti', 'view-julkaise']);
     const accessModuleViews = {
         manuscripts: ['view-kirjani'],
         analysis: ['view-analyysi'],
@@ -614,7 +614,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         audio: ['view-audio'],
         contracts: ['view-sopimukset'],
         timeline: ['view-aikajana'],
-        versions: ['view-viimeistely']
+        versions: ['view-viimeistely'],
+        correction_reprints: ['view-korjaukset', 'view-julkaisupaketti']
     };
     function customAccessViews() {
         if (!Array.isArray(currentUser?.allowed_modules)) return null;
@@ -1290,6 +1291,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             ai_edit: { label: 'Ennen tekoälyeditointia', icon: '✦' },
             ai_proofread: { label: 'Ennen automaattista oikolukua', icon: '✓' },
             publication_package: { label: 'Tiedostopaketin lähde', icon: '▣' },
+            pre_correction_reprint: { label: 'Ennen uusintapainosta', icon: '↺' },
+            correction_reprint: { label: 'Uusintapainos', icon: '◆' },
             pre_restore: { label: 'Ennen palautusta', icon: '↶' },
             chapter_delete: { label: 'Ennen luvun poistoa', icon: '−' },
             chapter_merge: { label: 'Ennen lukujen yhdistämistä', icon: '⇤' }
@@ -4653,6 +4656,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             ['view-taitto', 'Taitto'],
             ['view-tuotetiedot', 'Tuotetiedot'],
             ['view-julkaisupaketti', 'Tiedostopaketti'],
+            ['view-korjaukset', 'Korjaukset ja uusintapainokset'],
             ['view-monikielinen-julkaisu', 'Kieliversiot'],
             ['view-markkinointi', 'Kampanjastudio']
         ];
@@ -4802,6 +4806,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (viewId === 'view-viimeistely') {
             renderVersionsView();
             loadProjectVersions(false);
+        }
+        if (viewId === 'view-korjaukset') {
+            window.SkriptLabCorrectionReprints?.load();
         }
         if (viewId === 'view-julkaisupaketti') {
             loadPublicationPackageReadiness();
@@ -19193,6 +19200,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         latestVisualEstimateKey = '';
 	        invalidateGraphicAssetCache(true);
 	        window.manuscriptData = null;
+	        window.SkriptLabCorrectionReprints?.projectChanged();
 	        marketingContextSummary = { projectId: null, analysisAvailable: false, projectMemoryCount: 0 };
 	        populateMarketingCovers([]);
 	        clearMarketingHtmlResult();
@@ -19331,6 +19339,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             editingKnowledgeItemId = null;
         }
         window.manuscriptData = data;
+        window.SkriptLabCorrectionReprints?.projectChanged();
         if (!window.manuscriptData.analysis) window.manuscriptData.analysis = {};
         localStorage.setItem('skriptlab_manuscript', JSON.stringify(window.manuscriptData));
         if (data.id) localStorage.setItem(ACTIVE_PROJECT_ID_KEY, String(data.id));
