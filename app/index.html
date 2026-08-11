@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=93">
+    <link rel="stylesheet" href="styles.css?v=94">
     <link rel="stylesheet" href="workflow-studio.css?v=2">
     <link rel="stylesheet" href="correction-reprints.css?v=1">
 </head>
@@ -2918,7 +2918,7 @@
                                 <div>
                                     <p class="audio-eyebrow">Koko teoksen TTS-valmistelu</p>
                                     <h3>Muodosta äänikäsikirjoitus</h3>
-                                    <p>Analysoi teoksen tyyli, luo yhteinen lukuohje ja lisää Gemini 3.1 -yhteensopivat tagit koko käsikirjoitukseen tekstiä muuttamatta.</p>
+                                    <p>Analysoi teoksen tyyli, luo yhteinen lukuohje ja lisää Gemini 3.1 -yhteensopivat tagit koko käsikirjoitukseen tekstiä muuttamatta. Voit säätää tagituksen herkkyyttä ja käsittelypalojen kokoa.</p>
                                 </div>
                                 <span id="audio-preparation-state" class="audio-preparation-state is-empty">EI VALMIS</span>
                             </div>
@@ -2954,7 +2954,41 @@
                                     </datalist>
                                     <small>Valitse yleinen kielikoodi tai kirjoita tarkempi BCP-47-tunniste, kuten en-US.</small>
                                 </div>
-                                <div class="settings-row audio-preparation-instructions-row">
+                                <div class="settings-row">
+                                    <label for="audio-preparation-density">Tagituksen herkkyys</label>
+                                    <select id="audio-preparation-density">
+                                        <option value="restrained">Hillitty · vain selvät kohdat</option>
+                                        <option value="balanced" selected>Tasapainoinen · suositus</option>
+                                        <option value="expressive">Ilmeikäs · enemmän ohjausta</option>
+                                    </select>
+                                    <small>Ilmeikäs asetus etsii useampia paikallisia tunnetiloja. Hillitty jättää kertojalle enemmän tulkinnanvaraa.</small>
+                                </div>
+                                <div class="settings-row">
+                                    <label for="audio-preparation-chunk-size">Käsittelypalan koko</label>
+                                    <select id="audio-preparation-chunk-size">
+                                        <option value="1500">1 500 merkkiä · hyvin tarkka</option>
+                                        <option value="3000" selected>3 000 merkkiä · suositus</option>
+                                        <option value="4500">4 500 merkkiä · laajempi konteksti</option>
+                                        <option value="6000">6 000 merkkiä · vähiten kutsuja</option>
+                                    </select>
+                                    <small id="audio-preparation-chunk-estimate">Pienempi pala voi löytää tunnetilan vaihtelut herkemmin, mutta lisää käsittelyaikaa ja mallikutsuja.</small>
+                                </div>
+                                <fieldset class="audio-preparation-category-row audio-preparation-wide-row">
+                                    <legend>Mitä tekstistä ohjataan</legend>
+                                    <div class="audio-preparation-category-grid">
+                                        <label><input type="checkbox" name="audio-preparation-category" value="emotion" checked> <span><strong>Tunteet ja tunnelma</strong><small>Esimerkiksi vakavuus, paniikki, suru ja innostus.</small></span></label>
+                                        <label><input type="checkbox" name="audio-preparation-category" value="dialogue" checked> <span><strong>Dialogi ja hahmot</strong><small>Ohjaa repliikkien sävyä ja hahmokohtaista tulkintaa.</small></span></label>
+                                        <label><input type="checkbox" name="audio-preparation-category" value="reactions" checked> <span><strong>Dialogin reaktiot</strong><small>Esimerkiksi huokaus, nauru, hätkähdys ja hihitys.</small></span></label>
+                                        <label><input type="checkbox" name="audio-preparation-category" value="delivery" checked> <span><strong>Esitystapa</strong><small>Esimerkiksi kuiskaus, huuto, tempo ja ironinen painotus.</small></span></label>
+                                        <label><input type="checkbox" name="audio-preparation-category" value="foreign_pronunciation" checked> <span><strong>Vieraskielinen lausunta</strong><small>Huomioi alla oleva erillinen sanasto tuotanto-ohjeessa.</small></span></label>
+                                    </div>
+                                </fieldset>
+                                <div class="settings-row audio-preparation-pronunciation-row audio-preparation-wide-row">
+                                    <label for="audio-preparation-pronunciation-glossary">Vieraskielisten sanojen ja nimien lausuntasanasto</label>
+                                    <textarea id="audio-preparation-pronunciation-glossary" placeholder="Monsieur | fr | mö-sjö&#10;George Eliot | en-GB | džoordž eliöt"></textarea>
+                                    <small>Yksi termi riville muodossa <strong>termi | kieli | lausuntaohje</strong>. Ohje välitetään erillisenä sanastona ja tuotantopromptina — epävirallisia inline-lausuntatageja ei lisätä tekstiin.</small>
+                                </div>
+                                <div class="settings-row audio-preparation-instructions-row audio-preparation-wide-row">
                                     <label for="audio-preparation-instructions">Lisäohje annotointiin</label>
                                     <textarea id="audio-preparation-instructions" placeholder="Esimerkiksi: pidä kertojan ääni hillittynä ja käytä [whispers]-tagia vain aidosti kuiskatussa dialogissa."></textarea>
                                 </div>
@@ -2964,6 +2998,20 @@
                                 <button class="btn btn-primary" id="audio-preparation-generate-btn" type="button">Luo prompti ja tagita koko teksti</button>
                                 <button class="btn btn-secondary" id="audio-preparation-refresh-btn" type="button">Päivitä tila</button>
                             </div>
+                            <div id="audio-preparation-progress" class="audio-preparation-progress hidden" aria-live="off">
+                                <div class="audio-preparation-progress-heading">
+                                    <strong id="audio-preparation-progress-stage">Valmistellaan käsittelyä</strong>
+                                    <span id="audio-preparation-progress-percent">0 %</span>
+                                </div>
+                                <div id="audio-preparation-progress-track" class="audio-preparation-progress-track" role="progressbar" aria-label="Äänikäsikirjoituksen käsittely" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                                    <span id="audio-preparation-progress-bar"></span>
+                                </div>
+                                <div class="audio-preparation-progress-meta">
+                                    <span id="audio-preparation-progress-segments">0 / – käsittelypalaa</span>
+                                    <span id="audio-preparation-progress-elapsed">Kulunut 0:00</span>
+                                    <span id="audio-preparation-progress-eta">Arvio tarkentuu</span>
+                                </div>
+                            </div>
                             <p id="audio-preparation-status" class="audio-preparation-status" role="status" aria-live="polite">Valitse tallennettu käsikirjoitus ja käynnistä valmistelu.</p>
                         </article>
 
@@ -2972,7 +3020,7 @@
                                 <div>
                                     <p class="audio-eyebrow">Gemini 3.1 TTS</p>
                                     <h3>Sallitut audio-tagit</h3>
-                                    <p>Tagit ohjaavat tunnetta ja esitystapaa, mutta eivät muuta luettavaa tekstiä tai sen välimerkkejä. Tauotus ohjataan tyylipromptilla ja lähdetekstin rakenteella, ei erillisillä pause-tageilla.</p>
+                                    <p>Geminin esimerkkilista ei ole tyhjentävä. Näytämme backendin kuratoidun, validoidun tagivalikoiman; englanninkieliset tagit toimivat yleensä parhaiten myös muun kielisessä tekstissä. Tauotus ja vieraskielinen lausunta ohjataan erillisillä tuotanto-ohjeilla, ei epävirallisilla inline-tageilla.</p>
                                 </div>
                                 <span id="audio-preparation-tag-profile" class="audio-preparation-tag-profile">GEMINI 3.1 TTS</span>
                             </div>
@@ -4071,6 +4119,6 @@
     <script src="auth.js?v=3"></script>
     <script src="workflow-studio.js?v=2"></script>
     <script src="correction-reprints.js?v=1"></script>
-    <script src="app.js?v=164"></script>
+    <script src="app.js?v=165"></script>
 </body>
 </html>

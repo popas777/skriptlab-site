@@ -7515,6 +7515,61 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     font-size: 10px;
     line-height: 1.45;
 }
+.audio-preparation-wide-row {
+    grid-column: 1 / -1;
+}
+.audio-preparation-category-row {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+.audio-preparation-category-row legend {
+    margin-bottom: 8px;
+    color: var(--text-primary);
+    font-size: 11px;
+    font-weight: 750;
+}
+.audio-preparation-category-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+.audio-preparation-category-grid > label {
+    display: flex;
+    min-width: 0;
+    gap: 9px;
+    align-items: flex-start;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, .035);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+.audio-preparation-category-grid input {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    margin: 1px 0 0;
+    accent-color: var(--primary-color);
+}
+.audio-preparation-category-grid span {
+    display: block;
+    min-width: 0;
+}
+.audio-preparation-category-grid strong {
+    display: block;
+    font-size: 11px;
+    line-height: 1.35;
+}
+.audio-preparation-category-grid small {
+    margin-top: 3px;
+}
+.audio-preparation-pronunciation-row textarea {
+    min-height: 105px;
+    resize: vertical;
+}
 .audio-preparation-instructions-row textarea {
     min-height: 82px;
     resize: vertical;
@@ -7528,6 +7583,53 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 }
 .audio-preparation-actions {
     margin-top: 16px;
+}
+.audio-preparation-progress {
+    margin-top: 14px;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 11px;
+    background: rgba(255, 255, 255, .035);
+}
+.audio-preparation-progress-heading,
+.audio-preparation-progress-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+.audio-preparation-progress-heading {
+    color: var(--text-primary);
+    font-size: 11px;
+}
+.audio-preparation-progress-heading span {
+    flex: 0 0 auto;
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+}
+.audio-preparation-progress-track {
+    height: 8px;
+    margin-top: 9px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .09);
+}
+.audio-preparation-progress-track > span {
+    display: block;
+    width: 0;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #60a5fa, #34d399);
+    transition: width .3s ease;
+}
+.audio-preparation-progress-meta {
+    margin-top: 8px;
+    color: var(--text-secondary);
+    font-size: 10px;
+    line-height: 1.4;
+}
+.audio-preparation-progress-meta span {
+    font-variant-numeric: tabular-nums;
 }
 .audio-preparation-status {
     min-height: 18px;
@@ -8162,8 +8264,14 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 }
 
 @media (max-width: 600px) {
-    .audio-preparation-tag-list {
+    .audio-preparation-tag-list,
+    .audio-preparation-category-grid {
         grid-template-columns: 1fr;
+    }
+    .audio-preparation-progress-meta {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 3px;
     }
 }
 
@@ -8201,6 +8309,14 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 }
 .app-wrapper.mobile-simulate .audio-preparation-tag-list {
     grid-template-columns: 1fr;
+}
+.app-wrapper.mobile-simulate .audio-preparation-category-grid {
+    grid-template-columns: 1fr;
+}
+.app-wrapper.mobile-simulate .audio-preparation-progress-meta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
 }
 .app-wrapper.mobile-simulate .audio-production-result {
     grid-template-columns: 1fr;
@@ -11900,6 +12016,8 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 .audio-modern-workspace .audio-preparation-settings small,
 .audio-modern-workspace .audio-preparation-status,
 .audio-modern-workspace .audio-preparation-tag span,
+.audio-modern-workspace .audio-preparation-category-grid small,
+.audio-modern-workspace .audio-preparation-progress-meta,
 .audio-modern-workspace .audio-preparation-metrics span,
 .audio-modern-workspace .audio-preparation-editor-footer p,
 .audio-modern-workspace .audio-parts-overview-heading > div:first-child > p:last-child,
@@ -11929,6 +12047,8 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 .audio-modern-workspace .audio-production-chunk-card,
 .audio-modern-workspace .audio-production-script-state,
 .audio-modern-workspace .audio-preparation-tag,
+.audio-modern-workspace .audio-preparation-category-grid > label,
+.audio-modern-workspace .audio-preparation-progress,
 .audio-modern-workspace .audio-preparation-metrics > div,
 .audio-modern-workspace .audio-parts-summary {
     border-color: #e4decf;
@@ -11943,6 +12063,9 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 .audio-modern-workspace .audio-production-chunk-card label,
 .audio-modern-workspace .audio-production-script-state strong,
 .audio-modern-workspace .audio-preparation-tag code,
+.audio-modern-workspace .audio-preparation-category-row legend,
+.audio-modern-workspace .audio-preparation-category-grid strong,
+.audio-modern-workspace .audio-preparation-progress-heading,
 .audio-modern-workspace .audio-preparation-metrics strong,
 .audio-modern-workspace .audio-preparation-text-column,
 .audio-modern-workspace .audio-parts-summary strong,
@@ -11990,8 +12113,13 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     background: #ece7dc;
 }
 
-.audio-modern-workspace .audio-production-progress-track span {
+.audio-modern-workspace .audio-production-progress-track span,
+.audio-modern-workspace .audio-preparation-progress-track span {
     background: linear-gradient(90deg, #43406e, #d98e2b);
+}
+
+.audio-modern-workspace .audio-preparation-progress-track {
+    background: #ece7dc;
 }
 
 .audio-modern-workspace .audio-production-unit-icon {

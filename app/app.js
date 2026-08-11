@@ -11778,7 +11778,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         return fallback;
     }
 
-    async function readLongEditStream(response, { timerKey = '', label = 'Mallipyyntö' } = {}) {
+    async function readLongEditStream(response, { timerKey = '', label = 'Mallipyyntö', onEvent = null } = {}) {
         let finalPayload = null;
         let streamError = null;
         let rawText = '';
@@ -11791,6 +11791,13 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 event = JSON.parse(trimmed);
             } catch (_) {
                 return;
+            }
+            if (typeof onEvent === 'function') {
+                try {
+                    onEvent(event);
+                } catch (error) {
+                    console.warn(`${label}: edistymistiedon käsittely epäonnistui.`, error);
+                }
             }
             if (event?.type === 'heartbeat') {
                 if (timerKey) updateLongOperationTimer(timerKey, { heartbeat: true });
@@ -15347,7 +15354,18 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         '[shouting]',
         '[tired]',
         '[trembling]',
-        '[whispers]'
+        '[whispers]',
+        '[cough]',
+        '[sigh]',
+        '[yawn]',
+        '[whisper]',
+        '[short pause]',
+        '[excitedly]',
+        '[bored]',
+        '[reluctantly]',
+        '[very fast]',
+        '[very slow]',
+        '[sarcastically, one painfully slow word at a time]'
     ]);
     const AUDIO_SCRIPT_PREPARATION_TAG_DESCRIPTIONS = Object.freeze({
         '[amazed]': 'Hämmästynyt tai ihmettelevä ilmaisu.',
@@ -15365,18 +15383,42 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         '[shouting]': 'Huudettu tai voimakkaasti korotettu ääni.',
         '[tired]': 'Väsynyt ja voimaton äänenpaino.',
         '[trembling]': 'Vapiseva, pelokas tai järkyttynyt ääni.',
-        '[whispers]': 'Kuiskaava esitystapa seuraavalle ilmaukselle.'
+        '[whispers]': 'Kuiskaava esitystapa seuraavalle ilmaukselle.',
+        '[cough]': 'Yskäisy osana dialogin reaktiota.',
+        '[sigh]': 'Yksittäinen huokaus tai huokaiseva ilmaisu.',
+        '[yawn]': 'Haukotus osana reaktiota tai puhetta.',
+        '[whisper]': 'Kuiskaava esitystapa seuraavalle ilmaukselle.',
+        '[short pause]': 'Lyhyt dramaturginen tauko.',
+        '[excitedly]': 'Korostetun innostunut esitystapa.',
+        '[bored]': 'Kyllästynyt tai välinpitämätön äänenpaino.',
+        '[reluctantly]': 'Vastahakoinen ja epäröivä ilmaisu.',
+        '[very fast]': 'Poikkeuksellisen nopea puhetempo.',
+        '[very slow]': 'Poikkeuksellisen hidas puhetempo.',
+        '[sarcastically, one painfully slow word at a time]': 'Erittäin hidas ja sarkastisesti artikuloitu ilmaisu.'
     });
+    const AUDIO_SCRIPT_PREPARATION_DEFAULT_CATEGORIES = Object.freeze([
+        'emotion',
+        'dialogue',
+        'reactions',
+        'delivery',
+        'foreign_pronunciation'
+    ]);
+    const AUDIO_SCRIPT_PREPARATION_DENSITIES = Object.freeze(['restrained', 'balanced', 'expressive']);
+    const AUDIO_SCRIPT_PREPARATION_DEFAULT_CHUNK_SIZE = 3000;
     let audioScriptPreparation = null;
     let audioScriptPreparationLoadedProjectId = null;
     let audioScriptPreparationSelectedSection = 0;
     let audioScriptPreparationDirty = false;
+    let audioScriptPreparationContentDirty = false;
     let audioScriptPreparationLoading = false;
     let audioScriptPreparationGenerating = false;
     let audioScriptPreparationSaving = false;
     let audioScriptPreparationError = '';
     let audioScriptPreparationRequestGeneration = 0;
     let audioScriptPreparationController = null;
+    let audioScriptPreparationProgress = null;
+    let audioScriptPreparationProgressTimer = null;
+    let audioScriptPreparationProgressPollTimer = null;
     let geminiTtsModels = [];
     let geminiTtsModelsLoaded = false;
     let geminiTtsConfigured = false;
@@ -16256,7 +16298,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
 
     function audioScriptPreparationProfileLabel(value) {
         const profile = String(value || '').trim();
-        if (!profile || profile.toLowerCase() === 'gemini_tts_v1') return 'GEMINI 3.1 TTS';
+        if (!profile || /^gemini_tts_v\d+$/i.test(profile)) return 'GEMINI 3.1 TTS';
         return profile.replace(/[_-]+/g, ' ').toLocaleUpperCase('fi-FI');
     }
 
@@ -17635,7 +17677,11 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             project_id: projectId,
             language_code: audioProductionLanguageData().code || 'fi',
             language_label: audioProductionLanguageData().label || 'Suomi',
-            tag_profile: 'gemini_tts_v1',
+            tag_profile: 'gemini_tts_v2',
+            annotation_density: 'balanced',
+            annotation_categories: [...AUDIO_SCRIPT_PREPARATION_DEFAULT_CATEGORIES],
+            chunk_size_chars: AUDIO_SCRIPT_PREPARATION_DEFAULT_CHUNK_SIZE,
+            pronunciation_glossary: [],
             production_prompt: '',
             allowed_tags: [...AUDIO_SCRIPT_PREPARATION_TAGS],
             source_checksum: '',
@@ -17646,6 +17692,14 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             sections: [],
             generated_by: '',
             warnings: [],
+            generation_active: false,
+            generation_stage: '',
+            job_id: null,
+            progress_percent: 0,
+            completed_segments: 0,
+            total_segments: 0,
+            elapsed_seconds: 0,
+            eta_seconds: null,
             updated_at: ''
         };
     }
@@ -17679,6 +17733,23 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const allowedTags = (Array.isArray(source.allowed_tags) ? source.allowed_tags : [])
             .map(tag => String(tag || '').trim())
             .filter(Boolean);
+        const annotationDensity = AUDIO_SCRIPT_PREPARATION_DENSITIES.includes(String(source.annotation_density || '').trim())
+            ? String(source.annotation_density).trim()
+            : 'balanced';
+        const annotationCategories = (Array.isArray(source.annotation_categories) ? source.annotation_categories : [])
+            .map(value => String(value || '').trim())
+            .filter(value => AUDIO_SCRIPT_PREPARATION_DEFAULT_CATEGORIES.includes(value));
+        const pronunciationGlossary = (Array.isArray(source.pronunciation_glossary) ? source.pronunciation_glossary : [])
+            .map(item => ({
+                term: String(item?.term || '').trim(),
+                language: String(item?.language || '').trim(),
+                guidance: String(item?.guidance || '').trim()
+            }))
+            .filter(item => item.term && item.guidance);
+        const chunkSize = Math.max(
+            1000,
+            Math.min(6000, Math.round(Number(source.chunk_size_chars) || AUDIO_SCRIPT_PREPARATION_DEFAULT_CHUNK_SIZE))
+        );
         const sourceChars = sections.reduce((sum, section) => sum + section.source_text.length, 0);
         const taggedChars = sections.reduce((sum, section) => sum + section.tagged_text.length, 0);
         return {
@@ -17690,7 +17761,13 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             project_id: source.project_id ?? projectId,
             language_code: String(source.language_code || audioProductionLanguageData().code || 'fi').trim() || 'fi',
             language_label: String(source.language_label || audioProductionLanguageData().label || '').trim(),
-            tag_profile: String(source.tag_profile || 'gemini_tts_v1').trim() || 'gemini_tts_v1',
+            tag_profile: String(source.tag_profile || 'gemini_tts_v2').trim() || 'gemini_tts_v2',
+            annotation_density: annotationDensity,
+            annotation_categories: annotationCategories.length
+                ? annotationCategories
+                : [...AUDIO_SCRIPT_PREPARATION_DEFAULT_CATEGORIES],
+            chunk_size_chars: chunkSize,
+            pronunciation_glossary: pronunciationGlossary,
             production_prompt: String(source.production_prompt || ''),
             allowed_tags: allowedTags.length ? allowedTags : [...AUDIO_SCRIPT_PREPARATION_TAGS],
             source_checksum: String(source.source_checksum || '').trim(),
@@ -17701,6 +17778,16 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             sections,
             generated_by: String(source.generated_by || '').trim(),
             warnings,
+            generation_active: source.generation_active === true,
+            generation_stage: String(source.generation_stage || '').trim(),
+            job_id: source.job_id ?? null,
+            progress_percent: Math.max(0, Math.min(100, Number(source.progress_percent) || 0)),
+            completed_segments: Math.max(0, Number(source.completed_segments) || 0),
+            total_segments: Math.max(0, Number(source.total_segments) || 0),
+            elapsed_seconds: Math.max(0, Number(source.elapsed_seconds) || 0),
+            eta_seconds: source.eta_seconds !== null && source.eta_seconds !== '' && Number.isFinite(Number(source.eta_seconds))
+                ? Math.max(0, Number(source.eta_seconds))
+                : null,
             updated_at: String(source.updated_at || '').trim()
         };
     }
@@ -17714,7 +17801,12 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
 
     function audioScriptPreparationTagCount(text) {
         const source = String(text || '');
-        return AUDIO_SCRIPT_PREPARATION_TAGS.reduce((sum, tag) => {
+        const availableTags = audioScriptPreparation?.allowed_tags?.length
+            ? audioScriptPreparation.allowed_tags
+            : AUDIO_SCRIPT_PREPARATION_TAGS;
+        return availableTags.reduce((sum, tagValue) => {
+            const tag = String(tagValue || '');
+            if (!tag) return sum;
             let count = 0;
             let offset = 0;
             while ((offset = source.indexOf(tag, offset)) >= 0) {
@@ -17733,6 +17825,300 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         return value;
     }
 
+    function parseAudioScriptPreparationGlossary() {
+        const value = String(document.getElementById('audio-preparation-pronunciation-glossary')?.value || '');
+        const lines = value.split(/\r?\n/)
+            .map((line, index) => ({ line: line.trim(), number: index + 1 }))
+            .filter(item => item.line);
+        if (lines.length > 100) {
+            throw new Error('Lausuntasanastossa voi olla enintään 100 termiä.');
+        }
+        const seen = new Set();
+        return lines.map(item => {
+            let term = '';
+            let language = '';
+            let guidance = '';
+            if (item.line.includes('|')) {
+                const parts = item.line.split('|').map(part => part.trim());
+                term = parts.shift() || '';
+                language = parts.shift() || '';
+                guidance = parts.join('|').trim();
+            } else if (item.line.includes('=')) {
+                const separator = item.line.indexOf('=');
+                term = item.line.slice(0, separator).trim();
+                guidance = item.line.slice(separator + 1).trim();
+            }
+            if (!term || !guidance) {
+                throw new Error(`Lausuntasanaston rivi ${item.number} ei ole muodossa termi | kieli | lausuntaohje.`);
+            }
+            if (term.length > 120 || language.length > 20 || guidance.length > 240) {
+                throw new Error(`Lausuntasanaston rivi ${item.number} on liian pitkä.`);
+            }
+            if (language && !/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/.test(language)) {
+                throw new Error(`Lausuntasanaston rivin ${item.number} kielikoodi ei ole kelvollinen BCP-47-tunniste.`);
+            }
+            const key = term.toLocaleLowerCase('fi-FI');
+            if (seen.has(key)) {
+                throw new Error(`Lausuntasanastossa termi “${term}” esiintyy useammin kuin kerran.`);
+            }
+            seen.add(key);
+            return { term, language: language || 'und', guidance };
+        });
+    }
+
+    function formatAudioScriptPreparationGlossary(items) {
+        return (Array.isArray(items) ? items : [])
+            .map(item => [item?.term, item?.language, item?.guidance].map(value => String(value || '').trim()).join(' | '))
+            .join('\n');
+    }
+
+    function audioScriptPreparationOptionsFromForm() {
+        const density = String(document.getElementById('audio-preparation-density')?.value || 'balanced');
+        if (!AUDIO_SCRIPT_PREPARATION_DENSITIES.includes(density)) {
+            throw new Error('Valitse tagituksen herkkyys.');
+        }
+        const categories = Array.from(document.querySelectorAll('input[name="audio-preparation-category"]:checked'))
+            .map(input => String(input.value || '').trim())
+            .filter(value => AUDIO_SCRIPT_PREPARATION_DEFAULT_CATEGORIES.includes(value));
+        if (!categories.length) {
+            throw new Error('Valitse vähintään yksi tagitettava kohde.');
+        }
+        const chunkSize = Math.round(Number(document.getElementById('audio-preparation-chunk-size')?.value));
+        if (!Number.isFinite(chunkSize) || chunkSize < 1000 || chunkSize > 6000) {
+            throw new Error('Käsittelypalan koon pitää olla 1 000–6 000 merkkiä.');
+        }
+        return {
+            annotation_density: density,
+            annotation_categories: categories,
+            chunk_size_chars: chunkSize,
+            pronunciation_glossary: categories.includes('foreign_pronunciation')
+                ? parseAudioScriptPreparationGlossary()
+                : []
+        };
+    }
+
+    function audioScriptPreparationAnnotationSettingsChanged() {
+        if (!audioScriptPreparation?.sections?.length) return false;
+        const formDensity = String(document.getElementById('audio-preparation-density')?.value || 'balanced');
+        const formChunkSize = Math.round(Number(document.getElementById('audio-preparation-chunk-size')?.value));
+        const formCategories = Array.from(document.querySelectorAll('input[name="audio-preparation-category"]:checked'))
+            .map(input => String(input.value || '').trim())
+            .filter(value => AUDIO_SCRIPT_PREPARATION_DEFAULT_CATEGORIES.includes(value))
+            .sort();
+        const storedCategories = (
+            audioScriptPreparation.annotation_categories?.length
+                ? audioScriptPreparation.annotation_categories
+                : AUDIO_SCRIPT_PREPARATION_DEFAULT_CATEGORIES
+        ).map(value => String(value || '').trim()).sort();
+        return formDensity !== String(audioScriptPreparation.annotation_density || 'balanced')
+            || formChunkSize !== Number(audioScriptPreparation.chunk_size_chars || AUDIO_SCRIPT_PREPARATION_DEFAULT_CHUNK_SIZE)
+            || formCategories.length !== storedCategories.length
+            || formCategories.some((value, index) => value !== storedCategories[index]);
+    }
+
+    function estimatedAudioScriptPreparationSegments(chunkSize = AUDIO_SCRIPT_PREPARATION_DEFAULT_CHUNK_SIZE) {
+        const safeChunkSize = Math.max(1000, Math.min(6000, Number(chunkSize) || AUDIO_SCRIPT_PREPARATION_DEFAULT_CHUNK_SIZE));
+        const preparedSections = Array.isArray(audioScriptPreparation?.sections) ? audioScriptPreparation.sections : [];
+        if (preparedSections.length) {
+            return Math.max(1, preparedSections.reduce(
+                (sum, section) => sum + Math.max(1, Math.ceil(String(section.source_text || '').length / safeChunkSize)),
+                0
+            ));
+        }
+        const manuscriptSections = Array.isArray(window.manuscriptData?.chapters) ? window.manuscriptData.chapters : [];
+        if (manuscriptSections.length) {
+            return Math.max(1, manuscriptSections.reduce((sum, chapter) => {
+                const chapterText = [chapter?.title, ...(Array.isArray(chapter?.paragraphs) ? chapter.paragraphs : [])]
+                    .map(value => String(value || ''))
+                    .join('\n');
+                return sum + Math.max(1, Math.ceil(chapterText.length / safeChunkSize));
+            }, 0));
+        }
+        return 1;
+    }
+
+    function renderAudioScriptPreparationChunkEstimate() {
+        const helper = document.getElementById('audio-preparation-chunk-estimate');
+        if (!helper) return;
+        const chunkSize = Number(document.getElementById('audio-preparation-chunk-size')?.value)
+            || AUDIO_SCRIPT_PREPARATION_DEFAULT_CHUNK_SIZE;
+        const segments = estimatedAudioScriptPreparationSegments(chunkSize);
+        helper.textContent = `Nykyinen teos käsitellään arviolta ${formatNumber(segments)} palassa. Pienempi pala löytää paikalliset tunnetilan vaihdokset herkemmin, mutta lisää käsittelyaikaa ja mallikutsuja.`;
+    }
+
+    function audioScriptPreparationStageLabel(stage) {
+        const normalized = String(stage || '').trim().toLowerCase();
+        const labels = {
+            queued: 'Odottaa käsittelyvuoroa',
+            initializing: 'Valmistellaan käsittelyä',
+            preparing: 'Valmistellaan käsittelyä',
+            prompt: 'Muodostetaan teoksen tyylipromptia',
+            prompt_generation: 'Muodostetaan teoksen tyylipromptia',
+            production_prompt: 'Muodostetaan teoksen tyylipromptia',
+            tagging: 'Tagitetaan tekstipaloja',
+            annotating: 'Tagitetaan tekstipaloja',
+            validating: 'Tarkistetaan tekstin muuttumattomuus',
+            saving: 'Tallennetaan äänikäsikirjoitusta',
+            finalizing: 'Viimeistellään äänikäsikirjoitusta',
+            completed: 'Äänikäsikirjoitus on valmis'
+        };
+        if (labels[normalized]) return labels[normalized];
+        if (!normalized) return 'Valmistellaan käsittelyä';
+        return normalized.replace(/[_-]+/g, ' ').replace(/^./, letter => letter.toLocaleUpperCase('fi-FI'));
+    }
+
+    function renderAudioScriptPreparationProgress() {
+        const container = document.getElementById('audio-preparation-progress');
+        if (!container) return;
+        const progress = audioScriptPreparationProgress;
+        container.classList.toggle('hidden', !progress);
+        if (!progress) return;
+        const now = Date.now();
+        const elapsedSeconds = Math.max(0, (now - progress.startedAt) / 1000);
+        const percent = Math.max(0, Math.min(100, Number(progress.percent) || 0));
+        const remainingSeconds = progress.etaAuthoritative
+            ? Math.max(0, Number(progress.etaSeconds || 0) - (now - progress.etaUpdatedAt) / 1000)
+            : Math.max(0, Number(progress.estimatedTotalSeconds || 0) - elapsedSeconds);
+        const values = {
+            'audio-preparation-progress-stage': progress.stageLabel,
+            'audio-preparation-progress-percent': `${Math.round(percent)} %`,
+            'audio-preparation-progress-segments': `${formatNumber(progress.completed)} / ${progress.total ? formatNumber(progress.total) : '–'} käsittelypalaa`,
+            'audio-preparation-progress-elapsed': `Kulunut ${formatLongOperationDuration(elapsedSeconds)}`,
+            'audio-preparation-progress-eta': progress.finished
+                ? (progress.failed ? 'Käsittely keskeytyi' : `Valmis ajassa ${formatLongOperationDuration(elapsedSeconds)}`)
+                : `${progress.etaAuthoritative ? 'Arvio jäljellä' : 'Alustava arvio jäljellä'} ${formatLongOperationEstimate(remainingSeconds)}`
+        };
+        Object.entries(values).forEach(([id, value]) => {
+            const element = document.getElementById(id);
+            if (element) element.textContent = value;
+        });
+        const bar = document.getElementById('audio-preparation-progress-bar');
+        if (bar) bar.style.width = `${percent}%`;
+        const track = document.getElementById('audio-preparation-progress-track');
+        if (track) track.setAttribute('aria-valuenow', String(Math.round(percent)));
+    }
+
+    function stopAudioScriptPreparationProgressTimer() {
+        if (audioScriptPreparationProgressTimer) window.clearInterval(audioScriptPreparationProgressTimer);
+        audioScriptPreparationProgressTimer = null;
+    }
+
+    function startAudioScriptPreparationProgress(seed = {}, mode = 'stream') {
+        stopAudioScriptPreparationProgressTimer();
+        if (audioScriptPreparationProgressPollTimer) window.clearTimeout(audioScriptPreparationProgressPollTimer);
+        audioScriptPreparationProgressPollTimer = null;
+        const estimatedTotal = Math.max(
+            1,
+            Number(seed.total_segments) || estimatedAudioScriptPreparationSegments(seed.chunk_size_chars)
+        );
+        const elapsedSeconds = Math.max(0, Number(seed.elapsed_seconds) || 0);
+        const etaIsKnown = seed.eta_seconds !== null && seed.eta_seconds !== '' && Number.isFinite(Number(seed.eta_seconds));
+        audioScriptPreparationProgress = {
+            active: true,
+            mode,
+            startedAt: Date.now() - elapsedSeconds * 1000,
+            completed: Math.max(0, Number(seed.completed_segments) || 0),
+            total: estimatedTotal,
+            percent: Math.max(0, Math.min(100, Number(seed.progress_percent) || 0)),
+            stageLabel: audioScriptPreparationStageLabel(seed.generation_stage || seed.stage),
+            etaSeconds: etaIsKnown ? Math.max(0, Number(seed.eta_seconds)) : estimatedTotal * 18,
+            etaUpdatedAt: Date.now(),
+            etaAuthoritative: etaIsKnown,
+            estimatedTotalSeconds: elapsedSeconds + (etaIsKnown ? Math.max(0, Number(seed.eta_seconds)) : estimatedTotal * 18),
+            finished: false,
+            failed: false
+        };
+        renderAudioScriptPreparationProgress();
+        audioScriptPreparationProgressTimer = window.setInterval(renderAudioScriptPreparationProgress, 1000);
+    }
+
+    function updateAudioScriptPreparationProgress(event) {
+        if (event?.type !== 'progress') return;
+        if (!audioScriptPreparationProgress) startAudioScriptPreparationProgress(event);
+        const progress = audioScriptPreparationProgress;
+        const total = Math.max(0, Number(event.total_segments) || progress.total || 0);
+        const completed = Math.max(0, Number(event.completed_segments) || 0);
+        progress.total = total;
+        progress.completed = completed;
+        progress.percent = Number.isFinite(Number(event.progress_percent))
+            ? Math.max(0, Math.min(100, Number(event.progress_percent)))
+            : total ? Math.max(0, Math.min(100, completed / total * 100)) : progress.percent;
+        progress.stageLabel = audioScriptPreparationStageLabel(event.stage);
+        if (Number.isFinite(Number(event.elapsed_seconds))) {
+            progress.startedAt = Date.now() - Math.max(0, Number(event.elapsed_seconds)) * 1000;
+        }
+        if (event.eta_seconds !== null && event.eta_seconds !== '' && Number.isFinite(Number(event.eta_seconds))) {
+            progress.etaSeconds = Math.max(0, Number(event.eta_seconds));
+            progress.etaUpdatedAt = Date.now();
+            progress.etaAuthoritative = true;
+        }
+        renderAudioScriptPreparationProgress();
+    }
+
+    function finishAudioScriptPreparationProgress({ failed = false } = {}) {
+        if (!audioScriptPreparationProgress) return;
+        stopAudioScriptPreparationProgressTimer();
+        audioScriptPreparationProgress.active = false;
+        audioScriptPreparationProgress.finished = true;
+        audioScriptPreparationProgress.failed = failed;
+        if (!failed) {
+            audioScriptPreparationProgress.completed = audioScriptPreparationProgress.total;
+            audioScriptPreparationProgress.percent = 100;
+            audioScriptPreparationProgress.stageLabel = audioScriptPreparationStageLabel('completed');
+        } else {
+            audioScriptPreparationProgress.stageLabel = 'Käsittely keskeytyi';
+        }
+        renderAudioScriptPreparationProgress();
+    }
+
+    function clearAudioScriptPreparationProgress() {
+        stopAudioScriptPreparationProgressTimer();
+        if (audioScriptPreparationProgressPollTimer) window.clearTimeout(audioScriptPreparationProgressPollTimer);
+        audioScriptPreparationProgressPollTimer = null;
+        audioScriptPreparationProgress = null;
+        renderAudioScriptPreparationProgress();
+    }
+
+    function scheduleAudioScriptPreparationProgressPoll() {
+        if (audioScriptPreparationProgressPollTimer) window.clearTimeout(audioScriptPreparationProgressPollTimer);
+        audioScriptPreparationProgressPollTimer = null;
+        if (!audioScriptPreparation?.generation_active || audioScriptPreparationProgress?.mode !== 'poll') return;
+        audioScriptPreparationProgressPollTimer = window.setTimeout(() => {
+            audioScriptPreparationProgressPollTimer = null;
+            void initializeAudioScriptPreparation(true);
+        }, 2500);
+    }
+
+    function syncAudioScriptPreparationGenerationSnapshot() {
+        const active = audioScriptPreparation?.generation_active === true;
+        const wasPolling = audioScriptPreparationProgress?.mode === 'poll';
+        if (active) {
+            const snapshot = {
+                generation_stage: audioScriptPreparation.generation_stage,
+                completed_segments: audioScriptPreparation.completed_segments,
+                total_segments: audioScriptPreparation.total_segments,
+                progress_percent: audioScriptPreparation.progress_percent,
+                elapsed_seconds: audioScriptPreparation.elapsed_seconds,
+                eta_seconds: audioScriptPreparation.eta_seconds,
+                chunk_size_chars: audioScriptPreparation.chunk_size_chars
+            };
+            if (!wasPolling) {
+                startAudioScriptPreparationProgress(snapshot, 'poll');
+            } else {
+                updateAudioScriptPreparationProgress({ type: 'progress', stage: snapshot.generation_stage, ...snapshot });
+            }
+            audioScriptPreparationGenerating = true;
+            return;
+        }
+        if (wasPolling) {
+            audioScriptPreparationGenerating = false;
+            finishAudioScriptPreparationProgress();
+            clearAudioProductionDraft();
+            void initializeAudioProductionWorkspace(true);
+            loadUsage();
+        }
+    }
+
     function setAudioScriptPreparationStatus(message, kind = '') {
         const status = document.getElementById('audio-preparation-status');
         if (!status) return;
@@ -17748,16 +18134,14 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             profile.textContent = audioScriptPreparationProfileLabel(audioScriptPreparation?.tag_profile);
         }
         if (!list) return;
-        const allowed = new Set(
-            (audioScriptPreparation?.allowed_tags?.length
-                ? audioScriptPreparation.allowed_tags
-                : AUDIO_SCRIPT_PREPARATION_TAGS
-            ).map(tag => String(tag || '').trim())
-        );
-        list.innerHTML = AUDIO_SCRIPT_PREPARATION_TAGS.map(tag => `
-            <div class="audio-preparation-tag${allowed.has(tag) ? '' : ' is-unavailable'}">
+        const visibleTags = (audioScriptPreparation?.allowed_tags?.length
+            ? audioScriptPreparation.allowed_tags
+            : AUDIO_SCRIPT_PREPARATION_TAGS
+        ).map(tag => String(tag || '').trim()).filter(Boolean);
+        list.innerHTML = visibleTags.map(tag => `
+            <div class="audio-preparation-tag">
                 <code>${escapeHtml(tag)}</code>
-                <span>${escapeHtml(AUDIO_SCRIPT_PREPARATION_TAG_DESCRIPTIONS[tag] || '')}</span>
+                <span>${escapeHtml(AUDIO_SCRIPT_PREPARATION_TAG_DESCRIPTIONS[tag] || 'Geminin tukema esitystavan tai äänen ohje.')}</span>
             </div>
         `).join('');
     }
@@ -17810,11 +18194,12 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
     }
 
-    function markAudioScriptPreparationDirty() {
+    function markAudioScriptPreparationDirty(contentChanged = false) {
         if (!window.manuscriptData?.id || audioScriptPreparationLoading || audioScriptPreparationGenerating || audioScriptPreparationSaving) return;
         syncAudioScriptPreparationInputs();
         audioScriptPreparationError = '';
         audioScriptPreparationDirty = true;
+        if (contentChanged) audioScriptPreparationContentDirty = true;
         renderAudioScriptPreparationMetrics();
         renderAudioScriptPreparationStatus();
         syncAudioScriptPreparationControls();
@@ -17858,7 +18243,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             setAudioScriptPreparationStatus('Valitse tallennettu käsikirjoitus aloittaaksesi.', 'error');
             return;
         }
-        if (audioScriptPreparationLoading) {
+        if (audioScriptPreparationLoading && !audioScriptPreparationGenerating) {
             if (state) {
                 state.classList.add('is-loading');
                 state.textContent = 'LADATAAN';
@@ -17892,10 +18277,15 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
         if (audioScriptPreparationDirty) {
             if (state) {
-                state.classList.add('is-dirty');
-                state.textContent = 'MUUTOKSIA';
+                state.classList.add(audioScriptPreparationAnnotationSettingsChanged() ? 'is-stale' : 'is-dirty');
+                state.textContent = audioScriptPreparationAnnotationSettingsChanged() ? 'TAGITA UUDELLEEN' : 'MUUTOKSIA';
             }
-            setAudioScriptPreparationStatus('Äänikäsikirjoituksessa on tallentamattomia muutoksia.');
+            setAudioScriptPreparationStatus(
+                audioScriptPreparationAnnotationSettingsChanged()
+                    ? 'Asetukset muuttuivat – tagita teksti uudelleen painamalla “Luo prompti ja tagita koko teksti”.'
+                    : 'Äänikäsikirjoituksessa on tallentamattomia muutoksia.',
+                audioScriptPreparationAnnotationSettingsChanged() ? 'stale' : ''
+            );
             return;
         }
         const warning = audioScriptPreparation?.warnings?.join(' ') || '';
@@ -17931,8 +18321,11 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const controls = {
             'audio-preparation-generate-btn': !hasProject || running,
             'audio-preparation-refresh-btn': !hasProject || running,
-            'audio-preparation-save-btn': !hasProject || running || !hasSections || (!audioScriptPreparation?.exists && !audioScriptPreparationDirty),
+            'audio-preparation-save-btn': !hasProject || running || !hasSections || audioScriptPreparationAnnotationSettingsChanged() || (!audioScriptPreparation?.exists && !audioScriptPreparationDirty),
             'audio-preparation-language': !hasProject || running,
+            'audio-preparation-density': !hasProject || running,
+            'audio-preparation-chunk-size': !hasProject || running,
+            'audio-preparation-pronunciation-glossary': !hasProject || running,
             'audio-preparation-instructions': !hasProject || running,
             'audio-preparation-production-prompt': !hasProject || running || !hasSections,
             'audio-preparation-section-select': !hasProject || running || !hasSections,
@@ -17944,6 +18337,36 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             const element = document.getElementById(id);
             if (element) element.disabled = Boolean(disabled);
         });
+        document.querySelectorAll('input[name="audio-preparation-category"]').forEach(input => {
+            input.disabled = !hasProject || running;
+        });
+        const foreignPronunciation = document.querySelector('input[name="audio-preparation-category"][value="foreign_pronunciation"]');
+        const glossary = document.getElementById('audio-preparation-pronunciation-glossary');
+        if (glossary) glossary.disabled = !hasProject || running || !foreignPronunciation?.checked;
+    }
+
+    function renderAudioScriptPreparationSettings() {
+        const preparation = audioScriptPreparation || emptyAudioScriptPreparation();
+        const density = document.getElementById('audio-preparation-density');
+        const chunkSize = document.getElementById('audio-preparation-chunk-size');
+        const glossary = document.getElementById('audio-preparation-pronunciation-glossary');
+        if (density && AUDIO_SCRIPT_PREPARATION_DENSITIES.includes(preparation.annotation_density)) {
+            density.value = preparation.annotation_density;
+        }
+        if (chunkSize) {
+            const value = String(preparation.chunk_size_chars || AUDIO_SCRIPT_PREPARATION_DEFAULT_CHUNK_SIZE);
+            if (Array.from(chunkSize.options).some(option => option.value === value)) chunkSize.value = value;
+        }
+        const selectedCategories = new Set(
+            preparation.annotation_categories?.length
+                ? preparation.annotation_categories
+                : AUDIO_SCRIPT_PREPARATION_DEFAULT_CATEGORIES
+        );
+        document.querySelectorAll('input[name="audio-preparation-category"]').forEach(input => {
+            input.checked = selectedCategories.has(input.value);
+        });
+        if (glossary) glossary.value = formatAudioScriptPreparationGlossary(preparation.pronunciation_glossary);
+        renderAudioScriptPreparationChunkEstimate();
     }
 
     function renderAudioScriptPreparationWorkspace() {
@@ -17952,6 +18375,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const prompt = document.getElementById('audio-preparation-production-prompt');
         if (language) language.value = preparation.language_code || audioProductionLanguageData().code || 'fi';
         if (prompt) prompt.value = preparation.production_prompt || '';
+        renderAudioScriptPreparationSettings();
         renderAudioScriptPreparationTags();
         renderAudioScriptPreparationSection();
         renderAudioScriptPreparationStatus();
@@ -17966,10 +18390,12 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         audioScriptPreparationLoadedProjectId = null;
         audioScriptPreparationSelectedSection = 0;
         audioScriptPreparationDirty = false;
+        audioScriptPreparationContentDirty = false;
         audioScriptPreparationLoading = false;
         audioScriptPreparationGenerating = false;
         audioScriptPreparationSaving = false;
         audioScriptPreparationError = '';
+        clearAudioScriptPreparationProgress();
         const instructions = document.getElementById('audio-preparation-instructions');
         if (instructions) instructions.value = '';
         renderAudioScriptPreparationWorkspace();
@@ -17986,7 +18412,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             && String(audioScriptPreparationLoadedProjectId || '') === String(projectId)
             && audioScriptPreparation
         ) {
+            syncAudioScriptPreparationGenerationSnapshot();
             renderAudioScriptPreparationWorkspace();
+            scheduleAudioScriptPreparationProgressPoll();
             return audioScriptPreparation;
         }
         if (audioScriptPreparationLoading && !force) return audioScriptPreparation;
@@ -18012,12 +18440,14 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 if (!response.ok) throw new Error(data?.detail || 'Äänikäsikirjoituksen lataaminen epäonnistui.');
                 audioScriptPreparation = normalizeAudioScriptPreparation(data, projectId);
             }
+            syncAudioScriptPreparationGenerationSnapshot();
             audioScriptPreparationLoadedProjectId = projectId;
             audioScriptPreparationSelectedSection = Math.min(
                 audioScriptPreparationSelectedSection,
                 Math.max(0, (audioScriptPreparation.sections?.length || 1) - 1)
             );
             audioScriptPreparationDirty = false;
+            audioScriptPreparationContentDirty = false;
             return audioScriptPreparation;
         } catch (error) {
             if (generation !== audioScriptPreparationRequestGeneration) return null;
@@ -18034,6 +18464,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 audioScriptPreparationLoading = false;
                 if (audioScriptPreparationController === controller) audioScriptPreparationController = null;
                 renderAudioScriptPreparationWorkspace();
+                scheduleAudioScriptPreparationProgressPoll();
             }
         }
     }
@@ -18046,47 +18477,64 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             return;
         }
         let languageCode;
+        let annotationOptions;
         try {
             languageCode = audioScriptPreparationLanguageCode();
+            annotationOptions = audioScriptPreparationOptionsFromForm();
         } catch (error) {
             audioScriptPreparationError = error.message;
             renderAudioScriptPreparationStatus();
             return;
         }
-        if (audioScriptPreparationDirty && !window.confirm('Korvataanko tallentamattomat muutokset uudella koko teoksen tagituksella?')) return;
+        if (audioScriptPreparationContentDirty && !window.confirm('Korvataanko käsin muokattu prompti tai tagitettu teksti uudella koko teoksen tagituksella?')) return;
         const generation = ++audioScriptPreparationRequestGeneration;
         if (audioScriptPreparationController) audioScriptPreparationController.abort();
         const controller = new AbortController();
         audioScriptPreparationController = controller;
         audioScriptPreparationGenerating = true;
         audioScriptPreparationError = '';
+        startAudioScriptPreparationProgress({
+            total_segments: estimatedAudioScriptPreparationSegments(annotationOptions.chunk_size_chars),
+            chunk_size_chars: annotationOptions.chunk_size_chars,
+            generation_stage: 'preparing'
+        });
         renderAudioScriptPreparationStatus();
         syncAudioScriptPreparationControls();
         try {
             const response = await apiFetch('/api/audio/script-preparation/generate', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/x-ndjson'
+                },
                 body: JSON.stringify({
                     project_id: Number(projectId),
                     language_code: languageCode,
-                    instructions: document.getElementById('audio-preparation-instructions')?.value || ''
+                    instructions: document.getElementById('audio-preparation-instructions')?.value || '',
+                    ...annotationOptions
                 }),
                 signal: controller.signal
             });
-            const data = await readLongEditStream(response, { label: 'Äänikäsikirjoituksen luonti' });
+            const data = await readLongEditStream(response, {
+                label: 'Äänikäsikirjoituksen luonti',
+                onEvent: updateAudioScriptPreparationProgress
+            });
             if (generation !== audioScriptPreparationRequestGeneration || String(window.manuscriptData?.id || '') !== String(projectId)) return;
-            audioScriptPreparation = normalizeAudioScriptPreparation(data, projectId);
+            audioScriptPreparation = normalizeAudioScriptPreparation(data?.result || data, projectId);
             audioScriptPreparationLoadedProjectId = projectId;
             audioScriptPreparationSelectedSection = 0;
             audioScriptPreparationDirty = false;
+            audioScriptPreparationContentDirty = false;
             clearAudioProductionDraft();
             await initializeAudioProductionWorkspace(true);
             loadUsage();
+            finishAudioScriptPreparationProgress();
         } catch (error) {
             if (generation !== audioScriptPreparationRequestGeneration) return;
             audioScriptPreparationError = error?.name === 'AbortError'
                 ? 'Äänikäsikirjoituksen luonti keskeytettiin.'
                 : error?.message || 'Äänikäsikirjoituksen luonti epäonnistui.';
+            finishAudioScriptPreparationProgress({ failed: true });
         } finally {
             if (generation === audioScriptPreparationRequestGeneration) {
                 audioScriptPreparationGenerating = false;
@@ -18104,9 +18552,18 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             return;
         }
         syncAudioScriptPreparationInputs();
+        if (audioScriptPreparationAnnotationSettingsChanged()) {
+            audioScriptPreparationError = '';
+            audioScriptPreparationDirty = true;
+            renderAudioScriptPreparationStatus();
+            syncAudioScriptPreparationControls();
+            return;
+        }
         let languageCode;
+        let annotationOptions;
         try {
             languageCode = audioScriptPreparationLanguageCode();
+            annotationOptions = audioScriptPreparationOptionsFromForm();
         } catch (error) {
             audioScriptPreparationError = error.message;
             renderAudioScriptPreparationStatus();
@@ -18149,6 +18606,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     project_id: Number(projectId),
                     language_code: languageCode,
                     production_prompt: productionPrompt,
+                    ...annotationOptions,
                     expected_preparation_id: audioScriptPreparation.preparation_id ?? null,
                     expected_preparation_updated_at: audioScriptPreparation.updated_at || null,
                     expected_source_checksum: expectedSourceChecksum,
@@ -18175,6 +18633,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             audioScriptPreparationLoadedProjectId = projectId;
             audioScriptPreparationSelectedSection = Math.max(0, audioScriptPreparation.sections.findIndex(section => section.section_index === selectedIndex));
             audioScriptPreparationDirty = false;
+            audioScriptPreparationContentDirty = false;
             clearAudioProductionDraft();
             await initializeAudioProductionWorkspace(true);
         } catch (error) {
@@ -25699,6 +26158,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     const audioPreparationRefreshBtn = document.getElementById('audio-preparation-refresh-btn');
     const audioPreparationSaveBtn = document.getElementById('audio-preparation-save-btn');
     const audioPreparationLanguage = document.getElementById('audio-preparation-language');
+    const audioPreparationDensity = document.getElementById('audio-preparation-density');
+    const audioPreparationChunkSize = document.getElementById('audio-preparation-chunk-size');
+    const audioPreparationPronunciationGlossary = document.getElementById('audio-preparation-pronunciation-glossary');
     const audioPreparationProductionPrompt = document.getElementById('audio-preparation-production-prompt');
     const audioPreparationSectionSelect = document.getElementById('audio-preparation-section-select');
     const audioPreparationSectionPrev = document.getElementById('audio-preparation-section-prev');
@@ -26151,6 +26613,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         audioPreparationRefreshBtn.addEventListener('click', () => {
             if (audioScriptPreparationDirty && !window.confirm('Hylätäänkö tallentamattomat äänikäsikirjoituksen muutokset?')) return;
             audioScriptPreparationDirty = false;
+            audioScriptPreparationContentDirty = false;
             void initializeAudioScriptPreparation(true);
         });
     }
@@ -26165,8 +26628,33 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             }
         });
     }
-    if (audioPreparationProductionPrompt) audioPreparationProductionPrompt.addEventListener('input', markAudioScriptPreparationDirty);
-    if (audioPreparationTaggedText) audioPreparationTaggedText.addEventListener('input', markAudioScriptPreparationDirty);
+    if (audioPreparationDensity) {
+        audioPreparationDensity.addEventListener('change', () => {
+            markAudioScriptPreparationDirty();
+        });
+    }
+    if (audioPreparationChunkSize) {
+        audioPreparationChunkSize.addEventListener('change', () => {
+            renderAudioScriptPreparationChunkEstimate();
+            markAudioScriptPreparationDirty();
+        });
+    }
+    if (audioPreparationPronunciationGlossary) {
+        audioPreparationPronunciationGlossary.addEventListener('input', () => {
+            markAudioScriptPreparationDirty();
+        });
+    }
+    document.querySelectorAll('input[name="audio-preparation-category"]').forEach(input => {
+        input.addEventListener('change', () => {
+            markAudioScriptPreparationDirty();
+        });
+    });
+    if (audioPreparationProductionPrompt) {
+        audioPreparationProductionPrompt.addEventListener('input', () => markAudioScriptPreparationDirty(true));
+    }
+    if (audioPreparationTaggedText) {
+        audioPreparationTaggedText.addEventListener('input', () => markAudioScriptPreparationDirty(true));
+    }
     if (audioPreparationSectionSelect) {
         audioPreparationSectionSelect.addEventListener('change', () => {
             syncAudioScriptPreparationInputs();
