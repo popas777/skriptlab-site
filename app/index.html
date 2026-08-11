@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=92">
+    <link rel="stylesheet" href="styles.css?v=93">
     <link rel="stylesheet" href="workflow-studio.css?v=2">
     <link rel="stylesheet" href="correction-reprints.css?v=1">
 </head>
@@ -2782,6 +2782,7 @@
 
                 <div class="audio-workspace-tabs" role="tablist" aria-label="Audiotuotannon näkymät">
                     <button class="audio-workspace-tab active" id="audio-production-tab" type="button" data-audio-workspace-panel="audio-production-panel" role="tab" aria-selected="true" aria-controls="audio-production-panel" tabindex="0">Tuota äänikirja</button>
+                    <button class="audio-workspace-tab" id="audio-preparation-tab" type="button" data-audio-workspace-panel="audio-preparation-panel" role="tab" aria-selected="false" aria-controls="audio-preparation-panel" tabindex="-1">Äänikäsikirjoitus ja tagit</button>
                     <button class="audio-workspace-tab" id="audio-parts-tab" type="button" data-audio-workspace-panel="audio-parts-panel" role="tab" aria-selected="false" aria-controls="audio-parts-panel" tabindex="-1">Muokkaa äänikirjan osia</button>
                     <button class="audio-workspace-tab" id="audio-legacy-tab" type="button" data-audio-workspace-panel="audio-legacy-panel" role="tab" aria-selected="false" aria-controls="audio-legacy-panel" tabindex="-1">Valmistelu ja äänitestit</button>
                 </div>
@@ -2796,6 +2797,15 @@
                                     <p>Tuotanto jakaa teoksen osiin, luo äänitiedostot ja yhdistää ne automaattisesti.</p>
                                 </div>
                                 <span id="audio-production-language" class="audio-production-language">FI · SUOMI</span>
+                            </div>
+
+                            <div id="audio-production-script-state" class="audio-production-script-state is-loading" role="status">
+                                <span class="audio-production-script-state-mark" aria-hidden="true">…</span>
+                                <div>
+                                    <strong id="audio-production-script-state-label">Tarkistetaan äänikäsikirjoitusta…</strong>
+                                    <span id="audio-production-script-state-detail">Gemini käyttää valmisteltuja tageja ja tuotantopromptia; ElevenLabs käyttää alkuperäistä tekstiä.</span>
+                                </div>
+                                <button class="btn btn-secondary" id="audio-production-script-open-btn" type="button">Avaa valmistelu</button>
                             </div>
 
                             <div class="audio-production-settings">
@@ -2897,6 +2907,130 @@
                             <p class="audio-production-chunk-help">Voit lisätä alkuun esimerkiksi äänikirjan lukijan tiedot. “Jaa tästä” katkaisee palan tekstikohdistimen kohdalta; ilman kohdistinta jako tehdään läheltä palan keskikohtaa.</p>
                             <p id="audio-production-chunks-status" class="audio-production-chunks-status" role="status" aria-live="polite"></p>
                             <div id="audio-production-chunks-list" class="audio-production-chunks-list" aria-label="Äänikirjan tuotantopalat"></div>
+                        </div>
+                    </article>
+                </section>
+
+                <section id="audio-preparation-panel" class="audio-workspace-panel hidden" role="tabpanel" aria-labelledby="audio-preparation-tab">
+                    <div class="audio-preparation-overview-grid">
+                        <article class="card glass-panel audio-preparation-setup">
+                            <div class="audio-preparation-heading">
+                                <div>
+                                    <p class="audio-eyebrow">Koko teoksen TTS-valmistelu</p>
+                                    <h3>Muodosta äänikäsikirjoitus</h3>
+                                    <p>Analysoi teoksen tyyli, luo yhteinen lukuohje ja lisää Gemini 3.1 -yhteensopivat tagit koko käsikirjoitukseen tekstiä muuttamatta.</p>
+                                </div>
+                                <span id="audio-preparation-state" class="audio-preparation-state is-empty">EI VALMIS</span>
+                            </div>
+
+                            <div class="audio-preparation-settings">
+                                <div class="settings-row">
+                                    <label for="audio-preparation-language">Audiokieli · BCP-47</label>
+                                    <input id="audio-preparation-language" type="text" list="audio-preparation-language-options" maxlength="20" value="fi" placeholder="fi" spellcheck="false" autocomplete="off">
+                                    <datalist id="audio-preparation-language-options">
+                                        <option value="fi">Suomi</option>
+                                        <option value="sv">Ruotsi</option>
+                                        <option value="en">Englanti</option>
+                                        <option value="en-US">Englanti (Yhdysvallat)</option>
+                                        <option value="en-GB">Englanti (Britannia)</option>
+                                        <option value="de">Saksa</option>
+                                        <option value="fr">Ranska</option>
+                                        <option value="es">Espanja</option>
+                                        <option value="it">Italia</option>
+                                        <option value="et">Viro</option>
+                                        <option value="da">Tanska</option>
+                                        <option value="nb">Norja (bokmål)</option>
+                                        <option value="nl">Hollanti</option>
+                                        <option value="pt">Portugali</option>
+                                        <option value="pl">Puola</option>
+                                        <option value="ru">Venäjä</option>
+                                        <option value="uk">Ukraina</option>
+                                        <option value="ar">Arabia</option>
+                                        <option value="hi">Hindi</option>
+                                        <option value="ja">Japani</option>
+                                        <option value="ko">Korea</option>
+                                        <option value="cmn">Kiina (mandariini)</option>
+                                        <option value="tr">Turkki</option>
+                                    </datalist>
+                                    <small>Valitse yleinen kielikoodi tai kirjoita tarkempi BCP-47-tunniste, kuten en-US.</small>
+                                </div>
+                                <div class="settings-row audio-preparation-instructions-row">
+                                    <label for="audio-preparation-instructions">Lisäohje annotointiin</label>
+                                    <textarea id="audio-preparation-instructions" placeholder="Esimerkiksi: pidä kertojan ääni hillittynä ja käytä [whispers]-tagia vain aidosti kuiskatussa dialogissa."></textarea>
+                                </div>
+                            </div>
+
+                            <div class="audio-preparation-actions">
+                                <button class="btn btn-primary" id="audio-preparation-generate-btn" type="button">Luo prompti ja tagita koko teksti</button>
+                                <button class="btn btn-secondary" id="audio-preparation-refresh-btn" type="button">Päivitä tila</button>
+                            </div>
+                            <p id="audio-preparation-status" class="audio-preparation-status" role="status" aria-live="polite">Valitse tallennettu käsikirjoitus ja käynnistä valmistelu.</p>
+                        </article>
+
+                        <article class="card glass-panel audio-preparation-tags-card">
+                            <div class="audio-preparation-heading">
+                                <div>
+                                    <p class="audio-eyebrow">Gemini 3.1 TTS</p>
+                                    <h3>Sallitut audio-tagit</h3>
+                                    <p>Tagit ohjaavat tunnetta ja esitystapaa, mutta eivät muuta luettavaa tekstiä tai sen välimerkkejä. Tauotus ohjataan tyylipromptilla ja lähdetekstin rakenteella, ei erillisillä pause-tageilla.</p>
+                                </div>
+                                <span id="audio-preparation-tag-profile" class="audio-preparation-tag-profile">GEMINI 3.1 TTS</span>
+                            </div>
+                            <div id="audio-preparation-tag-list" class="audio-preparation-tag-list" aria-label="Sallitut audio-tagit"></div>
+                        </article>
+                    </div>
+
+                    <div class="audio-preparation-metrics" aria-label="Äänikäsikirjoituksen tunnusluvut">
+                        <div><strong id="audio-preparation-source-count">–</strong><span>lähdemerkkiä</span></div>
+                        <div><strong id="audio-preparation-tagged-count">–</strong><span>tagitettua merkkiä</span></div>
+                        <div><strong id="audio-preparation-section-count">–</strong><span>osiota</span></div>
+                        <div><strong id="audio-preparation-tag-count">–</strong><span>audio-tagia</span></div>
+                    </div>
+
+                    <article class="card glass-panel audio-preparation-prompt-card">
+                        <div class="audio-preparation-heading">
+                            <div>
+                                <p class="audio-eyebrow">Teoskohtainen tuotanto-ohje</p>
+                                <h3>Äänikirjan tyyliprompti</h3>
+                                <p>Prompti välitetään audiotuotantoon erillisenä ohjeena. Tarkista sävy, rytmi, tauotus, dialogin käsittely ja tunnekaari; myös lähdetekstin rakenne ohjaa taukoja.</p>
+                            </div>
+                            <span id="audio-preparation-updated" class="audio-preparation-updated">Ei vielä luotu</span>
+                        </div>
+                        <textarea id="audio-preparation-production-prompt" class="audio-preparation-production-prompt" placeholder="Teoskohtainen audiotuotannon prompti muodostuu tähän."></textarea>
+                    </article>
+
+                    <article class="card glass-panel audio-preparation-editor-card">
+                        <div class="audio-preparation-heading audio-preparation-editor-heading">
+                            <div>
+                                <p class="audio-eyebrow">Tekstin tarkistus</p>
+                                <h3>Vertaa lähdettä ja tagitettua tekstiä</h3>
+                                <p>Varsinaisen tekstin ja välimerkkien pitää säilyä samoina. Voit korjata tai täydentää vain audio-tageja.</p>
+                            </div>
+                            <span id="audio-preparation-section-meta" class="audio-preparation-section-meta">Ei osiota</span>
+                        </div>
+
+                        <div class="audio-section-navigation audio-preparation-section-navigation">
+                            <button class="audio-icon-btn" id="audio-preparation-section-prev" type="button" aria-label="Edellinen osio" title="Edellinen osio">‹</button>
+                            <div class="settings-row audio-chapter-picker">
+                                <label for="audio-preparation-section-select">Käsiteltävä osio</label>
+                                <select id="audio-preparation-section-select" disabled><option value="">Ei valmisteltuja osioita</option></select>
+                            </div>
+                            <button class="audio-icon-btn" id="audio-preparation-section-next" type="button" aria-label="Seuraava osio" title="Seuraava osio">›</button>
+                        </div>
+
+                        <div class="audio-preparation-editor-grid">
+                            <label class="audio-preparation-text-column">
+                                <span>Lähdeteksti</span>
+                                <textarea id="audio-preparation-source-text" readonly placeholder="Lähdeteksti ladataan tähän."></textarea>
+                            </label>
+                            <label class="audio-preparation-text-column">
+                                <span>Tagitettu teksti</span>
+                                <textarea id="audio-preparation-tagged-text" placeholder="Tagitettu teksti muodostuu tähän."></textarea>
+                            </label>
+                        </div>
+                        <div class="audio-preparation-editor-footer">
+                            <p id="audio-preparation-section-status">Generoi valmistelu ennen osioiden muokkaamista.</p>
+                            <button class="btn btn-primary" id="audio-preparation-save-btn" type="button" disabled>Tallenna äänikäsikirjoitus</button>
                         </div>
                     </article>
                 </section>
@@ -3937,6 +4071,6 @@
     <script src="auth.js?v=3"></script>
     <script src="workflow-studio.js?v=2"></script>
     <script src="correction-reprints.js?v=1"></script>
-    <script src="app.js?v=163"></script>
+    <script src="app.js?v=164"></script>
 </body>
 </html>
