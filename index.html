@@ -16,25 +16,32 @@
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/styles.css">
 </head>
-<body>
+<body class="is-paused">
+  <div
+    class="pause-notice"
+    role="status"
+    data-fi="Palvelu on tällä hetkellä tauolla."
+    data-en="The service is currently paused."
+  >Palvelu on tällä hetkellä tauolla.</div>
+
   <a class="skip-link" href="#main">Siirry sisältöön</a>
 
   <header class="site-header">
     <nav class="nav" aria-label="Päänavigaatio">
-      <a class="logo" href="index.html" aria-label="SkriptLab etusivulle">Skript<span>Lab</span></a>
+      <a class="logo" href="index.html" aria-label="SkriptLab etusivulle" aria-disabled="true" tabindex="-1" data-paused-link>Skript<span>Lab</span></a>
       <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-menu" aria-label="Avaa valikko">
         <span></span>
         <span></span>
         <span></span>
       </button>
       <ul class="nav-links" id="site-menu">
-        <li><a href="index.html" aria-current="page">Tuote</a></li>
-        <li><a href="kenelle.html">Kenelle</a></li>
-        <li><a href="ominaisuudet.html">Ominaisuudet</a></li>
-        <li><a href="prosessi.html">Työnkulku</a></li>
+        <li><a href="index.html" aria-current="page" aria-disabled="true" tabindex="-1" data-paused-link>Tuote</a></li>
+        <li><a href="kenelle.html" aria-disabled="true" tabindex="-1" data-paused-link>Kenelle</a></li>
+        <li><a href="ominaisuudet.html" aria-disabled="true" tabindex="-1" data-paused-link>Ominaisuudet</a></li>
+        <li><a href="prosessi.html" aria-disabled="true" tabindex="-1" data-paused-link>Työnkulku</a></li>
         <li><a href="luottamus.html">Tietosuoja</a></li>
-        <li><a href="hinnat.html">Hinnoittelu</a></li>
-        <li><a href="yhteys.html">Ota yhteyttä</a></li>
+        <li><a href="hinnat.html" aria-disabled="true" tabindex="-1" data-paused-link>Hinnoittelu</a></li>
+        <li><a href="yhteys.html" aria-disabled="true" tabindex="-1" data-paused-link>Ota yhteyttä</a></li>
         <li><a class="btn-login" href="/app/login.html">Kirjaudu</a></li>
       </ul>
     </nav>
@@ -52,8 +59,8 @@
             Aloita tyhjästä tai tuo valmis teksti. Analysoi kokonaisuus, työstä käsikirjoitusta luku kerrallaan, oikolue valitsemasi osiot ja luo vaihtoehtoisia käännösversioita valitulle kielelle. Sinä hyväksyt muutokset ja teet päätökset – SkriptLab antaa työkalut.
           </p>
           <div class="hero-actions">
-            <a href="yhteys.html" class="btn-primary">Pyydä käyttöoikeus</a>
-            <a href="ominaisuudet.html" class="btn-ghost">Tutustu toimintoihin</a>
+            <a href="yhteys.html" class="btn-primary" aria-disabled="true" tabindex="-1" data-paused-link>Pyydä käyttöoikeus</a>
+            <a href="ominaisuudet.html" class="btn-ghost" aria-disabled="true" tabindex="-1" data-paused-link>Tutustu toimintoihin</a>
           </div>
 
           <ul class="core-actions" aria-label="SkriptLabin perustoiminnot">
@@ -132,31 +139,31 @@
     <div class="footer-inner">
       <div class="footer-top">
         <div class="footer-brand">
-          <a class="logo" href="index.html">Skript<span>Lab</span></a>
+          <a class="logo" href="index.html" aria-disabled="true" tabindex="-1" data-paused-link>Skript<span>Lab</span></a>
           <p>Kontekstitietoinen kirjoitusalusta tekstille ja analyysille, kuvitukselle ja taitolle, audiolle ja käännöksille.</p>
         </div>
 
         <div class="footer-col">
           <h2>Tuote</h2>
-          <a href="ominaisuudet.html">Ominaisuudet</a>
-          <a href="prosessi.html">Työnkulku</a>
-          <a href="hinnat.html">Hinnoittelu</a>
-          <a href="yhteys.html">Demo</a>
+          <a href="ominaisuudet.html" aria-disabled="true" tabindex="-1" data-paused-link>Ominaisuudet</a>
+          <a href="prosessi.html" aria-disabled="true" tabindex="-1" data-paused-link>Työnkulku</a>
+          <a href="hinnat.html" aria-disabled="true" tabindex="-1" data-paused-link>Hinnoittelu</a>
+          <a href="yhteys.html" aria-disabled="true" tabindex="-1" data-paused-link>Demo</a>
         </div>
 
         <div class="footer-col">
           <h2>Käyttäjille</h2>
-          <a href="kenelle.html">Kirjoittajat</a>
-          <a href="kenelle.html">Toimitukset</a>
-          <a href="kenelle.html">Freelance-toimittajat</a>
-          <a href="kenelle.html">Kääntäjät</a>
+          <a href="kenelle.html" aria-disabled="true" tabindex="-1" data-paused-link>Kirjoittajat</a>
+          <a href="kenelle.html" aria-disabled="true" tabindex="-1" data-paused-link>Toimitukset</a>
+          <a href="kenelle.html" aria-disabled="true" tabindex="-1" data-paused-link>Freelance-toimittajat</a>
+          <a href="kenelle.html" aria-disabled="true" tabindex="-1" data-paused-link>Kääntäjät</a>
         </div>
 
         <div class="footer-col">
           <h2>Yritys</h2>
           <a href="luottamus.html">Tietosuoja</a>
-          <a href="yhteys.html">Ota yhteyttä</a>
-          <a href="legal/terms.html">Käyttöehdot</a>
+          <a href="yhteys.html" aria-disabled="true" tabindex="-1" data-paused-link>Ota yhteyttä</a>
+          <a href="legal/terms.html" aria-disabled="true" tabindex="-1" data-paused-link>Käyttöehdot</a>
           <a href="legal/privacy.html">Tietosuojaseloste</a>
         </div>
       </div>
@@ -165,8 +172,8 @@
         <span>© 2026 SkriptLab. Kaikki oikeudet pidätetään. SkriptLab Oy · Y-tunnus 3588291-2 · Helsinki.</span>
         <span>
           <a href="legal/privacy.html">Tietosuojaseloste</a>
-          <a href="legal/terms.html">Käyttöehdot</a>
-          <a href="legal/cookies.html">Evästeet</a>
+          <a href="legal/terms.html" aria-disabled="true" tabindex="-1" data-paused-link>Käyttöehdot</a>
+          <a href="legal/cookies.html" aria-disabled="true" tabindex="-1" data-paused-link>Evästeet</a>
         </span>
       </div>
     </div>

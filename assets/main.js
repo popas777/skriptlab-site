@@ -623,6 +623,23 @@ const productShotOpenButton = document.querySelector("[data-product-shot-open]")
 const productShotDialog = document.querySelector("[data-product-shot-dialog]");
 const productShotCloseButton = document.querySelector("[data-product-shot-close]");
 
+document.querySelectorAll(".site-header a").forEach((link) => {
+  const pathname = new URL(link.href, window.location.href).pathname;
+  const remainsActive = link.classList.contains("btn-login") || pathname.endsWith("/luottamus.html");
+
+  if (!remainsActive) {
+    link.dataset.pausedLink = "";
+    link.setAttribute("aria-disabled", "true");
+    link.setAttribute("tabindex", "-1");
+  }
+});
+
+document.querySelectorAll("[data-paused-link]").forEach((link) => {
+  link.addEventListener("click", (event) => {
+    event.preventDefault();
+  });
+});
+
 if (productShotOpenButton && productShotDialog && productShotCloseButton) {
   productShotOpenButton.addEventListener("click", () => {
     if (typeof productShotDialog.showModal !== "function") {
