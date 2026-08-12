@@ -643,7 +643,7 @@ body.product-shot-modal-open {
 }
 
 .pricing-grid {
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .trust-list {
@@ -1004,6 +1004,16 @@ body.product-shot-modal-open {
   font-size: 1.5rem;
 }
 
+.price-coming-soon {
+  margin: 0.45rem 0 0;
+  color: var(--sienna);
+}
+
+.price-card.featured .price-coming-soon {
+  border-color: rgba(221, 162, 93, 0.48);
+  color: var(--amber-light);
+}
+
 .price-amount {
   display: flex;
   align-items: baseline;
@@ -1024,6 +1034,13 @@ body.product-shot-modal-open {
   font-family: "DM Sans", sans-serif;
   font-size: 0.82rem;
   font-weight: 500;
+}
+
+.price-amount.is-pending strong {
+  font-family: "DM Sans", sans-serif;
+  font-size: clamp(1.15rem, 2.2vw, 1.55rem);
+  font-weight: 500;
+  line-height: 1.2;
 }
 
 .price-card.featured .price-amount strong {
@@ -1513,6 +1530,10 @@ body.product-shot-modal-open {
 
   .core-actions li:last-child {
     grid-column: 1 / -1;
+  }
+
+  .pricing-grid {
+    grid-template-columns: 1fr;
   }
 
   .product-shot-bar strong {
