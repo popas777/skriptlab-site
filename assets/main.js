@@ -22,13 +22,13 @@ const metaTranslations = {
       title: "SkriptLab - kontekstitietoinen kirjoitusalusta",
       description: "SkriptLab on kontekstitietoinen kirjoitusalusta tekstille ja analyysille, kuvitukselle ja taitolle, audiolle ja käännöksille.",
       ogTitle: "SkriptLab",
-      ogDescription: "Teksti ja analyysi, kuvitus ja taitto, audio ja käännökset — samassa kontekstissa."
+      ogDescription: "Teksti valmiiksi helpommin. Teksti ja analyysi, kuvitus ja taitto, audio ja käännökset — samasta kontekstista."
     },
     en: {
       title: "SkriptLab - context-aware writing platform",
       description: "SkriptLab is a context-aware writing platform for text and analysis, illustration and layout, audio and translations.",
       ogTitle: "SkriptLab",
-      ogDescription: "Text and analysis, illustration and layout, audio and translations — all in the same context."
+      ogDescription: "Finish your text more easily. Text and analysis, illustration and layout, audio and translations — all drawing from the same context."
     }
   },
   audience: {
@@ -163,7 +163,8 @@ const commonTranslations = [
 const pageTranslations = {
   home: [
     { selector: ".eyebrow", fi: "Kontekstitietoinen kirjoitusalusta", en: "Context-aware writing platform" },
-    { selector: ".hero-sub", fi: "Teksti ja analyysi, kuvitus ja taitto, audio ja käännökset — samassa kontekstissa.", en: "Text and analysis, illustration and layout, audio and translations — all in the same context." },
+    { selector: ".hero-promise", fi: "Teksti valmiiksi helpommin.", en: "Finish your text more easily." },
+    { selector: ".hero-sub", fi: "Teksti ja analyysi, kuvitus ja taitto, audio ja käännökset — samasta kontekstista.", en: "Text and analysis, illustration and layout, audio and translations — all drawing from the same context." },
     {
       selector: ".hero-desc",
       fi: "Aloita tyhjästä tai tuo valmis teksti. Analysoi kokonaisuus, työstä käsikirjoitusta luku kerrallaan, oikolue valitsemasi osiot ja luo vaihtoehtoisia käännösversioita valitulle kielelle. Sinä hyväksyt muutokset ja teet päätökset – SkriptLab antaa työkalut.",

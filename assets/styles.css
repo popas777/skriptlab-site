@@ -323,8 +323,16 @@ a {
   background: var(--ink);
 }
 
+.hero-promise {
+  max-width: 760px;
+  font-family: "Cormorant Garamond", serif;
+  font-size: clamp(2.25rem, 4vw, 3.75rem);
+  font-weight: 400;
+  line-height: 1;
+}
+
 .hero-sub {
-  margin-top: 1rem;
+  margin-top: 0.75rem;
   font-family: "Cormorant Garamond", serif;
   font-size: clamp(1.5rem, 3vw, 2.1rem);
   color: var(--amber);
