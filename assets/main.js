@@ -625,7 +625,7 @@ const productShotCloseButton = document.querySelector("[data-product-shot-close]
 
 document.querySelectorAll(".site-header a").forEach((link) => {
   const pathname = new URL(link.href, window.location.href).pathname;
-  const remainsActive = link.classList.contains("btn-login") || pathname.endsWith("/luottamus.html");
+  const remainsActive = link.classList.contains("btn-login") || /\/luottamus(?:\.html)?$/.test(pathname);
 
   if (!remainsActive) {
     link.dataset.pausedLink = "";
