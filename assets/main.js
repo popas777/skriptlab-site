@@ -64,11 +64,11 @@ const metaTranslations = {
   pricing: {
     fi: {
       title: "Hinnoittelu - SkriptLab",
-      description: "Tulossa: SkriptLabin tekstinkäsittely ja analyysi 99 €/kk, käännökset 490 € sekä grafiikan ja audion ohjelmistopaketit."
+      description: "SkriptLabin tekstinkäsittelyn ja analyysin, käännösten, grafiikan ja audion ohjelmistokokonaisuudet ovat tulossa."
     },
     en: {
       title: "Pricing - SkriptLab",
-      description: "Coming soon: SkriptLab text processing and analysis at €99/month, translations at €490, plus graphics and audio software packages."
+      description: "SkriptLab software packages for text processing and analysis, translations, graphics and audio are coming soon."
     }
   },
   trust: {
@@ -260,13 +260,11 @@ const pageTranslations = {
   ],
   pricing: [
     { selector: ".pricing-section .section-inner > .section-label", fi: "Hinnoittelu", en: "Pricing" },
-    { selector: ".section-title", fi: "Ohjelmiston hinnat käyttötavan mukaan", en: "Software pricing based on how you use SkriptLab" },
+    { selector: ".section-title", fi: "Ohjelmistokokonaisuudet käyttötavan mukaan", en: "Software packages based on how you use SkriptLab" },
     { selector: ".section-intro", fi: "Valitse tarpeeseesi sopivat työkalut tekstinkäsittelyyn ja analyysiin, käännöksiin, grafiikkaan tai audioon. Kirjoitat, analysoit, editoit ja oikoluet itse sovelluksessa.", en: "Choose the tools you need for text processing and analysis, translations, graphics or audio. You write, analyse, edit and proofread in the application yourself." },
     { selector: ".price-coming-soon", all: true, fi: "Coming soon", en: "Coming soon" },
     { selector: "#writer-tools-card .price-model", fi: "Kuukausikäyttö", en: "Monthly access" },
     { selector: "#writer-tools-card h2", fi: "Tekstinkäsittely ja analyysi", en: "Text processing and analysis" },
-    { selector: "#writer-tools-card .price-amount strong", fi: "99 €", en: "€99" },
-    { selector: "#writer-tools-card .price-amount span", fi: "/ kk", en: "/ month" },
     { selector: "#writer-tools-card .price-description", fi: "Käyttöoikeus SkriptLabin työkaluihin kirjoittamista, analysointia, kehityspalautetta, editointia ja oikolukua varten.", en: "Access to SkriptLab tools for writing, analysis, developmental feedback, editing and proofreading." },
     { selector: "#writer-tools-card li:nth-child(1)", fi: "Kirjoitus- ja editointityötila", en: "Writing and editing workspace" },
     { selector: "#writer-tools-card li:nth-child(2)", fi: "Käsikirjoitusanalyysi", en: "Manuscript analysis" },
@@ -276,7 +274,6 @@ const pageTranslations = {
     { selector: "#writer-tools-card li:nth-child(6)", fi: "Tiedostoviennit", en: "File exports" },
     { selector: "#translation-package-card .price-model", fi: "Teoskohtainen käyttö", en: "Per-work access" },
     { selector: "#translation-package-card h2", fi: "Käännökset", en: "Translations" },
-    { selector: "#translation-package-card .price-amount strong", fi: "490 €", en: "€490" },
     { selector: "#translation-package-card .price-description", fi: "Kattaa esimerkiksi 300-sivuisen romaanin (enintään 100 000 sanaa) ja yhden valitun kohdekielen.", en: "Covers, for example, a 300-page novel (up to 100,000 words) and one selected target language." },
     { selector: "#translation-package-card li:nth-child(1)", fi: "Lähdekäsikirjoituksen analyysi, kontekstimuistin muodostaminen ja 1–3 vaihtoehtoista käännösversiota", en: "Source manuscript analysis, context memory creation and 1–3 alternative translation versions" },
     { selector: "#translation-package-card li:nth-child(2)", fi: "Käyttäjä valitsee 1–2 versiota jatkokäsittelyyn ja tarkistukseen", en: "You select 1–2 versions for further editing and review" },
@@ -284,21 +281,19 @@ const pageTranslations = {
     { selector: "#translation-package-card li:nth-child(4)", fi: "Lopulliseksi valitun version muokkaus sekä lopullisen version ja vertailuversioiden lataus", en: "Editing of the final selected version and download of the final and comparison versions" },
     { selector: "#graphics-card .price-model", fi: "Teoskohtainen käyttö", en: "Per-work access" },
     { selector: "#graphics-card h2", fi: "Grafiikka", en: "Graphics" },
-    { selector: "#graphics-card .price-amount strong", fi: "Hinta tarkentuu", en: "Pricing to be confirmed" },
     { selector: "#graphics-card .price-description", fi: "Työkalut teoksen visuaalisen kokonaisuuden suunnitteluun ja julkaisuvalmiin aineiston valmisteluun.", en: "Tools for designing the work's visual identity and preparing publication-ready materials." },
     { selector: "#graphics-card li:nth-child(1)", fi: "Kansi", en: "Cover" },
     { selector: "#graphics-card li:nth-child(2)", fi: "Kuvitus", en: "Illustration" },
     { selector: "#graphics-card li:nth-child(3)", fi: "Taitto", en: "Layout" },
     { selector: "#audio-card .price-model", fi: "Teoskohtainen käyttö", en: "Per-work access" },
     { selector: "#audio-card h2", fi: "Audio", en: "Audio" },
-    { selector: "#audio-card .price-amount strong", fi: "Hinta tarkentuu", en: "Pricing to be confirmed" },
     { selector: "#audio-card .price-description", fi: "Työkalut kuunneltavan version valmisteluun käsikirjoituksesta tuotantoon.", en: "Tools for preparing a listenable version from manuscript to production." },
     { selector: "#audio-card li:nth-child(1)", fi: "Audiokäsikirjoitus", en: "Audio script" },
     { selector: "#audio-card li:nth-child(2)", fi: "Ääntämisohjeet", en: "Pronunciation notes" },
     { selector: "#audio-card li:nth-child(3)", fi: "Audiotuotanto", en: "Audio production" },
     { selector: ".software-pricing-note", attr: "aria-label", fi: "Hinnoittelun rajaus", en: "Pricing scope" },
     { selector: ".software-pricing-note strong", fi: "Ohjelmisto, ei käännös- tai oikolukupalvelu.", en: "Software, not a translation or proofreading service." },
-    { selector: ".software-pricing-note p", fi: "Käännökset koskevat yhtä kohdekieltä kerrallaan. Käännösten hinta kattaa SkriptLabin käyttöoikeuden ja koko kortissa kuvatun kokonaisuuden. Suosittelemme, että käyttäjä tai hänen valitsemansa kieliasiantuntija tarkistaa lopputuloksen ennen julkaisua. Kaikki aineistot ja oikeudet toimitetaan tilaajalle. SkriptLab ei käytä, myy eikä julkaise toimeksiantojen aineistoja.", en: "Translations cover one target language at a time. The translation price includes access to SkriptLab and the complete package described on the card. We recommend that the user or a language specialist of their choice review the final result before publication. All materials and rights are delivered to the customer. SkriptLab does not use, sell or publish materials from assignments." },
+    { selector: ".software-pricing-note p", fi: "Käännökset koskevat yhtä kohdekieltä kerrallaan. Käännöspaketti sisältää SkriptLabin käyttöoikeuden ja koko kortissa kuvatun kokonaisuuden. Suosittelemme, että käyttäjä tai hänen valitsemansa kieliasiantuntija tarkistaa lopputuloksen ennen julkaisua. Kaikki aineistot ja oikeudet toimitetaan tilaajalle. SkriptLab ei käytä, myy eikä julkaise toimeksiantojen aineistoja.", en: "Translations cover one target language at a time. The translation package includes access to SkriptLab and the complete package described on the card. We recommend that the user or a language specialist of their choice review the final result before publication. All materials and rights are delivered to the customer. SkriptLab does not use, sell or publish materials from assignments." },
     { selector: ".pricing-followup .btn-primary", fi: "Pyydä käyttöoikeus", en: "Request access" }
   ],
   trust: [

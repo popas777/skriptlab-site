@@ -1005,50 +1005,13 @@ body.product-shot-modal-open {
 }
 
 .price-coming-soon {
-  margin: 0.45rem 0 0;
+  margin: 0.45rem 0 0.8rem;
   color: var(--sienna);
 }
 
 .price-card.featured .price-coming-soon {
   border-color: rgba(221, 162, 93, 0.48);
   color: var(--amber-light);
-}
-
-.price-amount {
-  display: flex;
-  align-items: baseline;
-  gap: 0.45rem;
-  margin: 0.55rem 0 0.8rem;
-  font-family: "Cormorant Garamond", serif;
-}
-
-.price-amount strong {
-  color: var(--sienna);
-  font-size: clamp(2.4rem, 4vw, 3.25rem);
-  font-weight: 400;
-  line-height: 1;
-}
-
-.price-amount span {
-  color: var(--muted);
-  font-family: "DM Sans", sans-serif;
-  font-size: 0.82rem;
-  font-weight: 500;
-}
-
-.price-amount.is-pending strong {
-  font-family: "DM Sans", sans-serif;
-  font-size: clamp(1.15rem, 2.2vw, 1.55rem);
-  font-weight: 500;
-  line-height: 1.2;
-}
-
-.price-card.featured .price-amount strong {
-  color: var(--amber-light);
-}
-
-.price-card.featured .price-amount span {
-  color: rgba(245, 240, 232, 0.68);
 }
 
 .price-description {
