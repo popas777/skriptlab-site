@@ -310,6 +310,19 @@ a {
   line-height: 0.94;
 }
 
+.hero-home h1.eyebrow {
+  max-width: none;
+  color: var(--ink);
+  font-family: "DM Sans", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.hero-home .eyebrow::before {
+  background: var(--ink);
+}
+
 .hero-sub {
   margin-top: 1rem;
   font-family: "Cormorant Garamond", serif;
@@ -317,6 +330,10 @@ a {
   color: var(--amber);
   font-style: italic;
   font-weight: 300;
+}
+
+.hero-home .hero-sub {
+  color: var(--ink);
 }
 
 .hero-desc {

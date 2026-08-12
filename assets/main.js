@@ -19,13 +19,13 @@ const pageKey = window.location.pathname.includes("/legal/")
 const metaTranslations = {
   home: {
     fi: {
-      title: "SkriptLab - kirjoita, analysoi, editoi, oikolue ja käännä",
+      title: "SkriptLab - kontekstitietoinen kirjoitusalusta",
       description: "SkriptLab on kontekstitietoinen kirjoitusalusta tekstille ja analyysille, kuvitukselle ja taitolle, audiolle ja käännöksille.",
       ogTitle: "SkriptLab",
       ogDescription: "Teksti ja analyysi, kuvitus ja taitto, audio ja käännökset — samassa kontekstissa."
     },
     en: {
-      title: "SkriptLab - write, analyse, edit, proofread and translate",
+      title: "SkriptLab - context-aware writing platform",
       description: "SkriptLab is a context-aware writing platform for text and analysis, illustration and layout, audio and translations.",
       ogTitle: "SkriptLab",
       ogDescription: "Text and analysis, illustration and layout, audio and translations — all in the same context."
@@ -163,7 +163,6 @@ const commonTranslations = [
 const pageTranslations = {
   home: [
     { selector: ".eyebrow", fi: "Kontekstitietoinen kirjoitusalusta", en: "Context-aware writing platform" },
-    { selector: ".hero h1", fi: "Kirjoita, analysoi, editoi, oikolue ja käännä", en: "Write, analyse, edit, proofread and translate" },
     { selector: ".hero-sub", fi: "Teksti ja analyysi, kuvitus ja taitto, audio ja käännökset — samassa kontekstissa.", en: "Text and analysis, illustration and layout, audio and translations — all in the same context." },
     {
       selector: ".hero-desc",
