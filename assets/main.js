@@ -20,15 +20,15 @@ const metaTranslations = {
   home: {
     fi: {
       title: "SkriptLab - kirjoita, analysoi, editoi, oikolue ja käännä",
-      description: "SkriptLab on käsikirjoitusohjelmisto kirjoittamiseen, analysointiin, editointiin, oikolukuun ja käännösversioiden tekemiseen.",
+      description: "SkriptLab on kontekstitietoinen kirjoitusalusta tekstille ja analyysille, kuvitukselle ja taitolle, audiolle ja käännöksille.",
       ogTitle: "SkriptLab",
-      ogDescription: "Kirjoita, analysoi, editoi, oikolue ja tee käännösversioita samassa käsikirjoitustyötilassa."
+      ogDescription: "Teksti ja analyysi, kuvitus ja taitto, audio ja käännökset — samassa kontekstissa."
     },
     en: {
       title: "SkriptLab - write, analyse, edit, proofread and translate",
-      description: "SkriptLab is manuscript software for writing, analysing, editing, proofreading and creating translation versions.",
+      description: "SkriptLab is a context-aware writing platform for text and analysis, illustration and layout, audio and translations.",
       ogTitle: "SkriptLab",
-      ogDescription: "Write, analyse, edit, proofread and create translation versions in one manuscript workspace."
+      ogDescription: "Text and analysis, illustration and layout, audio and translations — all in the same context."
     }
   },
   audience: {
@@ -124,7 +124,7 @@ const commonTranslations = [
   { selector: ".hero-links a[href='prosessi.html']", fi: "Työnkulku", en: "Workflow" },
   { selector: ".hero-links a[href='luottamus.html']", fi: "Tietosuoja", en: "Privacy" },
   { selector: ".hero-links a[href='hinnat.html']", fi: "Hinnoittelu", en: "Pricing" },
-  { selector: ".footer-brand p", fi: "Käsikirjoitusohjelmisto kirjoittamiseen, analysointiin, editointiin, oikolukuun ja käännösversioihin.", en: "Manuscript software for writing, analysing, editing, proofreading and translation versions." },
+  { selector: ".footer-brand p", fi: "Kontekstitietoinen kirjoitusalusta tekstille ja analyysille, kuvitukselle ja taitolle, audiolle ja käännöksille.", en: "A context-aware writing platform for text and analysis, illustration and layout, audio and translations." },
   { selector: ".footer-top .footer-col:nth-child(2) h2", fi: "Tuote", en: "Product" },
   { selector: ".footer-top .footer-col:nth-child(2) a:nth-of-type(1)", fi: "Ominaisuudet", en: "Features" },
   { selector: ".footer-top .footer-col:nth-child(2) a:nth-of-type(2)", fi: "Työnkulku", en: "Workflow" },
@@ -162,9 +162,9 @@ const commonTranslations = [
 
 const pageTranslations = {
   home: [
-    { selector: ".eyebrow", fi: "Käsikirjoitusohjelmisto", en: "Manuscript software" },
+    { selector: ".eyebrow", fi: "Kontekstitietoinen kirjoitusalusta", en: "Context-aware writing platform" },
     { selector: ".hero h1", fi: "Kirjoita, analysoi, editoi, oikolue ja käännä", en: "Write, analyse, edit, proofread and translate" },
-    { selector: ".hero-sub", fi: "Koko käsikirjoitustyö yhdessä sovelluksessa.", en: "Your complete manuscript workflow in one application." },
+    { selector: ".hero-sub", fi: "Teksti ja analyysi, kuvitus ja taitto, audio ja käännökset — samassa kontekstissa.", en: "Text and analysis, illustration and layout, audio and translations — all in the same context." },
     {
       selector: ".hero-desc",
       fi: "Aloita tyhjästä tai tuo valmis teksti. Analysoi kokonaisuus, työstä käsikirjoitusta luku kerrallaan, oikolue valitsemasi osiot ja luo vaihtoehtoisia käännösversioita valitulle kielelle. Sinä hyväksyt muutokset ja teet päätökset – SkriptLab antaa työkalut.",
