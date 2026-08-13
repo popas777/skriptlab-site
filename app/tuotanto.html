@@ -193,7 +193,7 @@
           <label class="output-format-option">
             <input type="checkbox" value="pdf" data-layout-format checked>
             <span class="output-format-code">PDF</span>
-            <span><strong>PDF</strong><small>Painettava taittovedos</small></span>
+            <span><strong>PDF</strong><small>PDF-taittovedos</small></span>
           </label>
           <label class="output-format-option">
             <input type="checkbox" value="epub" data-layout-format checked>
@@ -298,12 +298,19 @@
     const config = window.SKRIPTLAB_CONFIG || {};
     const apiRoot = String(config.API_BASE_URL || "").replace(/\/$/, "");
     const projectId = params.get("project") || localStorage.getItem("skriptlab_active_project_id") || null;
+    let authUser = {};
+    try {
+      authUser = JSON.parse(localStorage.getItem("skriptlab_auth_user") || "{}");
+    } catch (error) {
+      authUser = {};
+    }
     window.TUOTANTO_CONFIG = {
       apiBase: (apiRoot || "") + "/api",
       projectId,
       tab: params.get("tab") || "aineistot",
       module: params.get("module") || "all",
       demo: false,
+      showcase: ["Demo", "Kustantamodemo"].includes(String(authUser.access_group_name || "")),
       fetchImpl: async function (url, options) {
         const requestOptions = Object.assign({}, options || {});
         const headers = Object.assign({}, requestOptions.headers || {});
@@ -330,6 +337,6 @@
   })();
 </script>
 <script src="finnish-hyphenation.js?v=1"></script>
-<script src="tuotanto.js?v=14"></script>
+<script src="tuotanto.js?v=16"></script>
 </body>
 </html>

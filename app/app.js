@@ -190,6 +190,63 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (error) {
         console.warn('Käyttäjän käyttöoikeuksia ei saatu päivitettyä.', error);
     }
+    const showcaseDemoMode = ['Demo', 'Kustantamodemo'].includes(String(currentUser?.access_group_name || ''));
+    document.body.classList.toggle('showcase-demo-mode', showcaseDemoMode);
+
+    function configureShowcaseDemoUi() {
+        if (!showcaseDemoMode) return;
+
+        const setText = (selector, value) => {
+            const element = document.querySelector(selector);
+            if (element) element.textContent = value;
+        };
+
+        const demoCoverSideSelect = document.getElementById('cover-side-select');
+        const demoCoverPrompt = document.getElementById('cover-prompt');
+        Array.from(demoCoverSideSelect?.options || []).forEach(option => {
+            if (option.value !== 'front') option.remove();
+        });
+        if (demoCoverSideSelect) demoCoverSideSelect.value = 'front';
+        if (demoCoverPrompt) {
+            demoCoverPrompt.placeholder = 'Kuvaile kannen tunnelma, aihe, symboliikka, sommittelu ja värit.';
+            const label = demoCoverPrompt.previousElementSibling;
+            if (label?.tagName === 'LABEL') label.textContent = 'Kansiprompti';
+        }
+        setText('#cover-latest-preview', 'Kansikuva ilmestyy tähän.');
+        setText('#cover-empty-state', 'Ei vielä tallennettuja kansikuvia.');
+        setText('#cover-without-text-input + span', 'Luo kansikuva ilman tekstejä, kirjaimia tai numeroita');
+        setText('.cover-gallery-section .production-section-heading p', 'Valitse tallennettu kansi katseltavaksi tai uuden kuvan pohjaksi.');
+
+        setText('.publication-package-stats > div:nth-child(3) span', 'tiedostomuotoa');
+        setText('.publication-package-format-meta strong', 'Manifesti ja tarkistustiedot');
+        setText('.publication-package-format-meta small', 'Lähdeversio ja paketin tarkistushuomiot');
+        setText('#publication-package-result-detail', 'PDF, EPUB, DOCX, kansi ja manifesti samassa ZIP-paketissa.');
+        setText('#publication-package-translate-btn', 'Jatka kieliversioihin');
+
+        const multilingualTitle = document.querySelector('.multilingual-publication-hero-copy h2');
+        if (multilingualTitle) multilingualTitle.innerHTML = 'Yksi teksti.<br><span>Useita kieliversioita.</span>';
+        setText('.multilingual-publication-stats > div:nth-child(1) span', 'lähdeversio');
+        setText('.multilingual-publication-stats > div:nth-child(3) span', 'kohdekieltä');
+        const multilingualFlow = document.querySelector('.multilingual-publication-flow');
+        multilingualFlow?.setAttribute('aria-label', 'Kieliversion eteneminen');
+        setText('#multilingual-flow-source strong', 'Lähdeteksti');
+        setText('#multilingual-flow-translation small', 'Teksti ja tyyli');
+        setText('#multilingual-flow-localization strong', 'Kielentarkastus');
+        setText('#multilingual-flow-localization small', 'Kieli, termistö ja tyyli');
+        setText('#multilingual-flow-package strong', 'Uusi tekstiprojekti');
+        setText('#multilingual-flow-package small', 'Valmis jatkotyöhön');
+        setText('.multilingual-publication-section-heading h3', 'Valitse seuraava kieli');
+        setText('.multilingual-publication-section-heading p', 'Valinta esitäyttää käännössuunnan ja näyttää kieliversion etenemisen.');
+        setText('#multilingual-open-package-btn', 'Avaa tiedostopaketti');
+        setText('#multilingual-edition-kicker', 'RUOTSI · KIELIVERSIO');
+        setText('#multilingual-edition-title', 'Ruotsinkielinen versio');
+        setText('#multilingual-edition-summary', 'Valmis lähdeteksti siirtyy käännökseen samoine rakenne-, tyyli- ja sanastotietoineen.');
+        setText('.multilingual-release-card h3', 'Jatkotyöhön valmis kokonaisuus');
+        setText('.multilingual-release-list > div:nth-child(3) strong', 'Projektipohja');
+        setText('.multilingual-release-list > div:nth-child(3) small', 'Rakenne ja oheisaineistot siirtyvät uuteen projektiin');
+
+        setText('#audio-credits-panel .card-meta', 'Nämä tekstit kuuluvat vain äänikirjaversioon.');
+    }
     let availableProjects = [];
     let translationModels = [];
     let latestTranslationText = '';
@@ -2662,6 +2719,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (detailEl) {
             detailEl.textContent = warnings.length
                 ? `Paketti on valmis. ${warnings.length} tarkistushuomiota löytyy paketin LUE_MINUT-tiedostosta.`
+                : showcaseDemoMode
+                    ? 'PDF, EPUB, DOCX, kansi ja manifesti ovat samassa jäljitettävässä ZIP-paketissa.'
                 : includesPrintCover
                     ? 'PDF, EPUB, DOCX, painokansi-PDF ja tuotetiedot ovat samassa jäljitettävässä ZIP-paketissa.'
                     : 'PDF, EPUB, DOCX, kansi ja tuotetiedot ovat samassa jäljitettävässä ZIP-paketissa.';
@@ -2679,13 +2738,23 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (words) words.textContent = Number(data.word_count || 0).toLocaleString('fi-FI');
         if (version) version.textContent = data.latest_version ? `V${data.latest_version.version_number}` : 'V0';
 
+        const displayedChecks = (data.checks || []).filter(check => {
+            if (!showcaseDemoMode) return true;
+            const actionModule = String(check.action_module || '');
+            const label = String(check.label || '').toLocaleLowerCase('fi-FI');
+            return !['view-tuotetiedot', 'view-julkaise', 'view-markkinointi'].includes(actionModule)
+                && !/(tuotetied|metadata|oikeu|isbn|julkais)/.test(label);
+        });
         if (checks) {
-            checks.innerHTML = (data.checks || []).map(check => {
+            checks.innerHTML = displayedChecks.map(check => {
                 const icon = check.status === 'ready' ? '✓' : check.status === 'blocked' ? '×' : '!';
+                const label = showcaseDemoMode && check.label === 'Julkaisuformaatit'
+                    ? 'Tiedostomuodot'
+                    : check.label;
                 return `
                     <article class="publication-package-check" data-status="${escapeHtml(check.status || 'attention')}" data-action-module="${escapeHtml(check.action_module || '')}" tabindex="0">
                         <span class="publication-package-check-icon">${icon}</span>
-                        <strong>${escapeHtml(check.label || '')}</strong>
+                        <strong>${escapeHtml(label || '')}</strong>
                         <p>${escapeHtml(check.detail || '')}</p>
                     </article>
                 `;
@@ -2705,7 +2774,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             });
         }
 
-        currentPublicationPackageCovers = Array.isArray(data.covers) ? data.covers : [];
+        currentPublicationPackageCovers = (Array.isArray(data.covers) ? data.covers : [])
+            .filter(cover => !showcaseDemoMode || cover.material_kind !== 'print_cover_layout');
         if (coverSelect) {
             const previousValue = coverSelect.value;
             coverSelect.innerHTML = [
@@ -2724,8 +2794,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (buildButton) buildButton.disabled = !data.can_build;
         renderPublicationPackageResult(data.latest_package, data.latest_version, []);
 
-        const attentionCount = (data.checks || []).filter(check => check.status === 'attention').length;
-        const blockedCount = (data.checks || []).filter(check => check.status === 'blocked').length;
+        const attentionCount = displayedChecks.filter(check => check.status === 'attention').length;
+        const blockedCount = displayedChecks.filter(check => check.status === 'blocked').length;
         if (blockedCount) {
             setPublicationPackageStatus(`${blockedCount} estävää kohtaa pitää korjata ennen paketin muodostamista.`, true);
         } else if (attentionCount) {
@@ -2745,7 +2815,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             setPublicationPackageStatus('Valitse käsikirjoitus ennen tiedostopaketin muodostamista.', true);
             return;
         }
-        setPublicationPackageStatus('Tarkistetaan käsikirjoitus, kansi, tuotetiedot ja formaatit…');
+        setPublicationPackageStatus(showcaseDemoMode
+            ? 'Tarkistetaan käsikirjoitus, kansi ja tiedostomuodot…'
+            : 'Tarkistetaan käsikirjoitus, kansi, tuotetiedot ja formaatit…');
         try {
             const response = await apiFetch(`/api/projects/${window.manuscriptData.id}/publication-package/readiness`);
             const data = await response.json().catch(() => null);
@@ -2763,7 +2835,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             return;
         }
         if (button) button.disabled = true;
-        setPublicationPackageStatus('Tallennetaan käsikirjoitus, lukitaan lähdeversio ja muodostetaan PDF, EPUB, DOCX, valittu kansiaineisto sekä metadata…');
+        setPublicationPackageStatus(showcaseDemoMode
+            ? 'Tallennetaan käsikirjoitus, lukitaan lähdeversio ja muodostetaan PDF, EPUB, DOCX, valittu kansi sekä manifesti…'
+            : 'Tallennetaan käsikirjoitus, lukitaan lähdeversio ja muodostetaan PDF, EPUB, DOCX, valittu kansiaineisto sekä metadata…');
         try {
             const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
             if (savedProject?.id) window.manuscriptData = savedProject;
@@ -2847,7 +2921,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         else translation?.classList.add('is-active');
 
         if (item.status === 'reviewed') {
-            localization?.classList.add('is-active');
+            localization?.classList.add(showcaseDemoMode ? 'is-ready' : 'is-active');
+            if (showcaseDemoMode) packageStep?.classList.add('is-active');
         } else if (multilingualTranslationIsReady(item)) {
             localization?.classList.add('is-active');
         }
@@ -2867,8 +2942,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                         <span class="multilingual-language-state">${escapeHtml(state.label)}</span>
                     </span>
                     <span class="multilingual-language-card-bottom">
-                        <span><strong>${escapeHtml(market.name)}</strong><small>${escapeHtml(market.reach)}</small></span>
-                        ${market.recommendation ? `<span class="multilingual-language-recommendation">${escapeHtml(market.recommendation)}</span>` : ''}
+                        <span><strong>${escapeHtml(market.name)}</strong><small>${escapeHtml(showcaseDemoMode ? 'Kohdekieli' : market.reach)}</small></span>
+                        ${!showcaseDemoMode && market.recommendation ? `<span class="multilingual-language-recommendation">${escapeHtml(market.recommendation)}</span>` : ''}
                     </span>
                 </button>
             `;
@@ -2890,7 +2965,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const translationReady = multilingualTranslationIsReady(item) ? 1 : 0;
         const reviewReady = item?.status === 'reviewed' ? 1 : 0;
         const completeSteps = sourceReady + translationReady + reviewReady;
-        const progressPercent = completeSteps * 20;
+        const progressPercent = completeSteps * (showcaseDemoMode ? 25 : 20);
 
         const kicker = document.getElementById('multilingual-edition-kicker');
         const title = document.getElementById('multilingual-edition-title');
@@ -2901,8 +2976,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const primary = document.getElementById('multilingual-primary-action-btn');
         const note = document.getElementById('multilingual-edition-note');
 
-        if (kicker) kicker.textContent = `${market.name.toLocaleUpperCase('fi-FI')} · ${market.region.toLocaleUpperCase('fi-FI')}`;
-        if (title) title.textContent = market.edition;
+        if (kicker) kicker.textContent = showcaseDemoMode
+            ? `${market.code.toLocaleUpperCase('fi-FI')} · KIELIVERSIO`
+            : `${market.name.toLocaleUpperCase('fi-FI')} · ${market.region.toLocaleUpperCase('fi-FI')}`;
+        if (title) title.textContent = showcaseDemoMode
+            ? market.edition.replace(/painos$/i, 'versio')
+            : market.edition;
         if (progress) progress.style.width = `${progressPercent}%`;
         if (status) {
             status.className = `multilingual-edition-status${item?.status === 'reviewed' ? ' is-reviewed' : ''}`;
@@ -2916,21 +2995,30 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         if (summary) {
             summary.textContent = item?.status === 'reviewed'
-                ? `Tarkastettu ${market.genitive} käännös voidaan nyt viedä omaksi kirjaprojektiksi ja viimeistellä markkinakohtaiseksi julkaisuksi.`
+                ? showcaseDemoMode
+                    ? `Tarkastettu ${market.genitive} käännös voidaan nyt viedä omaksi tekstiprojektiksi jatkotyötä varten.`
+                    : `Tarkastettu ${market.genitive} käännös voidaan nyt viedä omaksi kirjaprojektiksi ja viimeistellä markkinakohtaiseksi julkaisuksi.`
                 : multilingualTranslationIsReady(item)
-                    ? `Käännös on valmis. Seuraavaksi tarkistetaan kieli, termistö ja kirjailijan äänen säilyminen ennen lokalisaatiota.`
+                    ? `Käännös on valmis. Seuraavaksi tarkistetaan kieli, termistö ja kirjoittajan äänen säilyminen.`
                     : item
                         ? `Tallennettu käännös sisältää ${Number(item.chunks_count || 0).toLocaleString('fi-FI')} käsiteltävää osaa. Avaa työkalut ja viimeistele puuttuvat kohdat.`
                         : `Valmis lähde siirtyy ${market.genitive} käännökseen samoine rakenne-, tyyli- ja sanastotietoineen.`;
         }
 
-        const stageData = [
-            { number: '01', title: 'Lähdepaketti', detail: hasSourcePackage ? 'Lukittu versio' : 'Muodostamatta', state: hasSourcePackage ? 'is-ready' : 'is-active' },
-            { number: '02', title: 'Käännös', detail: translationReady ? 'Teksti valmis' : item ? 'Kesken' : 'Odottaa', state: translationReady ? 'is-ready' : hasSourcePackage ? 'is-active' : '' },
-            { number: '03', title: 'Kielentarkastus', detail: reviewReady ? 'Hyväksytty' : translationReady ? 'Seuraavaksi' : 'Odottaa', state: reviewReady ? 'is-ready' : translationReady ? 'is-active' : '' },
-            { number: '04', title: 'Lokalisaatio', detail: reviewReady ? 'Metadata ja kansi' : 'Odottaa', state: reviewReady ? 'is-active' : '' },
-            { number: '05', title: 'Tiedostopaketti', detail: 'Oma ZIP-paketti', state: '' }
-        ];
+        const stageData = showcaseDemoMode
+            ? [
+                { number: '01', title: 'Lähdeteksti', detail: hasSourcePackage ? 'Lukittu versio' : 'Muodostamatta', state: hasSourcePackage ? 'is-ready' : 'is-active' },
+                { number: '02', title: 'Käännös', detail: translationReady ? 'Teksti valmis' : item ? 'Kesken' : 'Odottaa', state: translationReady ? 'is-ready' : hasSourcePackage ? 'is-active' : '' },
+                { number: '03', title: 'Kielentarkastus', detail: reviewReady ? 'Hyväksytty' : translationReady ? 'Seuraavaksi' : 'Odottaa', state: reviewReady ? 'is-ready' : translationReady ? 'is-active' : '' },
+                { number: '04', title: 'Uusi tekstiprojekti', detail: reviewReady ? 'Valmis luotavaksi' : 'Odottaa', state: reviewReady ? 'is-active' : '' }
+            ]
+            : [
+                { number: '01', title: 'Lähdepaketti', detail: hasSourcePackage ? 'Lukittu versio' : 'Muodostamatta', state: hasSourcePackage ? 'is-ready' : 'is-active' },
+                { number: '02', title: 'Käännös', detail: translationReady ? 'Teksti valmis' : item ? 'Kesken' : 'Odottaa', state: translationReady ? 'is-ready' : hasSourcePackage ? 'is-active' : '' },
+                { number: '03', title: 'Kielentarkastus', detail: reviewReady ? 'Hyväksytty' : translationReady ? 'Seuraavaksi' : 'Odottaa', state: reviewReady ? 'is-ready' : translationReady ? 'is-active' : '' },
+                { number: '04', title: 'Lokalisaatio', detail: reviewReady ? 'Metadata ja kansi' : 'Odottaa', state: reviewReady ? 'is-active' : '' },
+                { number: '05', title: 'Tiedostopaketti', detail: 'Oma ZIP-paketti', state: '' }
+            ];
         if (stages) {
             stages.innerHTML = stageData.map(stage => `
                 <article class="multilingual-edition-stage ${stage.state}">
@@ -2959,8 +3047,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         if (note) {
             note.textContent = item?.status === 'reviewed'
-                ? 'Uusi kieliversio luodaan omaksi kirjaprojektikseen. Sen metadata, kansitekstit ja tiedostopaketti viimeistellään erikseen.'
-                : 'Käännös tallentuu versiona ja voidaan tarkastuksen jälkeen viedä omaksi kirjaprojektikseen.';
+                ? showcaseDemoMode
+                    ? 'Uusi kieliversio luodaan omaksi tekstiprojektikseen ja sitä voi jatkaa sovelluksen muissa moduuleissa.'
+                    : 'Uusi kieliversio luodaan omaksi kirjaprojektikseen. Sen metadata, kansitekstit ja tiedostopaketti viimeistellään erikseen.'
+                : showcaseDemoMode
+                    ? 'Käännös tallentuu versiona ja voidaan tarkastuksen jälkeen viedä omaksi tekstiprojektikseen.'
+                    : 'Käännös tallentuu versiona ja voidaan tarkastuksen jälkeen viedä omaksi kirjaprojektikseen.';
         }
         renderMultilingualFlow(item);
     }
@@ -3064,8 +3156,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         const project = await exportTranslationAsProject(translation.id);
         if (!project) return;
-        openModule('view-julkaisupaketti');
-        await loadPublicationPackageReadiness();
+        if (showcaseDemoMode) {
+            openModule('view-kirjani');
+        } else {
+            openModule('view-julkaisupaketti');
+            await loadPublicationPackageReadiness();
+        }
     }
 
     function renderPublishView() {
@@ -4641,6 +4737,20 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const navShowMoreButton = document.getElementById('nav-show-more');
     const sidebarNav = navShowMoreButton?.closest('.sidebar-nav');
     const views = document.querySelectorAll('.view-section');
+    const showcaseDemoNavOrder = [
+        'view-kirjani',
+        'view-analyysi',
+        'view-kehityseditointi',
+        'view-kirjoita-editoi',
+        'view-oikoluku',
+        'view-kuvitus',
+        'view-oheisaineistot',
+        'view-taitto',
+        'view-kaannokset',
+        'view-audio',
+        'view-julkaisupaketti',
+        'view-monikielinen-julkaisu'
+    ];
     function canonicalViewId(viewId) {
         if (viewId === 'view-kirjoita' || viewId === 'view-toimitus') return 'view-mobiilieditori';
         if (viewId === 'view-rakenne') return 'view-analyysi';
@@ -4672,10 +4782,25 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             item.hidden = true;
         }
     });
+    if (showcaseDemoMode) {
+        const navMenu = document.getElementById('nav-menu');
+        const showcaseViews = new Set(showcaseDemoNavOrder);
+        navItems.forEach(item => {
+            const viewId = item.getAttribute('data-view');
+            item.hidden = !showcaseViews.has(viewId);
+            item.classList.remove('module-overflow-hidden');
+            if (viewId === 'view-audio') item.textContent = 'Audio';
+        });
+        showcaseDemoNavOrder.forEach(viewId => {
+            const item = navMenu?.querySelector(`li[data-view="${viewId}"]`);
+            if (item) navMenu.appendChild(item);
+        });
+    }
+    configureShowcaseDemoUi();
     document.body.classList.remove('access-pending');
     document.getElementById('access-loading-screen')?.setAttribute('aria-hidden', 'true');
 
-    const MODULE_MENU_COLLAPSED_LIMIT = 7;
+    const MODULE_MENU_COLLAPSED_LIMIT = showcaseDemoMode ? Number.POSITIVE_INFINITY : 7;
     let moduleMenuExpanded = false;
 
     function refreshModuleMenuOverflow() {
@@ -7614,9 +7739,11 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     function visualKindOptions(selected = 'chapter_opening') {
-        return visualKindDefinitions.map(item => (
+        return visualKindDefinitions
+            .filter(item => !showcaseDemoMode || item.value !== 'marketing')
+            .map(item => (
             `<option value="${item.value}"${item.value === selected ? ' selected' : ''}>${escapeHtml(item.label)}</option>`
-        )).join('');
+            )).join('');
     }
 
     function visualAspectRatioOptions(selected = '3:4') {
@@ -8680,7 +8807,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const side = coverSideValue();
         const desiredKind = side === 'full' ? 'full' : 'single';
         const currentValue = coverFormatSelect.value;
-        const formats = coverFormatDefinitions.filter(format => format.kind === desiredKind);
+        const formats = coverFormatDefinitions.filter(format => (
+            format.kind === desiredKind
+            && (!showcaseDemoMode || ['portrait_1000x1500', 'audio_square'].includes(format.key))
+        ));
         coverFormatSelect.innerHTML = formats
             .map(format => `<option value="${escapeHtml(format.key)}">${escapeHtml(format.label)}</option>`)
             .join('');
@@ -8879,6 +9009,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     async function loadLatestCoverLayout() {
+        if (showcaseDemoMode) {
+            renderCoverLayout(null);
+            return;
+        }
         if (!window.manuscriptData?.id) {
             renderCoverLayout(null);
             return;
@@ -10588,7 +10722,13 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function renderCoverImages(items = []) {
         updateIllustrationProjectText();
         if (!coverGallery || !coverEmptyState || !coverLatestPreview) return;
-        currentCoverImages = Array.isArray(items) ? items : [];
+        items = (Array.isArray(items) ? items : []).filter(item => (
+            !showcaseDemoMode
+            || (item.asset_type !== 'back_cover_image'
+                && item.asset_type !== 'full_cover_image'
+                && item.material_kind !== 'print_cover_layout')
+        ));
+        currentCoverImages = items;
         renderCoverLayoutSourceOptions();
         populateCoverLayoutDefaults();
         if (selectedCoverReference && !currentCoverImages.some(item => String(item.id) === String(selectedCoverReference.id))) {
@@ -10600,7 +10740,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         coverEmptyState.hidden = items.length > 0;
 
         if (!items.length) {
-            coverLatestPreview.innerHTML = 'Kansikuva tai takakansi ilmestyy tähän.';
+            coverLatestPreview.innerHTML = showcaseDemoMode
+                ? 'Kansikuva ilmestyy tähän.'
+                : 'Kansikuva tai takakansi ilmestyy tähän.';
             return;
         }
 
@@ -19145,6 +19287,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
 
     function renderAudioView(force = false) {
         if (!isViewAllowed('view-audio')) return;
+        if (currentViewId !== 'view-audio') return;
         const current = document.getElementById('audio-current-project');
         const guide = document.getElementById('audio-pronunciation-guide');
         const opening = document.getElementById('audio-opening-words');
@@ -19222,7 +19365,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (!target) return;
         audioSelectedChapterIndex = target.index;
         audioLoadedChapterKey = '';
-        renderAudioView(true);
+        if (currentViewId === 'view-audio') renderAudioView(true);
     }
 
     async function generateAudioChapterPackage() {
@@ -20511,7 +20654,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         renderWritingView();
         renderProofreadView();
         renderProductInfo(true);
-        renderAudioView(true);
+        if (currentViewId === 'view-audio') renderAudioView(true);
         renderVersionsView();
         renderTopVersionBadge();
         if (window.renderNavList) window.renderNavList();
@@ -20630,7 +20773,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
         renderAnalysisSummary(window.manuscriptData.analysis);
         renderProductInfo(true);
-        renderAudioView(true);
+        if (currentViewId === 'view-audio') renderAudioView(true);
         renderBookOverview();
         renderWriterDeskView();
         renderStructureModule();
@@ -22439,7 +22582,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         updateTranslationAnalysisNotice(project);
         renderSelectedTranslationForReview();
         renderTranslationParts();
-        renderTranslationHistory();
+        if (currentViewId === 'view-kaannokset') renderTranslationHistory();
     }
 
     function updateFinnishTranslationProjectSelect(options = {}) {
@@ -22484,7 +22627,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         renderSelectedFinnishTranslationForReview();
         renderFinnishTranslationParts();
         renderFinnishTranslationAiCheck();
-        renderFinnishTranslationHistory();
+        if (currentViewId === 'view-kaannokset') renderFinnishTranslationHistory();
     }
 
     function currentMiscProject() {
@@ -25445,7 +25588,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (step) params.set('step', step);
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '21');
+        params.set('v', '23');
         const reloaded = updateEmbeddedModuleFrame(frame, 'manuskripti.html', params);
         if (!reloaded && frame.contentWindow) {
             frame.contentWindow.postMessage({ type: 'skriptlab:refresh-workflow-status' }, window.location.origin);
@@ -25496,7 +25639,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         params.set('tab', nextTab);
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '14');
+        params.set('v', '16');
         updateEmbeddedModuleFrame(frame, 'tuotanto.html', params);
     }
 

@@ -32,6 +32,7 @@
     layout: [],
     publication: null,
     translations: [],
+    audio: null,
     knowledge: [],
     versionCount: 0,
   };
@@ -99,6 +100,8 @@
     return META_SECTIONS.filter(([field]) => {
       if (field === "onix") return hasModule("product_info");
       if (["cover_prompt", "cover_prompts"].includes(field)) return hasModule("cover_illustration");
+      if (["library_class", "thema_classes"].includes(field)
+          && project?.analysis?.demo_profile === "showcase_demo") return false;
       return true;
     });
   }
@@ -441,20 +444,22 @@
   async function apiListProjectStageAssets(projectId) {
     if (demoMode) return {
       misc: [], covers: [], graphics: [], layout: [], publication: null,
-      translations: [], knowledge: [], versionCount: 0,
+      translations: [], audio: null, knowledge: [], versionCount: 0,
       availability: {
         misc: true, covers: true, graphics: true, layout: true,
-        publication: true, translations: true, knowledge: true,
+        publication: true, translations: true, audio: true, knowledge: true,
       },
     };
     const skipped = Promise.resolve({ skipped: true });
-    const [misc, covers, graphics, layout, publication, translations, knowledge] = await Promise.allSettled([
+    const canLoadTranslations = hasModule("translations") || hasModule("multilingual_publication");
+    const [misc, covers, graphics, layout, publication, translations, audio, knowledge] = await Promise.allSettled([
       hasModule("support_materials") ? api("/projects/" + projectId + "/misc-assets") : skipped,
       hasModule("cover_illustration") ? api("/projects/" + projectId + "/cover-images") : skipped,
       hasModule("cover_illustration") ? api("/projects/" + projectId + "/graphic-assets?limit=1") : skipped,
       hasModule("book_layout") ? api("/projects/" + projectId + "/layout-assets") : skipped,
       hasModule("publication_package") ? api("/projects/" + projectId + "/publication-package/readiness") : skipped,
-      hasModule("multilingual_publication") ? api("/projects/" + projectId + "/translations") : skipped,
+      canLoadTranslations ? api("/projects/" + projectId + "/translations") : skipped,
+      hasModule("audio") ? api("/audio/productions/latest?project_id=" + encodeURIComponent(projectId)) : skipped,
       hasModule("development_editing") ? api("/projects/" + projectId + "/knowledge") : skipped,
     ]);
     return {
@@ -465,6 +470,8 @@
       publication: publication.status === "fulfilled" && publication.value && typeof publication.value === "object"
         ? publication.value : null,
       translations: translations.status === "fulfilled" && Array.isArray(translations.value) ? translations.value : [],
+      audio: audio.status === "fulfilled" && audio.value && typeof audio.value === "object"
+        ? audio.value : null,
       knowledge: knowledge.status === "fulfilled" && Array.isArray(knowledge.value) ? knowledge.value : [],
       versionCount: 0,
       availability: {
@@ -473,7 +480,8 @@
         graphics: !hasModule("cover_illustration") || graphics.status === "fulfilled",
         layout: !hasModule("book_layout") || layout.status === "fulfilled",
         publication: !hasModule("publication_package") || publication.status === "fulfilled",
-        translations: !hasModule("multilingual_publication") || translations.status === "fulfilled",
+        translations: !canLoadTranslations || translations.status === "fulfilled",
+        audio: !hasModule("audio") || audio.status === "fulfilled",
         knowledge: !hasModule("development_editing") || knowledge.status === "fulfilled",
       },
     };
@@ -1192,8 +1200,19 @@
     return { started, done: Boolean(concept && tagline && description && channel) };
   }
 
+  function audioStageState(production) {
+    const status = String(production?.status || "").trim().toLowerCase();
+    const done = ["completed", "complete", "ready"].includes(status);
+    const active = [
+      "queued", "pending", "submitting", "running", "processing", "generating",
+      "assembling", "combining",
+    ].includes(status);
+    return { done, active };
+  }
+
   function pathSteps(sourceProject = project, stageAssets = projectStageAssets) {
     const analysis = sourceProject?.analysis || {};
+    const showcaseDemo = sourceProject?.analysis?.demo_profile === "showcase_demo";
     const development = analysis.development_editing || {};
     const workflowState = analysis.workflow_state || {};
     const analysisDone = analysis.analysis_status === "completed" || hasCompleteAnalysis(analysis);
@@ -1215,31 +1234,36 @@
     const translationDone = translations.some((item) =>
       ["completed", "reviewed"].includes(item.status) && String(item.translated_text || "").trim()
     );
+    const audio = audioStageState(stageAssets.audio);
     const marketing = marketingStageState(analysis);
     const manuscriptReady = projectHasText(sourceProject);
     const chapterCount = (sourceProject?.chapters || []).length || Number(sourceProject?.chapter_count || 0);
     const steps = [
-      { id: "kasikirjoitus", num: 1, name: "Työpöytäeditori", desc: chapterCount + " tekstiosiota",
+      { id: "kasikirjoitus", name: "Työpöytäeditori", desc: chapterCount + " tekstiosiota",
         status: projectStageStatus(manuscriptReady, false),
         statusLabel: manuscriptReady ? "Käsikirjoitus ladattu" : "",
         moduleView: "view-kirjoita-editoi" },
-      { id: "analyysi", num: 2, name: "Analyysi", desc: "Arvio, synopsis ja metatiedot",
+      { id: "analyysi", name: "Analyysi", desc: showcaseDemo ? "Arvio, synopsis ja tekstin tiedot" : "Arvio, synopsis ja metatiedot",
         status: projectStageStatus(analysisDone, analysisProgress), moduleView: "view-analyysi" },
-      { id: "kehityseditointi", num: 3, name: "Kehityspalaute", desc: developmentDescription,
+      { id: "kehityseditointi", name: "Kehityspalaute", desc: developmentDescription,
         status: projectStageStatus(developmentDone, developmentStarted), moduleView: "view-kehityseditointi" },
-      { id: "oikoluku", num: 4, name: "Oikoluku ja viimeistely", desc: "Kielenhuolto ja viimeistelty versio",
+      { id: "oikoluku", name: "Oikoluku ja viimeistely", desc: "Kielenhuolto ja viimeistelty versio",
         status: projectStageStatus(proofreadDone, proofreadStarted), moduleView: "view-oikoluku" },
-      { id: "kansi", num: 5, name: "Kansi ja grafiikka", desc: "Kansi, kuvamaailma ja infografiikat",
+      { id: "kansi", name: "Kansi ja grafiikka", desc: "Kansi, kuvamaailma ja infografiikat",
         status: projectStageStatus(hasFullCoverAssets(stageAssets), hasCoverAssets(stageAssets) || hasGraphicAssets(stageAssets) || coverPromptStarted), moduleView: "view-kuvitus" },
-      { id: "oheisaineistot", num: 6, name: "Oheisaineistot", desc: "Copysivu, hakemistot ja lähdeluettelo",
+      { id: "oheisaineistot", name: "Oheisaineistot", desc: showcaseDemo ? "Hakemistot, lähdeluettelo ja täydentävät aineistot" : "Copysivu, hakemistot ja lähdeluettelo",
         status: projectStageStatus(hasMiscAssets(stageAssets), false), moduleView: "view-oheisaineistot" },
-      { id: "taitto", num: 7, name: "Taitto", desc: "Kirjan asetukset sekä PDF-, EPUB- ja LaTeX-tiedostot",
+      { id: "taitto", name: "Taitto", desc: "Kirjan asetukset sekä PDF-, EPUB- ja LaTeX-tiedostot",
         status: projectStageStatus(hasLayoutAssets(stageAssets), false), moduleView: "view-taitto" },
-      { id: "julkaisupaketti", num: 8, name: "Tiedostopaketti", desc: "Lukittu lähde ja toimituspaketti",
+      { id: "kaannokset", name: "Käännökset", desc: "Käännösteksti ja kielentarkistus",
+        status: projectStageStatus(translationDone, translations.length > 0), moduleView: "view-kaannokset" },
+      { id: "audio", name: "Audio", desc: "Äänikirjaversio ja tuotannon tila",
+        status: projectStageStatus(audio.done, audio.active), moduleView: "view-audio" },
+      { id: "julkaisupaketti", name: "Tiedostopaketti", desc: showcaseDemo ? "Lukittu lähde ja koottu tiedostopaketti" : "Lukittu lähde ja toimituspaketti",
         status: projectStageStatus(Boolean(stageAssets.publication?.latest_package), false), moduleView: "view-julkaisupaketti" },
-      { id: "monikielinen", num: 9, name: "Kieliversiot", desc: "Käännös ja tarkastettu kieliversio",
+      { id: "monikielinen", name: "Kieliversiot", desc: "Käännös ja tarkastettu kieliversio",
         status: projectStageStatus(translationDone, translations.length > 0), moduleView: "view-monikielinen-julkaisu" },
-      { id: "markkinointi", num: 10, name: "Kampanjastudio", desc: "Konsepti, kanavatekstit ja kampanjapaketti",
+      { id: "markkinointi", name: "Kampanjastudio", desc: "Konsepti, kanavatekstit ja kampanjapaketti",
         status: projectStageStatus(marketing.done, marketing.started), moduleView: "view-markkinointi" },
     ];
     const availability = stageAssets.availability || {};
@@ -1248,6 +1272,8 @@
     if (availability.covers === false || availability.graphics === false) unavailableStepIds.add("kansi");
     if (availability.misc === false) unavailableStepIds.add("oheisaineistot");
     if (availability.layout === false) unavailableStepIds.add("taitto");
+    if (availability.translations === false) unavailableStepIds.add("kaannokset");
+    if (availability.audio === false) unavailableStepIds.add("audio");
     if (availability.publication === false) unavailableStepIds.add("julkaisupaketti");
     if (availability.translations === false) unavailableStepIds.add("monikielinen");
     const stageModuleKeys = {
@@ -1258,13 +1284,18 @@
       kansi: "cover_illustration",
       oheisaineistot: "support_materials",
       taitto: "book_layout",
+      kaannokset: "translations",
+      audio: "audio",
       julkaisupaketti: "publication_package",
       monikielinen: "multilingual_publication",
       markkinointi: "marketing",
     };
-    return steps.filter((step) => hasModule(stageModuleKeys[step.id])).map((step) => unavailableStepIds.has(step.id)
-      ? { ...step, status: "unavailable", statusLabel: "Tieto ei saatavilla" }
-      : step);
+    return steps
+      .filter((step) => hasModule(stageModuleKeys[step.id]))
+      .map((step) => unavailableStepIds.has(step.id)
+        ? { ...step, status: "unavailable", statusLabel: "Tieto ei saatavilla" }
+        : step)
+      .map((step, index) => ({ ...step, num: index + 1 }));
   }
 
   function renderProject() {
@@ -1457,7 +1488,7 @@
       const metaHeading = document.createElement("h3");
       metaHeading.className = "list-title";
       metaHeading.style.margin = "18px 0 10px";
-      metaHeading.textContent = "Metatiedot";
+      metaHeading.textContent = analysis.demo_profile === "showcase_demo" ? "Tekstin tiedot" : "Metatiedot";
       container.appendChild(metaHeading);
       metaSections.forEach((section) => container.appendChild(buildSection(section, false)));
     }

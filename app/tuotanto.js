@@ -19,14 +19,18 @@
   const API_BASE = (CONFIG.apiBase || "/api").replace(/\/$/, "");
   const doFetch = CONFIG.fetchImpl || ((url, options) => fetch(url, options));
   const FINNISH_HYPHENATION = window.SkriptLabFinnishHyphenation || null;
+  const SHOWCASE_MODE = CONFIG.showcase === true;
 
-  const TOOLS = [
+  const ALL_TOOLS = [
     ["copyright_page", "Copysivu"],
     ["character_index", "Henkilöhakemisto"],
     ["place_index", "Paikkahakemisto"],
     ["subject_index", "Asiahakemisto"],
     ["bibliography", "Lähdeluettelo"],
   ];
+  const TOOLS = SHOWCASE_MODE
+    ? ALL_TOOLS.filter(([kind]) => kind !== "copyright_page")
+    : ALL_TOOLS;
   const TOOL_LABELS = Object.fromEntries(TOOLS);
   const FRONT_KINDS = ["copyright_page"];
   const SIZE_DETAILS = {
@@ -83,7 +87,7 @@
   let tab = AVAILABLE_TABS.has(CONFIG.tab)
     ? CONFIG.tab
     : (MODULE === "taitto" ? "taitto" : "aineistot");
-  let selectedTool = "copyright_page";
+  let selectedTool = TOOLS[0][0];
   let selectedSize = "A5";
   let selectedHyphenation = "balanced";
   let selectedColumnWidth = "medium";
@@ -342,13 +346,16 @@
 
   async function apiListAssets() {
     if (demoMode) {
-      return demo.assets.map((asset) => Object.assign({}, asset, {
+      return demo.assets.filter((asset) => !SHOWCASE_MODE || asset.material_kind !== "copyright_page").map((asset) => Object.assign({}, asset, {
         include_in_book: asset.asset_type === "book_misc_material",
         book_section: asset.asset_type === "book_misc_material"
           ? (FRONT_KINDS.includes(asset.material_kind) ? "front" : "back") : "",
       }));
     }
-    return api("/projects/" + projectId + "/misc-assets");
+    const items = await api("/projects/" + projectId + "/misc-assets");
+    return SHOWCASE_MODE
+      ? items.filter((asset) => asset.material_kind !== "copyright_page")
+      : items;
   }
 
   async function apiSaveAsset(title, content, materialKind, includeInBook) {
@@ -472,6 +479,10 @@
     document.title = moduleTitle + " – SkriptLab";
     $("module-title").textContent = moduleTitle;
     $("production-screen").setAttribute("aria-label", moduleTitle);
+    if (SHOWCASE_MODE) {
+      const includedHint = document.querySelector("#book-included-wrap .hint");
+      if (includedHint) includedHint.textContent = "Järjestä kirjaan liitetyt aineistot nuolilla.";
+    }
     $("tab-aineistot").hidden = !AVAILABLE_TABS.has("aineistot");
     $("tab-kirja").hidden = !AVAILABLE_TABS.has("kirja");
     $("tab-taitto").hidden = !AVAILABLE_TABS.has("taitto");
