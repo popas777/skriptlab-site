@@ -190,9 +190,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (error) {
         console.warn('Käyttäjän käyttöoikeuksia ei saatu päivitettyä.', error);
     }
-    const publisherDemoMode = currentUser?.access_group_name === 'Kustantamodemo';
-    document.body.classList.toggle('publisher-demo-mode', publisherDemoMode);
-    document.getElementById('publisher-demo-banner')?.classList.toggle('hidden', !publisherDemoMode);
     let availableProjects = [];
     let translationModels = [];
     let latestTranslationText = '';
@@ -293,7 +290,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let proofreadDefaultRules = '';
     let proofreadRulesLoaded = false;
     const EXTRA_PROOFREAD_RULES_KEY = 'skriptlab_extra_proofread_rules';
-    const DEFAULT_EXTRA_PROOFREAD_RULES = `Tarkista teksti kustannustoimituksen ja taittovedoksen viimeistelyn näkökulmasta. Älä käytä Python-heuristiikkaa, vaan arvioi kohdat kielellisesti ja kontekstin perusteella.
+    const DEFAULT_EXTRA_PROOFREAD_RULES = `Tarkista teksti kielenhuollon ja tekstin viimeistelyn näkökulmasta. Älä käytä Python-heuristiikkaa, vaan arvioi kohdat kielellisesti ja kontekstin perusteella.
 
 Tarkistettavia asioita:
 - tuplavälilyönnit ja ylimääräiset välit
@@ -309,7 +306,6 @@ Tarkistettavia asioita:
 - mittayksiköt ja prosentit: välilyönti numeron ja yksikön/merkin väliin, esimerkiksi 5 kg ja 15 %
 - pilkulliset tuhaterottimet: suomen tekstissä käytä välilyöntiä, esimerkiksi 1 000
 - huono tavutus tai tavutuksen jäljet, jos kohta näyttää tekstissä rikkoutuneelta
-- mahdolliset leski- ja orporivien kaltaiset taittoriskit, jos teksti näyttää katkeavan oudosti
 
 Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. Älä korjaa tyyliä, henkilöääntä tai kirjailijan tarkoituksellista rytmiä ilman selvää virhettä.`;
     let biographyState = {};
@@ -645,7 +641,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 	        },
 	        finishing: {
 	            label: 'Viimeistely',
-	            assistantHint: 'Keskity kielen viimeisiin korjauksiin, oikolukuun, kappaleen tiiviyteen ja julkaisuvalmiuteen.'
+	            assistantHint: 'Keskity kielen viimeisiin korjauksiin, oikolukuun, kappaleen tiiviyteen ja tekstin viimeistelyyn.'
 	        },
 	        layout: {
 	            label: 'Taitto',
@@ -853,7 +849,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (userName) userName.textContent = currentUser.display_name || currentUser.email || 'Käyttäjä';
         if (userEmail) userEmail.textContent = currentUser.email || '';
         if (roleBadge) {
-            roleBadge.textContent = `Käyttäjäryhmä: ${currentUser.access_group_name || roleLabels[currentUser.role] || currentUser.role}`;
+            const accessGroupLabel = currentUser.access_group_name === 'Kustantamodemo'
+                ? 'Demo'
+                : currentUser.access_group_name;
+            roleBadge.textContent = `Käyttäjäryhmä: ${accessGroupLabel || roleLabels[currentUser.role] || currentUser.role}`;
         }
     }
 
@@ -866,8 +865,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function currentModuleTitle() {
         const navItem = document.querySelector(`#nav-menu li[data-view="${navViewFor(currentViewId)}"]`);
         if (navItem && !navItem.hidden) {
-            const namedLabel = navItem.querySelector('.demo-nav-step + span');
-            return (namedLabel || navItem).textContent.trim();
+            return navItem.textContent.trim();
         }
         const view = document.getElementById(currentViewId);
         const heading = view ? view.querySelector('.header-info h2') : null;
@@ -996,7 +994,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function availableHelpAgentModules() {
         return Array.from(document.querySelectorAll('#nav-menu li[data-view]'))
             .filter(item => !item.hidden)
-            .map(item => (item.querySelector('.demo-nav-step + span') || item).textContent.trim())
+            .map(item => item.textContent.trim())
             .filter(Boolean)
             .slice(0, 40);
     }
@@ -4030,7 +4028,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 	            clarify_section: 'Selkeytä nykyinen kappale varovaisesti. Säilytä tyyli ja merkitys. Palauta vain valmis muokattu kappale ilman selityksiä.',
 	            tighten_section: 'Tiivistä nykyinen kappale varovaisesti. Poista turha toisto, säilytä ääni. Palauta vain valmis muokattu kappale ilman selityksiä.',
 	            proof_section: 'Oikolue nykyinen kappale. Korjaa vain selvät virheet ja sujuvuuden pienet ongelmat. Palauta vain valmis korjattu kappale ilman selityksiä.',
-	            polish_section: 'Viimeistele nykyinen kappale julkaisuvalmiimmaksi varovaisesti. Palauta vain valmis kappale ilman selityksiä.',
+	            polish_section: 'Viimeistele nykyinen kappale varovaisesti. Palauta vain valmis kappale ilman selityksiä.',
 	            production_checklist: 'Anna yksi tarkistettava viimeistelyhuomio tästä kappaleesta tuotantovalmiutta varten.',
 	            layout_note: 'Anna yksi taittoon liittyvä huomio tästä kohdasta: otsikkotaso, kappalejako, typografia, sisällysluettelo tai taittoriski.'
 	        };
@@ -4643,36 +4641,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const navShowMoreButton = document.getElementById('nav-show-more');
     const sidebarNav = navShowMoreButton?.closest('.sidebar-nav');
     const views = document.querySelectorAll('.view-section');
-    if (publisherDemoMode) {
-        const demoNavConfig = [
-            ['view-kirjani', 'Yleiskuva'],
-            ['view-analyysi', 'Analyysi ja projektimuisti'],
-            ['view-ai-tyonkulku', 'Työnkulkustudio'],
-            ['view-kehityseditointi', 'Kehityspalaute'],
-            ['view-kirjoita-editoi', 'Työpöytäeditori'],
-            ['view-oikoluku', 'Oikoluku ja viimeistely'],
-            ['view-kuvitus', 'Kansi ja grafiikka'],
-            ['view-oheisaineistot', 'Oheisaineistot'],
-            ['view-taitto', 'Taitto'],
-            ['view-tuotetiedot', 'Tuotetiedot'],
-            ['view-julkaisupaketti', 'Tiedostopaketti'],
-            ['view-korjaukset', 'Korjaukset ja uusintapainokset'],
-            ['view-monikielinen-julkaisu', 'Kieliversiot'],
-            ['view-markkinointi', 'Kampanjastudio']
-        ];
-        const visibleDemoViews = new Set(demoNavConfig.map(([viewId]) => viewId));
-        const navMenu = document.getElementById('nav-menu');
-        navItems.forEach(item => {
-            if (!visibleDemoViews.has(item.dataset.view)) item.hidden = true;
-        });
-        demoNavConfig.forEach(([viewId, label], index) => {
-            const item = document.querySelector(`#nav-menu li[data-view="${viewId}"]`);
-            if (!item) return;
-            item.innerHTML = `<span class="demo-nav-step">${String(index).padStart(2, '0')}</span><span>${label}</span>`;
-            navMenu?.appendChild(item);
-        });
-    }
-
     function canonicalViewId(viewId) {
         if (viewId === 'view-kirjoita' || viewId === 'view-toimitus') return 'view-mobiilieditori';
         if (viewId === 'view-rakenne') return 'view-analyysi';
@@ -4704,6 +4672,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             item.hidden = true;
         }
     });
+    document.body.classList.remove('access-pending');
+    document.getElementById('access-loading-screen')?.setAttribute('aria-hidden', 'true');
 
     const MODULE_MENU_COLLAPSED_LIMIT = 7;
     let moduleMenuExpanded = false;
@@ -4908,9 +4878,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 document.getElementById('top-book-name').textContent = 'Käsikirjoitus: Valitse projekti...';
             }
         });
-    });
-    document.querySelectorAll('[data-demo-view]').forEach(button => {
-        button.addEventListener('click', () => openModule(button.dataset.demoView));
     });
     openModule(currentViewId);
     
@@ -10102,6 +10069,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     async function loadImageModels(force = false) {
+        if (!isViewAllowed('view-kuvitus')) return [];
         if (!coverModelSelect && !visualModelSelect) return [];
         if (imageModels.length && !force) {
             renderImageModelSelects();
@@ -11975,7 +11943,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             label: 'Lähde', plural: 'Lähteet', icon: '↗',
             fields: [
                 { key: 'creator', label: 'Tekijä tai organisaatio' },
-                { key: 'publication', label: 'Julkaisu tai arkisto' }
+                { key: 'publication', label: 'Lähdetieto tai arkisto' }
             ],
             content: 'Lähteen sisältö ja käyttötarkoitus',
             placeholder: 'Mitä lähde tukee, mihin sitä käytetään ja mitä siitä on vielä tarkistettava?'
@@ -13305,8 +13273,8 @@ Säännöt:
         const labels = {
             friendly: 'Kirjailijaystävällinen palaute',
             normal: 'Normaali kehityspalaute',
-            strict: 'Tiukka kustannustoimittajan palaute',
-            publisher_internal: 'Kustantamon sisäinen arvio',
+            strict: 'Tiukka toimituksellinen palaute',
+            publisher_internal: 'Sisäinen arvio',
             revision_plan: 'Korjaussuunnitelma'
         };
         return labels[value] || labels.normal;
@@ -20705,8 +20673,14 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         return ['admin', 'owner', 'shared_edit'].includes(projectAccessLevel(data));
     }
 
+    function isProtectedShowcaseProject(data) {
+        return currentUser?.role !== 'admin'
+            && data?.analysis?.demo_project === true
+            && data?.analysis?.demo_profile === 'showcase_demo';
+    }
+
     function canManageProject(data) {
-        if (publisherDemoMode) return false;
+        if (isProtectedShowcaseProject(data)) return false;
         return ['admin', 'owner'].includes(projectAccessLevel(data));
     }
 
@@ -22435,6 +22409,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     }
 
     function updateTranslationProjectSelect() {
+        if (!isViewAllowed('view-kaannokset')) return;
         const select = document.getElementById('translation-project-select');
         const currentText = document.getElementById('translation-current-project');
         if (!select) return;
@@ -22468,6 +22443,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     }
 
     function updateFinnishTranslationProjectSelect(options = {}) {
+        if (!isViewAllowed('view-kaannokset') && !isViewAllowed('view-kaannostyotila')) return;
         const select = document.getElementById('finnish-translation-project-select');
         const currentText = document.getElementById('finnish-translation-current-project');
         const promptProjectText = document.getElementById('finnish-translation-prompt-project');
@@ -22547,6 +22523,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     }
 
     async function loadTranslationModels() {
+        if (!isViewAllowed('view-kaannokset') && !isViewAllowed('view-kaannostyotila')) return;
         const selects = [
             'translation-model-select',
             'finnish-translation-model-select',
@@ -22587,6 +22564,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     }
 
     async function loadMiscModels() {
+        if (!isViewAllowed('view-oheisaineistot') && !isViewAllowed('view-taitto')) return;
         const select = document.getElementById('misc-model-select');
         if (!select) return;
         try {
@@ -23148,6 +23126,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     }
 
     async function renderTranslationHistory() {
+        if (!isViewAllowed('view-kaannokset')) return;
         const history = document.getElementById('translation-history');
         const project = currentTranslationProject();
         if (!history) return;
@@ -23205,6 +23184,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     }
 
     async function renderFinnishTranslationHistory() {
+        if (!isViewAllowed('view-kaannokset') && !isViewAllowed('view-kaannostyotila')) return;
         const history = document.getElementById('finnish-translation-history');
         const project = currentFinnishTranslationProject();
         if (!history) return;
@@ -25229,6 +25209,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     }
 
     async function loadMiscAssetsForActiveProject(useActiveManuscript = false) {
+        if (!isViewAllowed('view-oheisaineistot') && !isViewAllowed('view-taitto')) return [];
         const project = useActiveManuscript ? window.manuscriptData : (currentMiscProject() || window.manuscriptData);
 	        if (!project?.id) {
 	            currentMiscAssets = [];
@@ -25464,7 +25445,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (step) params.set('step', step);
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '18');
+        params.set('v', '21');
         const reloaded = updateEmbeddedModuleFrame(frame, 'manuskripti.html', params);
         if (!reloaded && frame.contentWindow) {
             frame.contentWindow.postMessage({ type: 'skriptlab:refresh-workflow-status' }, window.location.origin);
@@ -26201,7 +26182,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     const bioRunOutlineBtn = document.getElementById('bio-run-outline-btn');
     const bioRunChapterPlanBtn = document.getElementById('bio-run-chapter-plan-btn');
     const bioRunDraftBtn = document.getElementById('bio-run-draft-btn');
-    if (window.SkriptLabWorkflowStudio?.create) {
+    if (isViewAllowed('view-ai-tyonkulku') && window.SkriptLabWorkflowStudio?.create) {
         workflowStudio = window.SkriptLabWorkflowStudio.create({
             getProject: () => window.manuscriptData,
             getUser: () => currentUser,
@@ -26214,7 +26195,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         });
         await workflowStudio.init();
         syncWorkflowStudioProjectContext();
-    } else {
+    } else if (isViewAllowed('view-ai-tyonkulku')) {
         console.error('Työnkulkustudion controlleria ei voitu ladata.');
     }
     document.querySelectorAll('.translation-tab').forEach(tab => {

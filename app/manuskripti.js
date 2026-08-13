@@ -60,16 +60,10 @@
   } catch (error) {
     authUser = null;
   }
-  const publisherDemoMode = authUser?.access_group_name === "Kustantamodemo";
-  document.body.classList.toggle("publisher-demo-mode", publisherDemoMode);
-  if (publisherDemoMode) {
-    const libraryActions = document.querySelector(".library-actions");
-    const libraryHint = libraryActions?.nextElementSibling;
-    if (libraryActions) libraryActions.hidden = true;
-    if (libraryHint?.classList.contains("hint")) libraryHint.hidden = true;
-    const libraryLead = document.querySelector(".home-lead");
-    if (libraryLead) libraryLead.textContent = "Tarkastettu demokirja ja sen kustannustoimituksen työvaiheet.";
-  }
+  const allowedModuleKeys = Array.isArray(authUser?.allowed_modules)
+    ? new Set(authUser.allowed_modules.map((key) => String(key || "")))
+    : null;
+  const hasModule = (moduleKey) => !allowedModuleKeys || allowedModuleKeys.has(moduleKey);
   let pendingInitialStep = ["kasikirjoitus", "analyysi", "rakenne"].includes(requestedStep) ? requestedStep : "";
 
   const ANALYSIS_SECTIONS = [
@@ -92,6 +86,22 @@
     ["cover_prompt", "Kansikuvakuvaus"],
     ["cover_prompts", "Kansikuvavaihtoehdot"],
   ];
+
+  function visibleAnalysisSections() {
+    return ANALYSIS_SECTIONS.filter(([field]) => {
+      if (["marketing_short", "marketing_long"].includes(field)) return hasModule("marketing");
+      if (field === "backcover") return hasModule("product_info") || hasModule("marketing");
+      return true;
+    });
+  }
+
+  function visibleMetaSections() {
+    return META_SECTIONS.filter(([field]) => {
+      if (field === "onix") return hasModule("product_info");
+      if (["cover_prompt", "cover_prompts"].includes(field)) return hasModule("cover_illustration");
+      return true;
+    });
+  }
 
   const KIND_LABELS = { front: "Etusivut", part: "Osa", main: "Pääteksti", back: "Lopputekstit" };
 
@@ -437,14 +447,15 @@
         publication: true, translations: true, knowledge: true,
       },
     };
+    const skipped = Promise.resolve({ skipped: true });
     const [misc, covers, graphics, layout, publication, translations, knowledge] = await Promise.allSettled([
-      api("/projects/" + projectId + "/misc-assets"),
-      api("/projects/" + projectId + "/cover-images"),
-      api("/projects/" + projectId + "/graphic-assets?limit=1"),
-      api("/projects/" + projectId + "/layout-assets"),
-      api("/projects/" + projectId + "/publication-package/readiness"),
-      api("/projects/" + projectId + "/translations"),
-      api("/projects/" + projectId + "/knowledge"),
+      hasModule("support_materials") ? api("/projects/" + projectId + "/misc-assets") : skipped,
+      hasModule("cover_illustration") ? api("/projects/" + projectId + "/cover-images") : skipped,
+      hasModule("cover_illustration") ? api("/projects/" + projectId + "/graphic-assets?limit=1") : skipped,
+      hasModule("book_layout") ? api("/projects/" + projectId + "/layout-assets") : skipped,
+      hasModule("publication_package") ? api("/projects/" + projectId + "/publication-package/readiness") : skipped,
+      hasModule("multilingual_publication") ? api("/projects/" + projectId + "/translations") : skipped,
+      hasModule("development_editing") ? api("/projects/" + projectId + "/knowledge") : skipped,
     ]);
     return {
       misc: misc.status === "fulfilled" && Array.isArray(misc.value) ? misc.value : [],
@@ -457,13 +468,13 @@
       knowledge: knowledge.status === "fulfilled" && Array.isArray(knowledge.value) ? knowledge.value : [],
       versionCount: 0,
       availability: {
-        misc: misc.status === "fulfilled",
-        covers: covers.status === "fulfilled",
-        graphics: graphics.status === "fulfilled",
-        layout: layout.status === "fulfilled",
-        publication: publication.status === "fulfilled",
-        translations: translations.status === "fulfilled",
-        knowledge: knowledge.status === "fulfilled",
+        misc: !hasModule("support_materials") || misc.status === "fulfilled",
+        covers: !hasModule("cover_illustration") || covers.status === "fulfilled",
+        graphics: !hasModule("cover_illustration") || graphics.status === "fulfilled",
+        layout: !hasModule("book_layout") || layout.status === "fulfilled",
+        publication: !hasModule("publication_package") || publication.status === "fulfilled",
+        translations: !hasModule("multilingual_publication") || translations.status === "fulfilled",
+        knowledge: !hasModule("development_editing") || knowledge.status === "fulfilled",
       },
     };
   }
@@ -693,14 +704,20 @@
     if (event.data?.type === "skriptlab:refresh-workflow-status") refreshWorkflowStatus();
   });
 
+  function isProtectedShowcaseProject(item) {
+    return authUser?.role !== "admin"
+      && item?.analysis?.demo_project === true
+      && item?.analysis?.demo_profile === "showcase_demo";
+  }
+
   function canDeleteProject(item) {
-    if (publisherDemoMode) return false;
+    if (isProtectedShowcaseProject(item)) return false;
     const level = item.access_level || "";
     return !level || level === "owner" || level === "admin";
   }
 
   function canRenameProject(item) {
-    if (publisherDemoMode) return false;
+    if (isProtectedShowcaseProject(item)) return false;
     const level = item.access_level || "";
     return !level || level === "owner" || level === "admin" || level === "shared_edit";
   }
@@ -1106,7 +1123,8 @@
 
   function hasSavedAnalysis(analysis) {
     if (!analysis || typeof analysis !== "object") return false;
-    return ANALYSIS_SECTIONS.concat(META_SECTIONS).some(([field]) => String(analysis[field] || "").trim());
+    return visibleAnalysisSections().concat(visibleMetaSections())
+      .some(([field]) => String(analysis[field] || "").trim());
   }
 
   function hasCompleteAnalysis(analysis) {
@@ -1232,7 +1250,19 @@
     if (availability.layout === false) unavailableStepIds.add("taitto");
     if (availability.publication === false) unavailableStepIds.add("julkaisupaketti");
     if (availability.translations === false) unavailableStepIds.add("monikielinen");
-    return steps.map((step) => unavailableStepIds.has(step.id)
+    const stageModuleKeys = {
+      kasikirjoitus: "write_edit",
+      analyysi: "analysis",
+      kehityseditointi: "development_editing",
+      oikoluku: "proofread",
+      kansi: "cover_illustration",
+      oheisaineistot: "support_materials",
+      taitto: "book_layout",
+      julkaisupaketti: "publication_package",
+      monikielinen: "multilingual_publication",
+      markkinointi: "marketing",
+    };
+    return steps.filter((step) => hasModule(stageModuleKeys[step.id])).map((step) => unavailableStepIds.has(step.id)
       ? { ...step, status: "unavailable", statusLabel: "Tieto ei saatavilla" }
       : step);
   }
@@ -1395,7 +1425,9 @@
     $("analysis-memory-summary-text").textContent = memoryItems.length
       ? `Analyysi loi ${memoryItems.length} tarkistettavaa tietokorttia. Editorin avustin käyttää niitä heti; voit tarkentaa niitä valinnaisessa kehityseditointiosiossa.`
       : "";
-    const hasAny = ANALYSIS_SECTIONS.concat(META_SECTIONS).some(([field]) => analysis[field]);
+    const analysisSections = visibleAnalysisSections();
+    const metaSections = visibleMetaSections();
+    const hasAny = analysisSections.concat(metaSections).some(([field]) => analysis[field]);
     $("analysis-empty").hidden = hasAny;
 
     restoreActiveAnalysisJob();
@@ -1419,14 +1451,16 @@
       return details;
     };
 
-    ANALYSIS_SECTIONS.forEach((section, i) => container.appendChild(buildSection(section, i === 0)));
+    analysisSections.forEach((section, i) => container.appendChild(buildSection(section, i === 0)));
 
-    const metaHeading = document.createElement("h3");
-    metaHeading.className = "list-title";
-    metaHeading.style.margin = "18px 0 10px";
-    metaHeading.textContent = "Metatiedot";
-    container.appendChild(metaHeading);
-    META_SECTIONS.forEach((section) => container.appendChild(buildSection(section, false)));
+    if (metaSections.length) {
+      const metaHeading = document.createElement("h3");
+      metaHeading.className = "list-title";
+      metaHeading.style.margin = "18px 0 10px";
+      metaHeading.textContent = "Metatiedot";
+      container.appendChild(metaHeading);
+      metaSections.forEach((section) => container.appendChild(buildSection(section, false)));
+    }
 
     if (analysis.analysis_warnings) {
       const warn = document.createElement("div");
@@ -1797,6 +1831,12 @@
   /* ------------------------------------------------------------ käynnistys */
 
   function bindEvents() {
+    document.querySelectorAll('[data-goto="analyysi"]').forEach((button) => {
+      button.hidden = !hasModule("analysis");
+    });
+    $("btn-run-analysis").hidden = !hasModule("analysis");
+    $("btn-open-development").hidden = !hasModule("development_editing");
+    $("btn-open-editor").hidden = !hasModule("write_edit");
     $("btn-upload").addEventListener("click", () => $("file-input").click());
     $("file-input").addEventListener("change", async (event) => {
       const file = event.target.files[0];
@@ -1831,6 +1871,7 @@
     document.querySelectorAll("[data-goto]").forEach((btn) =>
       btn.addEventListener("click", () => {
         const target = btn.dataset.goto;
+        if (target === "analyysi" && !hasModule("analysis")) return;
         if (target === "library") renderLibrary();
         if (target === "project") renderProject();
         if (["kasikirjoitus", "analyysi", "rakenne"].includes(target)) renderStepView(target);

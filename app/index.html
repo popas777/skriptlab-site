@@ -5,11 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=94">
+    <link rel="stylesheet" href="styles.css?v=96">
     <link rel="stylesheet" href="workflow-studio.css?v=2">
     <link rel="stylesheet" href="correction-reprints.css?v=1">
 </head>
-<body>
+<body class="access-pending">
+    <div id="access-loading-screen" class="access-loading-screen" role="status" aria-live="polite">
+        <span class="access-loading-mark" aria-hidden="true">S</span>
+        <span>Ladataan työtilaa…</span>
+    </div>
     <!-- Global Task Overlay -->
     <div id="global-task-overlay" class="hidden" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 9999; display: flex; align-items: center; justify-content: center;">
         <div class="card glass-panel" style="width: 400px; text-align: center;">
@@ -240,32 +244,11 @@
 
             <!-- 1. VIEW: KIRJANI -->
             <div id="view-kirjani" class="view-section">
-                <section class="publisher-demo-banner hidden" id="publisher-demo-banner" aria-label="Kustantamodemon eteneminen">
-                    <div class="publisher-demo-copy">
-                        <span class="publisher-demo-kicker">Kustantamodemo · valmis esityspolku</span>
-                        <h2>Käsikirjoituksesta julkaisuksi</h2>
-                        <p>
-                            Middlemarchin ensimmäinen kirja on tuotu tarkastettuna suomennoksena. Etene vasemmalta oikealle ja näytä, kuinka sama teos viimeistellään, paketoidaan, lokalisoidaan ja viedään kampanjaksi.
-                        </p>
-                        <div class="publisher-demo-facts" aria-label="Demokirjan valmiustiedot">
-                            <span>13 tekstiosaa</span>
-                            <span>839/839 lähdekohtaa tarkastettu</span>
-                            <span>0 avointa kohtaa</span>
-                        </div>
-                    </div>
-                    <div class="publisher-demo-path">
-                        <button type="button" data-demo-view="view-kirjoita-editoi"><span>01</span><strong>Teos</strong><small>Tarkastettu teksti</small></button>
-                        <button type="button" data-demo-view="view-kehityseditointi"><span>02</span><strong>Editointi</strong><small>Rakenne ja laatu</small></button>
-                        <button type="button" data-demo-view="view-julkaisupaketti"><span>03</span><strong>Paketointi</strong><small>PDF · EPUB · DOCX</small></button>
-                        <button type="button" data-demo-view="view-monikielinen-julkaisu"><span>04</span><strong>Kieliversiot</strong><small>Uusi markkina</small></button>
-                        <button type="button" data-demo-view="view-markkinointi"><span>05</span><strong>Kampanja</strong><small>Valmis aineistopaketti</small></button>
-                    </div>
-                </section>
                 <iframe
                     id="manuskripti-frame-kirjani"
                     class="manuskripti-frame"
                     title="Tekstini"
-                    src="manuskripti.html?v=18"
+                    src="manuskripti.html?v=21"
                     loading="lazy"
                 ></iframe>
                 <div id="legacy-kirjani-view" hidden aria-hidden="true">
@@ -487,7 +470,7 @@
                         <div class="development-simple-heading">
                             <div>
                                 <span class="development-step-number">1</span>
-                                <p class="eyebrow">Kustannustoimittajan palaute</p>
+                                <p class="eyebrow">Toimituksellinen palaute</p>
                                 <h3>Kehityseditointi</h3>
                             </div>
                             <span id="development-status" class="save-timestamp" role="status" aria-live="polite"></span>
@@ -1807,7 +1790,7 @@
                         <button id="tab-viimeistely" class="proofread-tab" data-proofread-panel="viimeistely" role="tab" type="button">Viimeistely</button>
                     </div>
 
-                    <p class="step-intro proofread-workspace-intro">Vie käsikirjoitus ehdotuksista painovalmiiksi hallitussa kolmivaiheisessa työnkulussa.</p>
+                    <p class="step-intro proofread-workspace-intro">Vie käsikirjoitus ehdotuksista viimeistellyksi hallitussa kolmivaiheisessa työnkulussa.</p>
 
                     <section id="panel-oikoluku" class="proofread-panel">
                         <div class="chapter-bar">
@@ -1832,7 +1815,7 @@
                     </section>
 
                     <section id="panel-tarkistus" class="proofread-panel hidden">
-                        <p class="step-intro">Viimeistelytarkistus etsii typografian ja taittovalmiuden riskikohdat ja tuottaa raportin. Se ei muuta tekstiä.</p>
+                        <p class="step-intro">Viimeistelytarkistus etsii typografian ja tekstin viimeistelyn riskikohdat ja tuottaa raportin. Se ei muuta tekstiä.</p>
 
                         <h3 class="list-title">Tarkistuksen kohde</h3>
                         <div class="tool-chips" id="scope-chips" role="radiogroup"></div>
@@ -4119,6 +4102,6 @@
     <script src="auth.js?v=3"></script>
     <script src="workflow-studio.js?v=2"></script>
     <script src="correction-reprints.js?v=1"></script>
-    <script src="app.js?v=168"></script>
+    <script src="app.js?v=174"></script>
 </body>
 </html>
