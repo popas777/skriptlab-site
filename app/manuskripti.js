@@ -47,6 +47,9 @@
   let activeAnalysisJobId = null;
   let saveTimer = null;
   let workflowRefreshPromise = null;
+  const projectProgressPreviewCache = new Map();
+  let projectProgressPreviewShowTimer = null;
+  let projectProgressPreviewHideTimer = null;
   let sheetContext = null;     // { type: "chapter"|"analysis", ... }
   const params = new URLSearchParams(window.location.search);
   const requestedStep = params.get("step") || "";
@@ -407,6 +410,9 @@
       return demo.projects.map((p) => ({
         id: p.id, title: p.title, author: p.author, source_filename: p.source_filename,
         chapter_count: p.chapters.length, updated_at: "",
+        char_count: p.chapters.reduce((sum, chapter) => sum + (chapter.paragraphs || [])
+          .reduce((chapterSum, paragraph) => chapterSum + String(paragraph || "").length, 0), 0),
+        analysis: JSON.parse(JSON.stringify(p.analysis || {})),
         analysis_status: (p.analysis || {}).analysis_status || "",
       }));
     }
@@ -426,15 +432,19 @@
     if (demoMode) return {
       misc: [], covers: [], graphics: [], layout: [], publication: null,
       translations: [], knowledge: [], versionCount: 0,
+      availability: {
+        misc: true, covers: true, graphics: true, layout: true,
+        publication: true, translations: true, knowledge: true,
+      },
     };
-    const [misc, covers, graphics, layout, publication, translations, workspace] = await Promise.allSettled([
+    const [misc, covers, graphics, layout, publication, translations, knowledge] = await Promise.allSettled([
       api("/projects/" + projectId + "/misc-assets"),
       api("/projects/" + projectId + "/cover-images"),
       api("/projects/" + projectId + "/graphic-assets?limit=1"),
       api("/projects/" + projectId + "/layout-assets"),
       api("/projects/" + projectId + "/publication-package/readiness"),
       api("/projects/" + projectId + "/translations"),
-      api("/projects/" + projectId + "/workspace"),
+      api("/projects/" + projectId + "/knowledge"),
     ]);
     return {
       misc: misc.status === "fulfilled" && Array.isArray(misc.value) ? misc.value : [],
@@ -444,9 +454,17 @@
       publication: publication.status === "fulfilled" && publication.value && typeof publication.value === "object"
         ? publication.value : null,
       translations: translations.status === "fulfilled" && Array.isArray(translations.value) ? translations.value : [],
-      knowledge: workspace.status === "fulfilled" && Array.isArray(workspace.value?.knowledge_items)
-        ? workspace.value.knowledge_items : [],
-      versionCount: workspace.status === "fulfilled" ? Number(workspace.value?.version_count || 0) : 0,
+      knowledge: knowledge.status === "fulfilled" && Array.isArray(knowledge.value) ? knowledge.value : [],
+      versionCount: 0,
+      availability: {
+        misc: misc.status === "fulfilled",
+        covers: covers.status === "fulfilled",
+        graphics: graphics.status === "fulfilled",
+        layout: layout.status === "fulfilled",
+        publication: publication.status === "fulfilled",
+        translations: translations.status === "fulfilled",
+        knowledge: knowledge.status === "fulfilled",
+      },
     };
   }
 
@@ -598,7 +616,15 @@
       if (initialStep) renderStepView(initialStep);
     }
     working(true, "Ladataan tietoja…", true);
-    const assetsPromise = apiListProjectStageAssets(id);
+    const cachedPreview = projectProgressPreviewCache.get(String(id || ""));
+    const assetsPromise = cachedPreview
+      ? cachedPreview.then((previewData) => {
+        const availability = Object.values(previewData.assets.availability || {});
+        return availability.length && availability.every(Boolean)
+          ? previewData.assets
+          : apiListProjectStageAssets(id);
+      }).catch(() => apiListProjectStageAssets(id))
+      : apiListProjectStageAssets(id);
     try {
       const loadedProject = await apiGetProject(id);
       project = loadedProject;
@@ -630,6 +656,8 @@
   function refreshWorkflowStatus() {
     const id = project?.id;
     if (!id || workflowRefreshPromise) return workflowRefreshPromise;
+    projectProgressPreviewCache.delete(String(id));
+    closeProjectProgressPreviews();
     workflowRefreshPromise = Promise.allSettled([
       apiGetProject(id),
       apiListProjectStageAssets(id),
@@ -637,6 +665,19 @@
       if (projectResult.status === "fulfilled") {
         project = projectResult.value;
         rememberActiveProject(project);
+        const libraryItem = projects.find((item) => String(item.id || "") === String(id || ""));
+        if (libraryItem) {
+          Object.assign(libraryItem, {
+            title: project.title,
+            author: project.author,
+            analysis: project.analysis,
+            analysis_status: project.analysis_status,
+            chapter_count: project.chapter_count,
+            paragraph_count: project.paragraph_count,
+            char_count: project.char_count,
+            updated_at: project.updated_at,
+          });
+        }
       }
       if (assetsResult.status === "fulfilled") projectStageAssets = assetsResult.value;
       renderProject();
@@ -731,6 +772,146 @@
 
   /* ------------------------------------------------------------ kirjasto */
 
+  function closeProjectProgressPreviews(exceptCard) {
+    clearTimeout(projectProgressPreviewShowTimer);
+    projectProgressPreviewShowTimer = null;
+    clearTimeout(projectProgressPreviewHideTimer);
+    projectProgressPreviewHideTimer = null;
+    document.querySelectorAll(".project-card.is-preview-open").forEach((card) => {
+      if (card === exceptCard) return;
+      card.classList.remove("is-preview-open");
+      const preview = card.querySelector(".project-progress-popover");
+      card.querySelector(".project-progress-trigger")?.setAttribute("aria-expanded", "false");
+      if (preview) preview.hidden = true;
+    });
+  }
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || !document.querySelector(".project-card.is-preview-open")) return;
+    event.preventDefault();
+    closeProjectProgressPreviews();
+  });
+
+  function scheduleProjectProgressPreviewClose(card, preview) {
+    clearTimeout(projectProgressPreviewHideTimer);
+    projectProgressPreviewHideTimer = setTimeout(() => {
+      projectProgressPreviewHideTimer = null;
+      const trigger = card.querySelector(".project-progress-trigger");
+      if (trigger?.matches(":hover, :focus") || preview.matches(":hover") || preview.contains(document.activeElement)) return;
+      card.classList.remove("is-preview-open");
+      trigger?.setAttribute("aria-expanded", "false");
+      preview.hidden = true;
+    }, 180);
+  }
+
+  function scheduleProjectProgressPreviewShow(item, card, preview, trigger) {
+    clearTimeout(projectProgressPreviewShowTimer);
+    projectProgressPreviewShowTimer = setTimeout(() => {
+      projectProgressPreviewShowTimer = null;
+      if (trigger.matches(":hover")) showProjectProgressPreview(item, card, preview);
+    }, 140);
+  }
+
+  function positionProjectProgressPreview(card, preview) {
+    preview.style.top = "";
+    if (!window.matchMedia("(min-width: 840px)").matches) return;
+    const margin = 24;
+    const cardRect = card.getBoundingClientRect();
+    const previewHeight = preview.offsetHeight;
+    const latestViewportTop = Math.max(margin, window.innerHeight - previewHeight - margin);
+    const viewportTop = Math.min(Math.max(cardRect.top, margin), latestViewportTop);
+    preview.style.top = Math.round(viewportTop - cardRect.top) + "px";
+  }
+
+  function projectProgressPreviewData(item) {
+    const cacheKey = String(item?.id || "");
+    if (projectProgressPreviewCache.has(cacheKey)) {
+      return projectProgressPreviewCache.get(cacheKey);
+    }
+    const request = apiListProjectStageAssets(item.id)
+      .then((assets) => {
+        if (Object.values(assets.availability || {}).some((available) => !available)) {
+          if (projectProgressPreviewCache.get(cacheKey) === request) {
+            projectProgressPreviewCache.delete(cacheKey);
+          }
+        }
+        return { project: item, assets };
+      })
+      .catch((error) => {
+        if (projectProgressPreviewCache.get(cacheKey) === request) {
+          projectProgressPreviewCache.delete(cacheKey);
+        }
+        throw error;
+      });
+    projectProgressPreviewCache.set(cacheKey, request);
+    return request;
+  }
+
+  function renderProjectProgressPreview(preview, item, previewData) {
+    const previewProject = previewData.project;
+    const steps = pathSteps(previewProject, previewData.assets);
+    const counts = steps.reduce((result, step) => {
+      result[step.status] = (result[step.status] || 0) + 1;
+      return result;
+    }, { done: 0, progress: 0, todo: 0, unavailable: 0 });
+    const author = String(previewProject.author || item.author || "").trim();
+    preview.innerHTML =
+      '<header class="project-progress-preview-header">' +
+        '<p class="eyebrow">Eteneminen</p>' +
+        '<h3>' + escapeHtml(previewProject.title || item.title || "Nimetön käsikirjoitus") + '</h3>' +
+        (author ? '<p>' + escapeHtml(author) + '</p>' : '') +
+      '</header>' +
+      '<div class="path-summary" aria-label="Työvaiheiden yhteenveto">' +
+        '<span class="is-done">' + counts.done + ' valmista</span>' +
+        '<span class="is-progress">' + counts.progress + ' kesken</span>' +
+        '<span class="is-todo">' + counts.todo + ' aloittamatta</span>' +
+        (counts.unavailable ? '<span class="is-unavailable">' + counts.unavailable + ' tietoa puuttuu</span>' : '') +
+      '</div>' +
+      '<div class="path project-progress-path">' +
+        steps.map((step) =>
+          '<div class="path-step is-' + step.status + '">' +
+            '<span class="step-name"><span class="step-num">' + step.num + '</span>' + escapeHtml(step.name) + '</span>' +
+            '<span class="step-status">' + escapeHtml(step.statusLabel || projectStageStatusLabel(step.status)) + '</span>' +
+            '<span class="step-desc">' + escapeHtml(step.desc) + '</span>' +
+          '</div>'
+        ).join("") +
+      '</div>' +
+      '<p class="project-progress-preview-hint">Klikkaa tekstilaatikkoa tai nuolta avataksesi koko etenemisnäkymän.</p>';
+    positionProjectProgressPreview(preview.closest(".project-card"), preview);
+  }
+
+  function showProjectProgressPreview(item, card, preview) {
+    clearTimeout(projectProgressPreviewShowTimer);
+    projectProgressPreviewShowTimer = null;
+    clearTimeout(projectProgressPreviewHideTimer);
+    projectProgressPreviewHideTimer = null;
+    closeProjectProgressPreviews(card);
+    card.classList.add("is-preview-open");
+    card.querySelector(".project-progress-trigger")?.setAttribute("aria-expanded", "true");
+    preview.hidden = false;
+    preview.innerHTML =
+      '<header class="project-progress-preview-header">' +
+        '<p class="eyebrow">Eteneminen</p>' +
+        '<h3>' + escapeHtml(item.title || "Nimetön käsikirjoitus") + '</h3>' +
+      '</header>' +
+      '<p class="project-progress-preview-loading">Ladataan etenemistietoja…</p>';
+    positionProjectProgressPreview(card, preview);
+
+    projectProgressPreviewData(item).then((previewData) => {
+      if (!card.classList.contains("is-preview-open")) return;
+      renderProjectProgressPreview(preview, item, previewData);
+    }).catch((error) => {
+      if (!card.classList.contains("is-preview-open")) return;
+      preview.innerHTML =
+        '<header class="project-progress-preview-header">' +
+          '<p class="eyebrow">Eteneminen</p>' +
+          '<h3>' + escapeHtml(item.title || "Nimetön käsikirjoitus") + '</h3>' +
+        '</header>' +
+        '<p class="project-progress-preview-error">' + escapeHtml(error.message || "Etenemistietoja ei voitu ladata.") + '</p>';
+      positionProjectProgressPreview(card, preview);
+    });
+  }
+
   async function renderLibrary() {
     let items = [];
     try {
@@ -747,10 +928,17 @@
     const list = $("project-list");
     list.innerHTML = "";
     $("library-empty").hidden = items.length > 0;
+    $("view-library").classList.toggle("has-multiple-projects", items.length > 1);
+    projectProgressPreviewCache.clear();
+    closeProjectProgressPreviews();
     const activeId = activeProjectId();
     for (const item of items) {
       const li = document.createElement("li");
       li.className = "project-card" + (String(item.id) === String(activeId) ? " is-active" : "");
+      li.dataset.projectId = String(item.id || "");
+
+      const cardMain = document.createElement("div");
+      cardMain.className = "project-card-main";
 
       const openBtn = document.createElement("button");
       openBtn.type = "button";
@@ -759,12 +947,72 @@
         : item.analysis_status === "partial" ? '<span class="badge">Osittainen analyysi</span>' : "";
       const current = String(item.id) === String(activeId) ? '<span class="badge current">Valittuna</span>' : "";
       openBtn.innerHTML =
-        "<h3>" + escapeHtml(item.title) + "</h3>" +
-        '<span class="meta">' + escapeHtml(item.author || "Tekijä puuttuu") + " · " +
-        item.chapter_count + " lukua</span> " + current + status;
+        '<span class="project-open-copy">' +
+          '<span class="project-title">' + escapeHtml(item.title) + '</span>' +
+          '<span class="project-card-detail"><span class="meta">' + escapeHtml(item.author || "Tekijä puuttuu") + " · " +
+          item.chapter_count + " lukua</span> " + current + status + '</span>' +
+        '</span>';
+      openBtn.setAttribute("aria-label", "Avaa " + (item.title || "nimetön käsikirjoitus"));
       openBtn.addEventListener("click", () => openProject(item.id));
-      li.appendChild(openBtn);
+      cardMain.appendChild(openBtn);
 
+      const progressTrigger = document.createElement("button");
+      progressTrigger.type = "button";
+      progressTrigger.className = "project-progress-trigger";
+      progressTrigger.innerHTML = '<span class="project-card-arrow" aria-hidden="true">→</span>';
+      progressTrigger.setAttribute("aria-label", "Näytä " + (item.title || "nimettömän käsikirjoituksen") + " eteneminen; paina avataksesi projekti");
+      progressTrigger.setAttribute("aria-expanded", "false");
+      cardMain.appendChild(progressTrigger);
+      li.appendChild(cardMain);
+
+      const preview = document.createElement("aside");
+      preview.className = "project-progress-popover";
+      preview.id = "project-progress-preview-" + String(item.id || "").replace(/[^a-zA-Z0-9_-]/g, "-");
+      preview.hidden = true;
+      preview.setAttribute("aria-label", (item.title || "Käsikirjoitus") + ": eteneminen");
+      preview.setAttribute("aria-live", "polite");
+      li.appendChild(preview);
+
+      progressTrigger.setAttribute("aria-controls", preview.id);
+      progressTrigger.addEventListener("pointerenter", () => scheduleProjectProgressPreviewShow(item, li, preview, progressTrigger));
+      progressTrigger.addEventListener("pointerleave", () => {
+        clearTimeout(projectProgressPreviewShowTimer);
+        projectProgressPreviewShowTimer = null;
+        scheduleProjectProgressPreviewClose(li, preview);
+      });
+      progressTrigger.addEventListener("focus", () => {
+        if (progressTrigger.matches(":focus-visible")) showProjectProgressPreview(item, li, preview);
+      });
+      progressTrigger.addEventListener("blur", () => scheduleProjectProgressPreviewClose(li, preview));
+      progressTrigger.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        clearTimeout(projectProgressPreviewShowTimer);
+        projectProgressPreviewShowTimer = null;
+        closeProjectProgressPreviews();
+        openProject(item.id);
+      });
+      progressTrigger.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape" || !li.classList.contains("is-preview-open")) return;
+        event.preventDefault();
+        event.stopPropagation();
+        li.classList.remove("is-preview-open");
+        progressTrigger.setAttribute("aria-expanded", "false");
+        preview.hidden = true;
+      });
+      preview.addEventListener("pointerenter", () => {
+        clearTimeout(projectProgressPreviewHideTimer);
+        projectProgressPreviewHideTimer = null;
+      });
+      preview.addEventListener("pointerleave", () => scheduleProjectProgressPreviewClose(li, preview));
+      preview.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape") return;
+        event.preventDefault();
+        li.classList.remove("is-preview-open");
+        progressTrigger.setAttribute("aria-expanded", "false");
+        preview.hidden = true;
+        progressTrigger.focus();
+      });
       const canRename = canRenameProject(item);
       const canDelete = canDeleteProject(item);
       if (canRename || canDelete) {
@@ -837,10 +1085,11 @@
 
   /* ------------------------------------------------------------ projektin polku */
 
-  function projectHasText() {
-    return (project?.chapters || []).some((chapter) =>
+  function projectHasText(sourceProject = project) {
+    const hasChapterText = (sourceProject?.chapters || []).some((chapter) =>
       (chapter.paragraphs || []).some((paragraph) => String(paragraph || "").trim())
     );
+    return hasChapterText || Number(sourceProject?.char_count || 0) > 0;
   }
 
   function projectStageStatus(done, progress) {
@@ -874,39 +1123,39 @@
       || ["accepted", "accepted_metadata", "accepted_reparse"].includes(analysis.structure_status);
   }
 
-  function structureIsStarted(analysis) {
+  function structureIsStarted(analysis, sourceProject = project) {
     return Boolean(
       structureIsDone(analysis)
       || analysis.structure_status
       || analysis.structure_completed_at
-      || (project?.chapters || []).length > 1
+      || (sourceProject?.chapters || []).length > 1
     );
   }
 
-  function hasMiscAssets() {
-    return (projectStageAssets.misc || []).some((asset) =>
+  function hasMiscAssets(stageAssets = projectStageAssets) {
+    return (stageAssets.misc || []).some((asset) =>
       ["misc_material", "book_misc_material"].includes(asset.asset_type)
     );
   }
 
-  function hasCoverAssets() {
-    return (projectStageAssets.covers || []).some((asset) =>
+  function hasCoverAssets(stageAssets = projectStageAssets) {
+    return (stageAssets.covers || []).some((asset) =>
       ["cover_image", "back_cover_image", "full_cover_image"].includes(asset.asset_type)
     );
   }
 
-  function hasGraphicAssets() {
-    return (projectStageAssets.graphics || []).some((asset) =>
+  function hasGraphicAssets(stageAssets = projectStageAssets) {
+    return (stageAssets.graphics || []).some((asset) =>
       ["book_visual_image", "infographic"].includes(asset.asset_type)
     );
   }
 
-  function hasFullCoverAssets() {
-    return (projectStageAssets.covers || []).some((asset) => asset.asset_type === "full_cover_image");
+  function hasFullCoverAssets(stageAssets = projectStageAssets) {
+    return (stageAssets.covers || []).some((asset) => asset.asset_type === "full_cover_image");
   }
 
-  function hasLayoutAssets() {
-    return (projectStageAssets.layout || []).some((asset) =>
+  function hasLayoutAssets(stageAssets = projectStageAssets) {
+    return (stageAssets.layout || []).some((asset) =>
       [
         "layout_pdf", "layout_epub", "layout_latex", "layout_md", "layout_docx", "layout_rtf",
         "layout_icml", "layout_idml"
@@ -925,14 +1174,14 @@
     return { started, done: Boolean(concept && tagline && description && channel) };
   }
 
-  function pathSteps() {
-    const analysis = project.analysis || {};
+  function pathSteps(sourceProject = project, stageAssets = projectStageAssets) {
+    const analysis = sourceProject?.analysis || {};
     const development = analysis.development_editing || {};
     const workflowState = analysis.workflow_state || {};
     const analysisDone = analysis.analysis_status === "completed" || hasCompleteAnalysis(analysis);
     const analysisProgress = !analysisDone && Boolean(analysis.analysis_status || hasSavedAnalysis(analysis));
     const feedbackDone = Boolean(String(development.feedback_report || "").trim());
-    const memoryDone = (projectStageAssets.knowledge || []).length > 0;
+    const memoryDone = (stageAssets.knowledge || []).length > 0;
     const developmentDone = memoryDone;
     const developmentStarted = Boolean(feedbackDone || memoryDone || development.blueprint || development.updated_at);
     const developmentDescription = feedbackDone
@@ -944,14 +1193,15 @@
       || workflowState.proofread?.status === "done";
     const proofreadStarted = proofreadDone || workflowState.proofread?.status === "progress";
     const coverPromptStarted = Boolean(analysis.cover_prompt || analysis.cover_prompts || analysis.cover_image_note);
-    const translations = projectStageAssets.translations || [];
+    const translations = stageAssets.translations || [];
     const translationDone = translations.some((item) =>
       ["completed", "reviewed"].includes(item.status) && String(item.translated_text || "").trim()
     );
     const marketing = marketingStageState(analysis);
-    const manuscriptReady = projectHasText();
-    return [
-      { id: "kasikirjoitus", num: 1, name: "Työpöytäeditori", desc: (project.chapters || []).length + " tekstiosiota",
+    const manuscriptReady = projectHasText(sourceProject);
+    const chapterCount = (sourceProject?.chapters || []).length || Number(sourceProject?.chapter_count || 0);
+    const steps = [
+      { id: "kasikirjoitus", num: 1, name: "Työpöytäeditori", desc: chapterCount + " tekstiosiota",
         status: projectStageStatus(manuscriptReady, false),
         statusLabel: manuscriptReady ? "Käsikirjoitus ladattu" : "",
         moduleView: "view-kirjoita-editoi" },
@@ -962,18 +1212,29 @@
       { id: "oikoluku", num: 4, name: "Oikoluku ja viimeistely", desc: "Kielenhuolto ja viimeistelty versio",
         status: projectStageStatus(proofreadDone, proofreadStarted), moduleView: "view-oikoluku" },
       { id: "kansi", num: 5, name: "Kansi ja grafiikka", desc: "Kansi, kuvamaailma ja infografiikat",
-        status: projectStageStatus(hasFullCoverAssets(), hasCoverAssets() || hasGraphicAssets() || coverPromptStarted), moduleView: "view-kuvitus" },
+        status: projectStageStatus(hasFullCoverAssets(stageAssets), hasCoverAssets(stageAssets) || hasGraphicAssets(stageAssets) || coverPromptStarted), moduleView: "view-kuvitus" },
       { id: "oheisaineistot", num: 6, name: "Oheisaineistot", desc: "Copysivu, hakemistot ja lähdeluettelo",
-        status: projectStageStatus(hasMiscAssets(), false), moduleView: "view-oheisaineistot" },
+        status: projectStageStatus(hasMiscAssets(stageAssets), false), moduleView: "view-oheisaineistot" },
       { id: "taitto", num: 7, name: "Taitto", desc: "Kirjan asetukset sekä PDF-, EPUB- ja LaTeX-tiedostot",
-        status: projectStageStatus(hasLayoutAssets(), false), moduleView: "view-taitto" },
+        status: projectStageStatus(hasLayoutAssets(stageAssets), false), moduleView: "view-taitto" },
       { id: "julkaisupaketti", num: 8, name: "Tiedostopaketti", desc: "Lukittu lähde ja toimituspaketti",
-        status: projectStageStatus(Boolean(projectStageAssets.publication?.latest_package), false), moduleView: "view-julkaisupaketti" },
+        status: projectStageStatus(Boolean(stageAssets.publication?.latest_package), false), moduleView: "view-julkaisupaketti" },
       { id: "monikielinen", num: 9, name: "Kieliversiot", desc: "Käännös ja tarkastettu kieliversio",
         status: projectStageStatus(translationDone, translations.length > 0), moduleView: "view-monikielinen-julkaisu" },
       { id: "markkinointi", num: 10, name: "Kampanjastudio", desc: "Konsepti, kanavatekstit ja kampanjapaketti",
         status: projectStageStatus(marketing.done, marketing.started), moduleView: "view-markkinointi" },
     ];
+    const availability = stageAssets.availability || {};
+    const unavailableStepIds = new Set();
+    if (availability.knowledge === false) unavailableStepIds.add("kehityseditointi");
+    if (availability.covers === false || availability.graphics === false) unavailableStepIds.add("kansi");
+    if (availability.misc === false) unavailableStepIds.add("oheisaineistot");
+    if (availability.layout === false) unavailableStepIds.add("taitto");
+    if (availability.publication === false) unavailableStepIds.add("julkaisupaketti");
+    if (availability.translations === false) unavailableStepIds.add("monikielinen");
+    return steps.map((step) => unavailableStepIds.has(step.id)
+      ? { ...step, status: "unavailable", statusLabel: "Tieto ei saatavilla" }
+      : step);
   }
 
   function renderProject() {
@@ -997,13 +1258,14 @@
     const counts = steps.reduce((result, step) => {
       result[step.status] = (result[step.status] || 0) + 1;
       return result;
-    }, { done: 0, progress: 0, todo: 0 });
+    }, { done: 0, progress: 0, todo: 0, unavailable: 0 });
     const summary = $("project-path-summary");
     if (summary) {
       summary.innerHTML =
         '<span class="is-done">' + counts.done + ' valmista</span>' +
         '<span class="is-progress">' + counts.progress + ' kesken</span>' +
-        '<span class="is-todo">' + counts.todo + ' aloittamatta</span>';
+        '<span class="is-todo">' + counts.todo + ' aloittamatta</span>' +
+        (counts.unavailable ? '<span class="is-unavailable">' + counts.unavailable + ' tietoa puuttuu</span>' : '');
     }
 
     const path = $("project-path");

@@ -2543,7 +2543,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         applyBookReaderSettings();
         if (!window.manuscriptData) {
             titleEl.textContent = 'Ei valittua käsikirjoitusta';
-            textEl.textContent = 'Lataa tai valitse käsikirjoitus ensin Käsikirjoitukseni-näkymässä.';
+            textEl.textContent = 'Lataa tai valitse käsikirjoitus ensin Tekstini-näkymässä.';
             return;
         }
         const title = window.manuscriptData.title || 'Nimetön käsikirjoitus';
@@ -3956,7 +3956,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         renderWriterAssistantActions();
         updateWriterDeskStructureVisibility();
         if (!window.manuscriptData || !Array.isArray(window.manuscriptData.chapters) || window.manuscriptData.chapters.length === 0) {
-            if (currentProjectEl) currentProjectEl.textContent = 'Valitse käsikirjoitus tai luo tyhjä dokumentti Käsikirjoitukseni-näkymässä.';
+            if (currentProjectEl) currentProjectEl.textContent = 'Valitse käsikirjoitus tai luo tyhjä dokumentti Tekstini-näkymässä.';
             titleEl.textContent = 'Ei käsikirjoitusta';
             textEl.value = '';
             renderChapterParagraphNav(document.getElementById('writer-desk-chapter-list'), null, null);
@@ -5066,7 +5066,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             try {
                 const projectText = getFullManuscriptText(window.manuscriptData);
                 if(!projectText) {
-                    throw new Error('Käsikirjoitusta ei ole vielä ladattu oikein! Lataa tiedosto Käsikirjoitukseni-näkymästä ensin.');
+                    throw new Error('Käsikirjoitusta ei ole vielä ladattu oikein! Lataa tiedosto Tekstini-näkymästä ensin.');
                 }
 
                 let projectId = window.manuscriptData?.id || null;
@@ -6374,7 +6374,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         tocEl.innerHTML = '';
         if (!project?.chapters?.length) {
             summaryEl.textContent = 'Ei valittua käsikirjoitusta.';
-            tocEl.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Valitse käsikirjoitus Käsikirjoitukseni-näkymässä.</div>';
+            tocEl.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Valitse käsikirjoitus Tekstini-näkymässä.</div>';
             if (acceptBtn) acceptBtn.disabled = true;
             if (rejectBtn) rejectBtn.disabled = true;
             return;
@@ -20691,7 +20691,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     function emptyProjectMessage() {
         return `<div style="color:var(--text-secondary); font-size:14px; padding:20px;">
             Ohjelmistossa ei ole vielä aktiivisia käsikirjoitushankkeita ladattuna.<br>
-            Luo <strong>tyhjä dokumentti</strong> tai käytä <strong>Lataa Käsikirjoitus</strong> -painiketta aloittaaksesi uuden hankkeen editoinnin.
+            Luo <strong>tyhjä dokumentti</strong> tai käytä <strong>Tuo teksti tai tiedosto</strong> -painiketta aloittaaksesi uuden hankkeen editoinnin.
         </div>`;
     }
 
@@ -25464,7 +25464,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (step) params.set('step', step);
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '15');
+        params.set('v', '18');
         const reloaded = updateEmbeddedModuleFrame(frame, 'manuskripti.html', params);
         if (!reloaded && frame.contentWindow) {
             frame.contentWindow.postMessage({ type: 'skriptlab:refresh-workflow-status' }, window.location.origin);
@@ -25515,7 +25515,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         params.set('tab', nextTab);
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '12');
+        params.set('v', '14');
         updateEmbeddedModuleFrame(frame, 'tuotanto.html', params);
     }
 
@@ -26947,7 +26947,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             renderChapterParagraphNav(chapterList, null, null);
             const originalText = document.getElementById('original-text');
             const editedText = document.getElementById('edited-text');
-            if (originalText) originalText.textContent = 'Valitse käsikirjoitus ensin Käsikirjoitukseni-näkymässä.';
+            if (originalText) originalText.textContent = 'Valitse käsikirjoitus ensin Tekstini-näkymässä.';
             if (editedText) setEditableText('');
             return;
         }

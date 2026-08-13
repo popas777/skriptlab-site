@@ -346,7 +346,7 @@
                 <div class="admin-card glass-panel">
                     <h3 style="margin-bottom: 12px; color: var(--text-primary);">Käyttöoikeusryhmät</h3>
                     <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.5; margin-bottom: 20px;">
-                        Luo asiakas- tai pilottikohtaisia ryhmiä. Käsikirjoitukseni kuuluu aina mukaan, ja valitut moduulit tulevat sen lisäksi.
+                        Luo asiakas- tai pilottikohtaisia ryhmiä. Tekstini kuuluu aina mukaan, ja valitut moduulit tulevat sen lisäksi.
                     </p>
 
                     <div class="settings-row">
@@ -716,7 +716,7 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                         ${moduleCheckboxesHtml(group.module_keys, `access-group-${group.id}`)}
                     </div>
                     <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
-                        <span style="color:var(--text-secondary); font-size:12px;">Käsikirjoitukseni + ${group.module_keys.length} moduulia · ${group.user_count} käyttäjää · ${group.invite_count} aktiivista kutsua</span>
+                        <span style="color:var(--text-secondary); font-size:12px;">Tekstini + ${group.module_keys.length} moduulia · ${group.user_count} käyttäjää · ${group.invite_count} aktiivista kutsua</span>
                         <div style="display:flex; gap:8px; flex-wrap:wrap;">
                             <button class="btn btn-secondary save-access-group-btn" type="button" data-id="${group.id}" style="font-size:11px; padding:5px 10px;">Tallenna</button>
                             <button class="btn btn-secondary toggle-access-group-btn" type="button" data-id="${group.id}" data-active="${group.is_active}" style="font-size:11px; padding:5px 10px;">${group.is_active ? 'Poista käytöstä' : 'Ota käyttöön'}</button>

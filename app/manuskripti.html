@@ -4,31 +4,31 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#FBF9F4">
-<title>Käsikirjoitukset – SkriptLab</title>
+<title>Tekstini – SkriptLab</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="manuskripti.css?v=9">
+<link rel="stylesheet" href="manuskripti.css?v=11">
 </head>
 <body>
 
 <!-- ======================= KIRJASTO ======================= -->
-<main id="view-library" class="screen is-active" aria-label="Käsikirjoitukset">
+<main id="view-library" class="screen is-active" aria-label="Tekstini">
   <header class="home-header">
     <p class="eyebrow">SkriptLab</p>
-    <h1 class="home-title">Käsikirjoitukset</h1>
-    <p class="home-lead">Tuo käsikirjoitus ja aja kustannustoimituksellinen analyysi.</p>
+    <h1 class="home-title">Tekstini</h1>
+    <p class="home-lead">Tuo tekstisi ja aja kustannustoimituksellinen analyysi.</p>
   </header>
 
   <div class="row library-actions">
     <input type="file" id="file-input" accept=".txt,.md,.docx,.pdf,.rtf,.odt,.html,.htm" hidden>
-    <button class="btn btn-primary" id="btn-upload">Tuo käsikirjoitus</button>
+    <button class="btn btn-primary" id="btn-upload">Tuo teksti tai tiedosto</button>
     <button class="btn btn-ghost" id="btn-new-empty">Aloita tyhjästä</button>
   </div>
   <p class="hint">Tuetut muodot: DOCX, TXT, MD, PDF, RTF, ODT ja HTML</p>
 
   <ul class="project-list" id="project-list"></ul>
-  <div class="empty" id="library-empty">Ei vielä käsikirjoituksia. Aloita tuomalla tiedosto.</div>
+  <div class="empty" id="library-empty">Ei vielä tekstejä. Aloita tuomalla teksti tai tiedosto.</div>
 
   <p class="home-footnote" id="library-status" role="status" aria-live="polite"></p>
 </main>
@@ -208,6 +208,6 @@
     };
   })();
 </script>
-<script src="manuskripti.js?v=21"></script>
+<script src="manuskripti.js?v=24"></script>
 </body>
 </html>

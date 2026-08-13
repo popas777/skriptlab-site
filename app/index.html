@@ -125,7 +125,7 @@
             <h1 class="logo">SkriptLab<span class="accent">.</span></h1>
             <nav class="sidebar-nav">
                 <ul id="nav-menu">
-                    <li class="active" data-view="view-kirjani">Käsikirjoitukseni</li>
+                    <li class="active" data-view="view-kirjani">Tekstini</li>
                     <li data-view="view-analyysi">Analyysi</li>
                     <li data-view="view-kehityseditointi">Kehityspalaute</li>
                     <li data-view="view-kirjoita-editoi">Kirjoita ja editoi</li>
@@ -264,8 +264,8 @@
                 <iframe
                     id="manuskripti-frame-kirjani"
                     class="manuskripti-frame"
-                    title="Käsikirjoitukseni"
-                    src="manuskripti.html?v=15"
+                    title="Tekstini"
+                    src="manuskripti.html?v=18"
                     loading="lazy"
                 ></iframe>
                 <div id="legacy-kirjani-view" hidden aria-hidden="true">
@@ -280,7 +280,7 @@
                         <p class="app-intro-note">Tuetut tiedostot: TXT, MD, DOCX, PDF, RTF, ODT ja HTML.</p>
                     </div>
                     <div class="app-intro-actions">
-                        <button class="btn btn-primary" type="button" onclick="document.getElementById('manuscript-upload').click()">Lataa käsikirjoitus</button>
+                        <button class="btn btn-primary" type="button" onclick="document.getElementById('manuscript-upload').click()">Tuo teksti tai tiedosto</button>
                         <button class="btn btn-secondary" id="create-empty-doc-btn" type="button">Aloita tyhjästä</button>
                     </div>
                     <div class="app-intro-steps">
@@ -302,7 +302,7 @@
                    <!-- Dynaamisesti lisättävät kortit tulevat tähän -->
                    <div style="color:var(--text-secondary); font-size:14px; padding:20px;">
                        Ohjelmistossa ei ole vielä aktiivisia käsikirjoitushankkeita ladattuna.<br>
-                       Käytä <strong>Lataa Käsikirjoitus</strong> -painiketta aloittaaksesi uuden hankkeen editoinnin.
+                       Käytä <strong>Tuo teksti tai tiedosto</strong> -painiketta aloittaaksesi uuden hankkeen editoinnin.
                    </div>
                 </div>
                 </div>
@@ -323,7 +323,7 @@
                             <div class="tool-menu-panel">
                                 <button class="btn btn-secondary" id="writer-desk-toggle-markup-btn" type="button">Näytä merkinnät</button>
                                 <button class="btn btn-secondary" id="writer-desk-markdown-help-btn" type="button">Merkintäohje</button>
-                                <button class="btn btn-secondary" id="writer-desk-open-projects-btn" type="button">Käsikirjoitukseni</button>
+                                <button class="btn btn-secondary" id="writer-desk-open-projects-btn" type="button">Tekstini</button>
                             </div>
                         </details>
                     </div>
@@ -1022,7 +1022,7 @@
                     id="tuotanto-frame-oheisaineistot"
                     class="tuotanto-frame"
                     title="Oheisaineistot"
-                    src="tuotanto.html?module=aineistot&tab=aineistot&v=13"
+                    src="tuotanto.html?module=aineistot&tab=aineistot&v=14"
                     loading="lazy"
                 ></iframe>
                 <div class="header">
@@ -1045,7 +1045,7 @@
                         <div class="panel-header">
                             <h3 id="book-preview-title">Ei valittua käsikirjoitusta</h3>
                         </div>
-                        <pre id="book-full-text" class="book-full-text">Lataa tai valitse käsikirjoitus ensin Käsikirjoitukseni-näkymässä.</pre>
+                        <pre id="book-full-text" class="book-full-text">Lataa tai valitse käsikirjoitus ensin Tekstini-näkymässä.</pre>
                     </div>
                     <div class="book-side-panel">
                         <div class="reader-settings glass-panel">
@@ -2765,7 +2765,7 @@
                     id="tuotanto-frame-taitto"
                     class="tuotanto-frame"
                     title="Taitto"
-                    src="tuotanto.html?module=taitto&tab=taitto&v=13"
+                    src="tuotanto.html?module=taitto&tab=taitto&v=14"
                     loading="lazy"
                 ></iframe>
             </div>
@@ -4119,6 +4119,6 @@
     <script src="auth.js?v=3"></script>
     <script src="workflow-studio.js?v=2"></script>
     <script src="correction-reprints.js?v=1"></script>
-    <script src="app.js?v=165"></script>
+    <script src="app.js?v=168"></script>
 </body>
 </html>

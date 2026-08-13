@@ -124,6 +124,7 @@ body {
 .path-summary .is-done { color: var(--valmis); background: var(--valmis-vaalea); }
 .path-summary .is-progress { color: var(--kesken); background: var(--kesken-vaalea); }
 .path-summary .is-todo { color: var(--aloittamatta); background: var(--aloittamatta-vaalea); }
+.path-summary .is-unavailable { color: var(--muste-70); background: var(--paperi-tumma); }
 
 .path {
   position: relative;
@@ -191,9 +192,15 @@ body {
   border-color: rgba(180, 59, 50, 0.26);
 }
 
+.path-step.is-unavailable {
+  border-color: var(--raja);
+  background: var(--paperi-tumma);
+}
+
 .path-step.is-done::before { background: var(--valmis); border-color: var(--valmis); }
 .path-step.is-progress::before { background: var(--kesken); border-color: var(--kesken); }
 .path-step.is-todo::before { background: var(--aloittamatta-vaalea); border-color: var(--aloittamatta); }
+.path-step.is-unavailable::before { background: var(--paperi-tumma); border-color: var(--muste-45); }
 
 .path-step .step-name {
   display: flex;
@@ -228,6 +235,7 @@ body {
 .path-step.is-done .step-status { color: var(--valmis); font-weight: 700; }
 .path-step.is-progress .step-status { color: var(--kesken); font-weight: 700; }
 .path-step.is-todo .step-status { color: var(--aloittamatta); font-weight: 700; }
+.path-step.is-unavailable .step-status { color: var(--muste-70); font-weight: 700; }
 
 /* ---------------------------------------------------------------- vaihenäkymä */
 
@@ -638,34 +646,113 @@ button:focus-visible {
 
 .library-actions { margin: 18px 0 6px; }
 
-.project-list { list-style: none; margin: 18px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.project-list {
+  position: relative;
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 
 .project-card {
+  position: relative;
   width: 100%;
   background: var(--kortti);
   border: 1px solid var(--raja);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  overflow: hidden;
+  overflow: visible;
 }
+
+.project-card.is-preview-open { z-index: 20; }
 
 .project-card.is-active {
   border-color: var(--mustikka);
   box-shadow: 0 0 0 2px rgba(67, 64, 110, 0.12), var(--shadow);
 }
 
+.project-card-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  align-items: stretch;
+  border-radius: inherit;
+}
+
 .project-open {
+  display: block;
+  min-width: 0;
   width: 100%;
   text-align: left;
   border: 0;
+  border-radius: calc(var(--radius) - 2px) 0 0 calc(var(--radius) - 2px);
   background: transparent;
-  padding: 16px 16px 10px;
+  padding: 12px 10px 11px 14px;
   cursor: pointer;
   font: inherit;
   color: inherit;
 }
 
+.project-open-copy {
+  display: block;
+  min-width: 0;
+}
+
+.project-title {
+  display: block;
+  overflow: hidden;
+  margin: 0 0 2px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-card-detail { display: block; min-width: 0; }
+
+.project-progress-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  min-height: 58px;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid var(--raja);
+  border-radius: 0 calc(var(--radius) - 2px) calc(var(--radius) - 2px) 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--mustikka);
+  font: inherit;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.project-card-arrow {
+  display: inline-block;
+  font-family: var(--display);
+  font-size: 23px;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+
+.project-progress-trigger:hover,
+.project-progress-trigger:focus-visible,
+.project-card.is-preview-open .project-progress-trigger {
+  color: var(--mustikka-tumma);
+  background: var(--mustikka-vaalea);
+}
+
+.project-progress-trigger:hover .project-card-arrow,
+.project-progress-trigger:focus-visible .project-card-arrow,
+.project-card.is-preview-open .project-card-arrow {
+  transform: translateX(2px);
+}
+
 .project-open:focus-visible,
+.project-progress-trigger:focus-visible,
 .project-rename-toggle:focus-visible,
 .project-rename-save:focus-visible,
 .project-rename-cancel:focus-visible,
@@ -676,6 +763,106 @@ button:focus-visible {
 
 .project-card h3 { margin: 0 0 2px; font-family: var(--display); font-weight: 600; font-size: 19px; }
 .project-card .meta { font-size: 13px; color: var(--muste-45); }
+
+.project-progress-popover {
+  margin: 0 12px 12px;
+  padding: 16px;
+  max-height: min(680px, calc(100dvh - 48px));
+  overflow: auto;
+  border: 1px solid var(--raja);
+  border-radius: var(--radius);
+  background: var(--paperi);
+  box-shadow: 0 18px 48px rgba(41, 36, 29, 0.18);
+}
+
+.project-progress-preview-header { min-width: 0; }
+
+.project-progress-preview-header .eyebrow { margin-bottom: 4px; }
+
+.project-progress-preview-header h3 {
+  overflow: hidden;
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-progress-preview-header > p:last-child:not(.eyebrow) {
+  margin: 3px 0 0;
+  color: var(--muste-45);
+  font-size: 13px;
+}
+
+.project-progress-popover .path-summary { margin: 13px 0 3px; }
+
+.project-progress-popover .path-summary span {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.project-progress-path {
+  margin: 14px 0 4px;
+  padding-left: 29px;
+  gap: 7px;
+}
+
+.project-progress-path::before { left: 9px; }
+
+.project-progress-path .path-step {
+  min-height: 0;
+  padding: 9px 11px;
+  border-radius: var(--radius-s);
+  box-shadow: 0 1px 6px rgba(41, 36, 29, 0.06);
+  cursor: default;
+  pointer-events: none;
+}
+
+.project-progress-path .path-step::before {
+  left: -25px;
+  width: 11px;
+  height: 11px;
+}
+
+.project-progress-path .step-name { gap: 7px; font-size: 14px; }
+.project-progress-path .step-num { font-size: 11px; }
+.project-progress-path .step-status { display: inline; margin-top: 0; font-size: 11px; }
+.project-progress-path .step-desc { display: inline; margin: 0 0 0 6px; font-size: 11px; }
+
+.project-progress-preview-loading,
+.project-progress-preview-error {
+  margin: 18px 0 2px;
+  color: var(--muste-70);
+  font-size: 14px;
+}
+
+.project-progress-preview-error { color: var(--virhe); }
+
+.project-progress-preview-hint {
+  margin: 10px 0 0;
+  color: var(--muste-45);
+  font-size: 12px;
+}
+
+@media (min-width: 840px) {
+  #view-library.has-multiple-projects {
+    width: 100%;
+    max-width: 1080px;
+  }
+
+  #view-library.has-multiple-projects .project-list {
+    width: clamp(280px, 32vw, 360px);
+    align-self: flex-start;
+  }
+
+  #view-library.has-multiple-projects .project-progress-popover {
+    position: absolute;
+    top: 0;
+    left: calc(100% + 18px);
+    width: clamp(400px, 50vw, 540px);
+    margin: 0;
+  }
+}
 
 .project-card-actions {
   display: flex;

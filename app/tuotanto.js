@@ -212,7 +212,7 @@
   function requireProjectId() {
     const resolved = resolveProjectId();
     if (resolved == null || String(resolved).trim() === "") {
-      throw new Error("Valitse käsikirjoitus ensin Käsikirjoitukseni-näkymässä.");
+      throw new Error("Valitse käsikirjoitus ensin Tekstini-näkymässä.");
     }
     return resolved;
   }
@@ -1110,7 +1110,7 @@
     working(true, "Ladataan tietoja…", true);
     try {
       if (projectId == null || String(projectId).trim() === "") {
-        throw new Error("Valitse käsikirjoitus ensin Käsikirjoitukseni-näkymässä.");
+        throw new Error("Valitse käsikirjoitus ensin Tekstini-näkymässä.");
       }
       const project = await api("/projects/" + projectId);
       projectTitle = project.title || "Käsikirjoitus";
