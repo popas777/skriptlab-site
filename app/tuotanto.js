@@ -20,6 +20,16 @@
   const doFetch = CONFIG.fetchImpl || ((url, options) => fetch(url, options));
   const FINNISH_HYPHENATION = window.SkriptLabFinnishHyphenation || null;
   const SHOWCASE_MODE = CONFIG.showcase === true;
+  const demoUiText = (value) => {
+    const text = String(value == null ? "" : value);
+    if (!SHOWCASE_MODE) return text;
+    return window.SkriptLabDemoTerminology?.neutralize(text) || text;
+  };
+  const applyShowcaseTerminology = (root = document) => {
+    if (!SHOWCASE_MODE) return;
+    window.SkriptLabDemoTerminology?.apply(root);
+  };
+  applyShowcaseTerminology(document);
 
   const ALL_TOOLS = [
     ["copyright_page", "Copysivu"],
@@ -169,7 +179,7 @@
   let toastTimer = null;
   function toast(message) {
     const el = $("toast");
-    el.textContent = message;
+    el.textContent = demoUiText(message);
     el.hidden = false;
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
@@ -179,7 +189,7 @@
     const el = $("working");
     el.hidden = !show;
     el.classList.toggle("is-passive", Boolean(show && passive));
-    if (label) $("working-label").textContent = label;
+    if (label) $("working-label").textContent = demoUiText(label);
   }
 
   function cachedProjectTitle(id) {
@@ -1114,7 +1124,7 @@
     applyPreviewSettings();
     updateOutputFormatSelection();
     resolveProjectId();
-    projectTitle = cachedProjectTitle(projectId) || "Käsikirjoitus";
+    projectTitle = cachedProjectTitle(projectId) || demoUiText("Käsikirjoitus");
     $("project-title").textContent = projectTitle;
     $("status-text").textContent = "Ladataan tietoja…";
     switchTab(tab, false);
@@ -1124,15 +1134,15 @@
         throw new Error("Valitse käsikirjoitus ensin Tekstini-näkymässä.");
       }
       const project = await api("/projects/" + projectId);
-      projectTitle = project.title || "Käsikirjoitus";
+      projectTitle = project.title || demoUiText("Käsikirjoitus");
     } catch (error) {
       if (demoMode) {
         projectId = 0;
         projectTitle = demo.project.title;
         $("status-text").textContent = "Demotila";
       } else {
-        $("status-text").textContent = "Käsikirjoitusta ei voitu avata";
-        $("book-preview-text").textContent = error.message;
+        $("status-text").textContent = demoUiText("Käsikirjoitusta ei voitu avata");
+        $("book-preview-text").textContent = demoUiText(error.message);
         $("btn-download-txt").disabled = true;
         $("btn-run-layout").dataset.projectUnavailable = "true";
         $("btn-run-layout").disabled = true;

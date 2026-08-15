@@ -7,6 +7,19 @@
   const NOTES_OPEN_KEY = "skriptlab_write_editor_notes_open";
   const ASSISTANT_OPEN_KEY = "skriptlab_write_editor_assistant_open";
   const $ = (id) => document.getElementById(id);
+  let authUser = null;
+  try {
+    authUser = JSON.parse(localStorage.getItem("skriptlab_auth_user") || "null");
+  } catch (error) {
+    authUser = null;
+  }
+  const showcaseDemoMode = ["Demo", "Kustantamodemo"].includes(String(authUser?.access_group_name || ""));
+  const demoUiText = (value) => {
+    const text = String(value == null ? "" : value);
+    if (!showcaseDemoMode) return text;
+    return window.SkriptLabDemoTerminology?.neutralize(text) || text;
+  };
+  if (showcaseDemoMode) window.SkriptLabDemoTerminology?.apply(document);
 
   const TASKS = {
     proofread: {
@@ -75,7 +88,7 @@
 
   function toast(message) {
     const element = $("toast");
-    element.textContent = String(message || "");
+    element.textContent = demoUiText(message || "");
     element.hidden = false;
     window.clearTimeout(toastTimer);
     toastTimer = window.setTimeout(() => { element.hidden = true; }, 3800);
@@ -85,7 +98,7 @@
     const layer = $("loading-layer");
     layer.hidden = !show;
     layer.classList.toggle("is-passive", Boolean(show && passive));
-    if (text) $("loading-text").textContent = text;
+    if (text) $("loading-text").textContent = demoUiText(text);
   }
 
   function token() {
@@ -1399,7 +1412,7 @@
       : Number(localStorage.getItem("skriptlab_write_editor_chapter_" + project.id) || 0);
     state.chapterIndex = Math.min(Math.max(0, savedIndex), Math.max(0, project.chapters.length - 1));
     localStorage.setItem("skriptlab_write_editor_chapter_" + project.id, String(state.chapterIndex));
-    $("project-title").textContent = project.title || "Nimetön käsikirjoitus";
+    $("project-title").textContent = project.title || demoUiText("Nimetön käsikirjoitus");
     renderEditor();
     renderNotes();
   }
@@ -1410,8 +1423,8 @@
     if (localStorage.getItem(ASSISTANT_OPEN_KEY) === "false") $("workspace-shell").classList.add("assistant-collapsed");
     const id = projectId();
     if (!id) {
-      $("project-title").textContent = "Valitse käsikirjoitus";
-      $("save-status").textContent = "Ei käsikirjoitusta";
+      $("project-title").textContent = demoUiText("Valitse käsikirjoitus");
+      $("save-status").textContent = demoUiText("Ei käsikirjoitusta");
       renderEditor();
       renderNotes();
       return;
@@ -1431,7 +1444,7 @@
         $("save-status").textContent = "Viimeksi ladattu versio";
         toast("Tietojen päivitys epäonnistui. Näytetään viimeksi ladattu versio.");
       } else {
-        $("project-title").textContent = "Käsikirjoitusta ei voitu avata";
+        $("project-title").textContent = demoUiText("Käsikirjoitusta ei voitu avata");
         $("save-status").textContent = "Virhe";
         renderEditor();
         renderNotes();

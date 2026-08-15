@@ -61,6 +61,27 @@
   } catch (error) {
     authUser = null;
   }
+  const showcaseDemoMode = ["Demo", "Kustantamodemo"].includes(String(authUser?.access_group_name || ""));
+  const demoUiText = (value) => {
+    const text = String(value == null ? "" : value);
+    if (!showcaseDemoMode) return text;
+    return window.SkriptLabDemoTerminology?.neutralize(text) || text;
+  };
+  const applyShowcaseTerminology = (root = document) => {
+    if (!showcaseDemoMode) return;
+    window.SkriptLabDemoTerminology?.apply(root);
+  };
+  applyShowcaseTerminology(document);
+  if (showcaseDemoMode) {
+    const setText = (selector, value) => {
+      const element = document.querySelector(selector);
+      if (element) element.textContent = value;
+    };
+    setText(".home-lead", "Tuo tekstisi ja käynnistä kokonaisanalyysi.");
+    setText("#view-project .eyebrow", "Tekstiprojekti");
+    setText("#view-kasikirjoitus h2", "Teksti");
+    setText("#view-analyysi .step-intro", "Tekoäly lukee koko tekstin, tuottaa kokonaisarvion ja kokoaa samalla karkean projektimuistin työtilan käyttöön. Pitkä teksti käsitellään osissa.");
+  }
   const allowedModuleKeys = Array.isArray(authUser?.allowed_modules)
     ? new Set(authUser.allowed_modules.map((key) => String(key || "")))
     : null;
@@ -93,7 +114,7 @@
       if (["marketing_short", "marketing_long"].includes(field)) return hasModule("marketing");
       if (field === "backcover") return hasModule("product_info") || hasModule("marketing");
       return true;
-    });
+    }).map(([field, label]) => [field, demoUiText(label)]);
   }
 
   function visibleMetaSections() {
@@ -121,7 +142,7 @@
   let toastTimer = null;
   function toast(message) {
     const el = $("toast");
-    el.textContent = message;
+    el.textContent = demoUiText(message);
     el.hidden = false;
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => { el.hidden = true; }, 3000);
@@ -134,7 +155,7 @@
     el.hidden = !show;
     el.classList.toggle("is-passive", Boolean(show && passive));
     el.setAttribute("aria-busy", show ? "true" : "false");
-    if (label && labelEl) labelEl.textContent = label;
+    if (label && labelEl) labelEl.textContent = demoUiText(label);
   }
 
   function activeProjectId() {
@@ -615,6 +636,7 @@
   function showScreen(name) {
     document.querySelectorAll(".screen").forEach((s) => s.classList.remove("is-active"));
     $("view-" + name).classList.add("is-active");
+    applyShowcaseTerminology($("view-" + name));
     window.scrollTo(0, 0);
   }
 
@@ -764,8 +786,8 @@
 
   async function deleteProjectFromLibrary(item) {
     if (!item || !item.id) return;
-    const title = item.title || "Nimetön käsikirjoitus";
-    const confirmed = confirm('Poistetaanko käsikirjoitus "' + title + '" pysyvästi?\n\nTätä ei voi perua.');
+    const title = item.title || demoUiText("Nimetön käsikirjoitus");
+    const confirmed = confirm(demoUiText('Poistetaanko käsikirjoitus "' + title + '" pysyvästi?\n\nTätä ei voi perua.'));
     if (!confirmed) return;
 
     try {
@@ -894,6 +916,7 @@
         ).join("") +
       '</div>' +
       '<p class="project-progress-preview-hint">Klikkaa tekstilaatikkoa tai nuolta avataksesi koko etenemisnäkymän.</p>';
+    applyShowcaseTerminology(preview);
     positionProjectProgressPreview(preview.closest(".project-card"), preview);
   }
 
@@ -912,6 +935,7 @@
         '<h3>' + escapeHtml(item.title || "Nimetön käsikirjoitus") + '</h3>' +
       '</header>' +
       '<p class="project-progress-preview-loading">Ladataan etenemistietoja…</p>';
+    applyShowcaseTerminology(preview);
     positionProjectProgressPreview(card, preview);
 
     projectProgressPreviewData(item).then((previewData) => {
@@ -925,6 +949,7 @@
           '<h3>' + escapeHtml(item.title || "Nimetön käsikirjoitus") + '</h3>' +
         '</header>' +
         '<p class="project-progress-preview-error">' + escapeHtml(error.message || "Etenemistietoja ei voitu ladata.") + '</p>';
+      applyShowcaseTerminology(preview);
       positionProjectProgressPreview(card, preview);
     });
   }
@@ -1098,6 +1123,7 @@
 
       list.appendChild(li);
     }
+    applyShowcaseTerminology(list);
   }
 
   /* ------------------------------------------------------------ projektin polku */
@@ -1204,7 +1230,7 @@
 
   function pathSteps(sourceProject = project, stageAssets = projectStageAssets) {
     const analysis = sourceProject?.analysis || {};
-    const showcaseDemo = sourceProject?.analysis?.demo_profile === "showcase_demo";
+    const showcaseDemo = showcaseDemoMode || sourceProject?.analysis?.demo_profile === "showcase_demo";
     const development = analysis.development_editing || {};
     const workflowState = analysis.workflow_state || {};
     const analysisDone = analysis.analysis_status === "completed" || hasCompleteAnalysis(analysis);
@@ -1287,7 +1313,13 @@
       .map((step) => unavailableStepIds.has(step.id)
         ? { ...step, status: "unavailable", statusLabel: "Tieto ei saatavilla" }
         : step)
-      .map((step, index) => ({ ...step, num: index + 1 }));
+      .map((step, index) => ({
+        ...step,
+        name: demoUiText(step.name),
+        desc: demoUiText(step.desc),
+        statusLabel: demoUiText(step.statusLabel || ""),
+        num: index + 1,
+      }));
   }
 
   function renderProject() {
@@ -1334,6 +1366,7 @@
       btn.addEventListener("click", () => openPathStep(step));
       path.appendChild(btn);
     }
+    applyShowcaseTerminology($("view-project"));
   }
 
   function openPathStep(step) {
@@ -1384,6 +1417,7 @@
       const subtitle = KIND_LABELS[chapter.kind || "main"] + (words ? " · " + words + " sanaa" : " · ei tekstiä");
       list.appendChild(tocItem(chapter, subtitle, () => openChapterSheet(index)));
     });
+    applyShowcaseTerminology($("view-kasikirjoitus"));
   }
 
   function openChapterSheet(index) {
@@ -1423,7 +1457,7 @@
       try {
         project = await apiSaveProject({
           id: project.id,
-          title: $("f-title").value.trim() || "Nimetön käsikirjoitus",
+          title: $("f-title").value.trim() || demoUiText("Nimetön käsikirjoitus"),
           author: $("f-author").value.trim(),
         });
         $("save-status").textContent = demoMode ? "Demotila – tila vain muistissa." : "Tallennettu ✓";
@@ -1445,9 +1479,9 @@
     );
     const memorySummary = $("analysis-memory-summary");
     memorySummary.hidden = memoryItems.length === 0;
-    $("analysis-memory-summary-text").textContent = memoryItems.length
+    $("analysis-memory-summary-text").textContent = demoUiText(memoryItems.length
       ? `Analyysi loi ${memoryItems.length} tarkistettavaa tietokorttia. Editorin avustin käyttää niitä heti; voit tarkentaa niitä valinnaisessa kehityseditointiosiossa.`
-      : "";
+      : "");
     const analysisSections = visibleAnalysisSections();
     const metaSections = visibleMetaSections();
     const hasAny = analysisSections.concat(metaSections).some(([field]) => analysis[field]);
@@ -1455,7 +1489,10 @@
 
     restoreActiveAnalysisJob();
 
-    if (!hasAny) return;
+    if (!hasAny) {
+      applyShowcaseTerminology($("view-analyysi"));
+      return;
+    }
 
     const buildSection = ([field, label], open) => {
       const details = document.createElement("details");
@@ -1480,7 +1517,7 @@
       const metaHeading = document.createElement("h3");
       metaHeading.className = "list-title";
       metaHeading.style.margin = "18px 0 10px";
-      metaHeading.textContent = analysis.demo_profile === "showcase_demo" ? "Tekstin tiedot" : "Metatiedot";
+      metaHeading.textContent = showcaseDemoMode || analysis.demo_profile === "showcase_demo" ? "Tekstin tiedot" : "Metatiedot";
       container.appendChild(metaHeading);
       metaSections.forEach((section) => container.appendChild(buildSection(section, false)));
     }
@@ -1491,6 +1528,7 @@
       warn.textContent = analysis.analysis_warnings;
       container.appendChild(warn);
     }
+    applyShowcaseTerminology($("view-analyysi"));
   }
 
   function openAnalysisSheet(field, label) {
@@ -1881,7 +1919,7 @@
     $("btn-new-empty").addEventListener("click", async () => {
       try {
         const created = await apiSaveProject({
-          title: "Uusi käsikirjoitus",
+          title: showcaseDemoMode ? "Uusi teksti" : "Uusi käsikirjoitus",
           chapters: [{ id: "luku_1", title: "Luku 1", toc_title: "Luku 1", kind: "main", paragraphs: [] }],
         });
         await renderLibrary();

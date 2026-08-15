@@ -193,13 +193,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     const showcaseDemoMode = ['Demo', 'Kustantamodemo'].includes(String(currentUser?.access_group_name || ''));
     document.body.classList.toggle('showcase-demo-mode', showcaseDemoMode);
 
+    function demoUiText(value) {
+        const text = String(value == null ? '' : value);
+        if (!showcaseDemoMode) return text;
+        return window.SkriptLabDemoTerminology?.neutralize(text) || text;
+    }
+
+    function applyShowcaseTerminology(root = document) {
+        if (!showcaseDemoMode) return;
+        window.SkriptLabDemoTerminology?.apply(root);
+    }
+
     function configureShowcaseDemoUi() {
         if (!showcaseDemoMode) return;
+
+        applyShowcaseTerminology(document);
 
         const setText = (selector, value) => {
             const element = document.querySelector(selector);
             if (element) element.textContent = value;
         };
+
+        setText('#top-book-name', 'Tekstiprojekti: Valitse projekti');
+        setText('#sidebar-current-title', 'Ei tekstiä');
+        setText('#development-current-project', 'Analyysi luo karkean projektimuistin automaattisesti. Tässä valinnaisessa vaiheessa voit pyytää laajan kehityspalautteen ja tarkentaa muistia.');
+        setText('#publication-package-current-project', 'Tekstiprojekti: [Ei aktiivista tekstiä]');
+        setText('#illustration-current-project', 'Tekstiprojekti: [Ei aktiivista tekstiä]');
+        setText('#audio-current-project', 'Tekstiprojekti: [Ei aktiivista tekstiä]');
+        setText('#translation-current-project', 'Valitse tekstiprojekti ja käännösasetukset.');
 
         const demoCoverSideSelect = document.getElementById('cover-side-select');
         const demoCoverPrompt = document.getElementById('cover-prompt');
@@ -218,6 +239,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         setText('.cover-gallery-section .production-section-heading p', 'Valitse tallennettu kansi katseltavaksi tai uuden kuvan pohjaksi.');
 
         setText('.publication-package-stats > div:nth-child(3) span', 'tiedostomuotoa');
+        setText('.publication-package-cover-card .publication-package-card-heading h3', 'Valitse pakettiin tuleva kansi');
         setText('.publication-package-format-meta strong', 'Manifesti ja tarkistustiedot');
         setText('.publication-package-format-meta small', 'Lähdeversio ja paketin tarkistushuomiot');
         setText('#publication-package-result-detail', 'PDF, EPUB, DOCX, kansi ja manifesti samassa ZIP-paketissa.');
@@ -483,7 +505,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (!status) return;
         const heartbeatActive = state.lastHeartbeatAt && now - state.lastHeartbeatAt < 45000;
         const parts = [
-            state.message,
+            demoUiText(state.message),
             `Kulunut ${elapsedText}`,
             estimateText,
             heartbeatActive ? 'Yhteys palvelimeen aktiivinen' : ''
@@ -756,7 +778,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const analysisFields = [
         { key: 'glossary', label: 'Sanasto' },
         { key: 'style', label: 'Tyylianalyysi' },
-        { key: 'editorial_assessment', label: 'Toimituksellinen arvio' },
+        { key: 'editorial_assessment', label: demoUiText('Toimituksellinen arvio') },
         { key: 'synopsis', label: 'Synopsis' },
         { key: 'chapter_analysis', label: 'Lukutason analyysi' },
         { key: 'marketing_short', label: 'Markkinointiteksti, lyhyt' },
@@ -2655,7 +2677,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function setPublicationPackageStatus(message, isError = false) {
         const status = document.getElementById('publication-package-status');
         if (!status) return;
-        status.textContent = message;
+        status.textContent = demoUiText(message);
         status.style.color = isError ? '#ffb4b4' : 'var(--text-secondary)';
     }
 
@@ -2734,7 +2756,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const checks = document.getElementById('publication-package-checks');
         const coverSelect = document.getElementById('publication-package-cover-select');
         const buildButton = document.getElementById('publication-package-build-btn');
-        if (current) current.textContent = `Käsikirjoitus: ${data.title || 'Nimetön'}${data.author ? ` · ${data.author}` : ''}`;
+        if (current) current.textContent = showcaseDemoMode
+            ? `Tekstiprojekti: ${data.title || 'Nimetön'}${data.author ? ` · ${data.author}` : ''}`
+            : `Käsikirjoitus: ${data.title || 'Nimetön'}${data.author ? ` · ${data.author}` : ''}`;
         if (words) words.textContent = Number(data.word_count || 0).toLocaleString('fi-FI');
         if (version) version.textContent = data.latest_version ? `V${data.latest_version.version_number}` : 'V0';
 
@@ -2748,14 +2772,14 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (checks) {
             checks.innerHTML = displayedChecks.map(check => {
                 const icon = check.status === 'ready' ? '✓' : check.status === 'blocked' ? '×' : '!';
-                const label = showcaseDemoMode && check.label === 'Julkaisuformaatit'
+                const label = demoUiText(showcaseDemoMode && check.label === 'Julkaisuformaatit'
                     ? 'Tiedostomuodot'
-                    : check.label;
+                    : check.label);
                 return `
                     <article class="publication-package-check" data-status="${escapeHtml(check.status || 'attention')}" data-action-module="${escapeHtml(check.action_module || '')}" tabindex="0">
                         <span class="publication-package-check-icon">${icon}</span>
                         <strong>${escapeHtml(label || '')}</strong>
-                        <p>${escapeHtml(check.detail || '')}</p>
+                        <p>${escapeHtml(demoUiText(check.detail || ''))}</p>
                     </article>
                 `;
             }).join('');
@@ -2809,7 +2833,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (!window.manuscriptData?.id) {
             const current = document.getElementById('publication-package-current-project');
             const checks = document.getElementById('publication-package-checks');
-            if (current) current.textContent = 'Valitse ensin käsikirjoitus.';
+            if (current) current.textContent = demoUiText('Valitse ensin käsikirjoitus.');
             if (checks) checks.innerHTML = '';
             renderPublicationPackageResult(null);
             setPublicationPackageStatus('Valitse käsikirjoitus ennen tiedostopaketin muodostamista.', true);
@@ -2871,7 +2895,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function multilingualSetStatus(message, isError = false) {
         const status = document.getElementById('multilingual-publication-status');
         if (!status) return;
-        status.textContent = message;
+        status.textContent = demoUiText(message);
         status.style.color = isError ? '#ffb4b4' : 'var(--text-secondary)';
     }
 
@@ -3069,8 +3093,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const readyEditions = multilingualMarkets.filter(market => multilingualTranslationIsReady(latestMultilingualTranslation(market.code))).length;
 
         if (current) current.textContent = project
-            ? `Lähdeteos: ${project.title || 'Nimetön'}${project.author ? ` · ${project.author}` : ''}`
-            : 'Valitse käsikirjoitus, josta kieliversiot muodostetaan.';
+            ? `${showcaseDemoMode ? 'Lähdeteksti' : 'Lähdeteos'}: ${project.title || 'Nimetön'}${project.author ? ` · ${project.author}` : ''}`
+            : demoUiText('Valitse käsikirjoitus, josta kieliversiot muodostetaan.');
         if (version) version.textContent = versionNumber ? `V${versionNumber}` : 'V0';
         if (editionCount) editionCount.textContent = String(readyEditions);
         if (proofTitle) proofTitle.textContent = versionNumber ? `Lähdeversio V${versionNumber} lukittu` : 'Jäljitettävä lähtöaineisto';
@@ -4997,11 +5021,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             }
             if(nextViewId !== 'view-kirjani') {
                 document.getElementById('top-book-name').textContent = window.manuscriptData
-                    ? `Käsikirjoitus: ${window.manuscriptData.title}`
-                    : 'Käsikirjoitus: Valitse projekti...';
+                    ? `${showcaseDemoMode ? 'Tekstiprojekti' : 'Käsikirjoitus'}: ${window.manuscriptData.title}`
+                    : `${showcaseDemoMode ? 'Tekstiprojekti' : 'Käsikirjoitus'}: Valitse projekti...`;
             } else {
-                document.getElementById('top-book-name').textContent = 'Käsikirjoitus: Valitse projekti...';
+                document.getElementById('top-book-name').textContent = `${showcaseDemoMode ? 'Tekstiprojekti' : 'Käsikirjoitus'}: Valitse projekti...`;
             }
+            applyShowcaseTerminology(document.getElementById(nextViewId));
         });
     });
     openModule(currentViewId);
@@ -7230,7 +7255,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         
         const topBookName = document.getElementById('top-book-name');
         if (topBookName) {
-            topBookName.textContent = `Käsikirjoitus: ${title} (${author})`;
+            topBookName.textContent = `${showcaseDemoMode ? 'Tekstiprojekti' : 'Käsikirjoitus'}: ${title} (${author})`;
         }
         const sidebarCurrentTitle = document.getElementById('sidebar-current-title');
         if (sidebarCurrentTitle) {
@@ -7258,9 +7283,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 let prefix = txt.startsWith("Käsikirjoitus:") ? "Käsikirjoitus: " : "Käsikirjoitukseen: ";
                 let suffixMatch = txt.match(/(\(.*)/);
                 let suffix = suffixMatch ? suffixMatch[0] : "";
-                p.textContent = prefix + title + " " + suffix;
+                p.textContent = demoUiText(prefix + title + " " + suffix);
             }
         });
+        applyShowcaseTerminology(document.getElementById(currentViewId));
     };
 
 	    // --- 5. Kuvitus Logic ---
@@ -9094,7 +9120,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function updateIllustrationProjectText() {
         if (!illustrationCurrentProject) return;
         const title = window.manuscriptData?.title || '[Ei aktiivista teosta]';
-        illustrationCurrentProject.textContent = `Käsikirjoitus: ${title}`;
+        illustrationCurrentProject.textContent = `${showcaseDemoMode ? 'Tekstiprojekti' : 'Käsikirjoitus'}: ${title}`;
         renderCoverFormatOptions();
         refreshCoverTextFields();
     }
@@ -11175,10 +11201,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function proofreadToast(message) {
         const el = document.getElementById('proofread-toast');
         if (!el) {
-            alert(message);
+            alert(demoUiText(message));
             return;
         }
-        el.textContent = message;
+        el.textContent = demoUiText(message);
         el.classList.remove('hidden');
         clearTimeout(proofreadToastTimer);
         proofreadToastTimer = setTimeout(() => el.classList.add('hidden'), 3400);
@@ -11187,7 +11213,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function setProofreadWorking(show, label = 'Hetki...') {
         const el = document.getElementById('proofread-working');
         const labelEl = document.getElementById('proofread-working-label');
-        if (labelEl) labelEl.textContent = label;
+        if (labelEl) labelEl.textContent = demoUiText(label);
         if (el) el.classList.toggle('hidden', !show);
     }
 
@@ -11316,9 +11342,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const chapters = currentProofreadChapters();
         if (projectTitle) projectTitle.textContent = window.manuscriptData?.title || 'Ei aktiivista teosta';
         if (!chapters.length) {
-            if (titleEl) titleEl.textContent = 'Valitse käsikirjoitus';
+            if (titleEl) titleEl.textContent = demoUiText('Valitse käsikirjoitus');
             if (subEl) subEl.textContent = '';
-            if (statusText) statusText.textContent = 'Lataa tai valitse käsikirjoitus ensin.';
+            if (statusText) statusText.textContent = demoUiText('Lataa tai valitse käsikirjoitus ensin.');
             if (prev) prev.disabled = true;
             if (next) next.disabled = true;
             return;
@@ -11339,9 +11365,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             } else if (proofreadState === 'progress') {
                 statusText.textContent = 'Oikoluku kesken.';
             } else {
-                statusText.textContent = window.manuscriptData?.id
+                statusText.textContent = demoUiText(window.manuscriptData?.id
                     ? 'Valmis aloitettavaksi.'
-                    : 'Käsikirjoitus tallennetaan ennen ajoa.';
+                    : 'Käsikirjoitus tallennetaan ennen ajoa.');
             }
         }
         if (previewName) previewName.textContent = `- ${title}`;
@@ -11679,7 +11705,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const chips = document.getElementById('cleanup-counts');
         if (!preview) return;
         if (!window.manuscriptData?.id) {
-            preview.textContent = 'Tallenna käsikirjoitus ennen viimeistelyn esikatselua.';
+            preview.textContent = demoUiText('Tallenna käsikirjoitus ennen viimeistelyn esikatselua.');
             if (chips) chips.innerHTML = '';
             return;
         }
@@ -11765,7 +11791,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             const message = total
                 ? `Siistintä muuttaa ${formatNumber(total)} kohtaa koko käsikirjoituksesta.\n\nLuodaanko viimeistelty versio? Nykyiset luvut korvataan.`
                 : 'Siistintä ei löytänyt korjattavaa. Tallennetaanko kappale- ja tavutusasetukset silti?';
-            if (!confirm(message)) return;
+            if (!confirm(demoUiText(message))) return;
             setProofreadWorking(true, 'Tallennetaan viimeisteltyä versiota...');
             const saveRes = await apiFetch('/api/projects', {
                 method: 'POST',
@@ -13852,10 +13878,11 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     function setDevelopmentStatus(message, isError = false) {
         const el = document.getElementById('development-status');
         if (!el) return;
+        const visibleMessage = demoUiText(message);
         if (activeLongOperationTimers.has('development_feedback')) {
-            updateLongOperationTimer('development_feedback', { message });
+            updateLongOperationTimer('development_feedback', { message: visibleMessage });
         } else {
-            el.textContent = message || '';
+            el.textContent = visibleMessage;
         }
         el.classList.toggle('is-saved', !isError && Boolean(message));
         el.style.color = isError ? '#ffb4b4' : '';
@@ -13880,8 +13907,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         ];
         container.innerHTML = items.map(([title, value]) => `
             <div class="development-summary-item">
-                <strong>${escapeHtml(title)}</strong>
-                <span>${escapeHtml(value)}</span>
+                <strong>${escapeHtml(demoUiText(title))}</strong>
+                <span>${escapeHtml(demoUiText(value))}</span>
             </div>
         `).join('');
     }
@@ -13891,9 +13918,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (!current) return;
         const data = window.manuscriptData;
         const dev = data?.analysis?.development_editing || {};
-        current.textContent = data
+        current.textContent = demoUiText(data
             ? `Käsikirjoitus: ${data.title || 'Nimetön'} · analyysin projektimuisti on editorin käytössä, kehityspalaute on valinnainen`
-            : 'Valitse käsikirjoitus. Analyysi luo projektimuistin automaattisesti, ja kehityspalaute on valinnainen.';
+            : 'Valitse käsikirjoitus. Analyysi luo projektimuistin automaattisesti, ja kehityspalaute on valinnainen.');
         writeDevelopmentBriefToForm(dev.brief || {});
         const knowledgeInstructions = document.getElementById('knowledge-extra-instructions');
         const feedback = document.getElementById('development-feedback');
@@ -13911,7 +13938,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const resumable = ['running', 'partial', 'synthesizing', 'synthesis_failed', 'completed_with_warnings'].includes(progress.status);
         const runButton = document.getElementById('development-run-btn');
         if (runButton && !isMultiCallRunActive('development_feedback')) {
-            runButton.textContent = resumable ? '✦ Jatka kehityseditointipalautetta' : '✦ Kehityseditointipalaute';
+            runButton.textContent = demoUiText(resumable ? '✦ Jatka kehityseditointipalautetta' : '✦ Kehityseditointipalaute');
         }
         if (isMultiCallRunActive('development_feedback')) {
             renderLongOperationTimer('development_feedback');
@@ -14209,7 +14236,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 } else {
                     setDevelopmentStatus(`Ajo keskeytyi, mutta ${progress.completed}/${progress.total} osaa on tallessa. Voit jatkaa samasta kohdasta. ${message}`, true);
                 }
-                if (button) button.textContent = '✦ Jatka kehityseditointipalautetta';
+                if (button) button.textContent = demoUiText('✦ Jatka kehityseditointipalautetta');
             } else {
                 setDevelopmentStatus(isMultiCallRunStopped(error, run) ? 'Luonti pysäytettiin. Voit käynnistää sen myöhemmin uudelleen.' : message, !isMultiCallRunStopped(error, run));
             }
@@ -15645,7 +15672,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     function setAudioProductionStatus(message, isError = false) {
         const status = document.getElementById('audio-production-status');
         if (!status) return;
-        status.textContent = message || '';
+        status.textContent = demoUiText(message || '');
         status.classList.toggle('is-error', isError);
     }
 
@@ -16031,10 +16058,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 ? source.warnings.filter(Boolean).join(' ')
                 : String(source.warning || source.warnings || '').trim();
             const estimateNote = String(source.cost_disclaimer || source.cost_basis || '').trim();
-            status.textContent = message
+            status.textContent = demoUiText(message
                 || warnings
                 || estimateNote
-                || (Object.keys(source).length ? 'Arvio perustuu nykyiseen käsikirjoitukseen ja valittuun malliin.' : 'Valitse malli ja ääni, niin tuotantoarvio päivittyy.');
+                || (Object.keys(source).length ? 'Arvio perustuu nykyiseen käsikirjoitukseen ja valittuun malliin.' : 'Valitse malli ja ääni, niin tuotantoarvio päivittyy.'));
             status.classList.remove('is-error');
         }
     }
@@ -16042,7 +16069,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     function setAudioProductionChunksStatus(message = '', isError = false) {
         const status = document.getElementById('audio-production-chunks-status');
         if (!status) return;
-        status.textContent = message;
+        status.textContent = demoUiText(message);
         status.classList.toggle('is-error', Boolean(isError));
     }
 
@@ -16459,6 +16486,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const detail = document.getElementById('audio-production-script-state-detail');
         const openButton = document.getElementById('audio-production-script-open-btn');
         if (!container || !label || !detail) return;
+        const finish = () => applyShowcaseTerminology(container);
         container.classList.remove('is-loading', 'is-ready', 'is-warning', 'is-stale', 'is-missing', 'is-original');
         if (openButton) openButton.disabled = !window.manuscriptData?.id;
         if (!window.manuscriptData?.id) {
@@ -16467,6 +16495,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             label.textContent = 'Äänikäsikirjoitusta ei ole valittu';
             detail.textContent = 'Valitse tallennettu käsikirjoitus nähdäksesi valmistelun tilan.';
             if (openButton) openButton.textContent = 'Avaa valmistelu';
+            finish();
             return;
         }
         if (!audioProductionOptionsPayload) {
@@ -16475,6 +16504,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             label.textContent = audioProductionOptionsError ? 'Valmistelun tilaa ei saatu ladattua' : 'Tarkistetaan äänikäsikirjoitusta…';
             detail.textContent = audioProductionOptionsError || 'Gemini käyttää valmisteltuja tageja ja tuotantopromptia; ElevenLabs käyttää alkuperäistä tekstiä.';
             if (openButton) openButton.textContent = 'Avaa valmistelu';
+            finish();
             return;
         }
         const provider = String(currentAudioProductionModel()?.provider || '').trim().toLowerCase();
@@ -16484,6 +16514,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             label.textContent = 'Valitse tuotantomalli';
             detail.textContent = 'Gemini käyttää valmisteltuja tageja ja tuotantopromptia; ElevenLabs käyttää alkuperäistä tekstiä.';
             if (openButton) openButton.textContent = 'Avaa valmistelu';
+            finish();
             return;
         }
         if (!['gemini', 'google'].includes(provider)) {
@@ -16492,6 +16523,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             label.textContent = `${audioProductionProviderLabel(provider)} käyttää alkuperäistä tekstiä`;
             detail.textContent = 'Gemini-tagit ja teoskohtainen tuotantoprompti eivät välity tähän tuotantoon.';
             if (openButton) openButton.textContent = 'Avaa Gemini-valmistelu';
+            finish();
             return;
         }
         if (openButton) openButton.textContent = 'Avaa valmistelu';
@@ -16521,6 +16553,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             label.textContent = 'Äänikäsikirjoitus ja tagit puuttuvat';
             detail.textContent = 'Gemini käyttää alkuperäistä tekstiä ilman teoskohtaista tuotantopromptia. Valmistele prompti ja tagit ennen tuotantoa.';
         }
+        finish();
     }
 
     function audioProductionStatusLabel(status) {
@@ -16607,7 +16640,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     function setAudioProductionPartsStatus(message, isError = false) {
         const status = document.getElementById('audio-parts-status');
         if (!status) return;
-        status.textContent = message || '';
+        status.textContent = demoUiText(message || '');
         status.classList.toggle('is-error', isError);
     }
 
@@ -18232,7 +18265,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     function setAudioScriptPreparationStatus(message, kind = '') {
         const status = document.getElementById('audio-preparation-status');
         if (!status) return;
-        status.textContent = message || '';
+        status.textContent = demoUiText(message || '');
         status.classList.toggle('is-error', kind === 'error');
         status.classList.toggle('is-stale', kind === 'stale');
     }
@@ -18803,7 +18836,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     function setAudioStatus(message, isError = false) {
         const status = document.getElementById('audio-status');
         if (!status) return;
-        status.textContent = message;
+        status.textContent = demoUiText(message);
         status.classList.toggle('is-error', isError);
         status.style.removeProperty('color');
     }
@@ -19295,8 +19328,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         renderAudioProductionLanguage();
         if (current) {
             current.textContent = window.manuscriptData
-                ? `Käsikirjoitus: ${window.manuscriptData.title || 'Nimetön'}`
-                : 'Käsikirjoitus: [Ei aktiivista teosta]';
+                ? `${showcaseDemoMode ? 'Tekstiprojekti' : 'Käsikirjoitus'}: ${window.manuscriptData.title || 'Nimetön'}`
+                : `${showcaseDemoMode ? 'Tekstiprojekti' : 'Käsikirjoitus'}: [Ei aktiivista teosta]`;
         }
         loadGeminiTtsModels(false);
         loadElevenLabsVoices(false);
@@ -20577,7 +20610,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             hour: '2-digit',
             minute: '2-digit'
         });
-        const suggestedTitle = `Uusi käsikirjoitus ${timestamp}`;
+        const suggestedTitle = `${showcaseDemoMode ? 'Uusi teksti' : 'Uusi käsikirjoitus'} ${timestamp}`;
         const title = window.prompt('Anna tyhjälle dokumentille nimi', suggestedTitle);
         if (title === null) return;
         const cleanTitle = title.trim() || suggestedTitle;
@@ -20631,9 +20664,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         localStorage.removeItem(ACTIVE_PROJECT_ID_KEY);
 
         const topBookName = document.getElementById('top-book-name');
-        if (topBookName) topBookName.textContent = 'Käsikirjoitus: Valitse projekti...';
+        if (topBookName) topBookName.textContent = `${showcaseDemoMode ? 'Tekstiprojekti' : 'Käsikirjoitus'}: Valitse projekti...`;
         const sidebarCurrentTitle = document.getElementById('sidebar-current-title');
-        if (sidebarCurrentTitle) sidebarCurrentTitle.textContent = 'Ei käsikirjoitusta';
+        if (sidebarCurrentTitle) sidebarCurrentTitle.textContent = showcaseDemoMode ? 'Ei tekstiä' : 'Ei käsikirjoitusta';
         const sidebarStyle = document.getElementById('sidebar-style');
         if (sidebarStyle) {
             sidebarStyle.textContent = 'Odottaa analyysiä...';
@@ -21289,11 +21322,11 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     }
 
     function translationAnalysisMessage() {
-        return 'Käännös vaatii ensin käsikirjoituksen analyysin. Tee analyysi Analyysi-välilehdellä tai paina siellä Lataa tallennettu analyysi.';
+        return demoUiText('Käännös vaatii ensin käsikirjoituksen analyysin. Tee analyysi Analyysi-välilehdellä tai paina siellä Lataa tallennettu analyysi.');
     }
 
     function finnishTranslationAnalysisMessage() {
-        return 'Käännös vaatii ensin käsikirjoituksen analyysin. Tee analyysi Analyysi-välilehdellä tai paina siellä Lataa tallennettu analyysi.';
+        return demoUiText('Käännös vaatii ensin käsikirjoituksen analyysin. Tee analyysi Analyysi-välilehdellä tai paina siellä Lataa tallennettu analyysi.');
     }
 
     const translationLanguageLabels = {
@@ -21357,7 +21390,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
         const estimate = document.getElementById('finnish-translation-estimate');
         if (estimate && !project) {
-            estimate.textContent = `Valitse käsikirjoitus. Kohdekieli: ${targetLabel}.`;
+            estimate.textContent = demoUiText(`Valitse käsikirjoitus. Kohdekieli: ${targetLabel}.`);
         }
     }
 
@@ -22577,7 +22610,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (currentText) {
             currentText.textContent = project
                 ? `Käännettävä teos: ${project.title || 'Nimetön'}`
-                : 'Valitse käsikirjoitus ja käännösasetukset.';
+                : demoUiText('Valitse käsikirjoitus ja käännösasetukset.');
         }
         updateTranslationAnalysisNotice(project);
         renderSelectedTranslationForReview();
@@ -22614,12 +22647,12 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (currentText) {
             currentText.textContent = project
                 ? `Käännettävä teos: ${project.title || 'Nimetön'} (${translationDirectionLabel(finnishTranslationSourceLanguage(), finnishTranslationTargetLanguage())})`
-                : 'Valitse käsikirjoitus ja käännösasetukset.';
+                : demoUiText('Valitse käsikirjoitus ja käännösasetukset.');
         }
         if (promptProjectText) {
             promptProjectText.textContent = project
                 ? `Prompti kohdistuu teokseen: ${project.title || 'Nimetön'}`
-                : 'Valitse käsikirjoitus.';
+                : demoUiText('Valitse käsikirjoitus.');
         }
         loadSavedTranslationPrompt(project);
         updateUnifiedTranslationLabels();
@@ -23145,7 +23178,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const payload = translationRequestPayload();
         updateTranslationChunkAdvice('translation');
         if (!estimateEl || !payload.project_id) {
-            if (estimateEl) estimateEl.textContent = 'Valitse ensin käsikirjoitus.';
+            if (estimateEl) estimateEl.textContent = demoUiText('Valitse ensin käsikirjoitus.');
             latestTranslationEstimate = null;
             return;
         }
@@ -23171,7 +23204,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         updateUnifiedTranslationLabels();
         updateTranslationChunkAdvice('finnish-translation');
         if (!estimateEl || !payload.project_id) {
-            if (estimateEl) estimateEl.textContent = 'Valitse ensin käsikirjoitus.';
+            if (estimateEl) estimateEl.textContent = demoUiText('Valitse ensin käsikirjoitus.');
             latestFinnishTranslationEstimate = null;
             return;
         }
@@ -23203,7 +23236,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     <strong>${escapeHtml(label)}</strong> · ${escapeHtml(item.style_label)} · ${item.chunks_count} osaa · ${escapeHtml(translationStatusLabel(item.status))}
                 </button>
                 <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                    <button class="btn btn-secondary" ${exportAttr}="${item.id}" type="button" style="padding:6px 10px; font-size:12px;">Vie käsikirjoitukseksi</button>
+                    <button class="btn btn-secondary" ${exportAttr}="${item.id}" type="button" style="padding:6px 10px; font-size:12px;">${escapeHtml(demoUiText('Vie käsikirjoitukseksi'))}</button>
                     <button class="btn btn-secondary btn-danger-soft" ${deleteAttr}="${item.id}" type="button" style="padding:6px 10px; font-size:12px;">Poista</button>
                 </div>
             </div>
@@ -23217,15 +23250,15 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const genitiveLabel = 'Käännöksen';
         if (!translationId) return;
         try {
-            if (status) status.textContent = `${label} viedään uudeksi käsikirjoitukseksi...`;
+            if (status) status.textContent = demoUiText(`${label} viedään uudeksi käsikirjoitukseksi...`);
             const res = await apiFetch(`/api/translations/${translationId}/export-project`, { method: 'POST' });
             if (!res.ok) throw new Error(await apiErrorMessage(res, 'Käännöksen vienti epäonnistui.'));
             const project = await res.json();
             updateAvailableProject(project);
             setActiveManuscript(project);
             await loadProjects();
-            if (status) status.textContent = `Uusi käsikirjoitus luotu: ${project.title || 'Nimetön'}.`;
-            alert(`Uusi käsikirjoitus luotu: ${project.title || 'Nimetön'}`);
+            if (status) status.textContent = demoUiText(`Uusi käsikirjoitus luotu: ${project.title || 'Nimetön'}.`);
+            alert(demoUiText(`Uusi käsikirjoitus luotu: ${project.title || 'Nimetön'}`));
             return project;
         } catch (err) {
             if (status) status.textContent = err.message;
@@ -25588,7 +25621,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (step) params.set('step', step);
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '24');
+        params.set('v', '25');
         const reloaded = updateEmbeddedModuleFrame(frame, 'manuskripti.html', params);
         if (!reloaded && frame.contentWindow) {
             frame.contentWindow.postMessage({ type: 'skriptlab:refresh-workflow-status' }, window.location.origin);
@@ -25615,7 +25648,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (projectId) params.set('project', projectId);
         if (pendingWriteEditorChapterId) params.set('chapter', pendingWriteEditorChapterId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '9');
+        params.set('v', '10');
         updateEmbeddedModuleFrame(frame, 'kirjoita-editoi.html', params);
         pendingWriteEditorChapterId = null;
     }
@@ -25639,7 +25672,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         params.set('tab', nextTab);
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '16');
+        params.set('v', '17');
         updateEmbeddedModuleFrame(frame, 'tuotanto.html', params);
     }
 
