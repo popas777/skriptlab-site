@@ -25588,7 +25588,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (step) params.set('step', step);
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '23');
+        params.set('v', '24');
         const reloaded = updateEmbeddedModuleFrame(frame, 'manuskripti.html', params);
         if (!reloaded && frame.contentWindow) {
             frame.contentWindow.postMessage({ type: 'skriptlab:refresh-workflow-status' }, window.location.origin);

@@ -712,20 +712,12 @@
     if (event.data?.type === "skriptlab:refresh-workflow-status") refreshWorkflowStatus();
   });
 
-  function isProtectedShowcaseProject(item) {
-    return authUser?.role !== "admin"
-      && item?.analysis?.demo_project === true
-      && item?.analysis?.demo_profile === "showcase_demo";
-  }
-
   function canDeleteProject(item) {
-    if (isProtectedShowcaseProject(item)) return false;
     const level = item.access_level || "";
     return !level || level === "owner" || level === "admin";
   }
 
   function canRenameProject(item) {
-    if (isProtectedShowcaseProject(item)) return false;
     const level = item.access_level || "";
     return !level || level === "owner" || level === "admin" || level === "shared_edit";
   }
