@@ -27,6 +27,7 @@
             description: 'Tunnistaa rakenteen, tyylin, lajityypin ja teoksen keskeiset piirteet.',
             category: 'core',
             modelType: 'text',
+            defaultProfile: 'demanding',
             dependencies: [],
             supportsBatch: false,
             viewId: 'view-analyysi',
@@ -45,6 +46,7 @@
             description: 'Kokoaa nimet, termit, henkilöt, paikat ja tyylipäätökset myöhempien vaiheiden käyttöön.',
             category: 'core',
             modelType: 'text',
+            defaultProfile: 'demanding',
             dependencies: ['analysis'],
             supportsBatch: false,
             viewId: 'view-analyysi',
@@ -81,6 +83,7 @@
             description: 'Arvioi kokonaisuuden, henkilöt, jännitteen ja tärkeimmät kehityskohteet.',
             category: 'text',
             modelType: 'text',
+            defaultProfile: 'demanding',
             dependencies: ['analysis', 'project_memory'],
             supportsBatch: false,
             viewId: 'view-kehityseditointi',
@@ -117,6 +120,7 @@
             description: 'Etsii kieli-, kirjoitus- ja jatkuvuusvirheet hyväksyttävinä ehdotuksina.',
             category: 'text',
             modelType: 'text',
+            defaultProfile: 'demanding',
             dependencies: ['analysis', 'project_memory'],
             supportsBatch: false,
             viewId: 'view-oikoluku',
@@ -171,6 +175,7 @@
             description: 'Muodostaa kirjan kuvauksen, avainsanat ja kaupalliset metatiedot.',
             category: 'production',
             modelType: 'text',
+            defaultProfile: 'demanding',
             dependencies: ['analysis', 'project_memory'],
             supportsBatch: false,
             viewId: 'view-tuotetiedot',
@@ -189,6 +194,7 @@
             description: 'Luo kuvaukset, kampanjaideat, some-tekstit ja julkaisun sisältösuunnitelman.',
             category: 'marketing',
             modelType: 'text',
+            defaultProfile: 'demanding',
             dependencies: ['analysis', 'project_memory', 'product'],
             supportsBatch: false,
             viewId: 'view-markkinointi',
@@ -224,6 +230,7 @@
             description: 'Tekee nimiölehden, copysivun, sisällysluettelon ja muut kirjan oheistekstit.',
             category: 'production',
             modelType: 'text',
+            defaultProfile: 'demanding',
             dependencies: ['analysis'],
             supportsBatch: false,
             viewId: 'view-oheisaineistot',
@@ -732,6 +739,9 @@
             const settingKey = settingKeyForModelType(definition.modelType);
             const requested = safeString(step?.modelOverride || plan.settings?.[settingKey]);
             return list.find(model => model.value === requested && model.available !== false)
+                || (!requested && definition.defaultProfile === 'demanding'
+                    ? list.find(model => model.isDemandingDefault && model.available !== false)
+                    : null)
                 || list.find(model => model.isDefault && model.available !== false)
                 || list.find(model => model.recommended && model.available !== false)
                 || list.find(model => model.available !== false)
@@ -747,7 +757,7 @@
         function translationModelSupportsBatch(provider, modelName) {
             if (provider !== 'gemini') return false;
             const normalized = String(modelName || '').trim().toLowerCase();
-            return ['gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.6-flash']
+            return ['gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.7-flash']
                 .some(prefix => normalized.startsWith(prefix));
         }
 
@@ -768,6 +778,7 @@
                 label: safeString(model?.display_name || model?.displayName || modelName, 300),
                 tier: safeString(model?.model_tier || model?.tier, 80),
                 isDefault: Boolean(model?.is_default || model?.isDefault),
+                isDemandingDefault: Boolean(model?.is_demanding_default || model?.isDemandingDefault),
                 recommended: Boolean(model?.recommended),
                 supportsBatch: Boolean(model?.supports_batch || model?.supportsBatch)
                     || (type === 'translation' && translationModelSupportsBatch(provider, modelName)),
@@ -811,11 +822,14 @@
             return `<option value="${escapeHtml(value)}"${selected ? ' selected' : ''}${disabled ? ' disabled' : ''}>${escapeHtml(label)}</option>`;
         }
 
-        function modelOptionsMarkup(type, selectedValue, inheritedLabel) {
+        function modelOptionsMarkup(type, selectedValue, inheritedLabel, preferredDefault = undefined) {
             const models = modelListForType(type);
-            const effectiveDefault = models.find(model => model.isDefault && model.available !== false)
-                || models.find(model => model.recommended && model.available !== false)
-                || models.find(model => model.available !== false);
+            const effectiveDefault = preferredDefault === null
+                ? null
+                : preferredDefault
+                    || models.find(model => model.isDefault && model.available !== false)
+                    || models.find(model => model.recommended && model.available !== false)
+                    || models.find(model => model.available !== false);
             let html = optionMarkup('', effectiveDefault
                 ? `${inheritedLabel} (${effectiveDefault.label})`
                 : inheritedLabel, !selectedValue);
@@ -1151,9 +1165,13 @@
             if (definition.modelType === 'none') {
                 return `<span class="workflow-step-static-value">Ei erillistä AI-mallia</span>`;
             }
+            const inheritedModel = effectiveModelForStep(
+                { ...step, modelOverride: '' },
+                definition
+            );
             return `<select class="workflow-model-override-select" data-workflow-step-id="${escapeHtml(step.id)}"
                 aria-label="${escapeHtml(definition.label)}: malliohitus"${running ? ' disabled' : ''}>
-                ${modelOptionsMarkup(definition.modelType, step.modelOverride, 'Perii työnkulun oletuksen')}
+                ${modelOptionsMarkup(definition.modelType, step.modelOverride, 'Perii työnkulun oletuksen', inheritedModel)}
             </select>`;
         }
 
@@ -1341,16 +1359,16 @@
         function renderSettingsForm() {
             const source = settingsDraft || plan.settings;
             const modelFields = [
-                ['workflow-text-model', 'text', 'Järjestelmän oletus'],
-                ['workflow-translation-model', 'translation', 'Järjestelmän oletus'],
-                ['workflow-image-model', 'image', 'Järjestelmän oletus'],
-                ['workflow-audio-model', 'audio', currentProject() ? 'Järjestelmän oletus' : 'Valitse käsikirjoitus']
+                ['workflow-text-model', 'text', 'Tehtäväkohtainen oletus', null],
+                ['workflow-translation-model', 'translation', 'Järjestelmän oletus', undefined],
+                ['workflow-image-model', 'image', 'Järjestelmän oletus', undefined],
+                ['workflow-audio-model', 'audio', currentProject() ? 'Järjestelmän oletus' : 'Valitse käsikirjoitus', undefined]
             ];
-            modelFields.forEach(([id, type, label]) => {
+            modelFields.forEach(([id, type, label, preferredDefault]) => {
                 const select = getElement(id);
                 if (!select) return;
                 const settingKey = settingKeyForModelType(type);
-                select.innerHTML = modelOptionsMarkup(type, source[settingKey], label);
+                select.innerHTML = modelOptionsMarkup(type, source[settingKey], label, preferredDefault);
                 select.value = source[settingKey] || '';
             });
             setSelectValue('workflow-source-language', source.sourceLanguage);
@@ -1969,13 +1987,19 @@
             lastEstimate = calculateEstimate();
             return clone({
                 ...plan,
-                modules: plan.modules.map(step => ({
-                    ...step,
-                    executionMode: step.runMode,
-                    execution_mode: step.runMode,
-                    model: step.modelOverride || '',
-                    resolvedModel: effectiveModelForStep(step, MODULES[step.id])?.value || ''
-                })),
+                modules: plan.modules.map(step => {
+                    const definition = MODULES[step.id];
+                    const requestedModel = requestedModelForStep(step, definition);
+                    return {
+                        ...step,
+                        executionMode: step.runMode,
+                        execution_mode: step.runMode,
+                        model: step.modelOverride || '',
+                        resolvedModel: requestedModel
+                            ? effectiveModelForStep(step, definition)?.value || ''
+                            : ''
+                    };
+                }),
                 projectId: currentProject()?.id || currentProject()?.project_id || null,
                 estimate: lastEstimate,
                 dependencyIssues: dependencyIssues()

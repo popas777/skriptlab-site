@@ -21701,6 +21701,15 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 note: 'paras kirjalliseen laatuun; 2 000 sopii vaikeaan suomennokseen, 3 000-4 000 nopeampaan kokonaisuuteen'
             };
         }
+        if (model.includes('3.7-flash')) {
+            return {
+                label: 'Gemini 3.7 Flash',
+                min: 1000,
+                max: 2000,
+                ideal: 2000,
+                note: 'vahva kirjallinen laatu ja ohjeiden noudatus; 2 000 sanaa säilyttää laajan tyylikontekstin'
+            };
+        }
         if (model.includes('3.5-flash')) {
             return {
                 label: 'Gemini 3.5 Flash',
@@ -21727,7 +21736,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const modelName = separatorIndex >= 0 ? model.slice(separatorIndex + 1) : model;
         return modelName.includes('gemini-3.5-flash-lite')
             || modelName.includes('gemini-3.5-flash')
-            || modelName.includes('gemini-3.6-flash');
+            || modelName.includes('gemini-3.6-flash')
+            || modelName.includes('gemini-3.7-flash');
     }
 
     function preferredTranslationBatchModelValue(select) {
@@ -21739,7 +21749,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const preferences = [
             'gemini-3.5-flash-lite',
             'gemini-3.5-flash',
-            'gemini-3.6-flash'
+            'gemini-3.6-flash',
+            'gemini-3.7-flash'
         ];
         for (const preferred of preferences) {
             const match = options.find(option => String(option.value || '').toLowerCase().includes(preferred));

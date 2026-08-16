@@ -277,14 +277,14 @@
                     <p id="model-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
 
                     <div class="settings-row" style="margin-top: 24px;">
-                        <label>Analyysi, kehityseditointi ja projektimuisti</label>
+                        <label>Vaativat tekstitehtävät</label>
                         <select id="analysis-structure-model-select" style="padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; outline: none; margin-bottom: 12px;"></select>
                         <p style="color: var(--text-secondary); font-size: 12px; line-height: 1.5; margin-top: 0;">
-                            Tätä käytetään käsikirjoitusanalyysissa, kehityseditoinnissa ja projektimuistin automaattisessa luonnissa.
+                            Tätä käytetään, kun analyysissa, toimitustyössä, oikoluvussa tai muussa vaativassa tekstitehtävässä ei voi valita mallia erikseen. Tehtäväkohtainen mallivalinta ohittaa tämän oletuksen.
                         </p>
                     </div>
 
-                    <button id="save-analysis-structure-model-btn" class="btn btn-secondary">Tallenna toimitustyön malli</button>
+                    <button id="save-analysis-structure-model-btn" class="btn btn-secondary">Tallenna vaativien tehtävien malli</button>
                     <p id="analysis-structure-model-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
 
                     <div class="settings-row" style="margin-top: 24px;">
@@ -861,7 +861,7 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
         function renderAnalysisStructureModelSelect() {
             if (!analysisStructureModelSelect) return;
             const textModels = loadedModels.filter(model => model.task_type === 'text' && model.is_enabled);
-            const configured = loadedModelSettings?.analysis_structure_model || 'gemini:gemini-3.5-flash-lite';
+            const configured = loadedModelSettings?.analysis_structure_model || 'gemini:gemini-3.7-flash';
             analysisStructureModelSelect.innerHTML = textModels.map(model => {
                 const value = `${model.provider}:${model.model_name}`;
                 const suffix = model.requires_enterprise_approval ? ' · pro/yritys' : '';
@@ -878,7 +878,7 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
         function renderTranslationGuidelinesModelSelect() {
             if (!translationGuidelinesModelSelect) return;
             const textModels = loadedModels.filter(model => model.task_type === 'text' && model.is_enabled);
-            const configured = loadedModelSettings?.translation_guidelines_model || 'gemini:gemini-3.5-flash-lite';
+            const configured = loadedModelSettings?.translation_guidelines_model || 'gemini:gemini-3.7-flash';
             translationGuidelinesModelSelect.innerHTML = textModels.map(model => {
                 const value = `${model.provider}:${model.model_name}`;
                 const suffix = model.requires_enterprise_approval ? ' · pro/yritys' : '';
@@ -1245,7 +1245,7 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                 const modelRef = analysisStructureModelSelect?.value || '';
                 if (!modelRef) return;
                 saveAnalysisStructureModelBtn.disabled = true;
-                analysisStructureModelStatus.textContent = 'Tallennetaan toimitustyön mallia...';
+                analysisStructureModelStatus.textContent = 'Tallennetaan vaativien tehtävien mallia...';
                 try {
                     const res = await window.SkriptLabAuth.fetch('/api/admin/model-settings', {
                         method: 'PATCH',
@@ -1253,10 +1253,10 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                         body: JSON.stringify({analysis_structure_model: modelRef})
                     });
                     const data = await res.json();
-                    if (!res.ok) throw new Error(data.detail || 'Toimitustyön mallin tallennus epäonnistui.');
+                    if (!res.ok) throw new Error(data.detail || 'Vaativien tehtävien mallin tallennus epäonnistui.');
                     loadedModelSettings = data;
                     renderAnalysisStructureModelSelect();
-                    analysisStructureModelStatus.textContent = `Analyysi, kehityseditointi ja projektimuisti käyttävät nyt: ${data.effective_analysis_structure_model?.display_name || modelRef}`;
+                    analysisStructureModelStatus.textContent = `Vaativat tekstitehtävät käyttävät nyt: ${data.effective_analysis_structure_model?.display_name || modelRef}`;
                 } catch (err) {
                     analysisStructureModelStatus.textContent = err.message;
                 } finally {
