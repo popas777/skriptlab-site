@@ -331,6 +331,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 	    };
 	    let marketingHtmlGenerating = false;
 	    let latestMarketingHtmlPage = null;
+	    let graphicsHtmlGenerating = false;
+	    let latestGraphicsHtmlPage = null;
 	    let selectedCoverReference = null;
 	let latestCoverLayout = null;
 	let coverLayoutDefaultsProjectId = null;
@@ -868,6 +870,18 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const coverLayoutResolution = document.getElementById('cover-layout-resolution');
     const graphicsTabButtons = Array.from(document.querySelectorAll('.graphics-tab[data-graphics-panel]'));
     const graphicsTabPanels = Array.from(document.querySelectorAll('.graphics-tab-panel'));
+    const graphicsHtmlCover = document.getElementById('graphics-html-cover');
+    const graphicsHtmlCoverTitle = document.getElementById('graphics-html-cover-title');
+    const graphicsHtmlCoverDetail = document.getElementById('graphics-html-cover-detail');
+    const graphicsHtmlGenerateBtn = document.getElementById('graphics-html-generate-btn');
+    const graphicsHtmlPreviewFrame = document.getElementById('graphics-html-preview-frame');
+    const graphicsHtmlPreviewEmpty = document.getElementById('graphics-html-preview-empty');
+    const graphicsHtmlPreviewEmptyTitle = document.getElementById('graphics-html-preview-empty-title');
+    const graphicsHtmlPreviewEmptyCopy = document.getElementById('graphics-html-preview-empty-copy');
+    const graphicsHtmlBrowserName = document.getElementById('graphics-html-browser-name');
+    const graphicsHtmlResultName = document.getElementById('graphics-html-result-name');
+    const graphicsHtmlResultMeta = document.getElementById('graphics-html-result-meta');
+    const graphicsHtmlDownloadBtn = document.getElementById('graphics-html-download-btn');
     const visualModelSelect = document.getElementById('visual-model-select');
     const visualSharedPrompt = document.getElementById('visual-shared-prompt');
     const visualPromptCount = document.getElementById('visual-prompt-count');
@@ -7580,6 +7594,190 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         infographicStatus.classList.toggle('is-error', Boolean(isError));
     }
 
+    function automaticGraphicsHtmlCover() {
+        const validCover = item => Boolean(item?.id && item?.data_url);
+        return currentCoverImages.find(item => item.asset_type === 'cover_image' && validCover(item))
+            || currentCoverImages.find(item => item.asset_type === 'full_cover_image' && validCover(item))
+            || null;
+    }
+
+    function setGraphicsHtmlStatus(message, isError = false) {
+        const status = document.getElementById('graphics-html-status');
+        if (!status) return;
+        status.textContent = String(message || '');
+        status.classList.toggle('is-error', Boolean(isError));
+    }
+
+    function clearGraphicsHtmlResult() {
+        latestGraphicsHtmlPage = null;
+        if (graphicsHtmlPreviewFrame) {
+            graphicsHtmlPreviewFrame.removeAttribute('src');
+            graphicsHtmlPreviewFrame.hidden = true;
+        }
+        if (graphicsHtmlPreviewEmpty) {
+            graphicsHtmlPreviewEmpty.hidden = false;
+            graphicsHtmlPreviewEmpty.classList.remove('is-working');
+        }
+        if (graphicsHtmlPreviewEmptyTitle) graphicsHtmlPreviewEmptyTitle.textContent = 'Esikatselu avautuu tähän';
+        if (graphicsHtmlPreviewEmptyCopy) {
+            graphicsHtmlPreviewEmptyCopy.textContent = 'Luo luonnos yhdellä painikkeella, kun projektilla on etukansi tai koko kansi.';
+        }
+        if (graphicsHtmlDownloadBtn) graphicsHtmlDownloadBtn.disabled = true;
+        if (graphicsHtmlResultName) graphicsHtmlResultName.textContent = 'Ei vielä luotua tiedostoa';
+        if (graphicsHtmlResultMeta) {
+            graphicsHtmlResultMeta.textContent = 'Yhden tiedoston HTML · upotettu kansikuva · responsiivinen';
+        }
+        if (graphicsHtmlBrowserName) graphicsHtmlBrowserName.textContent = 'kirjan-html-luonnos.html';
+    }
+
+    function renderGraphicsHtmlWorkspace() {
+        const project = window.manuscriptData;
+        const cover = automaticGraphicsHtmlCover();
+        if (latestGraphicsHtmlPage && (
+            String(latestGraphicsHtmlPage.projectId) !== String(project?.id || '')
+            || String(latestGraphicsHtmlPage.coverAssetId) !== String(cover?.id || '')
+        )) clearGraphicsHtmlResult();
+
+        if (graphicsHtmlCover) {
+            graphicsHtmlCover.innerHTML = cover?.data_url
+                ? `<img src="${cover.data_url}" alt="${escapeHtml(cover.title || 'HTML-luonnoksen kansi')}">`
+                : '<span>KANSI</span>';
+        }
+        if (graphicsHtmlCoverTitle) {
+            graphicsHtmlCoverTitle.textContent = cover?.title || 'Ei vielä kansikuvaa';
+        }
+        if (graphicsHtmlCoverDetail) {
+            graphicsHtmlCoverDetail.textContent = cover
+                ? 'Uusin kelvollinen etu- tai koko kansi käytetään luonnoksessa.'
+                : 'Luo tai tuo ensin etukansi Kansi-välilehdellä.';
+        }
+
+        const editable = Boolean(project && canEditProject(project));
+        const ready = Boolean(project?.id && cover?.id && editable);
+        if (graphicsHtmlGenerateBtn) {
+            graphicsHtmlGenerateBtn.disabled = graphicsHtmlGenerating || !ready;
+            graphicsHtmlGenerateBtn.textContent = graphicsHtmlGenerating ? 'Luodaan HTML-luonnosta…' : 'Luo HTML-luonnos';
+        }
+        if (graphicsHtmlPreviewEmpty) {
+            graphicsHtmlPreviewEmpty.classList.toggle('is-working', graphicsHtmlGenerating);
+        }
+        if (graphicsHtmlGenerating) {
+            if (graphicsHtmlPreviewEmptyTitle) graphicsHtmlPreviewEmptyTitle.textContent = 'Luonnosta muodostetaan…';
+            if (graphicsHtmlPreviewEmptyCopy) {
+                graphicsHtmlPreviewEmptyCopy.textContent = 'Tekstit kootaan analyysistä ja projektimuistista turvalliseen HTML-pohjaan.';
+            }
+            return;
+        }
+        if (graphicsHtmlPreviewEmptyTitle && !latestGraphicsHtmlPage) {
+            graphicsHtmlPreviewEmptyTitle.textContent = 'Esikatselu avautuu tähän';
+        }
+        if (graphicsHtmlPreviewEmptyCopy && !latestGraphicsHtmlPage) {
+            graphicsHtmlPreviewEmptyCopy.textContent = 'Luo luonnos yhdellä painikkeella, kun projektilla on etukansi tai koko kansi.';
+        }
+
+        if (!project) {
+            setGraphicsHtmlStatus('Valitse ensin käsikirjoitus.', true);
+        } else if (!project.id) {
+            setGraphicsHtmlStatus('Tallenna käsikirjoitus ennen HTML-luonnoksen luontia.', true);
+        } else if (!editable) {
+            setGraphicsHtmlStatus('HTML-luonnoksen luonti vaatii projektin muokkausoikeuden.', true);
+        } else if (!cover) {
+            setGraphicsHtmlStatus('Luo tai tuo ensin etukansi Kansi-välilehdellä.', true);
+        } else if (latestGraphicsHtmlPage) {
+            setGraphicsHtmlStatus('HTML-luonnos on valmis katseltavaksi ja ladattavaksi.');
+        } else {
+            setGraphicsHtmlStatus('Kansi on valmis. Luo HTML-luonnos yhdellä painikkeella.');
+        }
+    }
+
+    async function generateGraphicsHtmlDraft() {
+        const project = window.manuscriptData;
+        const cover = automaticGraphicsHtmlCover();
+        if (!project?.id) {
+            setGraphicsHtmlStatus('Valitse ja tallenna käsikirjoitus ensin.', true);
+            return;
+        }
+        if (!canEditProject(project)) {
+            setGraphicsHtmlStatus('HTML-luonnoksen luonti vaatii projektin muokkausoikeuden.', true);
+            return;
+        }
+        if (!cover?.id) {
+            setGraphicsHtmlStatus('Luo tai tuo ensin etukansi Kansi-välilehdellä.', true);
+            return;
+        }
+
+        clearGraphicsHtmlResult();
+        graphicsHtmlGenerating = true;
+        setGraphicsHtmlStatus('Muodostetaan HTML-luonnosta analyysistä, projektimuistista ja kansikuvasta…');
+        renderGraphicsHtmlWorkspace();
+
+        let finalStatus = null;
+        try {
+            const response = await apiFetch('/api/marketing/landing-page', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    project_id: project.id,
+                    cover_asset_id: Number(cover.id)
+                })
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.detail || 'HTML-luonnoksen luonti epäonnistui.');
+            if (!data?.page?.data_url) throw new Error('Valmiin HTML-tiedoston sisältöä ei saatu.');
+            if (
+                String(window.manuscriptData?.id || '') !== String(project.id)
+                || String(automaticGraphicsHtmlCover()?.id || '') !== String(cover.id)
+            ) return;
+
+            latestGraphicsHtmlPage = {
+                projectId: project.id,
+                coverAssetId: cover.id,
+                dataUrl: data.page.data_url,
+                filename: data.filename || 'kirjan-html-luonnos.html'
+            };
+            if (graphicsHtmlPreviewFrame) {
+                graphicsHtmlPreviewFrame.src = latestGraphicsHtmlPage.dataUrl;
+                graphicsHtmlPreviewFrame.hidden = false;
+            }
+            if (graphicsHtmlPreviewEmpty) graphicsHtmlPreviewEmpty.hidden = true;
+            if (graphicsHtmlDownloadBtn) graphicsHtmlDownloadBtn.disabled = false;
+            if (graphicsHtmlResultName) graphicsHtmlResultName.textContent = latestGraphicsHtmlPage.filename;
+            if (graphicsHtmlBrowserName) graphicsHtmlBrowserName.textContent = latestGraphicsHtmlPage.filename;
+            if (graphicsHtmlResultMeta) {
+                graphicsHtmlResultMeta.textContent = `Analyysi · ${Number(data.project_memory_items_used || 0)} projektimuistin merkintää · automaattinen kansi`;
+            }
+            const warnings = Array.isArray(data.warnings) ? data.warnings.filter(Boolean) : [];
+            finalStatus = {
+                message: warnings.length
+                    ? `HTML-luonnos valmis. ${warnings.join(' ')}`
+                    : 'HTML-luonnos valmis katseltavaksi ja ladattavaksi.',
+                isError: false
+            };
+            loadUsage();
+        } catch (error) {
+            finalStatus = { message: networkFailureMessage(error), isError: true };
+            loadUsage();
+        } finally {
+            graphicsHtmlGenerating = false;
+            renderGraphicsHtmlWorkspace();
+            if (finalStatus) setGraphicsHtmlStatus(finalStatus.message, finalStatus.isError);
+        }
+    }
+
+    function downloadGraphicsHtmlDraft() {
+        if (!latestGraphicsHtmlPage?.dataUrl) {
+            setGraphicsHtmlStatus('Luo HTML-luonnos ennen lataamista.', true);
+            return;
+        }
+        const link = document.createElement('a');
+        link.href = latestGraphicsHtmlPage.dataUrl;
+        link.download = latestGraphicsHtmlPage.filename || 'kirjan-html-luonnos.html';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setGraphicsHtmlStatus(`HTML-tiedosto ladattu: ${latestGraphicsHtmlPage.filename}.`);
+    }
+
     function setGraphicsTab(panelId = 'graphics-panel-cover', options = {}) {
         const nextPanelId = graphicsTabPanels.some(panel => panel.id === panelId)
             ? panelId
@@ -7601,6 +7799,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (nextPanelId === 'graphics-panel-cover') {
             loadImageModels();
             loadCoverImages();
+        } else if (nextPanelId === 'graphics-panel-html') {
+            renderGraphicsHtmlWorkspace();
+            void loadCoverImages();
         } else {
             const projectId = activeGraphicProjectId();
             if (graphicAssetsLoadedProjectId !== projectId) loadGraphicAssets(false);
@@ -10667,6 +10868,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         button.addEventListener('click', () => setGraphicsTab(button.dataset.graphicsPanel));
         button.addEventListener('keydown', handleGraphicsTabKeydown);
     });
+    graphicsHtmlGenerateBtn?.addEventListener('click', generateGraphicsHtmlDraft);
+    graphicsHtmlDownloadBtn?.addEventListener('click', downloadGraphicsHtmlDraft);
     visualAddRowBtn?.addEventListener('click', () => {
         const entry = nextUnusedVisualChapterEntry();
         if (!entry) {
@@ -10755,6 +10958,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 && item.material_kind !== 'print_cover_layout')
         ));
         currentCoverImages = items;
+        renderGraphicsHtmlWorkspace();
         renderCoverLayoutSourceOptions();
         populateCoverLayoutDefaults();
         if (selectedCoverReference && !currentCoverImages.some(item => String(item.id) === String(selectedCoverReference.id))) {
@@ -10908,10 +11112,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             setIllustrationStatus('Valitse tai tallenna käsikirjoitus ennen kansikuvan generointia.');
             return;
         }
+        const requestedProjectId = window.manuscriptData.id;
         try {
-            const res = await apiFetch(`/api/projects/${window.manuscriptData.id}/cover-images`);
+            const res = await apiFetch(`/api/projects/${requestedProjectId}/cover-images`);
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || 'Kansikuvien lataus epäonnistui.');
+            if (String(window.manuscriptData?.id || '') !== String(requestedProjectId)) return;
             renderCoverImages(data || []);
             await loadLatestCoverLayout();
             if (data?.length) setIllustrationStatus('Kansikuvat ladattu.');
@@ -20648,6 +20854,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
 	        marketingContextSummary = { projectId: null, analysisAvailable: false, projectMemoryCount: 0 };
 	        populateMarketingCovers([]);
 	        clearMarketingHtmlResult();
+	        clearGraphicsHtmlResult();
 	        projectVersions = [];
         loadedVersionsProjectId = null;
         activeProjectVersionNumber = 0;
@@ -20767,6 +20974,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             latestVisualEstimate = null;
             latestVisualEstimateKey = '';
             invalidateGraphicAssetCache(true);
+            currentCoverImages = [];
+            clearGraphicsHtmlResult();
         }
         const versionsProjectChanged = String(loadedVersionsProjectId || '') !== String(data.id || '');
         if (versionsProjectChanged) {
