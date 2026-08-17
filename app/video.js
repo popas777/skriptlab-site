@@ -24,6 +24,19 @@
     failed: 'Epäonnistui',
     cancelled: 'Keskeytetty',
   };
+  const SHOT_LIMITS = Object.freeze({
+    minimumCount: 1,
+    maximumCount: 8,
+    minimumDuration: 12,
+    maximumDuration: 35,
+    minimumShotDuration: 2,
+    maximumAiShots: 3,
+  });
+  const OPENING_SCENE_PROMPTS = Object.freeze([
+    'Present the uploaded cover as the unchanged front face of a physical book resting on a simple neutral tabletop or held naturally in one hand, then make a slow, steady camera push toward the cover. Treat all existing lettering only as source-image pixels: do not generate, redraw, rewrite, replace, morph, or animate any text, and add no new readable text.',
+    'Continue by pushing through the center of the uploaded cover artwork so the original printed lettering leaves the frame naturally through camera crop while the artwork gains subtle parallax and slow cinematic motion. Do not erase, redraw, rewrite, replace, morph, or generate any letters. Keep the frame free of readable overlay text.',
+    'Let the cover artwork decelerate and settle into a completely still end frame. Do not create or render any readable text; the title, author, and campaign copy are added later as deterministic video overlays.',
+  ]);
 
   const elements = {};
   const state = {
@@ -113,7 +126,7 @@
       id: String(raw?.id || raw?.shot_id || `shot_${index + 1}`),
       order: index,
       kind: ['ai_motion', 'kenburns', 'card'].includes(raw?.kind) ? raw.kind : 'kenburns',
-      title: String(raw?.title || raw?.name || overlay.title || overlay.quote || overlay.cta || `Kohtaus ${index + 1}`),
+      title: String(raw?.title || raw?.name || overlay.title || ''),
       duration_s: Math.max(2, Math.min(20, Math.round(Number(raw?.duration_s || raw?.duration || 4)))),
       prompt: String(raw?.motion_prompt || raw?.prompt || raw?.visual_prompt || ''),
       overlay_text: String(overlayText),
@@ -164,6 +177,109 @@
 
   function totalDuration() {
     return (state.shotlist?.shots || []).reduce((sum, shot) => sum + Number(shot.duration_s || 0), 0);
+  }
+
+  function minimumDurationForShot(shot) {
+    return shot?.kind === 'ai_motion' ? 5 : SHOT_LIMITS.minimumShotDuration;
+  }
+
+  function shotlistDurationIsValid() {
+    const duration = totalDuration();
+    return duration >= SHOT_LIMITS.minimumDuration && duration <= SHOT_LIMITS.maximumDuration;
+  }
+
+  function canAddShot() {
+    const shots = state.shotlist?.shots || [];
+    return shots.length < SHOT_LIMITS.maximumCount
+      && totalDuration() + SHOT_LIMITS.minimumShotDuration <= SHOT_LIMITS.maximumDuration;
+  }
+
+  function canRemoveShot(shot) {
+    const shots = state.shotlist?.shots || [];
+    return shots.length > SHOT_LIMITS.minimumCount
+      && totalDuration() - Number(shot?.duration_s || 0) >= SHOT_LIMITS.minimumDuration;
+  }
+
+  function coverIsAvailable() {
+    const cover = state.context?.cover;
+    return Boolean(cover?.id || cover?.url || cover?.data_url || cover?.content_data_url);
+  }
+
+  function openingSceneOverlay() {
+    const project = state.context?.project || {};
+    const marketing = state.context?.marketing || {};
+    const title = String(project.title || state.context?.title || 'Kirjan nimi').trim();
+    const author = String(project.author || state.context?.author || '').trim();
+    const tagline = String(marketing.tagline || marketing.short || '').trim();
+    return {
+      title: title || null,
+      subtitle: author || null,
+      cta: tagline || null,
+      position: 'center',
+    };
+  }
+
+  function ensureThreeOpeningScenes(shotlist) {
+    if (!shotlist?.shots) return false;
+    let changed = false;
+    while (shotlist.shots.length < 3) {
+      const donor = shotlist.shots
+        .map((shot, index) => ({ shot, index, spare: shot.duration_s - minimumDurationForShot(shot) }))
+        .sort((left, right) => right.spare - left.spare)[0];
+      if (!donor || donor.spare < SHOT_LIMITS.minimumShotDuration) break;
+      const duration = Math.min(4, donor.spare);
+      donor.shot.duration_s -= duration;
+      const index = shotlist.shots.length;
+      shotlist.shots.push(normalizeShot({
+        id: `shot_opening_${Date.now()}_${index + 1}`,
+        kind: coverIsAvailable() ? 'kenburns' : 'card',
+        source_asset: coverIsAvailable() ? 'cover' : null,
+        duration_s: duration,
+        motion_prompt: OPENING_SCENE_PROMPTS[index],
+        zoom: coverIsAvailable() ? { from: 1.18, to: 1.18, focus: 'center' } : null,
+        overlay: {},
+      }, index));
+      changed = true;
+    }
+    return changed;
+  }
+
+  function applyOpeningSceneDefaults(shotlist) {
+    if (!shotlist?.shots?.length || !coverIsAvailable()) return false;
+    let changed = ensureThreeOpeningScenes(shotlist);
+    const finalOverlay = openingSceneOverlay();
+    shotlist.shots.slice(0, 3).forEach((shot, index) => {
+      const previous = JSON.stringify(shot);
+      const hasCover = coverIsAvailable();
+      if (hasCover && shot.kind === 'card') shot.kind = 'kenburns';
+      shot.source_asset = shot.kind === 'card' ? null : (shot.source_asset || 'cover');
+      shot.prompt = OPENING_SCENE_PROMPTS[index];
+      shot.motion_prompt = OPENING_SCENE_PROMPTS[index];
+      if (shot.kind === 'kenburns') {
+        shot.zoom = index === 0
+          ? { from: 1, to: 1.35, focus: 'center' }
+          : (index === 1
+            ? { from: 1.35, to: 2.35, focus: 'center' }
+            : { from: 2.35, to: 2.35, focus: 'center' });
+      } else {
+        shot.zoom = null;
+      }
+      if (index < 2) {
+        shot.title = '';
+        shot.overlay_text = '';
+        shot.overlay = { position: 'bottom' };
+      } else {
+        shot.title = String(finalOverlay.title || '');
+        shot.overlay_text = String(finalOverlay.cta || finalOverlay.subtitle || '');
+        shot.overlay = finalOverlay;
+      }
+      shot.order = index;
+      changed = changed || previous !== JSON.stringify(shot);
+    });
+    shotlist.target_duration_s = Math.round(
+      shotlist.shots.reduce((sum, shot) => sum + Number(shot.duration_s || 0), 0),
+    );
+    return changed;
   }
 
   function selectedProfile() {
@@ -221,12 +337,16 @@
   function syncControls() {
     const hasProject = Boolean(state.projectId && state.context);
     const hasShots = Boolean(state.shotlist?.shots?.length);
+    const validDuration = hasShots && shotlistDurationIsValid();
     const jobActive = ACTIVE_STATES.has(state.job?.state);
     elements['video-generate'].disabled = !hasProject || state.busy || jobActive;
     elements['video-regenerate'].disabled = !hasProject || !hasShots || state.busy || jobActive;
-    elements['video-add-shot'].disabled = !hasShots || state.busy || jobActive;
-    elements['video-preview'].disabled = !hasShots || state.busy || jobActive;
-    elements['video-render'].disabled = !hasShots || state.busy || jobActive;
+    elements['video-add-shot'].disabled = !hasShots || !canAddShot() || state.busy || jobActive;
+    elements['video-add-shot'].title = canAddShot()
+      ? 'Lisää kohtaus'
+      : 'Kohtauksia voi olla enintään 8 ja yhteiskesto voi olla enintään 35 sekuntia.';
+    elements['video-preview'].disabled = !validDuration || state.busy || jobActive;
+    elements['video-render'].disabled = !validDuration || state.busy || jobActive;
     elements['video-cancel'].hidden = !jobActive;
     [
       'video-duration', 'video-profile', 'video-ai-count', 'video-style',
@@ -240,7 +360,14 @@
       .forEach((input) => {
         const motionOnly = input.classList.contains('shot-motion-preset');
         const isAiMotion = input.closest('.shot-card')?.querySelector('.shot-kind')?.value === 'ai_motion';
-        input.disabled = state.busy || jobActive || (motionOnly && !isAiMotion);
+        const shot = state.shotlist?.shots?.find((item) => item.id === input.closest('.shot-card')?.dataset.shotId);
+        const cannotDelete = input.classList.contains('shot-delete') && !canRemoveShot(shot);
+        input.disabled = state.busy || jobActive || cannotDelete || (motionOnly && !isAiMotion);
+        if (input.classList.contains('shot-delete')) {
+          input.title = cannotDelete
+            ? 'Poisto laskisi videon yhteiskeston alle 12 sekunnin.'
+            : `Poista kohtaus ${Number(shot?.order || 0) + 1}`;
+        }
       });
   }
 
@@ -277,7 +404,15 @@
   function shotFieldChanged(card) {
     const shot = state.shotlist?.shots.find((item) => item.id === card.dataset.shotId);
     if (!shot) return;
-    shot.kind = card.querySelector('.shot-kind').value;
+    const kindInput = card.querySelector('.shot-kind');
+    const nextKind = kindInput.value;
+    const otherAiShots = state.shotlist.shots.filter((item) => item.id !== shot.id && item.kind === 'ai_motion').length;
+    if (nextKind === 'ai_motion' && otherAiShots >= SHOT_LIMITS.maximumAiShots) {
+      kindInput.value = shot.kind;
+      setNotice('Kuvakäsikirjoituksessa voi olla enintään kolme AI-liikekohtausta.', 'error');
+      return;
+    }
+    shot.kind = nextKind;
     const durationInput = card.querySelector('.shot-duration');
     const minimum = shot.kind === 'ai_motion' ? 5 : 2;
     const maximum = shot.kind === 'ai_motion' ? 10 : 20;
@@ -285,7 +420,7 @@
     durationInput.max = String(maximum);
     shot.duration_s = Math.max(minimum, Math.min(maximum, Math.round(Number(durationInput.value || minimum))));
     durationInput.value = String(shot.duration_s);
-    shot.title = card.querySelector('.shot-title').value.trim() || 'Nimetön kohtaus';
+    shot.title = card.querySelector('.shot-title').value.trim();
     shot.prompt = card.querySelector('.shot-prompt').value.trim();
     shot.overlay_text = card.querySelector('.shot-overlay').value.trim();
     shot.motion_preset = shot.kind === 'ai_motion'
@@ -297,12 +432,13 @@
       : (shot.prompt || null);
     shot.zoom = shot.kind === 'kenburns' ? (shot.zoom || { from: 1, to: 1.18, focus: 'center' }) : null;
     shot.overlay = shot.kind === 'card'
-      ? { ...shot.overlay, title: shot.title, cta: shot.overlay_text || null, quote: null, position: 'center' }
-      : { ...shot.overlay, title: shot.title, quote: shot.overlay_text || null, cta: null, position: shot.overlay?.position || 'bottom' };
+      ? { ...shot.overlay, title: shot.title || null, cta: shot.overlay_text || null, quote: null, position: 'center' }
+      : { ...shot.overlay, title: shot.title || null, quote: shot.overlay_text || null, cta: null, position: shot.overlay?.position || 'bottom' };
     syncShotMotionEditor(card, shot);
     state.shotlist.target_duration_s = Math.round(totalDuration());
     renderSummary();
     renderPreviewCaption();
+    syncControls();
     scheduleSave();
     scheduleEstimate();
   }
@@ -310,25 +446,39 @@
   function renderShotCard(shot, index) {
     const fragment = elements['video-shot-template'].content.cloneNode(true);
     const card = fragment.querySelector('.shot-card');
+    const sceneNumber = index + 1;
     card.dataset.shotId = shot.id;
-    card.querySelector('.shot-number').textContent = String(index + 1).padStart(2, '0');
-    card.querySelector('.shot-kind').value = shot.kind;
+    card.setAttribute('aria-label', `Kohtaus ${sceneNumber}`);
+    card.querySelector('.shot-number').textContent = String(sceneNumber).padStart(2, '0');
+    card.querySelector('.shot-number').setAttribute('aria-hidden', 'true');
+    const kindInput = card.querySelector('.shot-kind');
+    kindInput.value = shot.kind;
+    kindInput.setAttribute('aria-label', `Kohtauksen ${sceneNumber} tyyppi`);
     const durationInput = card.querySelector('.shot-duration');
     durationInput.min = shot.kind === 'ai_motion' ? '5' : '2';
     durationInput.max = shot.kind === 'ai_motion' ? '10' : '20';
     durationInput.value = String(shot.duration_s);
-    card.querySelector('.shot-title').value = shot.title;
-    card.querySelector('.shot-prompt').value = shot.prompt;
-    card.querySelector('.shot-overlay').value = shot.overlay_text;
+    durationInput.setAttribute('aria-label', `Kohtauksen ${sceneNumber} kesto sekunteina`);
+    const titleInput = card.querySelector('.shot-title');
+    titleInput.value = shot.title;
+    titleInput.setAttribute('aria-label', `Kohtauksen ${sceneNumber} ruudulla näkyvä otsikko`);
+    const promptInput = card.querySelector('.shot-prompt');
+    promptInput.value = shot.prompt;
+    promptInput.setAttribute('aria-label', `Kohtauksen ${sceneNumber} liike- ja kuvausprompti`);
+    const overlayInput = card.querySelector('.shot-overlay');
+    overlayInput.value = shot.overlay_text;
+    overlayInput.setAttribute('aria-label', `Kohtauksen ${sceneNumber} muu ruudulla näkyvä teksti`);
     card.querySelector('.shot-motion-preset').value = shot.motion_preset || '';
     syncShotMotionEditor(card, shot);
     card.querySelectorAll('input, select, textarea').forEach((input) => {
       input.addEventListener('input', () => shotFieldChanged(card));
       input.addEventListener('change', () => shotFieldChanged(card));
     });
-    card.querySelector('.shot-delete').addEventListener('click', () => removeShot(shot.id));
+    const deleteButton = card.querySelector('.shot-delete');
+    deleteButton.setAttribute('aria-label', `Poista kohtaus ${sceneNumber}`);
+    deleteButton.addEventListener('click', () => removeShot(shot.id));
     const dragHandle = card.querySelector('.drag-handle');
-    dragHandle.setAttribute('aria-label', `Siirrä kohtausta ${index + 1} nuolinäppäimillä`);
+    dragHandle.setAttribute('aria-label', `Siirrä kohtausta ${sceneNumber} nuolinäppäimillä`);
     dragHandle.addEventListener('keydown', (event) => {
       if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
       event.preventDefault();
@@ -563,7 +713,10 @@
       state.shotlist = normalizeShotlist(payload);
       if (!state.shotlist?.id) throw new Error('Kuvakäsikirjoitusta ei voitu tallentaa.');
       resetSaveState();
+      const defaultsApplied = applyOpeningSceneDefaults(state.shotlist);
+      if (defaultsApplied) state.editRevision += 1;
       renderShotlist();
+      if (defaultsApplied && !await saveShotlist()) return;
       await refreshEstimate('final');
       setNotice(payload?.warning || 'Kuvakäsikirjoitus on valmis muokattavaksi.', 'ready');
     } catch (error) {
@@ -585,6 +738,11 @@
     window.clearTimeout(state.saveTimer);
     state.saveTimer = null;
     if (!state.shotlist?.id || ACTIVE_STATES.has(state.job?.state)) return false;
+    if (!shotlistDurationIsValid()) {
+      setNotice('Kohtausten yhteiskeston pitää olla 12–35 sekuntia ennen tallennusta.', 'error');
+      syncControls();
+      return false;
+    }
 
     if (state.savePromise) {
       const priorSaved = await state.savePromise;
@@ -787,27 +945,38 @@
 
   function addShot() {
     if (!state.shotlist) return;
-    if (state.shotlist.shots.length >= 8) {
-      setNotice('Kuvakäsikirjoituksessa voi olla enintään kahdeksan kohtausta.', 'error');
+    if (!canAddShot()) {
+      setNotice('Kohtausta ei voi lisätä: enimmäismäärä on 8 ja yhteiskeston raja 35 sekuntia.', 'error');
       return;
     }
     const index = state.shotlist.shots.length;
+    const duration = Math.min(3, SHOT_LIMITS.maximumDuration - totalDuration());
+    const shotId = `shot_${Date.now()}_${index + 1}`;
     state.shotlist.shots.push(normalizeShot({
-      id: `shot_${Date.now()}`,
-      title: 'Uusi kohtaus',
+      id: shotId,
+      title: '',
       kind: 'kenburns',
-      duration_s: 3,
-      prompt: 'Rauhallinen liike kansikuvan yksityiskohdissa.',
+      duration_s: duration,
+      prompt: 'Continue the established visual story with a calm cinematic move across the book-cover artwork. Preserve the original artwork and typography exactly; no distortion, melting, morphing, or invented lettering.',
       overlay_text: '',
     }, index));
     renderShotlist();
     scheduleSave();
     scheduleEstimate();
+    setNotice(`Kohtaus ${index + 1} lisättiin.`, 'ready');
+    window.requestAnimationFrame(() => {
+      Array.from(document.querySelectorAll('.shot-card'))
+        .find((card) => card.dataset.shotId === shotId)
+        ?.querySelector('.shot-prompt')?.focus();
+    });
   }
 
   function removeShot(shotId) {
-    if (!state.shotlist || state.shotlist.shots.length <= 1) {
-      setNotice('Videossa täytyy olla vähintään yksi kohtaus.', 'error');
+    if (!state.shotlist) return;
+    const removedIndex = state.shotlist.shots.findIndex((shot) => shot.id === shotId);
+    const removedShot = state.shotlist.shots[removedIndex];
+    if (!removedShot || !canRemoveShot(removedShot)) {
+      setNotice('Kohtausta ei voi poistaa, jos videon yhteiskesto laskisi alle 12 sekunnin.', 'error');
       return;
     }
     state.shotlist.shots = state.shotlist.shots.filter((shot) => shot.id !== shotId)
@@ -815,6 +984,18 @@
     renderShotlist();
     scheduleSave();
     scheduleEstimate();
+    setNotice(`Kohtaus ${removedIndex + 1} poistettiin.`, 'ready');
+    window.requestAnimationFrame(() => {
+      const nextIndex = Math.min(removedIndex, state.shotlist.shots.length - 1);
+      const nextShot = state.shotlist.shots[nextIndex];
+      if (nextShot) {
+        Array.from(document.querySelectorAll('.shot-card'))
+          .find((card) => card.dataset.shotId === nextShot.id)
+          ?.querySelector('.drag-handle')?.focus();
+      } else {
+        elements['video-add-shot'].focus();
+      }
+    });
   }
 
   function reorderShot(sourceId, targetId) {

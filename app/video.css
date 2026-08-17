@@ -719,6 +719,14 @@ button:disabled {
   font-size: 12px;
 }
 
+.shotlist-footer small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
 .format-badge {
   padding: 5px 8px;
   border: 1px solid var(--line-dark);

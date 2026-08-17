@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="video.css?v=3">
+  <link rel="stylesheet" href="video.css?v=4">
 </head>
 <body>
   <main class="video-studio" aria-labelledby="video-title">
@@ -124,8 +124,11 @@
         </div>
 
         <div class="shotlist-footer">
-          <p id="video-shot-summary">0 kohtausta · 0 sekuntia</p>
-          <button class="secondary-action small" id="video-add-shot" type="button" disabled>+ Lisää kohtaus</button>
+          <div>
+            <p id="video-shot-summary">0 kohtausta · 0 sekuntia</p>
+            <small id="video-shot-limits">1–8 kohtausta · yhteiskesto 12–35 sekuntia</small>
+          </div>
+          <button class="secondary-action small" id="video-add-shot" type="button" aria-describedby="video-shot-limits" disabled>+ Lisää kohtaus</button>
         </div>
       </section>
 
@@ -218,8 +221,8 @@
             </select>
           </label>
         </div>
-        <input class="shot-title" type="text" maxlength="120" aria-label="Kohtauksen nimi">
-        <textarea class="shot-prompt" rows="2" maxlength="1000" aria-label="Kohtauksen kuvaus"></textarea>
+        <input class="shot-title" type="text" maxlength="120" aria-label="Ruudulla näkyvä otsikko" placeholder="Ruudulla näkyvä otsikko (valinnainen)">
+        <textarea class="shot-prompt" rows="2" maxlength="1000" aria-label="Kohtauksen liike- ja kuvausprompti" placeholder="Kohtauksen liike- ja kuvausprompti"></textarea>
         <input class="shot-overlay" type="text" maxlength="240" aria-label="Ruudulla näkyvä teksti" placeholder="Ruudulla näkyvä teksti">
       </div>
     </article>
@@ -231,6 +234,6 @@
     const apiUrl = (path) => `${API_BASE_URL}${path}`;
   </script>
   <script src="auth.js?v=2"></script>
-  <script src="video.js?v=6"></script>
+  <script src="video.js?v=7"></script>
 </body>
 </html>
