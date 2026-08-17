@@ -25932,7 +25932,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const params = new URLSearchParams();
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '6');
+        params.set('v', '7');
         frame.dataset.videoProjectId = String(projectId);
         updateEmbeddedModuleFrame(frame, 'video.html', params);
     }
