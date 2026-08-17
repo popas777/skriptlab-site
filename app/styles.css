@@ -4354,7 +4354,8 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 }
 .manuskripti-frame,
 .tyosto-frame,
-.tuotanto-frame {
+.tuotanto-frame,
+.video-studio-frame {
     display: block;
     width: 100%;
     min-height: calc(100vh - 120px);
@@ -12567,4 +12568,8 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     .top-bar-right { max-width: 64vw; }
     .top-version-badge { display: none; }
     .manuscript-badge { max-width: 100%; }
+}
+.sidebar-nav li[data-view]:focus-visible {
+    outline: 3px solid rgba(61, 91, 72, 0.35);
+    outline-offset: -3px;
 }

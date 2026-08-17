@@ -664,10 +664,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     const fullWorkspaceRoles = new Set(['admin', 'test_user']);
-    const writerViews = new Set(['view-kirjani', 'view-analyysi', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-oikoluku', 'view-kuvitus', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-julkaisupaketti', 'view-audio', 'view-viimeistely', 'view-korjaukset']);
+    const writerViews = new Set(['view-kirjani', 'view-analyysi', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-oikoluku', 'view-kuvitus', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-julkaisupaketti', 'view-audio', 'view-video', 'view-viimeistely', 'view-korjaukset']);
     const betaCoreViews = new Set([...writerViews, 'view-monikielinen-julkaisu', 'view-markkinointi']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset', 'view-kaannostyotila']);
-    const biographyViews = new Set(['view-kirjani', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-ai-tyonkulku', 'view-viimeistely', 'view-korjaukset', 'view-elamakerta', 'view-oikoluku', 'view-kuvitus', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-markkinointi', 'view-audio', 'view-julkaisupaketti', 'view-julkaise']);
+    const biographyViews = new Set(['view-kirjani', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-ai-tyonkulku', 'view-viimeistely', 'view-korjaukset', 'view-elamakerta', 'view-oikoluku', 'view-kuvitus', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-markkinointi', 'view-audio', 'view-video', 'view-julkaisupaketti', 'view-julkaise']);
     const accessModuleViews = {
         manuscripts: ['view-kirjani'],
         analysis: ['view-analyysi'],
@@ -689,6 +689,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         product_info: ['view-tuotetiedot'],
         marketing: ['view-markkinointi'],
         audio: ['view-audio'],
+        video: ['view-video'],
         contracts: ['view-sopimukset'],
         timeline: ['view-aikajana'],
         versions: ['view-viimeistely'],
@@ -4786,6 +4787,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         'view-taitto',
         'view-kaannokset',
         'view-audio',
+        'view-video',
         'view-julkaisupaketti',
         'view-monikielinen-julkaisu'
     ];
@@ -4919,13 +4921,18 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         navItems.forEach(item => {
             if(item.getAttribute('data-view') === navViewFor(currentViewId)) {
                 item.classList.add('active');
+                item.setAttribute('aria-current', 'page');
             } else {
                 item.classList.remove('active');
+                item.removeAttribute('aria-current');
             }
         });
         refreshModuleMenuOverflow();
         if (['view-oheisaineistot', 'view-taitto'].includes(viewId)) {
             refreshTuotantoFrame(viewId);
+        }
+        if (viewId === 'view-video') {
+            refreshVideoFrame();
         }
         if (['view-kirjani', 'view-analyysi', 'view-rakenne'].includes(viewId)) {
             refreshManuskriptiFrame(viewId);
@@ -4981,6 +4988,13 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     navItems.forEach(item => {
+        item.setAttribute('role', 'button');
+        item.tabIndex = 0;
+        item.addEventListener('keydown', event => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            item.click();
+        });
         item.addEventListener('click', () => {
             const nextViewId = item.getAttribute('data-view');
             persistPendingModuleEdits(nextViewId);
@@ -20904,6 +20918,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (['view-oheisaineistot', 'view-taitto'].includes(currentViewId)) {
             refreshTuotantoFrame(currentViewId);
         }
+        if (currentViewId === 'view-video') refreshVideoFrame();
         renderCoverImages([]);
         visualRowsInitializedProjectId = null;
         renderVisualBatchDefaults(true);
@@ -21012,6 +21027,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
         if (!options.skipTuotantoFrameRefresh && ['view-oheisaineistot', 'view-taitto'].includes(currentViewId)) {
             refreshTuotantoFrame(currentViewId);
+        }
+        if (!options.skipVideoFrameRefresh && currentViewId === 'view-video') {
+            refreshVideoFrame();
         }
         renderAnalysisSummary(window.manuscriptData.analysis);
         renderProductInfo(true);
@@ -25894,6 +25912,29 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         params.set('r', embeddedProjectRevision());
         params.set('v', '17');
         updateEmbeddedModuleFrame(frame, 'tuotanto.html', params);
+    }
+
+    function refreshVideoFrame() {
+        const frame = document.getElementById('video-studio-frame');
+        if (!frame) return;
+        const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
+        try {
+            if (frame.contentWindow && frame.dataset.videoProjectId === String(projectId)) {
+                frame.contentWindow.postMessage({
+                    type: 'skriptlab:video-project-changed',
+                    projectId: projectId || null
+                }, window.location.origin);
+                return;
+            }
+        } catch (err) {
+            // Reload the frame if it is not ready for a same-origin message yet.
+        }
+        const params = new URLSearchParams();
+        if (projectId) params.set('project', projectId);
+        params.set('r', embeddedProjectRevision());
+        params.set('v', '6');
+        frame.dataset.videoProjectId = String(projectId);
+        updateEmbeddedModuleFrame(frame, 'video.html', params);
     }
 
     function refreshElamakertaFrame() {

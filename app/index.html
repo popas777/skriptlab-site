@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=99">
+    <link rel="stylesheet" href="styles.css?v=100">
     <link rel="stylesheet" href="workflow-studio.css?v=2">
     <link rel="stylesheet" href="correction-reprints.css?v=1">
 </head>
@@ -147,6 +147,7 @@
                     <li data-view="view-elamakerta">Elämäkerta</li>
                     <li data-view="view-markkinointi">Markkinointi</li>
                     <li data-view="view-audio">Audiotuotanto</li>
+                    <li data-view="view-video">Videostudio</li>
                     <li data-view="view-julkaise">Painatus ja kustantaminen</li>
                     <li data-view="view-sopimukset">Sopimukset</li>
                     <li data-view="view-aikajana">Aikajana</li>
@@ -2816,7 +2817,18 @@
                 ></iframe>
             </div>
 
-            <!-- 10. VIEW: AUDIO -->
+            <!-- 10. VIEW: VIDEO -->
+            <div id="view-video" class="view-section hidden">
+                <iframe
+                    id="video-studio-frame"
+                    class="video-studio-frame"
+                    title="Videostudio"
+                    src="video.html?v=6"
+                    loading="lazy"
+                ></iframe>
+            </div>
+
+            <!-- 11. VIEW: AUDIO -->
             <div id="view-audio" class="view-section editorial-paper-workspace audio-modern-workspace hidden">
                 <div class="header audio-header">
                     <div class="header-info">
@@ -4166,6 +4178,6 @@
     <script src="workflow-studio.js?v=3"></script>
     <script src="correction-reprints.js?v=1"></script>
     <script src="demo-terminology.js?v=1"></script>
-    <script src="app.js?v=180"></script>
+    <script src="app.js?v=181"></script>
 </body>
 </html>
