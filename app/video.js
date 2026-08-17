@@ -37,6 +37,16 @@
     'Continue by pushing through the center of the uploaded cover artwork so the original printed lettering leaves the frame naturally through camera crop while the artwork gains subtle parallax and slow cinematic motion. Do not erase, redraw, rewrite, replace, morph, or generate any letters. Keep the frame free of readable overlay text.',
     'Let the cover artwork decelerate and settle into a completely still end frame. Do not create or render any readable text; the title, author, and campaign copy are added later as deterministic video overlays.',
   ]);
+  const LOCAL_ANIMATION_PRESETS = Object.freeze({
+    zoom_in: Object.freeze({ from: 1, to: 1.18, focus: 'center' }),
+    zoom_out: Object.freeze({ from: 1.18, to: 1, focus: 'center' }),
+    pan_left: Object.freeze({ from: 1.18, to: 1.18, focus: 'pan-left' }),
+    pan_right: Object.freeze({ from: 1.18, to: 1.18, focus: 'pan-right' }),
+    still: Object.freeze({ from: 1, to: 1, focus: 'center' }),
+  });
+  const FALLBACK_AI_VIDEO_MODELS = Object.freeze([
+    Object.freeze({ id: 'dop-turbo', label: 'Higgsfield DoP Turbo' }),
+  ]);
 
   const elements = {};
   const state = {
@@ -133,6 +143,7 @@
       source_asset: raw?.source_asset ?? (raw?.kind === 'card' ? null : 'cover'),
       motion_prompt: String(raw?.motion_prompt || raw?.prompt || ''),
       motion_preset: raw?.motion_preset || null,
+      model_name: raw?.model_name || null,
       motion_strength: Number(raw?.motion_strength ?? 0.5),
       zoom: raw?.zoom || (raw?.kind === 'kenburns' ? { from: 1, to: 1.18, focus: 'center' } : null),
       overlay,
@@ -358,11 +369,13 @@
     syncVoiceoverAvailability();
     document.querySelectorAll('.shot-card input, .shot-card select, .shot-card textarea, .shot-card button')
       .forEach((input) => {
-        const motionOnly = input.classList.contains('shot-motion-preset');
+        const aiOnly = input.classList.contains('shot-motion-preset') || input.classList.contains('shot-ai-model');
+        const animationOnly = input.classList.contains('shot-animation-preset');
         const isAiMotion = input.closest('.shot-card')?.querySelector('.shot-kind')?.value === 'ai_motion';
+        const isAnimation = input.closest('.shot-card')?.querySelector('.shot-kind')?.value === 'kenburns';
         const shot = state.shotlist?.shots?.find((item) => item.id === input.closest('.shot-card')?.dataset.shotId);
         const cannotDelete = input.classList.contains('shot-delete') && !canRemoveShot(shot);
-        input.disabled = state.busy || jobActive || cannotDelete || (motionOnly && !isAiMotion);
+        input.disabled = state.busy || jobActive || cannotDelete || (aiOnly && !isAiMotion) || (animationOnly && !isAnimation);
         if (input.classList.contains('shot-delete')) {
           input.title = cannotDelete
             ? 'Poisto laskisi videon yhteiskeston alle 12 sekunnin.'
@@ -392,24 +405,79 @@
     elements['video-preview-duration'].textContent = `${Math.round(totalDuration() || Number(elements['video-duration'].value))} s`;
   }
 
-  function syncShotMotionEditor(card, shot) {
-    const settings = card.querySelector('.shot-motion-settings');
-    const select = card.querySelector('.shot-motion-preset');
-    const isAiMotion = shot.kind === 'ai_motion';
-    settings.hidden = !isAiMotion;
-    select.disabled = !isAiMotion || state.busy || ACTIVE_STATES.has(state.job?.state);
-    select.setAttribute('aria-label', `Kohtauksen ${shot.order + 1} AI-liikepresetti`);
+  function availableAiVideoModels() {
+    const configured = state.presets?.provider?.ai_video_models;
+    return Array.isArray(configured) && configured.length ? configured : FALLBACK_AI_VIDEO_MODELS;
   }
 
-  function shotFieldChanged(card) {
+  function defaultAiVideoModel() {
+    const models = availableAiVideoModels();
+    const preferred = String(state.presets?.provider?.final_model || '');
+    return models.some((model) => String(model.id) === preferred) ? preferred : String(models[0]?.id || 'dop-turbo');
+  }
+
+  function populateAiModelSelect(select, selectedModel) {
+    const models = availableAiVideoModels();
+    select.replaceChildren(...models.map((model) => {
+      const option = document.createElement('option');
+      option.value = String(model.id || '');
+      option.textContent = String(model.label || model.id || 'AI-videomalli');
+      return option;
+    }));
+    select.value = models.some((model) => String(model.id) === String(selectedModel || ''))
+      ? String(selectedModel)
+      : defaultAiVideoModel();
+  }
+
+  function localAnimationPresetForShot(shot) {
+    if (Object.prototype.hasOwnProperty.call(LOCAL_ANIMATION_PRESETS, shot.motion_preset)) {
+      return shot.motion_preset;
+    }
+    const zoom = shot.zoom || {};
+    const focus = String(zoom.focus || '').replaceAll('_', '-');
+    if (focus === 'pan-left') return 'pan_left';
+    if (focus === 'pan-right') return 'pan_right';
+    const from = Number(zoom.from ?? zoom.from_ ?? 1);
+    const to = Number(zoom.to ?? 1.18);
+    if (Math.abs(from - to) < 0.001) return 'still';
+    return from > to ? 'zoom_out' : 'zoom_in';
+  }
+
+  function zoomForLocalAnimation(preset) {
+    return { ...(LOCAL_ANIMATION_PRESETS[preset] || LOCAL_ANIMATION_PRESETS.zoom_in) };
+  }
+
+  function syncShotTypeEditors(card, shot) {
+    const animationSettings = card.querySelector('.shot-animation-settings');
+    const animationSelect = card.querySelector('.shot-animation-preset');
+    const modelSettings = card.querySelector('.shot-model-settings');
+    const modelSelect = card.querySelector('.shot-ai-model');
+    const motionSettings = card.querySelector('.shot-motion-settings');
+    const motionSelect = card.querySelector('.shot-motion-preset');
+    const isAiMotion = shot.kind === 'ai_motion';
+    const isAnimation = shot.kind === 'kenburns';
+    const locked = state.busy || ACTIVE_STATES.has(state.job?.state);
+    animationSettings.hidden = !isAnimation;
+    modelSettings.hidden = !isAiMotion;
+    motionSettings.hidden = !isAiMotion;
+    animationSelect.disabled = !isAnimation || locked;
+    modelSelect.disabled = !isAiMotion || locked;
+    motionSelect.disabled = !isAiMotion || locked;
+    animationSelect.setAttribute('aria-label', `Kohtauksen ${shot.order + 1} kuva-animointi`);
+    modelSelect.setAttribute('aria-label', `Kohtauksen ${shot.order + 1} AI-videomalli`);
+    motionSelect.setAttribute('aria-label', `Kohtauksen ${shot.order + 1} AI-videon kameraliike`);
+  }
+
+  function shotFieldChanged(card, changedInput = null) {
     const shot = state.shotlist?.shots.find((item) => item.id === card.dataset.shotId);
     if (!shot) return;
     const kindInput = card.querySelector('.shot-kind');
     const nextKind = kindInput.value;
+    const kindChanged = nextKind !== shot.kind;
     const otherAiShots = state.shotlist.shots.filter((item) => item.id !== shot.id && item.kind === 'ai_motion').length;
     if (nextKind === 'ai_motion' && otherAiShots >= SHOT_LIMITS.maximumAiShots) {
       kindInput.value = shot.kind;
-      setNotice('Kuvakäsikirjoituksessa voi olla enintään kolme AI-liikekohtausta.', 'error');
+      setNotice('Kuvakäsikirjoituksessa voi olla enintään kolme AI-videokohtausta.', 'error');
       return;
     }
     shot.kind = nextKind;
@@ -423,18 +491,30 @@
     shot.title = card.querySelector('.shot-title').value.trim();
     shot.prompt = card.querySelector('.shot-prompt').value.trim();
     shot.overlay_text = card.querySelector('.shot-overlay').value.trim();
-    shot.motion_preset = shot.kind === 'ai_motion'
-      ? (card.querySelector('.shot-motion-preset').value || null)
-      : shot.motion_preset;
     shot.source_asset = shot.kind === 'card' ? null : (shot.source_asset || 'cover');
-    shot.motion_prompt = shot.kind === 'ai_motion'
-      ? (shot.prompt || 'Slow cinematic camera movement. Preserve all book-cover typography exactly; no text distortion or morphing.')
-      : (shot.prompt || null);
-    shot.zoom = shot.kind === 'kenburns' ? (shot.zoom || { from: 1, to: 1.18, focus: 'center' }) : null;
+    if (shot.kind === 'ai_motion') {
+      shot.motion_preset = card.querySelector('.shot-motion-preset').value || null;
+      shot.model_name = card.querySelector('.shot-ai-model').value || defaultAiVideoModel();
+      shot.motion_prompt = shot.prompt || 'Slow cinematic camera movement. Preserve all book-cover typography exactly; no text distortion or morphing.';
+      shot.zoom = null;
+    } else if (shot.kind === 'kenburns') {
+      const localPreset = card.querySelector('.shot-animation-preset').value || 'zoom_in';
+      shot.motion_preset = localPreset;
+      shot.model_name = null;
+      shot.motion_prompt = shot.prompt || null;
+      if (kindChanged || changedInput?.classList.contains('shot-animation-preset') || !shot.zoom) {
+        shot.zoom = zoomForLocalAnimation(localPreset);
+      }
+    } else {
+      shot.motion_preset = null;
+      shot.model_name = null;
+      shot.motion_prompt = shot.prompt || null;
+      shot.zoom = null;
+    }
     shot.overlay = shot.kind === 'card'
       ? { ...shot.overlay, title: shot.title || null, cta: shot.overlay_text || null, quote: null, position: 'center' }
       : { ...shot.overlay, title: shot.title || null, quote: shot.overlay_text || null, cta: null, position: shot.overlay?.position || 'bottom' };
-    syncShotMotionEditor(card, shot);
+    syncShotTypeEditors(card, shot);
     state.shotlist.target_duration_s = Math.round(totalDuration());
     renderSummary();
     renderPreviewCaption();
@@ -468,11 +548,13 @@
     const overlayInput = card.querySelector('.shot-overlay');
     overlayInput.value = shot.overlay_text;
     overlayInput.setAttribute('aria-label', `Kohtauksen ${sceneNumber} muu ruudulla näkyvä teksti`);
-    card.querySelector('.shot-motion-preset').value = shot.motion_preset || '';
-    syncShotMotionEditor(card, shot);
+    card.querySelector('.shot-animation-preset').value = localAnimationPresetForShot(shot);
+    populateAiModelSelect(card.querySelector('.shot-ai-model'), shot.model_name);
+    card.querySelector('.shot-motion-preset').value = shot.kind === 'ai_motion' ? (shot.motion_preset || '') : '';
+    syncShotTypeEditors(card, shot);
     card.querySelectorAll('input, select, textarea').forEach((input) => {
-      input.addEventListener('input', () => shotFieldChanged(card));
-      input.addEventListener('change', () => shotFieldChanged(card));
+      input.addEventListener('input', () => shotFieldChanged(card, input));
+      input.addEventListener('change', () => shotFieldChanged(card, input));
     });
     const deleteButton = card.querySelector('.shot-delete');
     deleteButton.setAttribute('aria-label', `Poista kohtaus ${sceneNumber}`);
@@ -563,8 +645,8 @@
       const failed = Boolean(clip.error) && clip.state !== 'completed';
       const fallback = Boolean(clip.error) && clip.state === 'completed';
       const provider = clip.provider === 'higgsfield'
-        ? 'AI-klippi'
-        : (clip.provider === 'card' ? 'Tekstikortti' : 'Paikallinen liike');
+        ? 'AI-video'
+        : (clip.provider === 'card' ? 'Tekstikortti' : 'Kuva-animointi');
       const label = fallback
         ? 'Valmis varapolulla'
         : (failed ? 'Epäonnistui' : (CLIP_STATE_LABELS[clip.state] || clip.state));
@@ -600,7 +682,7 @@
     const tierLabel = state.estimateTier === 'preview' ? 'AI-esikatselu' : 'Lopullinen renderöinti';
     elements['video-cost-note'].textContent = amount > 0
       ? `${tierLabel}: ${clipCount} maksullista AI-klippiä, ${profileCount} ${profileCount === 1 ? 'formaatti' : 'formaattia'} · ${provider}. Hinta vahvistetaan ennen ajoa; kansikuva ja liikeprompti lähetetään Higgsfieldille.`
-      : `${tierLabel}: paikallinen Ken Burns -koostaminen ei käytä maksullista videomallia.`;
+      : `${tierLabel}: paikallinen kuva-animointi ei käytä maksullista videomallia.`;
   }
 
   function jobOutput(job) {
@@ -680,7 +762,8 @@
         source_asset: shot.kind === 'card' ? null : (shot.source_asset || 'cover'),
         duration_s: Math.round(shot.duration_s),
         motion_prompt: shot.kind === 'ai_motion' ? (shot.motion_prompt || shot.prompt) : (shot.motion_prompt || null),
-        motion_preset: shot.kind === 'ai_motion' ? (shot.motion_preset || null) : null,
+        motion_preset: ['ai_motion', 'kenburns'].includes(shot.kind) ? (shot.motion_preset || null) : null,
+        model_name: shot.kind === 'ai_motion' ? (shot.model_name || defaultAiVideoModel()) : null,
         motion_strength: Number(shot.motion_strength ?? 0.5),
         zoom: shot.kind === 'kenburns' ? (shot.zoom || { from: 1, to: 1.18, focus: 'center' }) : null,
         overlay: shot.overlay || {},
@@ -1091,7 +1174,7 @@
         elements['video-ai-count'].value = String(maxAiClips);
       }
       if (!aiVideoAvailable || maxAiClips === 0) {
-        elements['video-ai-count'].title = 'Ulkoinen AI-videopalvelu ei ole käytössä. Paikallinen Ken Burns -renderöinti on saatavilla.';
+        elements['video-ai-count'].title = 'Ulkoinen AI-videopalvelu ei ole käytössä. Paikallinen kuva-animointi on saatavilla.';
       } else {
         elements['video-ai-count'].removeAttribute('title');
       }

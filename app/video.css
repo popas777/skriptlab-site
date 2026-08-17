@@ -652,17 +652,28 @@ button:disabled {
   color: var(--danger);
 }
 
+.shot-type-settings {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.shot-animation-settings,
+.shot-model-settings,
 .shot-motion-settings {
   display: grid;
   grid-template-columns: auto minmax(150px, 220px);
   align-items: center;
   gap: 7px;
-  margin-left: auto;
   color: var(--muted);
   font-size: 10px;
   font-weight: 700;
 }
 
+.shot-animation-settings select,
+.shot-model-settings select,
 .shot-motion-settings select {
   min-width: 150px;
 }
@@ -1098,14 +1109,20 @@ button:disabled {
   }
 
   .shot-render-meta,
-  .shot-motion-settings {
+  .shot-type-settings {
     align-items: stretch;
     flex-direction: column;
   }
 
+  .shot-animation-settings,
+  .shot-model-settings,
   .shot-motion-settings {
     display: grid;
     grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .shot-type-settings {
     width: 100%;
     margin-left: 0;
   }

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="video.css?v=4">
+  <link rel="stylesheet" href="video.css?v=5">
 </head>
 <body>
   <main class="video-studio" aria-labelledby="video-title">
@@ -198,8 +198,8 @@
       <div class="shot-copy">
         <div class="shot-topline">
           <select class="shot-kind" aria-label="Kohtauksen tyyppi">
-            <option value="kenburns">Kuva · Ken Burns</option>
-            <option value="ai_motion">AI-liike</option>
+            <option value="kenburns">Kuva-animointi</option>
+            <option value="ai_motion">AI-video</option>
             <option value="card">Tekstikortti</option>
           </select>
           <label class="shot-duration-label"><input class="shot-duration" type="number" min="2" max="20" step="1"> s</label>
@@ -209,17 +209,35 @@
         </div>
         <div class="shot-render-meta">
           <span class="shot-clip-status" role="status" aria-live="polite" hidden></span>
-          <label class="shot-motion-settings" hidden>
-            <span>AI-liikepresetti</span>
-            <select class="shot-motion-preset">
-              <option value="">Automaattinen</option>
-              <option value="dolly_in">Hidas ajo sisään</option>
-              <option value="dolly_out">Hidas ajo ulos</option>
-              <option value="slow_pan_right">Hidas panorointi oikealle</option>
-              <option value="slow_pan_left">Hidas panorointi vasemmalle</option>
-              <option value="orbit_left">Kevyt kierto vasemmalle</option>
-            </select>
-          </label>
+          <div class="shot-type-settings">
+            <label class="shot-animation-settings" hidden>
+              <span>Animointi</span>
+              <select class="shot-animation-preset">
+                <option value="zoom_in">Hidas zoom sisään</option>
+                <option value="zoom_out">Hidas zoom ulos</option>
+                <option value="pan_left">Panorointi vasemmalle</option>
+                <option value="pan_right">Panorointi oikealle</option>
+                <option value="still">Pysäytyskuva</option>
+              </select>
+            </label>
+            <label class="shot-model-settings" hidden>
+              <span>AI-malli</span>
+              <select class="shot-ai-model">
+                <option value="dop-turbo">Higgsfield DoP Turbo</option>
+              </select>
+            </label>
+            <label class="shot-motion-settings" hidden>
+              <span>Kameraliike</span>
+              <select class="shot-motion-preset">
+                <option value="">Automaattinen</option>
+                <option value="dolly_in">Hidas ajo sisään</option>
+                <option value="dolly_out">Hidas ajo ulos</option>
+                <option value="slow_pan_right">Hidas panorointi oikealle</option>
+                <option value="slow_pan_left">Hidas panorointi vasemmalle</option>
+                <option value="orbit_left">Kevyt kierto vasemmalle</option>
+              </select>
+            </label>
+          </div>
         </div>
         <input class="shot-title" type="text" maxlength="120" aria-label="Ruudulla näkyvä otsikko" placeholder="Ruudulla näkyvä otsikko (valinnainen)">
         <textarea class="shot-prompt" rows="2" maxlength="1000" aria-label="Kohtauksen liike- ja kuvausprompti" placeholder="Kohtauksen liike- ja kuvausprompti"></textarea>
@@ -234,6 +252,6 @@
     const apiUrl = (path) => `${API_BASE_URL}${path}`;
   </script>
   <script src="auth.js?v=2"></script>
-  <script src="video.js?v=7"></script>
+  <script src="video.js?v=8"></script>
 </body>
 </html>
