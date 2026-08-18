@@ -61,6 +61,7 @@
   const state = {
     projectId: null,
     context: null,
+    sourceImages: [],
     presets: null,
     shotlist: null,
     job: null,
@@ -141,19 +142,8 @@
   function normalizeShot(raw, index) {
     const overlay = raw?.overlay && typeof raw.overlay === 'object' ? { ...raw.overlay } : {};
     const overlayText = raw?.overlay_text || overlay.quote || overlay.cta || overlay.subtitle || overlay.title || '';
-    const legacyHiggsfieldDefault = raw?.kind === 'ai_motion'
-      && String(raw?.model_name || '') === 'dop-turbo'
-      && !String(raw?.model_provider || '').trim()
-      && String(state.presets?.provider?.effective || '').toLowerCase() === 'veo';
-    const requestedModelName = legacyHiggsfieldDefault ? '' : String(raw?.model_name || '').trim();
-    const requestedModelProvider = legacyHiggsfieldDefault ? '' : String(raw?.model_provider || '').trim().toLowerCase();
-    const configuredModel = requestedModelName ? aiVideoModelById(requestedModelName) : null;
-    const configuredProvider = String(configuredModel?.provider || '').trim().toLowerCase();
-    const hasConsistentModelSelection = Boolean(
-      configuredModel
-      && configuredProvider
-      && (!requestedModelProvider || requestedModelProvider === configuredProvider),
-    );
+    const requestedModelName = String(raw?.model_name || '').trim();
+    const requestedModelProvider = String(raw?.model_provider || '').trim().toLowerCase();
     return {
       id: String(raw?.id || raw?.shot_id || `shot_${index + 1}`),
       order: index,
@@ -162,13 +152,14 @@
       duration_s: Math.max(2, Math.min(20, Math.round(Number(raw?.duration_s || raw?.duration || 4)))),
       prompt: String(raw?.motion_prompt || raw?.prompt || raw?.visual_prompt || ''),
       overlay_text: String(overlayText),
-      source_asset: raw?.source_asset ?? (raw?.kind === 'card' ? null : 'cover'),
+      source_asset: raw?.source_asset ?? (raw?.kind === 'card' ? null : defaultSourceReference()),
       motion_prompt: String(raw?.motion_prompt || raw?.prompt || ''),
       motion_preset: raw?.motion_preset || null,
-      // A provider-only or mismatched pair is Auto. This keeps what the
-      // selector displays identical to what the backend is allowed to run.
-      model_name: hasConsistentModelSelection ? requestedModelName : null,
-      model_provider: hasConsistentModelSelection ? configuredProvider : null,
+      // Preserve explicit selections even if current credentials or model
+      // availability changed. The selector makes stale pairs visible and the
+      // backend refuses to send the image to a different provider silently.
+      model_name: requestedModelName || null,
+      model_provider: requestedModelProvider || null,
       motion_strength: Number(raw?.motion_strength ?? 0.5),
       zoom: raw?.zoom || (raw?.kind === 'kenburns' ? { from: 1, to: 1.18, focus: 'center' } : null),
       overlay,
@@ -207,8 +198,103 @@
   function mediaUrl(value) {
     const raw = String(value || '').trim();
     if (!raw) return '';
-    if (/^https?:\/\//i.test(raw)) return raw;
+    if (/^(?:https?:\/\/|data:|blob:)/i.test(raw)) return raw;
     return apiUrl(raw.startsWith('/') ? raw : `/${raw}`);
+  }
+
+  function normalizeSourceImage(raw) {
+    const id = Number(raw?.id || 0) || null;
+    const reference = String(raw?.reference || (id ? `project_asset:${id}` : '')).trim();
+    if (!reference) return null;
+    return {
+      reference,
+      id,
+      title: String(raw?.title || '').trim(),
+      asset_type: String(raw?.asset_type || '').trim(),
+      url: String(raw?.url || raw?.data_url || raw?.content_data_url || '').trim(),
+    };
+  }
+
+  function sourceImageIsCover(asset) {
+    const type = String(asset?.asset_type || '').toLowerCase();
+    return asset?.reference === 'cover' || type === 'cover_image' || type === 'full_cover_image';
+  }
+
+  function sourceImageTypeLabel(asset) {
+    const type = String(asset?.asset_type || '').toLowerCase();
+    if (sourceImageIsCover(asset)) return 'Kansi';
+    if (type === 'back_cover_image') return 'Takakansi';
+    if (type === 'book_visual_image') return 'Kuvituksessa luotu';
+    if (type === 'infographic') return 'Infografiikka';
+    if (type === 'video_source_image') return 'Ladattu kuva';
+    return 'Projektikuva';
+  }
+
+  function normalizeSourceImages(context) {
+    const byReference = new Map();
+    (Array.isArray(context?.source_images) ? context.source_images : []).forEach((raw) => {
+      const image = normalizeSourceImage(raw);
+      if (image) byReference.set(image.reference, image);
+    });
+
+    const cover = context?.cover || context?.cover_asset || null;
+    const coverId = Number(cover?.id || 0) || null;
+    const coverReference = coverId ? `project_asset:${coverId}` : 'cover';
+    const coverUrl = String(cover?.url || cover?.data_url || cover?.content_data_url || '').trim();
+    const existingCover = Array.from(byReference.values()).find((asset) => (
+      (coverId && Number(asset.id) === coverId) || sourceImageIsCover(asset)
+    ));
+    if (existingCover) {
+      if (!existingCover.url && coverUrl) existingCover.url = coverUrl;
+      if (!existingCover.title && cover?.title) existingCover.title = String(cover.title);
+      if (!existingCover.asset_type) existingCover.asset_type = 'cover_image';
+    } else if (coverId || coverUrl) {
+      byReference.set(coverReference, {
+        reference: coverReference,
+        id: coverId,
+        title: String(cover?.title || 'Kansi'),
+        asset_type: 'cover_image',
+        url: coverUrl,
+      });
+    }
+
+    return sortSourceImages(Array.from(byReference.values()));
+  }
+
+  function coverSourceImage() {
+    return state.sourceImages.find(sourceImageIsCover) || null;
+  }
+
+  function sourceImageForReference(reference) {
+    const requested = String(reference || '').trim();
+    if (requested === 'cover') return coverSourceImage();
+    return state.sourceImages.find((asset) => asset.reference === requested) || null;
+  }
+
+  function defaultSourceReference() {
+    return coverSourceImage()?.reference || state.sourceImages[0]?.reference || 'cover';
+  }
+
+  function sourceImageOptionLabel(asset) {
+    const kind = sourceImageTypeLabel(asset);
+    const title = String(asset?.title || '').trim();
+    return title && title.toLocaleLowerCase('fi-FI') !== kind.toLocaleLowerCase('fi-FI')
+      ? `${kind} · ${title}`
+      : kind;
+  }
+
+  function sortSourceImages(images) {
+    return [...images].sort((left, right) => {
+      const sourcePriority = (asset) => {
+        const type = String(asset?.asset_type || '').toLowerCase();
+        if (type === 'cover_image' || asset?.reference === 'cover') return 0;
+        if (type === 'full_cover_image') return 1;
+        return 2;
+      };
+      const priorityOrder = sourcePriority(left) - sourcePriority(right);
+      if (priorityOrder) return priorityOrder;
+      return Number(right.id || 0) - Number(left.id || 0);
+    });
   }
 
   function totalDuration() {
@@ -238,7 +324,13 @@
 
   function coverIsAvailable() {
     const cover = state.context?.cover;
-    return Boolean(cover?.id || cover?.url || cover?.data_url || cover?.content_data_url);
+    return Boolean(
+      coverSourceImage()
+      || cover?.id
+      || cover?.url
+      || cover?.data_url
+      || cover?.content_data_url,
+    );
   }
 
   function openingSceneOverlay() {
@@ -269,7 +361,7 @@
       shotlist.shots.push(normalizeShot({
         id: `shot_opening_${Date.now()}_${index + 1}`,
         kind: coverIsAvailable() ? 'kenburns' : 'card',
-        source_asset: coverIsAvailable() ? 'cover' : null,
+        source_asset: coverIsAvailable() ? defaultSourceReference() : null,
         duration_s: duration,
         motion_prompt: OPENING_SCENE_PROMPTS[index],
         zoom: coverIsAvailable() ? { from: 1.18, to: 1.18, focus: 'center' } : null,
@@ -288,7 +380,7 @@
       const previous = JSON.stringify(shot);
       const hasCover = coverIsAvailable();
       if (hasCover && shot.kind === 'card') shot.kind = 'kenburns';
-      shot.source_asset = shot.kind === 'card' ? null : (shot.source_asset || 'cover');
+      shot.source_asset = shot.kind === 'card' ? null : (shot.source_asset || defaultSourceReference());
       shot.prompt = OPENING_SCENE_PROMPTS[index];
       shot.motion_prompt = OPENING_SCENE_PROMPTS[index];
       if (shot.kind === 'kenburns') {
@@ -347,10 +439,7 @@
   }
 
   function aiMotionEnabled() {
-    return Boolean(
-      state.presets?.provider?.ai_video_available
-      && state.shotlist?.shots?.some((shot) => shot.kind === 'ai_motion'),
-    );
+    return Boolean(state.shotlist?.shots?.some((shot) => shot.kind === 'ai_motion'));
   }
 
   function availableVoiceoverAsset() {
@@ -392,15 +481,35 @@
     });
     elements['video-final-profiles'].disabled = state.busy || jobActive;
     syncVoiceoverAvailability();
+    document.querySelectorAll('.shot-card').forEach((card) => {
+      card.draggable = !(state.busy || jobActive);
+    });
     document.querySelectorAll('.shot-card input, .shot-card select, .shot-card textarea, .shot-card button')
       .forEach((input) => {
         const aiOnly = input.classList.contains('shot-motion-preset') || input.classList.contains('shot-ai-model');
         const animationOnly = input.classList.contains('shot-animation-preset');
         const isAiMotion = input.closest('.shot-card')?.querySelector('.shot-kind')?.value === 'ai_motion';
         const isAnimation = input.closest('.shot-card')?.querySelector('.shot-kind')?.value === 'kenburns';
+        const usesImage = input.closest('.shot-card')?.querySelector('.shot-kind')?.value !== 'card';
+        const sourceOnly = input.classList.contains('shot-source-select')
+          || input.classList.contains('shot-source-upload')
+          || input.classList.contains('shot-source-file');
+        const regenerateOnly = input.classList.contains('shot-regenerate');
         const shot = state.shotlist?.shots?.find((item) => item.id === input.closest('.shot-card')?.dataset.shotId);
+        const canRegenerate = Boolean(
+          shot
+          && state.job?.state === 'succeeded'
+          && state.job?.shotlist_id === state.shotlist?.id
+          && (state.job?.clips || []).some((clip) => String(clip?.shot_id) === String(shot.id))
+        );
         const cannotDelete = input.classList.contains('shot-delete') && !canRemoveShot(shot);
-        input.disabled = state.busy || jobActive || cannotDelete || (aiOnly && !isAiMotion) || (animationOnly && !isAnimation);
+        input.disabled = state.busy
+          || jobActive
+          || cannotDelete
+          || (aiOnly && !isAiMotion)
+          || (animationOnly && !isAnimation)
+          || (sourceOnly && !usesImage)
+          || (regenerateOnly && !canRegenerate);
         if (input.classList.contains('shot-delete')) {
           input.title = cannotDelete
             ? 'Poisto laskisi videon yhteiskeston alle 12 sekunnin.'
@@ -417,7 +526,7 @@
     elements['video-preview-title'].textContent = title;
     elements['video-preview-author'].textContent = author;
     const cover = context.cover || context.cover_asset || null;
-    const coverUrl = cover?.url || cover?.data_url || cover?.content_data_url || '';
+    const coverUrl = mediaUrl(coverSourceImage()?.url || cover?.url || cover?.data_url || cover?.content_data_url || '');
     elements['video-preview-cover'].style.backgroundImage = coverUrl ? `url("${String(coverUrl).replace(/"/g, '%22')}")` : '';
     elements['video-preview-cover'].classList.toggle('has-cover', Boolean(coverUrl));
   }
@@ -452,7 +561,7 @@
     return String(
       state.presets?.provider_data_notice
       || state.presets?.provider?.data_notice
-      || 'AI-videossa kansikuva ja englanninkielinen liikeprompti lähetetään valitulle videopalvelulle.',
+      || 'AI-videossa kohtaukseen valittu kuvalähde ja englanninkielinen liikeprompti lähetetään valitulle videopalvelulle.',
     ).trim();
   }
 
@@ -472,12 +581,30 @@
       return option;
     }));
     const requestedProvider = String(selectedProvider || '').trim().toLowerCase();
+    const requestedModel = String(selectedModel || '').trim();
     const configuredModel = models.find((model) => String(model.id) === String(selectedModel || ''));
     const configuredProvider = String(configuredModel?.provider || '').trim().toLowerCase();
-    select.value = configuredModel && configuredProvider
-      && (!requestedProvider || requestedProvider === configuredProvider)
-      ? String(configuredModel.id)
-      : '';
+    const validExplicitSelection = Boolean(
+      requestedModel
+      && requestedProvider
+      && configuredModel
+      && configuredProvider === requestedProvider,
+    );
+    if (validExplicitSelection) {
+      select.value = String(configuredModel.id);
+      delete select.dataset.unavailableSelection;
+    } else if (requestedModel || requestedProvider) {
+      const unavailable = document.createElement('option');
+      unavailable.value = `__unavailable__:${requestedProvider}:${requestedModel}`;
+      unavailable.textContent = `Ei käytettävissä · ${providerLabel(requestedProvider || 'AI-video')} · ${requestedModel || 'malli puuttuu'}`;
+      unavailable.disabled = true;
+      select.appendChild(unavailable);
+      select.value = unavailable.value;
+      select.dataset.unavailableSelection = 'true';
+    } else {
+      select.value = '';
+      delete select.dataset.unavailableSelection;
+    }
   }
 
   function localAnimationPresetForShot(shot) {
@@ -498,7 +625,62 @@
     return { ...(LOCAL_ANIMATION_PRESETS[preset] || LOCAL_ANIMATION_PRESETS.zoom_in) };
   }
 
+  function populateShotSourceSelect(select, shot) {
+    const options = state.sourceImages.map((asset) => {
+      const option = document.createElement('option');
+      option.value = asset.reference;
+      option.textContent = sourceImageOptionLabel(asset);
+      return option;
+    });
+    const requestedReference = String(shot.source_asset || '').trim();
+    const selectedReference = requestedReference === 'cover'
+      ? (coverSourceImage()?.reference || 'cover')
+      : requestedReference;
+    if (selectedReference && !options.some((option) => option.value === selectedReference)) {
+      const saved = document.createElement('option');
+      saved.value = selectedReference;
+      saved.textContent = requestedReference === 'cover' ? 'Kansi' : 'Tallennettu kuvalähde';
+      options.unshift(saved);
+    }
+    if (!options.length) {
+      const empty = document.createElement('option');
+      empty.value = '';
+      empty.textContent = 'Ei projektikuvia';
+      options.push(empty);
+    }
+    select.replaceChildren(...options);
+    select.value = selectedReference || defaultSourceReference();
+  }
+
+  function updateShotSourcePreview(card, shot) {
+    const thumbnail = card.querySelector('.shot-source-thumbnail');
+    const placeholder = card.querySelector('.shot-source-placeholder');
+    const asset = sourceImageForReference(shot.source_asset)
+      || sourceImageForReference(card.querySelector('.shot-source-select')?.value);
+    const url = mediaUrl(asset?.url);
+    if (url) {
+      if (thumbnail.dataset.src !== url) {
+        thumbnail.src = url;
+        thumbnail.dataset.src = url;
+      }
+      thumbnail.alt = `Kohtauksen ${Number(shot.order || 0) + 1} kuvalähde: ${asset.title || sourceImageTypeLabel(asset)}`;
+      thumbnail.hidden = false;
+      placeholder.hidden = true;
+    } else {
+      thumbnail.hidden = true;
+      thumbnail.removeAttribute('src');
+      thumbnail.removeAttribute('data-src');
+      thumbnail.alt = '';
+      placeholder.hidden = false;
+      placeholder.textContent = asset ? 'Esikatselukuvaa ei saatavilla' : 'Tuo tai valitse kuva';
+    }
+  }
+
   function syncShotTypeEditors(card, shot) {
+    const sourceSettings = card.querySelector('.shot-source-settings');
+    const sourceSelect = card.querySelector('.shot-source-select');
+    const sourceUpload = card.querySelector('.shot-source-upload');
+    const sourceFile = card.querySelector('.shot-source-file');
     const animationSettings = card.querySelector('.shot-animation-settings');
     const animationSelect = card.querySelector('.shot-animation-preset');
     const modelSettings = card.querySelector('.shot-model-settings');
@@ -507,7 +689,12 @@
     const motionSelect = card.querySelector('.shot-motion-preset');
     const isAiMotion = shot.kind === 'ai_motion';
     const isAnimation = shot.kind === 'kenburns';
+    const usesImage = shot.kind !== 'card';
     const locked = state.busy || ACTIVE_STATES.has(state.job?.state);
+    sourceSettings.hidden = !usesImage;
+    sourceSelect.disabled = !usesImage || locked;
+    sourceUpload.disabled = !usesImage || locked;
+    sourceFile.disabled = !usesImage || locked;
     animationSettings.hidden = !isAnimation;
     modelSettings.hidden = !isAiMotion;
     motionSettings.hidden = !isAiMotion;
@@ -515,6 +702,8 @@
     modelSelect.disabled = !isAiMotion || locked;
     motionSelect.disabled = !isAiMotion || locked;
     animationSelect.setAttribute('aria-label', `Kohtauksen ${shot.order + 1} kuva-animointi`);
+    sourceSelect.setAttribute('aria-label', `Kohtauksen ${shot.order + 1} kuvalähde`);
+    sourceUpload.setAttribute('aria-label', `Tuo kuva kohtaukseen ${shot.order + 1}`);
     modelSelect.setAttribute('aria-label', `Kohtauksen ${shot.order + 1} AI-videomalli`);
     motionSelect.setAttribute('aria-label', `Kohtauksen ${shot.order + 1} AI-videon kameraliike`);
   }
@@ -542,13 +731,20 @@
     shot.title = card.querySelector('.shot-title').value.trim();
     shot.prompt = card.querySelector('.shot-prompt').value.trim();
     shot.overlay_text = card.querySelector('.shot-overlay').value.trim();
-    shot.source_asset = shot.kind === 'card' ? null : (shot.source_asset || 'cover');
+    const selectedSource = card.querySelector('.shot-source-select').value;
+    shot.source_asset = shot.kind === 'card'
+      ? null
+      : (selectedSource || shot.source_asset || defaultSourceReference());
     if (shot.kind === 'ai_motion') {
-      const selectedModelId = card.querySelector('.shot-ai-model').value;
+      const modelSelect = card.querySelector('.shot-ai-model');
+      const selectedModelId = modelSelect.value;
       const selectedModel = aiVideoModelById(selectedModelId);
       shot.motion_preset = card.querySelector('.shot-motion-preset').value || null;
-      shot.model_name = selectedModelId || null;
-      shot.model_provider = selectedModelId ? (String(selectedModel?.provider || '').trim() || null) : null;
+      if (!(modelSelect.dataset.unavailableSelection === 'true' && changedInput !== modelSelect)) {
+        delete modelSelect.dataset.unavailableSelection;
+        shot.model_name = selectedModelId || null;
+        shot.model_provider = selectedModelId ? (String(selectedModel?.provider || '').trim() || null) : null;
+      }
       shot.motion_prompt = shot.prompt || 'Slow cinematic camera movement. Preserve all book-cover typography exactly; no text distortion or morphing.';
       shot.zoom = null;
     } else if (shot.kind === 'kenburns') {
@@ -571,6 +767,7 @@
       ? { ...shot.overlay, title: shot.title || null, cta: shot.overlay_text || null, quote: null, position: 'center' }
       : { ...shot.overlay, title: shot.title || null, quote: shot.overlay_text || null, cta: null, position: shot.overlay?.position || 'bottom' };
     syncShotTypeEditors(card, shot);
+    updateShotSourcePreview(card, shot);
     state.shotlist.target_duration_s = Math.round(totalDuration());
     renderSummary();
     renderPreviewCaption();
@@ -584,6 +781,7 @@
     const card = fragment.querySelector('.shot-card');
     const sceneNumber = index + 1;
     card.dataset.shotId = shot.id;
+    card.draggable = !(state.busy || ACTIVE_STATES.has(state.job?.state));
     card.setAttribute('aria-label', `Kohtaus ${sceneNumber}`);
     card.querySelector('.shot-number').textContent = String(sceneNumber).padStart(2, '0');
     card.querySelector('.shot-number').setAttribute('aria-hidden', 'true');
@@ -595,6 +793,17 @@
     durationInput.max = shot.kind === 'ai_motion' ? '10' : '20';
     durationInput.value = String(shot.duration_s);
     durationInput.setAttribute('aria-label', `Kohtauksen ${sceneNumber} kesto sekunteina`);
+    const sourceSelect = card.querySelector('.shot-source-select');
+    populateShotSourceSelect(sourceSelect, shot);
+    const sourceThumbnail = card.querySelector('.shot-source-thumbnail');
+    sourceThumbnail.addEventListener('error', () => {
+      sourceThumbnail.hidden = true;
+      sourceThumbnail.removeAttribute('src');
+      sourceThumbnail.removeAttribute('data-src');
+      const placeholder = card.querySelector('.shot-source-placeholder');
+      placeholder.hidden = false;
+      placeholder.textContent = 'Esikatselukuvaa ei voitu ladata';
+    });
     const titleInput = card.querySelector('.shot-title');
     titleInput.value = shot.title;
     titleInput.setAttribute('aria-label', `Kohtauksen ${sceneNumber} ruudulla näkyvä otsikko`);
@@ -608,10 +817,24 @@
     populateAiModelSelect(card.querySelector('.shot-ai-model'), shot.model_name, shot.model_provider);
     card.querySelector('.shot-motion-preset').value = shot.kind === 'ai_motion' ? (shot.motion_preset || '') : '';
     syncShotTypeEditors(card, shot);
-    card.querySelectorAll('input, select, textarea').forEach((input) => {
+    updateShotSourcePreview(card, shot);
+    card.querySelectorAll('input:not(.shot-source-file), select, textarea').forEach((input) => {
       input.addEventListener('input', () => shotFieldChanged(card, input));
       input.addEventListener('change', () => shotFieldChanged(card, input));
     });
+    const sourceFile = card.querySelector('.shot-source-file');
+    const uploadButton = card.querySelector('.shot-source-upload');
+    uploadButton.addEventListener('click', () => {
+      sourceFile.value = '';
+      sourceFile.click();
+    });
+    sourceFile.addEventListener('change', () => {
+      const [file] = Array.from(sourceFile.files || []);
+      if (file) void uploadShotSource(shot.id, file);
+    });
+    const regenerateButton = card.querySelector('.shot-regenerate');
+    regenerateButton.setAttribute('aria-label', `Tee kohtaus ${sceneNumber} uudelleen`);
+    regenerateButton.addEventListener('click', () => regenerateShot(shot.id));
     const deleteButton = card.querySelector('.shot-delete');
     deleteButton.setAttribute('aria-label', `Poista kohtaus ${sceneNumber}`);
     deleteButton.addEventListener('click', () => removeShot(shot.id));
@@ -631,6 +854,10 @@
       });
     });
     card.addEventListener('dragstart', (event) => {
+      if (state.busy || ACTIVE_STATES.has(state.job?.state)) {
+        event.preventDefault();
+        return;
+      }
       state.draggedShotId = shot.id;
       card.classList.add('is-dragging');
       event.dataTransfer.effectAllowed = 'move';
@@ -642,6 +869,7 @@
       document.querySelectorAll('.shot-card').forEach((item) => item.classList.remove('drag-over'));
     });
     card.addEventListener('dragover', (event) => {
+      if (state.busy || ACTIVE_STATES.has(state.job?.state)) return;
       event.preventDefault();
       if (state.draggedShotId && state.draggedShotId !== shot.id) card.classList.add('drag-over');
     });
@@ -649,6 +877,7 @@
     card.addEventListener('drop', (event) => {
       event.preventDefault();
       card.classList.remove('drag-over');
+      if (state.busy || ACTIVE_STATES.has(state.job?.state)) return;
       reorderShot(state.draggedShotId, shot.id);
     });
     return fragment;
@@ -692,22 +921,57 @@
     document.querySelectorAll('.shot-card').forEach((card) => {
       const status = card.querySelector('.shot-clip-status');
       const clip = clips.get(String(card.dataset.shotId));
+      const shot = state.shotlist?.shots?.find((item) => item.id === card.dataset.shotId);
+      const regenerateButton = card.querySelector('.shot-regenerate');
+      const result = card.querySelector('.shot-clip-result');
+      const clipVideo = card.querySelector('.shot-clip-preview');
+      const clipDownload = card.querySelector('.shot-clip-download');
+      const canRegenerate = Boolean(
+        job?.state === 'succeeded'
+        && job?.shotlist_id === state.shotlist?.id
+        && shot
+        && clip,
+      );
+      regenerateButton.hidden = !canRegenerate;
+      regenerateButton.disabled = state.busy || !canRegenerate;
+
       if (!clip) {
         status.hidden = true;
         status.textContent = '';
         status.removeAttribute('data-state');
-        return;
+      } else {
+        const failed = Boolean(clip.error) && clip.state !== 'completed';
+        const fallback = Boolean(clip.error) && clip.state === 'completed';
+        const provider = providerLabel(clip.provider);
+        const label = fallback
+          ? 'Valmis varapolulla'
+          : (failed ? 'Epäonnistui' : (CLIP_STATE_LABELS[clip.state] || clip.state));
+        status.hidden = false;
+        status.dataset.state = failed ? 'failed' : clip.state;
+        status.textContent = `${provider} · ${label}`;
+        status.title = clip.error || '';
       }
-      const failed = Boolean(clip.error) && clip.state !== 'completed';
-      const fallback = Boolean(clip.error) && clip.state === 'completed';
-      const provider = providerLabel(clip.provider);
-      const label = fallback
-        ? 'Valmis varapolulla'
-        : (failed ? 'Epäonnistui' : (CLIP_STATE_LABELS[clip.state] || clip.state));
-      status.hidden = false;
-      status.dataset.state = failed ? 'failed' : clip.state;
-      status.textContent = `${provider} · ${label}`;
-      status.title = clip.error || '';
+
+      const clipUrl = mediaUrl(clip?.url);
+      if (clipUrl) {
+        if (clipVideo.dataset.src !== clipUrl) {
+          clipVideo.src = clipUrl;
+          clipVideo.dataset.src = clipUrl;
+        }
+        clipVideo.hidden = false;
+      } else {
+        if (clipVideo.dataset.src) {
+          clipVideo.removeAttribute('src');
+          clipVideo.removeAttribute('data-src');
+          clipVideo.load();
+        }
+        clipVideo.hidden = true;
+      }
+      const downloadUrl = mediaUrl(clip?.download_url);
+      clipDownload.hidden = !downloadUrl;
+      if (downloadUrl) clipDownload.href = downloadUrl;
+      else clipDownload.removeAttribute('href');
+      result.hidden = clipVideo.hidden && regenerateButton.hidden && clipDownload.hidden;
     });
   }
 
@@ -728,6 +992,14 @@
   }
 
   function renderEstimate(estimate = state.estimate) {
+    if (!estimate) {
+      const configurationError = String(state.presets?.provider?.configuration_error || '').trim();
+      elements['video-cost'].textContent = '—';
+      elements['video-cost-note'].textContent = configurationError
+        ? `${configurationError} Kustannusarviota tai AI-videotyötä ei käynnistetty.`
+        : 'Kustannusarviota ei ole vielä saatavilla.';
+      return;
+    }
     const amount = Number(estimate?.estimated_cost_eur ?? estimate?.cost_eur ?? 0);
     elements['video-cost'].textContent = `${amount.toLocaleString('fi-FI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
     const provider = estimate?.provider
@@ -815,7 +1087,7 @@
       shots: (state.shotlist?.shots || []).map((shot) => ({
         id: shot.id,
         kind: shot.kind,
-        source_asset: shot.kind === 'card' ? null : (shot.source_asset || 'cover'),
+        source_asset: shot.kind === 'card' ? null : (shot.source_asset || defaultSourceReference()),
         duration_s: Math.round(shot.duration_s),
         motion_prompt: shot.kind === 'ai_motion' ? (shot.motion_prompt || shot.prompt) : (shot.motion_prompt || null),
         motion_preset: ['ai_motion', 'kenburns'].includes(shot.kind) ? (shot.motion_preset || null) : null,
@@ -1067,14 +1339,34 @@
 
   async function retryJob() {
     if (!state.job?.id || state.busy || !['failed', 'cancelled'].includes(state.job.state)) return;
-    if (!await refreshEstimate(state.job.tier)) {
-      setNotice('Kustannusarviota ei saatu. Uudelleenyritystä ei käynnistetty.', 'error', 'Yritä uudelleen');
+    let retryEstimate;
+    try {
+      retryEstimate = await api(
+        `/api/video/jobs/${encodeURIComponent(state.job.id)}/retry/estimate`,
+        { method: 'POST' },
+      );
+    } catch (error) {
+      setNotice(`Kustannusarviota ei saatu: ${error.message}`, 'error', 'Yritä uudelleen');
       return;
     }
-    const amount = Number(state.estimate?.estimated_cost_eur ?? state.estimate?.cost_eur ?? 0);
-    const confirmedCost = amount <= 0 || window.confirm(
-      `Uudelleenyrityksen arvioitu kustannus on ${amount.toLocaleString('fi-FI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €. ${providerDataNotice()} Aloitetaanko renderöinti?`,
-    );
+    const amount = Number(retryEstimate?.estimated_cost_eur ?? retryEstimate?.cost_eur ?? 0);
+    const resumableVeoClips = (state.job?.clips || []).filter((clip) => (
+      String(clip?.provider || '').trim().toLowerCase() === 'veo'
+      && String(clip?.provider_request_id || '').trim()
+      && clip?.state !== 'completed'
+    ));
+    const resumesVeoOperation = resumableVeoClips.length > 0;
+    const resumeNotice = resumesVeoOperation
+      ? (resumableVeoClips.length === 1
+        ? 'Uudelleenyritys jatkaa aiempaa Google Veo -operaatiota samalla operaatiotunnisteella. Sitä ei lähetetä uutena videotyönä, mutta jo käynnistetty operaatio voi silti tulla veloitetuksi.'
+        : 'Uudelleenyritys jatkaa aiempia Google Veo -operaatioita samoilla operaatiotunnisteilla. Niitä ei lähetetä uusina videotöinä, mutta jo käynnistetyt operaatiot voivat silti tulla veloitetuiksi.')
+      : '';
+    const retryPrompt = amount > 0
+      ? `Uudelleenyrityksen arvioitu kustannus on ${amount.toLocaleString('fi-FI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €. ${resumeNotice} ${providerDataNotice()} Aloitetaanko renderöinti?`
+      : `${resumeNotice} Jatketaanko uudelleenyritystä?`;
+    const confirmedCost = amount <= 0 && !resumesVeoOperation
+      ? true
+      : window.confirm(retryPrompt.trim());
     if (!confirmedCost) return;
     setBusy(true, 'Käynnistetään epäonnistunut työ uudelleen…');
     try {
@@ -1094,6 +1386,92 @@
     }
   }
 
+  async function uploadShotSource(shotId, file) {
+    const shot = state.shotlist?.shots?.find((item) => item.id === shotId);
+    if (!shot || shot.kind === 'card' || !state.projectId || state.busy) return;
+    setBusy(true, `Tuodaan kuvaa kohtaukseen ${Number(shot.order || 0) + 1}…`);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const payload = await api(`/api/video/projects/${encodeURIComponent(state.projectId)}/source-images`, {
+        method: 'POST',
+        body: form,
+      });
+      const sourceImage = normalizeSourceImage(payload);
+      if (!sourceImage) throw new Error('Palvelin ei palauttanut tuotua kuvalähdettä.');
+      state.sourceImages = sortSourceImages([
+        sourceImage,
+        ...state.sourceImages.filter((asset) => asset.reference !== sourceImage.reference),
+      ]);
+      if (state.context) state.context.source_images = state.sourceImages.map((asset) => ({ ...asset }));
+      const currentShot = state.shotlist?.shots?.find((item) => item.id === shotId);
+      if (!currentShot) return;
+      currentShot.source_asset = sourceImage.reference;
+      renderShotlist();
+      scheduleSave();
+      if (!await saveShotlist()) return;
+      await refreshEstimate('final');
+      setNotice(`Kuva “${sourceImage.title || file.name}” on kohtauksen kuvalähde.`, 'ready');
+    } catch (error) {
+      setNotice(`Kuvan tuonti epäonnistui: ${error.message}`, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function regenerateShot(shotId) {
+    const sourceJobId = state.job?.id;
+    const shot = state.shotlist?.shots?.find((item) => item.id === shotId);
+    if (
+      !sourceJobId
+      || state.job?.state !== 'succeeded'
+      || state.job?.shotlist_id !== state.shotlist?.id
+      || !shot
+      || !(state.job?.clips || []).some((clip) => String(clip?.shot_id) === String(shotId))
+      || state.busy
+    ) return;
+    window.clearTimeout(state.saveTimer);
+    window.clearTimeout(state.estimateTimer);
+    setBusy(true, `Valmistellaan kohtauksen ${Number(shot.order || 0) + 1} uudelleenluontia…`);
+    try {
+      if (!await saveShotlist()) return;
+      const basePath = `/api/video/jobs/${encodeURIComponent(sourceJobId)}/clips/${encodeURIComponent(shotId)}`;
+      const estimate = await api(`${basePath}/estimate`, { method: 'POST' });
+      const amount = Number(estimate?.estimated_cost_eur || 0);
+      const requiresConfirmation = estimate?.requires_confirmation == null
+        ? amount > 0
+        : Boolean(estimate.requires_confirmation);
+      const provider = providerLabel(estimate?.provider);
+      const model = String(estimate?.model || '').trim();
+      const modelLabel = model ? ` · ${model}` : '';
+      let confirmedCost = false;
+      if (requiresConfirmation) {
+        confirmedCost = window.confirm(
+          `Kohtauksen uudelleenluonnin arvioitu kustannus on ${amount.toLocaleString('fi-FI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € (${provider}${modelLabel}). ${providerDataNotice()} Luodaanko kohtaus uudelleen?`,
+        );
+        if (!confirmedCost) {
+          setNotice('Kohtauksen uudelleenluonti peruttiin.', 'ready');
+          return;
+        }
+      }
+      setNotice(`Luodaan kohtaus ${Number(shot.order || 0) + 1} uudelleen…`, 'loading');
+      const payload = await api(`${basePath}/regenerate`, {
+        method: 'POST',
+        ...jsonBody({
+          confirmed_cost: confirmedCost,
+          confirmed_cost_eur: Number(amount.toFixed(2)),
+        }),
+      });
+      state.job = payload?.job || payload;
+      renderJob();
+      startPolling();
+    } catch (error) {
+      setNotice(`Kohtausta ei voitu luoda uudelleen: ${error.message}`, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function addShot() {
     if (!state.shotlist) return;
     if (!canAddShot()) {
@@ -1107,6 +1485,7 @@
       id: shotId,
       title: '',
       kind: 'kenburns',
+      source_asset: defaultSourceReference(),
       duration_s: duration,
       prompt: 'Continue the established visual story with a calm cinematic move across the book-cover artwork. Preserve the original artwork and typography exactly; no distortion, melting, morphing, or invented lettering.',
       overlay_text: '',
@@ -1150,7 +1529,14 @@
   }
 
   function reorderShot(sourceId, targetId) {
-    if (!sourceId || !targetId || sourceId === targetId || !state.shotlist) return;
+    if (
+      state.busy
+      || ACTIVE_STATES.has(state.job?.state)
+      || !sourceId
+      || !targetId
+      || sourceId === targetId
+      || !state.shotlist
+    ) return;
     const shots = [...state.shotlist.shots];
     const from = shots.findIndex((shot) => shot.id === sourceId);
     const to = shots.findIndex((shot) => shot.id === targetId);
@@ -1215,6 +1601,7 @@
     state.projectId = projectIdFromPage();
     if (!state.projectId) {
       state.context = null;
+      state.sourceImages = [];
       elements['video-project-name'].textContent = 'Valitse projekti SkriptLabin työtilasta';
       setNotice('Videostudio tarvitsee aktiivisen projektin. Valitse projekti sivuvalikosta ja palaa tähän näkymään.', 'error');
       syncControls();
@@ -1229,6 +1616,7 @@
         api(`/api/video/jobs/latest?project_id=${state.projectId}`).catch((error) => error.status === 404 ? null : Promise.reject(error)),
       ]);
       state.context = context;
+      state.sourceImages = normalizeSourceImages(context);
       state.presets = presets;
       state.shotlist = normalizeShotlist(latestShotlist);
       resetSaveState();
@@ -1267,9 +1655,12 @@
       renderFormat();
       renderJob();
       await refreshEstimate('final');
-      if (state.job && ACTIVE_STATES.has(state.job.state)) startPolling();
-      else if (!state.shotlist) setNotice('Projektin aineistot ovat valmiit kuvakäsikirjoitusta varten.', 'ready');
-      else if (state.job?.state !== 'succeeded') setNotice('Tallennettu kuvakäsikirjoitus ladattiin.', 'ready');
+      const providerConfigurationError = String(presets?.provider?.configuration_error || '').trim();
+      const jobIsActive = Boolean(state.job && ACTIVE_STATES.has(state.job.state));
+      if (jobIsActive) startPolling();
+      if (providerConfigurationError) setNotice(providerConfigurationError, 'error');
+      else if (!jobIsActive && !state.shotlist) setNotice('Projektin aineistot ovat valmiit kuvakäsikirjoitusta varten.', 'ready');
+      else if (!jobIsActive && state.job?.state !== 'succeeded') setNotice('Tallennettu kuvakäsikirjoitus ladattiin.', 'ready');
     } catch (error) {
       setNotice(error.message, 'error', 'Yritä uudelleen');
     } finally {

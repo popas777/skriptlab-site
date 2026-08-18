@@ -613,6 +613,76 @@ button:disabled {
   gap: 8px;
 }
 
+.shot-source-settings {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 10px;
+  align-items: stretch;
+  padding: 9px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.shot-source-settings[hidden],
+.shot-clip-result[hidden] {
+  display: none;
+}
+
+.shot-source-preview {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 68px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: #e9e2d7;
+  color: var(--muted);
+}
+
+.shot-source-thumbnail {
+  width: 100%;
+  height: 100%;
+  min-height: 68px;
+  object-fit: cover;
+}
+
+.shot-source-placeholder {
+  padding: 7px;
+  font-size: 10px;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.shot-source-controls {
+  display: grid;
+  align-content: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.shot-source-controls label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.shot-source-select {
+  width: 100%;
+  min-width: 0;
+}
+
+.shot-source-actions,
+.shot-clip-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
 .shot-render-meta {
   display: flex;
   flex-wrap: wrap;
@@ -658,6 +728,27 @@ button:disabled {
   justify-content: flex-end;
   gap: 8px;
   margin-left: auto;
+}
+
+.shot-clip-result {
+  display: grid;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.shot-clip-preview {
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 440px;
+  border: 1px solid var(--line-dark);
+  background: #171512;
+  object-fit: contain;
+}
+
+.shot-clip-download {
+  min-height: 34px;
+  padding-inline: 4px;
 }
 
 .shot-animation-settings,
@@ -1125,6 +1216,29 @@ button:disabled {
   .shot-type-settings {
     width: 100%;
     margin-left: 0;
+  }
+
+  .shot-source-settings {
+    grid-template-columns: 74px minmax(0, 1fr);
+    padding: 7px;
+  }
+
+  .shot-source-controls label {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .shot-source-actions,
+  .shot-clip-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .shot-source-upload,
+  .shot-regenerate,
+  .shot-clip-download {
+    width: 100%;
+    justify-content: center;
   }
 
   .preview-panel {
