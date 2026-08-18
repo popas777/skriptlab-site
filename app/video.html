@@ -223,6 +223,10 @@
             <label class="shot-model-settings" hidden>
               <span>AI-malli</span>
               <select class="shot-ai-model">
+                <option value="">Automaattinen · Gemini Veo (suositus)</option>
+                <option value="veo-3.1-fast-generate-preview">Gemini Veo 3.1 Fast</option>
+                <option value="veo-3.1-generate-preview">Gemini Veo 3.1</option>
+                <option value="veo-3.1-lite-generate-preview">Gemini Veo 3.1 Lite</option>
                 <option value="dop-turbo">Higgsfield DoP Turbo</option>
               </select>
             </label>
@@ -252,6 +256,6 @@
     const apiUrl = (path) => `${API_BASE_URL}${path}`;
   </script>
   <script src="auth.js?v=2"></script>
-  <script src="video.js?v=8"></script>
+  <script src="video.js?v=9"></script>
 </body>
 </html>

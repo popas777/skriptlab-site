@@ -45,8 +45,17 @@
     still: Object.freeze({ from: 1, to: 1, focus: 'center' }),
   });
   const FALLBACK_AI_VIDEO_MODELS = Object.freeze([
-    Object.freeze({ id: 'dop-turbo', label: 'Higgsfield DoP Turbo' }),
+    Object.freeze({ id: 'veo-3.1-fast-generate-preview', label: 'Gemini Veo 3.1 Fast', provider: 'veo' }),
+    Object.freeze({ id: 'veo-3.1-generate-preview', label: 'Gemini Veo 3.1', provider: 'veo' }),
+    Object.freeze({ id: 'veo-3.1-lite-generate-preview', label: 'Gemini Veo 3.1 Lite', provider: 'veo' }),
+    Object.freeze({ id: 'dop-turbo', label: 'Higgsfield DoP Turbo', provider: 'higgsfield' }),
   ]);
+  const PROVIDER_LABELS = Object.freeze({
+    veo: 'Gemini Veo',
+    higgsfield: 'Higgsfield',
+    kenburns: 'Kuva-animointi',
+    card: 'Tekstikortti',
+  });
 
   const elements = {};
   const state = {
@@ -132,6 +141,19 @@
   function normalizeShot(raw, index) {
     const overlay = raw?.overlay && typeof raw.overlay === 'object' ? { ...raw.overlay } : {};
     const overlayText = raw?.overlay_text || overlay.quote || overlay.cta || overlay.subtitle || overlay.title || '';
+    const legacyHiggsfieldDefault = raw?.kind === 'ai_motion'
+      && String(raw?.model_name || '') === 'dop-turbo'
+      && !String(raw?.model_provider || '').trim()
+      && String(state.presets?.provider?.effective || '').toLowerCase() === 'veo';
+    const requestedModelName = legacyHiggsfieldDefault ? '' : String(raw?.model_name || '').trim();
+    const requestedModelProvider = legacyHiggsfieldDefault ? '' : String(raw?.model_provider || '').trim().toLowerCase();
+    const configuredModel = requestedModelName ? aiVideoModelById(requestedModelName) : null;
+    const configuredProvider = String(configuredModel?.provider || '').trim().toLowerCase();
+    const hasConsistentModelSelection = Boolean(
+      configuredModel
+      && configuredProvider
+      && (!requestedModelProvider || requestedModelProvider === configuredProvider),
+    );
     return {
       id: String(raw?.id || raw?.shot_id || `shot_${index + 1}`),
       order: index,
@@ -143,7 +165,10 @@
       source_asset: raw?.source_asset ?? (raw?.kind === 'card' ? null : 'cover'),
       motion_prompt: String(raw?.motion_prompt || raw?.prompt || ''),
       motion_preset: raw?.motion_preset || null,
-      model_name: raw?.model_name || null,
+      // A provider-only or mismatched pair is Auto. This keeps what the
+      // selector displays identical to what the backend is allowed to run.
+      model_name: hasConsistentModelSelection ? requestedModelName : null,
+      model_provider: hasConsistentModelSelection ? configuredProvider : null,
       motion_strength: Number(raw?.motion_strength ?? 0.5),
       zoom: raw?.zoom || (raw?.kind === 'kenburns' ? { from: 1, to: 1.18, focus: 'center' } : null),
       overlay,
@@ -407,26 +432,52 @@
 
   function availableAiVideoModels() {
     const configured = state.presets?.provider?.ai_video_models;
-    return Array.isArray(configured) && configured.length ? configured : FALLBACK_AI_VIDEO_MODELS;
+    // An empty list from /presets means that no paid provider is available.
+    // Use the static catalog only during the short bootstrap before presets
+    // have been loaded at all.
+    return Array.isArray(configured) ? configured : FALLBACK_AI_VIDEO_MODELS;
   }
 
-  function defaultAiVideoModel() {
-    const models = availableAiVideoModels();
-    const preferred = String(state.presets?.provider?.final_model || '');
-    return models.some((model) => String(model.id) === preferred) ? preferred : String(models[0]?.id || 'dop-turbo');
+  function aiVideoModelById(modelId) {
+    const requested = String(modelId || '');
+    return availableAiVideoModels().find((model) => String(model.id || '') === requested) || null;
   }
 
-  function populateAiModelSelect(select, selectedModel) {
+  function providerLabel(provider) {
+    const id = String(provider || '').trim().toLowerCase();
+    return PROVIDER_LABELS[id] || String(provider || 'AI-video');
+  }
+
+  function providerDataNotice() {
+    return String(
+      state.presets?.provider_data_notice
+      || state.presets?.provider?.data_notice
+      || 'AI-videossa kansikuva ja englanninkielinen liikeprompti lähetetään valitulle videopalvelulle.',
+    ).trim();
+  }
+
+  function populateAiModelSelect(select, selectedModel, selectedProvider) {
     const models = availableAiVideoModels();
-    select.replaceChildren(...models.map((model) => {
+    const automatic = document.createElement('option');
+    automatic.value = '';
+    const effectiveProvider = String(state.presets?.provider?.effective || '').trim().toLowerCase();
+    const automaticProvider = ['veo', 'higgsfield'].includes(effectiveProvider)
+      ? providerLabel(effectiveProvider)
+      : 'AI-video';
+    automatic.textContent = `Automaattinen · ${automaticProvider} (suositus)`;
+    select.replaceChildren(automatic, ...models.map((model) => {
       const option = document.createElement('option');
       option.value = String(model.id || '');
       option.textContent = String(model.label || model.id || 'AI-videomalli');
       return option;
     }));
-    select.value = models.some((model) => String(model.id) === String(selectedModel || ''))
-      ? String(selectedModel)
-      : defaultAiVideoModel();
+    const requestedProvider = String(selectedProvider || '').trim().toLowerCase();
+    const configuredModel = models.find((model) => String(model.id) === String(selectedModel || ''));
+    const configuredProvider = String(configuredModel?.provider || '').trim().toLowerCase();
+    select.value = configuredModel && configuredProvider
+      && (!requestedProvider || requestedProvider === configuredProvider)
+      ? String(configuredModel.id)
+      : '';
   }
 
   function localAnimationPresetForShot(shot) {
@@ -493,14 +544,18 @@
     shot.overlay_text = card.querySelector('.shot-overlay').value.trim();
     shot.source_asset = shot.kind === 'card' ? null : (shot.source_asset || 'cover');
     if (shot.kind === 'ai_motion') {
+      const selectedModelId = card.querySelector('.shot-ai-model').value;
+      const selectedModel = aiVideoModelById(selectedModelId);
       shot.motion_preset = card.querySelector('.shot-motion-preset').value || null;
-      shot.model_name = card.querySelector('.shot-ai-model').value || defaultAiVideoModel();
+      shot.model_name = selectedModelId || null;
+      shot.model_provider = selectedModelId ? (String(selectedModel?.provider || '').trim() || null) : null;
       shot.motion_prompt = shot.prompt || 'Slow cinematic camera movement. Preserve all book-cover typography exactly; no text distortion or morphing.';
       shot.zoom = null;
     } else if (shot.kind === 'kenburns') {
       const localPreset = card.querySelector('.shot-animation-preset').value || 'zoom_in';
       shot.motion_preset = localPreset;
       shot.model_name = null;
+      shot.model_provider = null;
       shot.motion_prompt = shot.prompt || null;
       if (kindChanged || changedInput?.classList.contains('shot-animation-preset') || !shot.zoom) {
         shot.zoom = zoomForLocalAnimation(localPreset);
@@ -508,6 +563,7 @@
     } else {
       shot.motion_preset = null;
       shot.model_name = null;
+      shot.model_provider = null;
       shot.motion_prompt = shot.prompt || null;
       shot.zoom = null;
     }
@@ -549,7 +605,7 @@
     overlayInput.value = shot.overlay_text;
     overlayInput.setAttribute('aria-label', `Kohtauksen ${sceneNumber} muu ruudulla näkyvä teksti`);
     card.querySelector('.shot-animation-preset').value = localAnimationPresetForShot(shot);
-    populateAiModelSelect(card.querySelector('.shot-ai-model'), shot.model_name);
+    populateAiModelSelect(card.querySelector('.shot-ai-model'), shot.model_name, shot.model_provider);
     card.querySelector('.shot-motion-preset').value = shot.kind === 'ai_motion' ? (shot.motion_preset || '') : '';
     syncShotTypeEditors(card, shot);
     card.querySelectorAll('input, select, textarea').forEach((input) => {
@@ -644,9 +700,7 @@
       }
       const failed = Boolean(clip.error) && clip.state !== 'completed';
       const fallback = Boolean(clip.error) && clip.state === 'completed';
-      const provider = clip.provider === 'higgsfield'
-        ? 'AI-video'
-        : (clip.provider === 'card' ? 'Tekstikortti' : 'Kuva-animointi');
+      const provider = providerLabel(clip.provider);
       const label = fallback
         ? 'Valmis varapolulla'
         : (failed ? 'Epäonnistui' : (CLIP_STATE_LABELS[clip.state] || clip.state));
@@ -676,12 +730,14 @@
   function renderEstimate(estimate = state.estimate) {
     const amount = Number(estimate?.estimated_cost_eur ?? estimate?.cost_eur ?? 0);
     elements['video-cost'].textContent = `${amount.toLocaleString('fi-FI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
-    const provider = estimate?.provider || (Number(elements['video-ai-count'].value) > 0 ? 'Higgsfield / paikallinen varapolku' : 'Paikallinen FFmpeg');
+    const provider = estimate?.provider
+      ? providerLabel(estimate.provider)
+      : (Number(elements['video-ai-count'].value) > 0 ? 'AI-video / paikallinen varapolku' : 'Paikallinen FFmpeg');
     const clipCount = Number(estimate?.billable_clip_count ?? elements['video-ai-count'].value ?? 0);
     const profileCount = Array.isArray(estimate?.profiles) ? estimate.profiles.length : selectedProfilesForTier(state.estimateTier).length;
     const tierLabel = state.estimateTier === 'preview' ? 'AI-esikatselu' : 'Lopullinen renderöinti';
     elements['video-cost-note'].textContent = amount > 0
-      ? `${tierLabel}: ${clipCount} maksullista AI-klippiä, ${profileCount} ${profileCount === 1 ? 'formaatti' : 'formaattia'} · ${provider}. Hinta vahvistetaan ennen ajoa; kansikuva ja liikeprompti lähetetään Higgsfieldille.`
+      ? `${tierLabel}: ${clipCount} maksullista AI-klippiä, ${profileCount} ${profileCount === 1 ? 'formaatti' : 'formaattia'} · ${provider}. Hinta vahvistetaan ennen ajoa. ${providerDataNotice()}`
       : `${tierLabel}: paikallinen kuva-animointi ei käytä maksullista videomallia.`;
   }
 
@@ -721,7 +777,7 @@
     } else if (job?.state === 'cancelled') {
       setNotice('Videon luonti keskeytettiin. Kuvakäsikirjoitus säilyi muokattavana.', 'ready');
     } else if (isReady) {
-      const degraded = job.degraded ? ' AI-klippi korvattiin paikallisella liikkeellä.' : '';
+      const degraded = job.degraded ? ' Vähintään yksi AI-klippi valmistui varapolulla.' : '';
       setNotice(`Video on valmis.${degraded}`, 'ready');
     } else if (isActive) {
       setNotice(`${STATE_LABELS[job.state] || 'Videota luodaan'} · ${progress} %`, 'loading');
@@ -763,7 +819,8 @@
         duration_s: Math.round(shot.duration_s),
         motion_prompt: shot.kind === 'ai_motion' ? (shot.motion_prompt || shot.prompt) : (shot.motion_prompt || null),
         motion_preset: ['ai_motion', 'kenburns'].includes(shot.kind) ? (shot.motion_preset || null) : null,
-        model_name: shot.kind === 'ai_motion' ? (shot.model_name || defaultAiVideoModel()) : null,
+        model_name: shot.kind === 'ai_motion' ? (shot.model_name || null) : null,
+        model_provider: shot.kind === 'ai_motion' ? (shot.model_provider || null) : null,
         motion_strength: Number(shot.motion_strength ?? 0.5),
         zoom: shot.kind === 'kenburns' ? (shot.zoom || { from: 1, to: 1.18, focus: 'center' }) : null,
         overlay: shot.overlay || {},
@@ -934,7 +991,7 @@
       const amount = Number(state.estimate?.estimated_cost_eur ?? state.estimate?.cost_eur ?? 0);
       const tierLabel = tier === 'final' ? 'Lopullisen videon' : 'AI-esikatselun';
       const confirmCost = amount <= 0 || window.confirm(
-        `${tierLabel} arvioitu kustannus on ${amount.toLocaleString('fi-FI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €. Kansikuva ja liikeprompti lähetetään Higgsfieldille. Aloitetaanko renderöinti?`,
+        `${tierLabel} arvioitu kustannus on ${amount.toLocaleString('fi-FI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €. ${providerDataNotice()} Aloitetaanko renderöinti?`,
       );
       if (!confirmCost) return;
       setNotice(tier === 'final' ? 'Aloitetaan lopullisen videon renderöinti…' : 'Aloitetaan esikatselu…', 'loading');
@@ -946,12 +1003,15 @@
         ? `/api/video/jobs/${encodeURIComponent(state.job.id)}/promote`
         : '/api/video/jobs';
       const request = {
-        tier,
         profiles: selectedProfilesForTier(tier),
         no_ai: !aiMotionEnabled(),
         confirmed_cost: confirmCost,
+        confirmed_cost_eur: Number(amount.toFixed(2)),
       };
-      if (!canPromote) request.shotlist_id = state.shotlist.id;
+      if (!canPromote) {
+        request.tier = tier;
+        request.shotlist_id = state.shotlist.id;
+      }
       state.job = await api(endpoint, {
         method: 'POST',
         ...jsonBody(request),
@@ -991,7 +1051,12 @@
 
   async function cancelJob() {
     if (!state.job?.id || !ACTIVE_STATES.has(state.job.state)) return;
-    if (!window.confirm('Keskeytetäänkö videon luonti? Valmis kuvakäsikirjoitus säilyy.')) return;
+    const veoMayBeRunning = String(state.presets?.provider?.effective || '') === 'veo'
+      || (state.job?.clips || []).some((clip) => clip.provider === 'veo');
+    const providerWarning = veoMayBeRunning
+      ? ' Jo Googlelle lähetetty Veo-työ voi silti valmistua ja tulla veloitetuksi.'
+      : '';
+    if (!window.confirm(`Keskeytetäänkö videon luonti? Valmis kuvakäsikirjoitus säilyy.${providerWarning}`)) return;
     try {
       state.job = await api(`/api/video/jobs/${encodeURIComponent(state.job.id)}/cancel`, { method: 'POST' });
       renderJob();
@@ -1008,14 +1073,17 @@
     }
     const amount = Number(state.estimate?.estimated_cost_eur ?? state.estimate?.cost_eur ?? 0);
     const confirmedCost = amount <= 0 || window.confirm(
-      `Uudelleenyrityksen arvioitu kustannus on ${amount.toLocaleString('fi-FI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €. Aloitetaanko renderöinti?`,
+      `Uudelleenyrityksen arvioitu kustannus on ${amount.toLocaleString('fi-FI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €. ${providerDataNotice()} Aloitetaanko renderöinti?`,
     );
     if (!confirmedCost) return;
     setBusy(true, 'Käynnistetään epäonnistunut työ uudelleen…');
     try {
       state.job = await api(`/api/video/jobs/${encodeURIComponent(state.job.id)}/retry`, {
         method: 'POST',
-        ...jsonBody({ confirmed_cost: confirmedCost }),
+        ...jsonBody({
+          confirmed_cost: confirmedCost,
+          confirmed_cost_eur: Number(amount.toFixed(2)),
+        }),
       });
       renderJob();
       startPolling();
