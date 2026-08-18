@@ -683,6 +683,12 @@ button:disabled {
   gap: 8px;
 }
 
+.shot-source-ai-help {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
 .shot-render-meta {
   display: flex;
   flex-wrap: wrap;

@@ -37,7 +37,11 @@
     renderableShotCount: 1,
     durationS: 8,
   });
-  const SINGLE_SCENE_PROMPT = 'In one continuous unbroken shot with no cuts, present the uploaded cover as the unchanged front face of a physical book resting on a simple neutral tabletop or held naturally in one hand. Make a slow, steady camera push toward the cover, continue through the center of the cover artwork so the printed lettering leaves the frame naturally through camera crop while the artwork gains subtle parallax, then decelerate into a completely still end frame. Treat all existing lettering only as fixed source-image pixels; do not generate, redraw, rewrite, replace, morph, animate, or add readable text.';
+  const SINGLE_SCENE_PROMPT = "Single continuous shot with no cuts. Begin with a closed physical book already held steadily in an adult's hand; only the hand and forearm are visible against a simple neutral background. The camera slowly and smoothly zooms in until the front cover fills the frame. As the zoom settles, only the fictional illustrated figure already printed on the cover begins to move: it gently blinks and turns its head slightly, with subtle movement in hair or clothing, while remaining within the printed artwork. Preserve the original book, cover layout, illustration, and all existing lettering exactly. Introduce no additional people, faces, objects, logos, captions, watermarks, or readable text. End on a steady close-up with a calm, family-friendly book-trailer mood and subtle room ambience.";
+  const LEGACY_SINGLE_SCENE_PROMPTS = new Set([
+    'In one continuous unbroken shot with no cuts, present the uploaded cover as the unchanged front face of a physical book resting on a simple neutral tabletop or held naturally in one hand. Make a slow, steady camera push toward the cover, continue through the center of the cover artwork so the printed lettering leaves the frame naturally through camera crop while the artwork gains subtle parallax, then decelerate into a completely still end frame. Treat all existing lettering only as fixed source-image pixels; do not generate, redraw, rewrite, replace, morph, animate, or add readable text.',
+    'In one continuous unbroken shot with no cuts, present the uploaded cover as the unchanged front face of a physical book resting on a simple neutral tabletop or held naturally in one hand. Make a slow, steady camera push toward the cover, then continue through the center of the cover artwork so the printed lettering leaves the frame naturally through camera crop while the artwork gains subtle parallax and restrained cinematic motion. Finally decelerate and settle into a completely still end frame. Treat all existing lettering only as fixed source-image pixels: do not generate, redraw, rewrite, replace, morph, or animate any text, and add no new readable text.',
+  ]);
   const LOCAL_ANIMATION_PRESETS = Object.freeze({
     zoom_in: Object.freeze({ from: 1, to: 1.18, focus: 'center' }),
     zoom_out: Object.freeze({ from: 1.18, to: 1, focus: 'center' }),
@@ -359,11 +363,23 @@
     };
   }
 
+  function migrateLegacySingleScenePrompt(shotlist) {
+    if (!shotlist?.shots?.length || shotlist.shots.length !== 1) return false;
+    const shot = shotlist.shots[0];
+    const savedPrompt = String(shot.motion_prompt || shot.prompt || '').trim();
+    if (savedPrompt && !LEGACY_SINGLE_SCENE_PROMPTS.has(savedPrompt)) return false;
+    const changed = shot.prompt !== SINGLE_SCENE_PROMPT || shot.motion_prompt !== SINGLE_SCENE_PROMPT;
+    shot.prompt = SINGLE_SCENE_PROMPT;
+    shot.motion_prompt = SINGLE_SCENE_PROMPT;
+    return changed;
+  }
+
   function applySingleSceneDefaults(shotlist) {
     if (!shotlist?.shots?.length || shotlist.shots.length !== 1) return false;
     let changed = false;
     const shot = shotlist.shots[0];
     const previous = JSON.stringify(shot);
+    migrateLegacySingleScenePrompt(shotlist);
     const finalOverlay = openingSceneOverlay();
     const hasCover = coverIsAvailable();
     const paidAiRequested = Number(elements['video-ai-count'].value || 0) > 0;
@@ -372,7 +388,8 @@
     if (!paidAiRequested && shot.kind === 'ai_motion') shot.kind = hasCover ? 'kenburns' : 'card';
     shot.source_asset = shot.kind === 'card' ? null : (shot.source_asset || defaultSourceReference());
     shot.duration_s = SINGLE_SCENE_PILOT.durationS;
-    shot.prompt = shot.motion_prompt || shot.prompt || SINGLE_SCENE_PROMPT;
+    const savedPrompt = String(shot.motion_prompt || shot.prompt || '').trim();
+    shot.prompt = savedPrompt || SINGLE_SCENE_PROMPT;
     shot.motion_prompt = shot.prompt;
     shot.zoom = shot.kind === 'kenburns' ? { from: 1, to: 1.35, focus: 'center' } : null;
     shot.title = String(finalOverlay.title || '');
@@ -658,6 +675,7 @@
     const sourceSelect = card.querySelector('.shot-source-select');
     const sourceUpload = card.querySelector('.shot-source-upload');
     const sourceFile = card.querySelector('.shot-source-file');
+    const sourceAiHelp = card.querySelector('.shot-source-ai-help');
     const animationSettings = card.querySelector('.shot-animation-settings');
     const animationSelect = card.querySelector('.shot-animation-preset');
     const modelSettings = card.querySelector('.shot-model-settings');
@@ -672,6 +690,7 @@
     sourceSelect.disabled = !usesImage || locked;
     sourceUpload.disabled = !usesImage || locked;
     sourceFile.disabled = !usesImage || locked;
+    sourceAiHelp.hidden = !isAiMotion;
     animationSettings.hidden = !isAnimation;
     modelSettings.hidden = !isAiMotion;
     motionSettings.hidden = !isAiMotion;
@@ -725,7 +744,7 @@
         shot.model_name = selectedModelId || null;
         shot.model_provider = selectedModelId ? (String(selectedModel?.provider || '').trim() || null) : null;
       }
-      shot.motion_prompt = shot.prompt || 'Slow cinematic camera movement. Preserve all book-cover typography exactly; no text distortion or morphing.';
+      shot.motion_prompt = shot.prompt || SINGLE_SCENE_PROMPT;
       shot.zoom = null;
     } else if (shot.kind === 'kenburns') {
       const localPreset = card.querySelector('.shot-animation-preset').value || 'zoom_in';
@@ -1482,7 +1501,7 @@
       kind: 'kenburns',
       source_asset: defaultSourceReference(),
       duration_s: duration,
-      prompt: 'Continue the established visual story with a calm cinematic move across the book-cover artwork. Preserve the original artwork and typography exactly; no distortion, melting, morphing, or invented lettering.',
+      prompt: SINGLE_SCENE_PROMPT,
       overlay_text: '',
     }, index));
     renderShotlist();
@@ -1648,6 +1667,10 @@
         elements['video-subtitles'].checked = state.shotlist.audio?.subtitles?.enabled !== false;
         elements['video-voiceover'].checked = Boolean(availableVoiceoverAsset())
           && !['', 'none', 'null'].includes(String(state.shotlist.audio?.voiceover_asset || '').toLowerCase());
+        if (migrateLegacySingleScenePrompt(state.shotlist)) {
+          state.editRevision += 1;
+          await saveShotlist();
+        }
       }
       syncVoiceoverAvailability();
       renderShotlist();
