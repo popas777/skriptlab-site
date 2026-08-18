@@ -27,16 +27,17 @@
   const SHOT_LIMITS = Object.freeze({
     minimumCount: 1,
     maximumCount: 8,
-    minimumDuration: 12,
+    minimumDuration: 3,
     maximumDuration: 35,
     minimumShotDuration: 2,
-    maximumAiShots: 3,
+    maximumAiShots: 1,
   });
-  const OPENING_SCENE_PROMPTS = Object.freeze([
-    'Present the uploaded cover as the unchanged front face of a physical book resting on a simple neutral tabletop or held naturally in one hand, then make a slow, steady camera push toward the cover. Treat all existing lettering only as source-image pixels: do not generate, redraw, rewrite, replace, morph, or animate any text, and add no new readable text.',
-    'Continue by pushing through the center of the uploaded cover artwork so the original printed lettering leaves the frame naturally through camera crop while the artwork gains subtle parallax and slow cinematic motion. Do not erase, redraw, rewrite, replace, morph, or generate any letters. Keep the frame free of readable overlay text.',
-    'Let the cover artwork decelerate and settle into a completely still end frame. Do not create or render any readable text; the title, author, and campaign copy are added later as deterministic video overlays.',
-  ]);
+  const SINGLE_SCENE_PILOT = Object.freeze({
+    enabled: true,
+    renderableShotCount: 1,
+    durationS: 8,
+  });
+  const SINGLE_SCENE_PROMPT = 'In one continuous unbroken shot with no cuts, present the uploaded cover as the unchanged front face of a physical book resting on a simple neutral tabletop or held naturally in one hand. Make a slow, steady camera push toward the cover, continue through the center of the cover artwork so the printed lettering leaves the frame naturally through camera crop while the artwork gains subtle parallax, then decelerate into a completely still end frame. Treat all existing lettering only as fixed source-image pixels; do not generate, redraw, rewrite, replace, morph, animate, or add readable text.';
   const LOCAL_ANIMATION_PRESETS = Object.freeze({
     zoom_in: Object.freeze({ from: 1, to: 1.18, focus: 'center' }),
     zoom_out: Object.freeze({ from: 1.18, to: 1, focus: 'center' }),
@@ -48,10 +49,12 @@
     Object.freeze({ id: 'veo-3.1-fast-generate-preview', label: 'Gemini Veo 3.1 Fast', provider: 'veo' }),
     Object.freeze({ id: 'veo-3.1-generate-preview', label: 'Gemini Veo 3.1', provider: 'veo' }),
     Object.freeze({ id: 'veo-3.1-lite-generate-preview', label: 'Gemini Veo 3.1 Lite', provider: 'veo' }),
+    Object.freeze({ id: 'gemini-omni-flash-preview', label: 'Gemini Omni Flash (Preview)', provider: 'omni' }),
     Object.freeze({ id: 'dop-turbo', label: 'Higgsfield DoP Turbo', provider: 'higgsfield' }),
   ]);
   const PROVIDER_LABELS = Object.freeze({
     veo: 'Gemini Veo',
+    omni: 'Gemini Omni',
     higgsfield: 'Higgsfield',
     kenburns: 'Kuva-animointi',
     card: 'Tekstikortti',
@@ -173,7 +176,7 @@
       id: data.id || raw?.id || null,
       project_id: Number(data.project_id || state.projectId),
       schema_version: Number(data.schema_version || 1),
-      target_duration_s: Number(data.target_duration_s || elements['video-duration'].value || 20),
+      target_duration_s: Number(data.target_duration_s || elements['video-duration'].value || SINGLE_SCENE_PILOT.durationS),
       aspect_ratios: Array.isArray(data.aspect_ratios) ? data.aspect_ratios : [PROFILE_LABELS[elements['video-profile'].value].ratio],
       language: String(data.language || 'fi'),
       style_hint: String(data.style_hint || elements['video-style'].value || ''),
@@ -310,7 +313,16 @@
     return duration >= SHOT_LIMITS.minimumDuration && duration <= SHOT_LIMITS.maximumDuration;
   }
 
+  function singleScenePilotIsReady() {
+    const shots = state.shotlist?.shots || [];
+    return !SINGLE_SCENE_PILOT.enabled || (
+      shots.length === SINGLE_SCENE_PILOT.renderableShotCount
+      && totalDuration() === SINGLE_SCENE_PILOT.durationS
+    );
+  }
+
   function canAddShot() {
+    if (SINGLE_SCENE_PILOT.enabled) return false;
     const shots = state.shotlist?.shots || [];
     return shots.length < SHOT_LIMITS.maximumCount
       && totalDuration() + SHOT_LIMITS.minimumShotDuration <= SHOT_LIMITS.maximumDuration;
@@ -347,66 +359,28 @@
     };
   }
 
-  function ensureThreeOpeningScenes(shotlist) {
-    if (!shotlist?.shots) return false;
+  function applySingleSceneDefaults(shotlist) {
+    if (!shotlist?.shots?.length || shotlist.shots.length !== 1) return false;
     let changed = false;
-    while (shotlist.shots.length < 3) {
-      const donor = shotlist.shots
-        .map((shot, index) => ({ shot, index, spare: shot.duration_s - minimumDurationForShot(shot) }))
-        .sort((left, right) => right.spare - left.spare)[0];
-      if (!donor || donor.spare < SHOT_LIMITS.minimumShotDuration) break;
-      const duration = Math.min(4, donor.spare);
-      donor.shot.duration_s -= duration;
-      const index = shotlist.shots.length;
-      shotlist.shots.push(normalizeShot({
-        id: `shot_opening_${Date.now()}_${index + 1}`,
-        kind: coverIsAvailable() ? 'kenburns' : 'card',
-        source_asset: coverIsAvailable() ? defaultSourceReference() : null,
-        duration_s: duration,
-        motion_prompt: OPENING_SCENE_PROMPTS[index],
-        zoom: coverIsAvailable() ? { from: 1.18, to: 1.18, focus: 'center' } : null,
-        overlay: {},
-      }, index));
-      changed = true;
-    }
-    return changed;
-  }
-
-  function applyOpeningSceneDefaults(shotlist) {
-    if (!shotlist?.shots?.length || !coverIsAvailable()) return false;
-    let changed = ensureThreeOpeningScenes(shotlist);
+    const shot = shotlist.shots[0];
+    const previous = JSON.stringify(shot);
     const finalOverlay = openingSceneOverlay();
-    shotlist.shots.slice(0, 3).forEach((shot, index) => {
-      const previous = JSON.stringify(shot);
-      const hasCover = coverIsAvailable();
-      if (hasCover && shot.kind === 'card') shot.kind = 'kenburns';
-      shot.source_asset = shot.kind === 'card' ? null : (shot.source_asset || defaultSourceReference());
-      shot.prompt = OPENING_SCENE_PROMPTS[index];
-      shot.motion_prompt = OPENING_SCENE_PROMPTS[index];
-      if (shot.kind === 'kenburns') {
-        shot.zoom = index === 0
-          ? { from: 1, to: 1.35, focus: 'center' }
-          : (index === 1
-            ? { from: 1.35, to: 2.35, focus: 'center' }
-            : { from: 2.35, to: 2.35, focus: 'center' });
-      } else {
-        shot.zoom = null;
-      }
-      if (index < 2) {
-        shot.title = '';
-        shot.overlay_text = '';
-        shot.overlay = { position: 'bottom' };
-      } else {
-        shot.title = String(finalOverlay.title || '');
-        shot.overlay_text = String(finalOverlay.cta || finalOverlay.subtitle || '');
-        shot.overlay = finalOverlay;
-      }
-      shot.order = index;
-      changed = changed || previous !== JSON.stringify(shot);
-    });
-    shotlist.target_duration_s = Math.round(
-      shotlist.shots.reduce((sum, shot) => sum + Number(shot.duration_s || 0), 0),
-    );
+    const hasCover = coverIsAvailable();
+    const paidAiRequested = Number(elements['video-ai-count'].value || 0) > 0;
+    if (hasCover && paidAiRequested && ['card', 'kenburns'].includes(shot.kind)) shot.kind = 'ai_motion';
+    if (hasCover && !paidAiRequested && shot.kind === 'card') shot.kind = 'kenburns';
+    if (!paidAiRequested && shot.kind === 'ai_motion') shot.kind = hasCover ? 'kenburns' : 'card';
+    shot.source_asset = shot.kind === 'card' ? null : (shot.source_asset || defaultSourceReference());
+    shot.duration_s = SINGLE_SCENE_PILOT.durationS;
+    shot.prompt = shot.motion_prompt || shot.prompt || SINGLE_SCENE_PROMPT;
+    shot.motion_prompt = shot.prompt;
+    shot.zoom = shot.kind === 'kenburns' ? { from: 1, to: 1.35, focus: 'center' } : null;
+    shot.title = String(finalOverlay.title || '');
+    shot.overlay_text = String(finalOverlay.cta || finalOverlay.subtitle || '');
+    shot.overlay = finalOverlay;
+    shot.order = 0;
+    shotlist.target_duration_s = SINGLE_SCENE_PILOT.durationS;
+    changed = previous !== JSON.stringify(shot);
     return changed;
   }
 
@@ -463,15 +437,18 @@
     const hasProject = Boolean(state.projectId && state.context);
     const hasShots = Boolean(state.shotlist?.shots?.length);
     const validDuration = hasShots && shotlistDurationIsValid();
+    const pilotReady = hasShots && singleScenePilotIsReady();
     const jobActive = ACTIVE_STATES.has(state.job?.state);
     elements['video-generate'].disabled = !hasProject || state.busy || jobActive;
     elements['video-regenerate'].disabled = !hasProject || !hasShots || state.busy || jobActive;
     elements['video-add-shot'].disabled = !hasShots || !canAddShot() || state.busy || jobActive;
-    elements['video-add-shot'].title = canAddShot()
-      ? 'Lisää kohtaus'
-      : 'Kohtauksia voi olla enintään 8 ja yhteiskesto voi olla enintään 35 sekuntia.';
-    elements['video-preview'].disabled = !validDuration || state.busy || jobActive;
-    elements['video-render'].disabled = !validDuration || state.busy || jobActive;
+    elements['video-add-shot'].title = SINGLE_SCENE_PILOT.enabled
+      ? 'Monen kohtauksen video avataan myöhemmässä vaiheessa.'
+      : (canAddShot()
+        ? 'Lisää kohtaus'
+        : 'Kohtauksia voi olla enintään 8 ja yhteiskesto voi olla enintään 35 sekuntia.');
+    elements['video-preview'].disabled = !validDuration || !pilotReady || state.busy || jobActive;
+    elements['video-render'].disabled = !validDuration || !pilotReady || state.busy || jobActive;
     elements['video-cancel'].hidden = !jobActive;
     [
       'video-duration', 'video-profile', 'video-ai-count', 'video-style',
@@ -512,7 +489,7 @@
           || (regenerateOnly && !canRegenerate);
         if (input.classList.contains('shot-delete')) {
           input.title = cannotDelete
-            ? 'Poisto laskisi videon yhteiskeston alle 12 sekunnin.'
+            ? 'Videossa pitää olla vähintään yksi kohtaus ja vähintään 3 sekuntia.'
             : `Poista kohtaus ${Number(shot?.order || 0) + 1}`;
         }
       });
@@ -570,7 +547,7 @@
     const automatic = document.createElement('option');
     automatic.value = '';
     const effectiveProvider = String(state.presets?.provider?.effective || '').trim().toLowerCase();
-    const automaticProvider = ['veo', 'higgsfield'].includes(effectiveProvider)
+    const automaticProvider = ['veo', 'omni', 'higgsfield'].includes(effectiveProvider)
       ? providerLabel(effectiveProvider)
       : 'AI-video';
     automatic.textContent = `Automaattinen · ${automaticProvider} (suositus)`;
@@ -717,10 +694,13 @@
     const otherAiShots = state.shotlist.shots.filter((item) => item.id !== shot.id && item.kind === 'ai_motion').length;
     if (nextKind === 'ai_motion' && otherAiShots >= SHOT_LIMITS.maximumAiShots) {
       kindInput.value = shot.kind;
-      setNotice('Kuvakäsikirjoituksessa voi olla enintään kolme AI-videokohtausta.', 'error');
+      setNotice('Kokeiluvaiheessa kuvakäsikirjoituksessa voi olla yksi AI-videokohtaus.', 'error');
       return;
     }
     shot.kind = nextKind;
+    if (kindChanged && SINGLE_SCENE_PILOT.enabled) {
+      elements['video-ai-count'].value = shot.kind === 'ai_motion' ? '1' : '0';
+    }
     const durationInput = card.querySelector('.shot-duration');
     const minimum = shot.kind === 'ai_motion' ? 5 : 2;
     const maximum = shot.kind === 'ai_motion' ? 10 : 20;
@@ -1125,7 +1105,7 @@
       state.shotlist = normalizeShotlist(payload);
       if (!state.shotlist?.id) throw new Error('Kuvakäsikirjoitusta ei voitu tallentaa.');
       resetSaveState();
-      const defaultsApplied = applyOpeningSceneDefaults(state.shotlist);
+      const defaultsApplied = applySingleSceneDefaults(state.shotlist);
       if (defaultsApplied) state.editRevision += 1;
       renderShotlist();
       if (defaultsApplied && !await saveShotlist()) return;
@@ -1151,7 +1131,7 @@
     state.saveTimer = null;
     if (!state.shotlist?.id || ACTIVE_STATES.has(state.job?.state)) return false;
     if (!shotlistDurationIsValid()) {
-      setNotice('Kohtausten yhteiskeston pitää olla 12–35 sekuntia ennen tallennusta.', 'error');
+      setNotice('Kohtausten yhteiskeston pitää olla 3–35 sekuntia ennen tallennusta.', 'error');
       syncControls();
       return false;
     }
@@ -1248,6 +1228,13 @@
 
   async function startJob(tier) {
     if (!state.shotlist?.id || state.busy) return;
+    if (!singleScenePilotIsReady()) {
+      setNotice(
+        'Kokeiluvaiheessa voidaan renderöidä yksi 8 sekunnin kohtaus. Luo kuvakäsikirjoitus uudelleen.',
+        'error',
+      );
+      return;
+    }
     window.clearTimeout(state.saveTimer);
     window.clearTimeout(state.estimateTimer);
     const saveRequest = saveShotlist();
@@ -1323,10 +1310,13 @@
 
   async function cancelJob() {
     if (!state.job?.id || !ACTIVE_STATES.has(state.job.state)) return;
-    const veoMayBeRunning = String(state.presets?.provider?.effective || '') === 'veo'
-      || (state.job?.clips || []).some((clip) => clip.provider === 'veo');
-    const providerWarning = veoMayBeRunning
-      ? ' Jo Googlelle lähetetty Veo-työ voi silti valmistua ja tulla veloitetuksi.'
+    const paidProviderMayBeRunning = (state.job?.clips || []).some((clip) => (
+      ['veo', 'omni', 'higgsfield'].includes(String(clip?.provider || '').trim().toLowerCase())
+      && String(clip?.provider_request_id || '').trim()
+      && clip?.state !== 'completed'
+    ));
+    const providerWarning = paidProviderMayBeRunning
+      ? ' Jo videopalvelulle lähetetty maksullinen työ voi silti valmistua ja tulla veloitetuksi.'
       : '';
     if (!window.confirm(`Keskeytetäänkö videon luonti? Valmis kuvakäsikirjoitus säilyy.${providerWarning}`)) return;
     try {
@@ -1350,21 +1340,21 @@
       return;
     }
     const amount = Number(retryEstimate?.estimated_cost_eur ?? retryEstimate?.cost_eur ?? 0);
-    const resumableVeoClips = (state.job?.clips || []).filter((clip) => (
-      String(clip?.provider || '').trim().toLowerCase() === 'veo'
+    const resumableProviderClips = (state.job?.clips || []).filter((clip) => (
+      ['veo', 'omni', 'higgsfield'].includes(String(clip?.provider || '').trim().toLowerCase())
       && String(clip?.provider_request_id || '').trim()
       && clip?.state !== 'completed'
     ));
-    const resumesVeoOperation = resumableVeoClips.length > 0;
-    const resumeNotice = resumesVeoOperation
-      ? (resumableVeoClips.length === 1
-        ? 'Uudelleenyritys jatkaa aiempaa Google Veo -operaatiota samalla operaatiotunnisteella. Sitä ei lähetetä uutena videotyönä, mutta jo käynnistetty operaatio voi silti tulla veloitetuksi.'
-        : 'Uudelleenyritys jatkaa aiempia Google Veo -operaatioita samoilla operaatiotunnisteilla. Niitä ei lähetetä uusina videotöinä, mutta jo käynnistetyt operaatiot voivat silti tulla veloitetuiksi.')
+    const resumesProviderRequest = resumableProviderClips.length > 0;
+    const resumeNotice = resumesProviderRequest
+      ? (resumableProviderClips.length === 1
+        ? 'Uudelleenyritys jatkaa aiempaa videopalvelun työtä samalla tunnisteella. Sitä ei lähetetä uutena videotyönä, mutta jo käynnistetty työ voi silti tulla veloitetuksi.'
+        : 'Uudelleenyritys jatkaa aiempia videopalvelun töitä samoilla tunnisteilla. Niitä ei lähetetä uusina videotöinä, mutta jo käynnistetyt työt voivat silti tulla veloitetuiksi.')
       : '';
     const retryPrompt = amount > 0
       ? `Uudelleenyrityksen arvioitu kustannus on ${amount.toLocaleString('fi-FI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €. ${resumeNotice} ${providerDataNotice()} Aloitetaanko renderöinti?`
       : `${resumeNotice} Jatketaanko uudelleenyritystä?`;
-    const confirmedCost = amount <= 0 && !resumesVeoOperation
+    const confirmedCost = amount <= 0 && !resumesProviderRequest
       ? true
       : window.confirm(retryPrompt.trim());
     if (!confirmedCost) return;
@@ -1475,7 +1465,12 @@
   function addShot() {
     if (!state.shotlist) return;
     if (!canAddShot()) {
-      setNotice('Kohtausta ei voi lisätä: enimmäismäärä on 8 ja yhteiskeston raja 35 sekuntia.', 'error');
+      setNotice(
+        SINGLE_SCENE_PILOT.enabled
+          ? 'Monen kohtauksen video avataan myöhemmässä vaiheessa. Lisää kohtaus -toiminto on jo valmiina.'
+          : 'Kohtausta ei voi lisätä: enimmäismäärä on 8 ja yhteiskeston raja 35 sekuntia.',
+        'error',
+      );
       return;
     }
     const index = state.shotlist.shots.length;
@@ -1506,7 +1501,7 @@
     const removedIndex = state.shotlist.shots.findIndex((shot) => shot.id === shotId);
     const removedShot = state.shotlist.shots[removedIndex];
     if (!removedShot || !canRemoveShot(removedShot)) {
-      setNotice('Kohtausta ei voi poistaa, jos videon yhteiskesto laskisi alle 12 sekunnin.', 'error');
+      setNotice('Kohtausta ei voi poistaa, jos video jäisi ilman kohtausta tai alle 3 sekunnin mittaiseksi.', 'error');
       return;
     }
     state.shotlist.shots = state.shotlist.shots.filter((shot) => shot.id !== shotId)
@@ -1548,9 +1543,13 @@
     scheduleSave();
   }
 
-  function settingsChanged() {
+  function settingsChanged(event) {
     renderFormat();
     if (state.shotlist) {
+      if (event?.currentTarget === elements['video-ai-count']) {
+        applySingleSceneDefaults(state.shotlist);
+        renderShotlist();
+      }
       state.shotlist.style_hint = elements['video-style'].value.trim();
       state.shotlist.aspect_ratios = selectedAspectRatios();
       state.shotlist.audio.subtitles = {
@@ -1622,7 +1621,7 @@
       resetSaveState();
       state.job = latestJob?.job || latestJob || null;
       const aiVideoAvailable = Boolean(presets?.provider?.ai_video_available);
-      const maxAiClips = aiVideoAvailable ? Math.max(0, Math.min(3, Number(presets?.max_ai_clips ?? 3))) : 0;
+      const maxAiClips = aiVideoAvailable ? Math.max(0, Math.min(1, Number(presets?.max_ai_clips ?? 1))) : 0;
       elements['video-ai-count'].querySelectorAll('option').forEach((option) => {
         option.disabled = Number(option.value) > maxAiClips;
       });
@@ -1642,9 +1641,9 @@
         const savedRatio = state.shotlist.aspect_ratios?.[0];
         const savedProfile = Object.entries(PROFILE_LABELS).find(([, item]) => item.ratio === savedRatio)?.[0];
         if (savedProfile) elements['video-profile'].value = savedProfile;
-        elements['video-duration'].value = ['15', '20', '30'].includes(String(state.shotlist.target_duration_s))
+        elements['video-duration'].value = ['8'].includes(String(state.shotlist.target_duration_s))
           ? String(state.shotlist.target_duration_s)
-          : '20';
+          : '8';
         elements['video-style'].value = state.shotlist.style_hint || elements['video-style'].value;
         elements['video-subtitles'].checked = state.shotlist.audio?.subtitles?.enabled !== false;
         elements['video-voiceover'].checked = Boolean(availableVoiceoverAsset())
@@ -1660,7 +1659,12 @@
       if (jobIsActive) startPolling();
       if (providerConfigurationError) setNotice(providerConfigurationError, 'error');
       else if (!jobIsActive && !state.shotlist) setNotice('Projektin aineistot ovat valmiit kuvakäsikirjoitusta varten.', 'ready');
-      else if (!jobIsActive && state.job?.state !== 'succeeded') setNotice('Tallennettu kuvakäsikirjoitus ladattiin.', 'ready');
+      else if (!jobIsActive && !singleScenePilotIsReady()) {
+        setNotice(
+          'Tallennetussa kuvakäsikirjoituksessa on vanhan version useita kohtauksia tai muu kesto. Luo uusi yhden 8 sekunnin kohtauksen versio.',
+          'error',
+        );
+      } else if (!jobIsActive && state.job?.state !== 'succeeded') setNotice('Tallennettu kuvakäsikirjoitus ladattiin.', 'ready');
     } catch (error) {
       setNotice(error.message, 'error', 'Yritä uudelleen');
     } finally {

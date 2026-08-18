@@ -41,9 +41,7 @@
       <label class="control-field">
         <span>Kesto</span>
         <select id="video-duration">
-          <option value="15">15 s</option>
-          <option value="20" selected>20 s</option>
-          <option value="30">30 s</option>
+          <option value="8" selected>8 s</option>
         </select>
       </label>
       <label class="control-field">
@@ -59,8 +57,6 @@
         <select id="video-ai-count">
           <option value="0">0 · vain paikallinen</option>
           <option value="1" selected>1 AI-klippi</option>
-          <option value="2">2 AI-klippiä</option>
-          <option value="3">3 AI-klippiä</option>
         </select>
       </label>
       <label class="control-field control-field-wide">
@@ -82,22 +78,22 @@
       </div>
 
       <fieldset class="profile-selection" id="video-final-profiles" aria-describedby="video-final-profiles-help">
-        <legend>Lopullisen videon formaatit</legend>
+        <legend>Lopullisen videon formaatti</legend>
         <div class="profile-options">
           <label>
-            <input class="video-final-profile" type="checkbox" value="story" checked>
+            <input class="video-final-profile" type="radio" name="video-final-profile" value="story" checked>
             <span><strong>9:16</strong><small>Story</small></span>
           </label>
           <label>
-            <input class="video-final-profile" type="checkbox" value="square">
+            <input class="video-final-profile" type="radio" name="video-final-profile" value="square">
             <span><strong>1:1</strong><small>Neliö</small></span>
           </label>
           <label>
-            <input class="video-final-profile" type="checkbox" value="landscape">
+            <input class="video-final-profile" type="radio" name="video-final-profile" value="landscape">
             <span><strong>16:9</strong><small>Vaaka</small></span>
           </label>
         </div>
-        <p id="video-final-profiles-help">Valitse yksi tai useampi lopullinen MP4. Esikatselu käyttää yllä valittua kuvasuhdetta.</p>
+        <p id="video-final-profiles-help">Kokeiluvaiheessa renderöidään yksi MP4 kerrallaan. Esikatselu käyttää yllä valittua kuvasuhdetta.</p>
       </fieldset>
     </section>
 
@@ -126,7 +122,7 @@
         <div class="shotlist-footer">
           <div>
             <p id="video-shot-summary">0 kohtausta · 0 sekuntia</p>
-            <small id="video-shot-limits">1–8 kohtausta · yhteiskesto 12–35 sekuntia</small>
+            <small id="video-shot-limits">Kokeiluvaihe: yksi 8 sekunnin kohtaus · monen kohtauksen video avataan myöhemmin</small>
           </div>
           <button class="secondary-action small" id="video-add-shot" type="button" aria-describedby="video-shot-limits" disabled>+ Lisää kohtaus</button>
         </div>
@@ -159,7 +155,7 @@
         <div class="preview-meta">
           <div><span>TILA</span><strong id="video-job-state">Ei aloitettu</strong></div>
           <div><span>LAATU</span><strong id="video-job-tier">Esikatselu</strong></div>
-          <div><span>KESTO</span><strong id="video-preview-duration">20 s</strong></div>
+          <div><span>KESTO</span><strong id="video-preview-duration">8 s</strong></div>
         </div>
 
         <div class="result-actions" id="video-result-actions" hidden>
@@ -243,6 +239,7 @@
                 <option value="veo-3.1-fast-generate-preview">Gemini Veo 3.1 Fast</option>
                 <option value="veo-3.1-generate-preview">Gemini Veo 3.1</option>
                 <option value="veo-3.1-lite-generate-preview">Gemini Veo 3.1 Lite</option>
+                <option value="gemini-omni-flash-preview">Gemini Omni Flash (Preview)</option>
                 <option value="dop-turbo">Higgsfield DoP Turbo</option>
               </select>
             </label>
@@ -279,6 +276,6 @@
     const apiUrl = (path) => `${API_BASE_URL}${path}`;
   </script>
   <script src="auth.js?v=2"></script>
-  <script src="video.js?v=10"></script>
+  <script src="video.js?v=11"></script>
 </body>
 </html>
