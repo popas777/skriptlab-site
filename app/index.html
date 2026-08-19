@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=100">
+    <link rel="stylesheet" href="styles.css?v=101">
     <link rel="stylesheet" href="workflow-studio.css?v=2">
     <link rel="stylesheet" href="correction-reprints.css?v=1">
 </head>
@@ -126,7 +126,11 @@
 
     <div class="app-wrapper" id="app-wrapper">
         <aside class="sidebar glass-panel" id="sidebar">
-            <h1 class="logo">SkriptLab<span class="accent">.</span></h1>
+            <div class="app-brand">
+                <h1 class="logo">SkriptLab<span class="accent">.</span></h1>
+                <!-- Increase 0.xxx by 0.001 and replace the suffix with the latest SkriptLab Main update hash on each release. -->
+                <span class="app-version" aria-label="Sovellusversio 0.111, päivitys fa1bc66" title="Sovellusversio 0.111 · päivitys fa1bc66">0.111fa1bc66</span>
+            </div>
             <nav class="sidebar-nav">
                 <ul id="nav-menu">
                     <li class="active" data-view="view-kirjani">Tekstini</li>
