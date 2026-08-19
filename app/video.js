@@ -8,6 +8,7 @@
   };
   const TERMINAL_STATES = new Set(['succeeded', 'failed', 'cancelled']);
   const ACTIVE_STATES = new Set(['queued', 'preparing', 'generating_clips', 'assembling']);
+  const EXTERNAL_VIDEO_PROVIDERS = new Set(['veo', 'omni', 'higgsfield']);
   const STATE_LABELS = {
     queued: 'Jonossa',
     preparing: 'Valmistellaan',
@@ -50,11 +51,11 @@
     still: Object.freeze({ from: 1, to: 1, focus: 'center' }),
   });
   const FALLBACK_AI_VIDEO_MODELS = Object.freeze([
-    Object.freeze({ id: 'veo-3.1-fast-generate-preview', label: 'Gemini Veo 3.1 Fast', provider: 'veo' }),
-    Object.freeze({ id: 'veo-3.1-generate-preview', label: 'Gemini Veo 3.1', provider: 'veo' }),
-    Object.freeze({ id: 'veo-3.1-lite-generate-preview', label: 'Gemini Veo 3.1 Lite', provider: 'veo' }),
-    Object.freeze({ id: 'gemini-omni-flash-preview', label: 'Gemini Omni Flash (Preview)', provider: 'omni' }),
-    Object.freeze({ id: 'dop-turbo', label: 'Higgsfield DoP Turbo', provider: 'higgsfield' }),
+    Object.freeze({ id: 'veo-3.1-fast-generate-preview', label: 'Gemini Veo 3.1 Fast', provider: 'veo', expected_wait_min_s: 11, expected_wait_max_s: 360, expected_wait_label: 'Google arvioi 11 s–6 min' }),
+    Object.freeze({ id: 'veo-3.1-generate-preview', label: 'Gemini Veo 3.1', provider: 'veo', expected_wait_min_s: 11, expected_wait_max_s: 360, expected_wait_label: 'Google arvioi 11 s–6 min' }),
+    Object.freeze({ id: 'veo-3.1-lite-generate-preview', label: 'Gemini Veo 3.1 Lite', provider: 'veo', expected_wait_min_s: 11, expected_wait_max_s: 360, expected_wait_label: 'Google arvioi 11 s–6 min' }),
+    Object.freeze({ id: 'gemini-omni-flash-preview', label: 'Gemini Omni Flash (Preview)', provider: 'omni', expected_wait_label: 'Kesto vaihtelee kuorman mukaan' }),
+    Object.freeze({ id: 'dop-turbo', label: 'Higgsfield DoP Turbo', provider: 'higgsfield', expected_wait_label: 'Kesto vaihtelee palvelun kuorman mukaan' }),
   ]);
   const PROVIDER_LABELS = Object.freeze({
     veo: 'Gemini Veo',
@@ -82,6 +83,11 @@
     estimateToken: 0,
     estimateTier: 'final',
     pollTimer: null,
+    pollController: null,
+    pollFailureCount: 0,
+    timingTimer: null,
+    timingJobId: null,
+    timingFallbackStartedAtMs: null,
     draggedShotId: null,
   };
 
@@ -99,6 +105,7 @@
       'video-preview-placeholder', 'video-preview-cover', 'video-preview-title',
       'video-preview-author', 'video-preview-caption', 'video-player', 'video-render-progress',
       'video-progress-value', 'video-job-state', 'video-job-tier', 'video-preview-duration',
+      'video-job-timing', 'video-job-time-label', 'video-job-elapsed', 'video-job-expected',
       'video-result-actions', 'video-download', 'video-retry', 'video-cost', 'video-cost-note',
       'video-cancel', 'video-preview', 'video-render', 'video-shot-template',
     ].forEach((id) => {
@@ -557,6 +564,145 @@
       || state.presets?.provider?.data_notice
       || 'AI-videossa kohtaukseen valittu kuvalähde ja englanninkielinen liikeprompti lähetetään valitulle videopalvelulle.',
     ).trim();
+  }
+
+  function externalJobClip(job) {
+    const clips = Array.isArray(job?.clips) ? job.clips : [];
+    return clips.find((clip) => (
+      EXTERNAL_VIDEO_PROVIDERS.has(String(clip?.provider || '').trim().toLowerCase())
+      && ['queued', 'in_progress'].includes(String(clip?.state || ''))
+    )) || clips.find((clip) => (
+      EXTERNAL_VIDEO_PROVIDERS.has(String(clip?.provider || '').trim().toLowerCase())
+    )) || null;
+  }
+
+  function jobModelInfo(job = state.job) {
+    const clip = externalJobClip(job);
+    const modelId = String(clip?.model || job?.model || '').trim();
+    const provider = String(clip?.provider || job?.provider || '').trim().toLowerCase();
+    const configured = aiVideoModelById(modelId)
+      || FALLBACK_AI_VIDEO_MODELS.find((model) => String(model.id || '') === modelId);
+    if (configured) return configured;
+    return {
+      id: modelId,
+      label: modelId || providerLabel(provider || 'AI-video'),
+      provider,
+      expected_wait_min_s: provider === 'veo' ? 11 : null,
+      expected_wait_max_s: provider === 'veo' ? 360 : null,
+      expected_wait_label: provider === 'veo'
+        ? 'Google arvioi 11 s–6 min'
+        : provider === 'omni'
+          ? 'Kesto vaihtelee kuorman mukaan'
+          : provider === 'higgsfield'
+            ? 'Kesto vaihtelee palvelun kuorman mukaan'
+            : 'Kesto riippuu palvelimen kuormasta',
+    };
+  }
+
+  function utcTimestampMs(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return null;
+    const normalized = /(?:z|[+-]\d{2}:?\d{2})$/i.test(raw) ? raw : `${raw}Z`;
+    const parsed = Date.parse(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function formatElapsedTime(milliseconds) {
+    const seconds = Math.max(0, Math.floor(Number(milliseconds || 0) / 1000));
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainder = seconds % 60;
+    if (hours > 0) {
+      return `${hours}:${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+    }
+    return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+  }
+
+  function jobElapsedMs(job = state.job, now = Date.now()) {
+    if (!job) return null;
+    if (String(job.id || '') !== String(state.timingJobId || '')) {
+      state.timingJobId = String(job.id || '');
+      state.timingFallbackStartedAtMs = now;
+    }
+    const startedAt = utcTimestampMs(job.started_at)
+      ?? utcTimestampMs(job.created_at)
+      ?? state.timingFallbackStartedAtMs;
+    if (!Number.isFinite(startedAt)) return null;
+    const completedAt = TERMINAL_STATES.has(job.state)
+      ? (utcTimestampMs(job.completed_at) ?? utcTimestampMs(job.updated_at) ?? now)
+      : now;
+    return Math.max(0, completedAt - startedAt);
+  }
+
+  function jobWaitGuidance(job = state.job, elapsedMs = jobElapsedMs(job)) {
+    if (!job) return '';
+    if (job.state === 'queued') return 'Odottaa vapautuvaa renderöintipaikkaa';
+    if (job.state === 'preparing') return 'Valmistellaan lähdekuvaa';
+    if (job.state === 'assembling') return 'Koostetaan ja tallennetaan videota';
+    const clip = externalJobClip(job);
+    if (!clip) return 'Paikallinen renderöinti · kesto riippuu palvelimesta';
+    const model = jobModelInfo(job);
+    const label = String(model.label || model.id || providerLabel(model.provider)).trim();
+    const wait = String(model.expected_wait_label || '').trim()
+      || (String(model.provider || clip.provider) === 'veo'
+        ? 'Google arvioi 11 s–6 min'
+        : 'Kesto vaihtelee palvelun kuorman mukaan');
+    const maxWait = Number(model.expected_wait_max_s || 0);
+    const overdue = ACTIVE_STATES.has(job.state)
+      && maxWait > 0
+      && Number(elapsedMs || 0) > maxWait * 1000;
+    return `${label} · ${wait}${overdue ? ' · tavallista hitaampi' : ''}`;
+  }
+
+  function updateJobTiming(job = state.job) {
+    const timing = elements['video-job-timing'];
+    if (!timing) return;
+    if (!job) {
+      timing.hidden = true;
+      elements['video-job-time-label'].textContent = 'KULUNUT';
+      elements['video-job-elapsed'].textContent = '00:00';
+      elements['video-job-expected'].textContent = 'Mallin odotusaika näkyy työn aikana.';
+      return;
+    }
+    const elapsedMs = jobElapsedMs(job);
+    timing.hidden = false;
+    elements['video-job-time-label'].textContent = TERMINAL_STATES.has(job.state) ? 'KOKONAISAIKA' : 'KULUNUT';
+    elements['video-job-elapsed'].textContent = elapsedMs == null ? '—' : formatElapsedTime(elapsedMs);
+    elements['video-job-expected'].textContent = jobWaitGuidance(job, elapsedMs);
+  }
+
+  function stopJobTiming(reset = false) {
+    window.clearInterval(state.timingTimer);
+    state.timingTimer = null;
+    if (!reset) return;
+    state.timingJobId = null;
+    state.timingFallbackStartedAtMs = null;
+    updateJobTiming(null);
+  }
+
+  function syncJobTiming(job = state.job) {
+    updateJobTiming(job);
+    if (!ACTIVE_STATES.has(job?.state)) {
+      stopJobTiming();
+      return;
+    }
+    if (!state.timingTimer) {
+      state.timingTimer = window.setInterval(() => updateJobTiming(state.job), 1000);
+    }
+  }
+
+  function indeterminateGeneration(job) {
+    return job?.state === 'generating_clips';
+  }
+
+  function activeJobNotice(job, progress) {
+    if (indeterminateGeneration(job)) {
+      const clip = externalJobClip(job);
+      return clip
+        ? `Luodaan AI-klippiä · ${jobModelInfo(job).label}`
+        : 'Luodaan kohtausta';
+    }
+    return `${STATE_LABELS[job.state] || 'Videota luodaan'} · ${progress} %`;
   }
 
   function populateAiModelSelect(select, selectedModel, selectedProvider) {
@@ -1021,11 +1167,19 @@
     const isActive = ACTIVE_STATES.has(job?.state);
     const isReady = job?.state === 'succeeded';
     const canRetry = job?.state === 'failed' || job?.state === 'cancelled';
+    const isIndeterminate = isActive && indeterminateGeneration(job);
     elements['video-job-state'].textContent = job ? (STATE_LABELS[job.state] || job.state) : 'Ei aloitettu';
     elements['video-job-tier'].textContent = job?.tier === 'final' ? 'Lopullinen' : 'Esikatselu';
     const progress = Math.max(0, Math.min(100, Number(job?.progress_percent || 0)));
     elements['video-render-progress'].hidden = !isActive;
-    elements['video-render-progress'].setAttribute('aria-valuenow', String(progress));
+    elements['video-render-progress'].classList.toggle('is-indeterminate', isIndeterminate);
+    if (isIndeterminate) {
+      elements['video-render-progress'].removeAttribute('aria-valuenow');
+      elements['video-render-progress'].setAttribute('aria-valuetext', 'AI-videomalli luo kohtausta');
+    } else {
+      elements['video-render-progress'].setAttribute('aria-valuenow', String(progress));
+      elements['video-render-progress'].removeAttribute('aria-valuetext');
+    }
     elements['video-progress-value'].style.width = `${progress}%`;
     elements['video-result-actions'].hidden = !isReady && !canRetry;
     elements['video-download'].hidden = !isReady;
@@ -1051,8 +1205,9 @@
       const degraded = job.degraded ? ' Vähintään yksi AI-klippi valmistui varapolulla.' : '';
       setNotice(`Video on valmis.${degraded}`, 'ready');
     } else if (isActive) {
-      setNotice(`${STATE_LABELS[job.state] || 'Videota luodaan'} · ${progress} %`, 'loading');
+      setNotice(activeJobNotice(job, progress), 'loading');
     }
+    syncJobTiming(job);
     renderClipStatuses(job);
     updateSteps(job);
     syncControls();
@@ -1306,24 +1461,59 @@
   function stopPolling() {
     window.clearTimeout(state.pollTimer);
     state.pollTimer = null;
+    if (state.pollController) state.pollController.abort();
+    state.pollController = null;
+  }
+
+  function pollRetryDelay() {
+    const delays = [2500, 5000, 8000, 12000, 15000];
+    return delays[Math.min(Math.max(0, state.pollFailureCount - 1), delays.length - 1)];
   }
 
   async function pollJob() {
     if (!state.job?.id) return;
+    const jobId = String(state.job.id);
+    const controller = new AbortController();
+    state.pollController = controller;
+    const abortTimer = window.setTimeout(() => controller.abort(), 12000);
     try {
-      state.job = await api(`/api/video/jobs/${encodeURIComponent(state.job.id)}`);
+      const nextJob = await api(`/api/video/jobs/${encodeURIComponent(jobId)}`, {
+        signal: controller.signal,
+      });
+      if (state.pollController !== controller || String(state.job?.id || '') !== jobId) return;
+      state.job = nextJob;
+      state.pollFailureCount = 0;
       renderJob();
       if (!TERMINAL_STATES.has(state.job.state)) {
         state.pollTimer = window.setTimeout(pollJob, 1400);
       }
     } catch (error) {
-      setNotice(`Työn tilaa ei saatu päivitettyä: ${error.message}`, 'error', 'Yritä uudelleen');
-      state.pollTimer = window.setTimeout(pollJob, 3500);
+      if (state.pollController !== controller || String(state.job?.id || '') !== jobId) return;
+      state.pollFailureCount += 1;
+      const delay = pollRetryDelay();
+      const hasHttpStatus = Number.isFinite(Number(error?.status));
+      if (!hasHttpStatus) {
+        const reason = error?.name === 'AbortError'
+          ? 'Tilakysely aikakatkaistiin.'
+          : 'Yhteys palvelimeen katkesi hetkeksi.';
+        setNotice(
+          `${reason} Videotyö voi jatkua taustalla; tarkistetaan uudelleen ${Math.round(delay / 1000)} s kuluttua.`,
+          'loading',
+        );
+      } else {
+        setNotice(`Työn tilaa ei saatu päivitettyä: ${error.message}`, 'error');
+      }
+      updateJobTiming(state.job);
+      state.pollTimer = window.setTimeout(pollJob, delay);
+    } finally {
+      window.clearTimeout(abortTimer);
+      if (state.pollController === controller) state.pollController = null;
     }
   }
 
   function startPolling() {
     stopPolling();
+    state.pollFailureCount = 0;
     if (state.job?.id && !TERMINAL_STATES.has(state.job.state)) pollJob();
   }
 
@@ -1616,6 +1806,8 @@
 
   async function loadWorkspace() {
     stopPolling();
+    stopJobTiming(true);
+    state.job = null;
     state.projectId = projectIdFromPage();
     if (!state.projectId) {
       state.context = null;
@@ -1711,7 +1903,10 @@
         elements[id].addEventListener('change', settingsChanged);
         if (id === 'video-style') elements[id].addEventListener('input', settingsChanged);
       });
-    window.addEventListener('beforeunload', stopPolling);
+    window.addEventListener('beforeunload', () => {
+      stopPolling();
+      stopJobTiming();
+    });
     window.addEventListener('message', (event) => {
       if (event.origin !== window.location.origin || event.data?.type !== 'skriptlab:video-project-changed') return;
       const nextProjectId = Number(event.data.projectId || 0) || null;

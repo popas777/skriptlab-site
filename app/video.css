@@ -958,6 +958,25 @@ button:disabled {
   transition: width 300ms ease;
 }
 
+.preview-progress.is-indeterminate span {
+  width: 34% !important;
+  animation: video-progress-scan 1.4s ease-in-out infinite;
+}
+
+@keyframes video-progress-scan {
+  0% {
+    transform: translateX(-115%);
+  }
+
+  50% {
+    transform: translateX(95%);
+  }
+
+  100% {
+    transform: translateX(295%);
+  }
+}
+
 .preview-meta {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -978,6 +997,45 @@ button:disabled {
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.preview-timing {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  background: var(--paper-soft);
+}
+
+.preview-timing[hidden] {
+  display: none;
+}
+
+.preview-timing > div {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 3px;
+}
+
+.preview-timing span,
+.preview-timing small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.preview-timing strong {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+}
+
+.preview-timing small {
+  max-width: 210px;
+  text-align: right;
 }
 
 .result-actions {
@@ -1260,6 +1318,14 @@ button:disabled {
     margin-top: 18px;
   }
 
+  .preview-timing {
+    align-items: flex-start;
+  }
+
+  .preview-timing small {
+    max-width: 66%;
+  }
+
   .studio-footer {
     align-items: stretch;
     flex-direction: column;
@@ -1272,6 +1338,15 @@ button:disabled {
 
   #video-cancel {
     grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preview-progress.is-indeterminate span {
+    width: 100% !important;
+    opacity: 0.72;
+    animation: none;
+    transform: none;
   }
 }
 

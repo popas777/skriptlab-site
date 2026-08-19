@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="video.css?v=7">
+  <link rel="stylesheet" href="video.css?v=8">
 </head>
 <body>
   <main class="video-studio" aria-labelledby="video-title">
@@ -158,6 +158,14 @@
           <div><span>KESTO</span><strong id="video-preview-duration">8 s</strong></div>
         </div>
 
+        <div class="preview-timing" id="video-job-timing" hidden>
+          <div>
+            <span id="video-job-time-label">KULUNUT</span>
+            <strong id="video-job-elapsed" role="timer" aria-live="off">00:00</strong>
+          </div>
+          <small id="video-job-expected">Mallin odotusaika näkyy työn aikana.</small>
+        </div>
+
         <div class="result-actions" id="video-result-actions" hidden>
           <a class="secondary-action" id="video-download" href="#" download hidden>Lataa MP4</a>
           <button class="secondary-action" id="video-retry" type="button" hidden>Yritä uudelleen</button>
@@ -277,6 +285,6 @@
     const apiUrl = (path) => `${API_BASE_URL}${path}`;
   </script>
   <script src="auth.js?v=2"></script>
-  <script src="video.js?v=12"></script>
+  <script src="video.js?v=13"></script>
 </body>
 </html>
