@@ -328,6 +328,27 @@
     return (state.shotlist?.shots || []).reduce((sum, shot) => sum + Number(shot.duration_s || 0), 0);
   }
 
+  function videoSectionMeta(index) {
+    const order = Math.max(0, Math.floor(Number(index) || 0));
+    const isCoverVideo = order === 0;
+    return {
+      order,
+      number: String(order).padStart(2, '0'),
+      isCoverVideo,
+      title: isCoverVideo ? 'Kansivideo' : 'Kohtaus',
+      label: isCoverVideo ? 'kansivideo' : `kohtaus ${order}`,
+      accessibleLabel: isCoverVideo ? 'Kansivideo' : `Kohtaus ${order}`,
+      genitive: isCoverVideo ? 'kansivideon' : `kohtauksen ${order}`,
+      illative: isCoverVideo ? 'kansivideoon' : `kohtaukseen ${order}`,
+    };
+  }
+
+  function videoSectionMetaForShot(shot) {
+    const shots = state.shotlist?.shots || [];
+    const index = shots.findIndex((item) => String(item?.id) === String(shot?.id));
+    return videoSectionMeta(index >= 0 ? index : Number(shot?.order || 0));
+  }
+
   function activeShot() {
     const shots = state.shotlist?.shots || [];
     return shots.find((shot) => shot.id === state.activeShotId) || shots[0] || null;
@@ -373,7 +394,9 @@
 
   function canRemoveShot(shot) {
     const shots = state.shotlist?.shots || [];
-    return shots.length > SHOT_LIMITS.minimumCount
+    const index = shots.findIndex((item) => String(item?.id) === String(shot?.id));
+    return index > 0
+      && shots.length > SHOT_LIMITS.minimumCount
       && totalDuration() - Number(shot?.duration_s || 0) >= SHOT_LIMITS.minimumDuration;
   }
 
@@ -495,7 +518,9 @@
     const validDuration = hasShots && shotlistDurationIsValid();
     const activeSceneReady = hasShots && activeSceneIsReady();
     const jobActive = ACTIVE_STATES.has(state.job?.state);
-    elements['video-generate'].disabled = !hasProject || state.busy || jobActive;
+    document.querySelectorAll('#video-generate, #video-generate-inline').forEach((button) => {
+      button.disabled = !hasProject || state.busy || jobActive;
+    });
     elements['video-regenerate'].disabled = !hasProject || !hasShots || state.busy || jobActive;
     elements['video-add-shot'].disabled = !hasProject || !canAddShot() || state.busy || jobActive;
     elements['video-add-shot'].title = canAddShot()
@@ -513,7 +538,7 @@
     elements['video-final-profiles'].disabled = state.busy || jobActive;
     syncVoiceoverAvailability();
     document.querySelectorAll('.shot-card').forEach((card) => {
-      card.draggable = !(state.busy || jobActive);
+      card.draggable = !card.classList.contains('is-cover-video') && !(state.busy || jobActive);
     });
     document.querySelectorAll('.shot-card input, .shot-card select, .shot-card textarea, .shot-card button')
       .forEach((input) => {
@@ -542,9 +567,12 @@
           || (sourceOnly && !usesImage)
           || (regenerateOnly && !canRegenerate);
         if (input.classList.contains('shot-delete')) {
+          const meta = videoSectionMetaForShot(shot);
           input.title = cannotDelete
-            ? 'Videossa pitää olla vähintään yksi kohtaus ja vähintään 3 sekuntia.'
-            : `Poista kohtaus ${Number(shot?.order || 0) + 1}`;
+            ? (meta.isCoverVideo
+              ? 'Kansivideota ei voi poistaa.'
+              : 'Videossa pitää olla vähintään yksi video-osio ja vähintään 3 sekuntia.')
+            : `Poista ${meta.label}`;
         }
       });
   }
@@ -733,7 +761,7 @@
       const clip = externalJobClip(job);
       return clip
         ? `Luodaan AI-klippiä · ${jobModelInfo(job).label}`
-        : 'Luodaan kohtausta';
+        : `Luodaan ${videoSectionMetaForShot(activeShot()).label}`;
     }
     return `${STATE_LABELS[job.state] || 'Videota luodaan'} · ${progress} %`;
   }
@@ -826,6 +854,7 @@
   }
 
   function updateShotSourcePreview(card, shot) {
+    const meta = videoSectionMetaForShot(shot);
     const thumbnail = card.querySelector('.shot-source-thumbnail');
     const placeholder = card.querySelector('.shot-source-placeholder');
     const asset = sourceImageForReference(shot.source_asset)
@@ -836,7 +865,7 @@
         thumbnail.src = url;
         thumbnail.dataset.src = url;
       }
-      thumbnail.alt = `Kohtauksen ${Number(shot.order || 0) + 1} kuvalähde: ${asset.title || sourceImageTypeLabel(asset)}`;
+      thumbnail.alt = `${meta.genitive[0].toUpperCase()}${meta.genitive.slice(1)} kuvalähde: ${asset.title || sourceImageTypeLabel(asset)}`;
       thumbnail.hidden = false;
       placeholder.hidden = true;
     } else {
@@ -850,6 +879,8 @@
   }
 
   function syncShotTypeEditors(card, shot) {
+    const meta = videoSectionMetaForShot(shot);
+    const capitalizedGenitive = `${meta.genitive[0].toUpperCase()}${meta.genitive.slice(1)}`;
     const sourceSettings = card.querySelector('.shot-source-settings');
     const sourceSelect = card.querySelector('.shot-source-select');
     const sourceUpload = card.querySelector('.shot-source-upload');
@@ -876,11 +907,11 @@
     animationSelect.disabled = !isAnimation || locked;
     modelSelect.disabled = !isAiMotion || locked;
     motionSelect.disabled = !isAiMotion || locked;
-    animationSelect.setAttribute('aria-label', `Kohtauksen ${shot.order + 1} kuva-animointi`);
-    sourceSelect.setAttribute('aria-label', `Kohtauksen ${shot.order + 1} kuvalähde`);
-    sourceUpload.setAttribute('aria-label', `Tuo kuva kohtaukseen ${shot.order + 1}`);
-    modelSelect.setAttribute('aria-label', `Kohtauksen ${shot.order + 1} AI-videomalli`);
-    motionSelect.setAttribute('aria-label', `Kohtauksen ${shot.order + 1} AI-videon kameraliike`);
+    animationSelect.setAttribute('aria-label', `${capitalizedGenitive} kuva-animointi`);
+    sourceSelect.setAttribute('aria-label', `${capitalizedGenitive} kuvalähde`);
+    sourceUpload.setAttribute('aria-label', `Tuo kuva ${meta.illative}`);
+    modelSelect.setAttribute('aria-label', `${capitalizedGenitive} AI-videomalli`);
+    motionSelect.setAttribute('aria-label', `${capitalizedGenitive} AI-videon kameraliike`);
   }
 
   function shotFieldChanged(card, changedInput = null) {
@@ -954,17 +985,18 @@
     scheduleEstimate();
   }
 
-  function renderCoverCard() {
+  function renderCoverVideoPlaceholder() {
     const card = document.createElement('article');
-    card.className = 'storyboard-cover-card';
-    card.setAttribute('aria-label', 'Kansi');
+    card.className = 'storyboard-cover-card storyboard-cover-video-placeholder';
+    card.setAttribute('aria-label', 'Kansivideo');
     card.innerHTML = `
       <span class="storyboard-card-number" aria-hidden="true">00</span>
       <div class="storyboard-cover-preview" aria-hidden="true"><span>KANSI</span></div>
       <div class="storyboard-card-copy">
-        <p>VIDEON LÄHDEKUVA</p>
-        <h3>Kansi</h3>
+        <p>ENSIMMÄINEN VIDEO-OSIO</p>
+        <h3>Kansivideo</h3>
         <small></small>
+        <button class="primary-action" id="video-generate-inline" type="button">Luo kansivideo</button>
       </div>`;
     const cover = coverSourceImage();
     const preview = card.querySelector('.storyboard-cover-preview');
@@ -974,8 +1006,9 @@
       preview.classList.add('has-cover');
     }
     card.querySelector('small').textContent = cover
-      ? String(cover.title || 'Projektin kansikuva on videon ensisijainen kuvalähde.')
-      : 'Lisää projektille kansikuva Kansi ja grafiikka -moduulissa.';
+      ? String(cover.title || 'Luo projektin kansikuvasta ensimmäinen muokattava video-osio.')
+      : 'Luo ensimmäinen muokattava video-osio; kuvan voit lisätä myös myöhemmin.';
+    card.querySelector('#video-generate-inline')?.addEventListener('click', generateShotlist);
     return card;
   }
 
@@ -986,12 +1019,10 @@
     card.innerHTML = `
       <span class="storyboard-card-number" aria-hidden="true">01</span>
       <div class="storyboard-card-copy">
-        <p>ENSIMMÄINEN VIDEO-OSIO</p>
+        <p>SEURAAVA VIDEO-OSIO</p>
         <h3>Kohtaus</h3>
-        <small>Luo ensimmäinen muokattava kohtaus projektin aineistoista.</small>
-        <button class="primary-action" id="video-generate-inline" type="button">Luo kuvakäsikirjoitus</button>
+        <small>Lisää ensimmäinen kohtaus kansivideon jälkeen.</small>
       </div>`;
-    card.querySelector('#video-generate-inline')?.addEventListener('click', generateShotlist);
     return card;
   }
 
@@ -1012,24 +1043,27 @@
   function renderShotCard(shot, index) {
     const fragment = elements['video-shot-template'].content.cloneNode(true);
     const card = fragment.querySelector('.shot-card');
-    const sceneNumber = index + 1;
+    const meta = videoSectionMeta(index);
+    const capitalizedGenitive = `${meta.genitive[0].toUpperCase()}${meta.genitive.slice(1)}`;
     card.dataset.shotId = shot.id;
     card.classList.toggle('is-active', shot.id === state.activeShotId);
-    card.draggable = !(state.busy || ACTIVE_STATES.has(state.job?.state));
-    card.setAttribute('aria-label', `Kohtaus ${sceneNumber}${shot.id === state.activeShotId ? ', valittu video-osio' : ''}`);
+    card.classList.toggle('is-cover-video', meta.isCoverVideo);
+    card.draggable = !meta.isCoverVideo && !(state.busy || ACTIVE_STATES.has(state.job?.state));
+    card.setAttribute('aria-label', `${meta.accessibleLabel}${shot.id === state.activeShotId ? ', valittu video-osio' : ''}`);
+    card.querySelector('.shot-card-heading strong').textContent = meta.title;
     const numberButton = card.querySelector('.shot-number');
-    numberButton.textContent = String(sceneNumber).padStart(2, '0');
-    numberButton.setAttribute('aria-label', `Valitse kohtaus ${sceneNumber} renderöitäväksi`);
+    numberButton.textContent = meta.number;
+    numberButton.setAttribute('aria-label', `Valitse ${meta.label} renderöitäväksi`);
     numberButton.setAttribute('aria-pressed', String(shot.id === state.activeShotId));
     numberButton.addEventListener('click', () => selectShot(shot.id));
     const kindInput = card.querySelector('.shot-kind');
     kindInput.value = shot.kind;
-    kindInput.setAttribute('aria-label', `Kohtauksen ${sceneNumber} tyyppi`);
+    kindInput.setAttribute('aria-label', `${capitalizedGenitive} tyyppi`);
     const durationInput = card.querySelector('.shot-duration');
     durationInput.min = shot.kind === 'ai_motion' ? '5' : '2';
     durationInput.max = shot.kind === 'ai_motion' ? '10' : '20';
     durationInput.value = String(shot.duration_s);
-    durationInput.setAttribute('aria-label', `Kohtauksen ${sceneNumber} kesto sekunteina`);
+    durationInput.setAttribute('aria-label', `${capitalizedGenitive} kesto sekunteina`);
     const sourceSelect = card.querySelector('.shot-source-select');
     populateShotSourceSelect(sourceSelect, shot);
     const sourceThumbnail = card.querySelector('.shot-source-thumbnail');
@@ -1043,13 +1077,13 @@
     });
     const titleInput = card.querySelector('.shot-title');
     titleInput.value = shot.title;
-    titleInput.setAttribute('aria-label', `Kohtauksen ${sceneNumber} ruudulla näkyvä otsikko`);
+    titleInput.setAttribute('aria-label', `${capitalizedGenitive} ruudulla näkyvä otsikko`);
     const promptInput = card.querySelector('.shot-prompt');
     promptInput.value = shot.prompt;
-    promptInput.setAttribute('aria-label', `Kohtauksen ${sceneNumber} liike- ja kuvausprompti`);
+    promptInput.setAttribute('aria-label', `${capitalizedGenitive} liike- ja kuvausprompti`);
     const overlayInput = card.querySelector('.shot-overlay');
     overlayInput.value = shot.overlay_text;
-    overlayInput.setAttribute('aria-label', `Kohtauksen ${sceneNumber} muu ruudulla näkyvä teksti`);
+    overlayInput.setAttribute('aria-label', `${capitalizedGenitive} muu ruudulla näkyvä teksti`);
     card.querySelector('.shot-animation-preset').value = localAnimationPresetForShot(shot);
     populateAiModelSelect(card.querySelector('.shot-ai-model'), shot.model_name, shot.model_provider);
     card.querySelector('.shot-motion-preset').value = shot.kind === 'ai_motion' ? (shot.motion_preset || '') : '';
@@ -1070,13 +1104,15 @@
       if (file) void uploadShotSource(shot.id, file);
     });
     const regenerateButton = card.querySelector('.shot-regenerate');
-    regenerateButton.setAttribute('aria-label', `Tee kohtaus ${sceneNumber} uudelleen`);
+    regenerateButton.setAttribute('aria-label', `Tee ${meta.label} uudelleen`);
     regenerateButton.addEventListener('click', () => regenerateShot(shot.id));
     const deleteButton = card.querySelector('.shot-delete');
-    deleteButton.setAttribute('aria-label', `Poista kohtaus ${sceneNumber}`);
+    deleteButton.hidden = meta.isCoverVideo;
+    deleteButton.setAttribute('aria-label', `Poista ${meta.label}`);
     deleteButton.addEventListener('click', () => removeShot(shot.id));
     const dragHandle = card.querySelector('.drag-handle');
-    dragHandle.setAttribute('aria-label', `Siirrä kohtausta ${sceneNumber} nuolinäppäimillä`);
+    dragHandle.hidden = meta.isCoverVideo;
+    dragHandle.setAttribute('aria-label', `Siirrä ${meta.label} nuolinäppäimillä`);
     dragHandle.addEventListener('keydown', (event) => {
       if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
       event.preventDefault();
@@ -1091,7 +1127,7 @@
       });
     });
     card.addEventListener('dragstart', (event) => {
-      if (state.busy || ACTIVE_STATES.has(state.job?.state)) {
+      if (meta.isCoverVideo || state.busy || ACTIVE_STATES.has(state.job?.state)) {
         event.preventDefault();
         return;
       }
@@ -1106,7 +1142,7 @@
       document.querySelectorAll('.shot-card').forEach((item) => item.classList.remove('drag-over'));
     });
     card.addEventListener('dragover', (event) => {
-      if (state.busy || ACTIVE_STATES.has(state.job?.state)) return;
+      if (meta.isCoverVideo || state.busy || ACTIVE_STATES.has(state.job?.state)) return;
       event.preventDefault();
       if (state.draggedShotId && state.draggedShotId !== shot.id) card.classList.add('drag-over');
     });
@@ -1114,7 +1150,7 @@
     card.addEventListener('drop', (event) => {
       event.preventDefault();
       card.classList.remove('drag-over');
-      if (state.busy || ACTIVE_STATES.has(state.job?.state)) return;
+      if (meta.isCoverVideo || state.busy || ACTIVE_STATES.has(state.job?.state)) return;
       reorderShot(state.draggedShotId, shot.id);
     });
     return fragment;
@@ -1125,9 +1161,11 @@
     const shots = state.shotlist?.shots || [];
     ensureActiveShot();
     if (!shots.length) {
-      list.replaceChildren(renderCoverCard(), renderEmptySceneCard());
+      list.replaceChildren(renderCoverVideoPlaceholder(), renderEmptySceneCard());
     } else {
-      list.replaceChildren(renderCoverCard(), ...shots.map(renderShotCard));
+      const cards = shots.map(renderShotCard);
+      if (shots.length === 1) cards.push(renderEmptySceneCard());
+      list.replaceChildren(...cards);
     }
     renderClipStatuses();
     renderSummary();
@@ -1138,13 +1176,13 @@
   function renderSummary() {
     const count = state.shotlist?.shots?.length || 0;
     const duration = Math.round(totalDuration());
-    elements['video-shot-summary'].textContent = `${count} ${count === 1 ? 'kohtaus' : 'kohtausta'} · ${duration} sekuntia`;
+    elements['video-shot-summary'].textContent = `${count} ${count === 1 ? 'video-osio' : 'video-osiota'} · ${duration} sekuntia`;
     elements['video-preview-duration'].textContent = `${Math.round(Number(activeShot()?.duration_s) || Number(elements['video-duration'].value))} s`;
   }
 
   function renderPreviewCaption() {
     const selectedText = activeShot()?.overlay_text;
-    elements['video-preview-caption'].textContent = selectedText || 'Valittu kohtaus näkyy tässä';
+    elements['video-preview-caption'].textContent = selectedText || 'Valittu video-osio näkyy tässä';
   }
 
   function renderClipStatuses(job = state.job) {
@@ -1267,7 +1305,7 @@
     elements['video-render-progress'].classList.toggle('is-indeterminate', isIndeterminate);
     if (isIndeterminate) {
       elements['video-render-progress'].removeAttribute('aria-valuenow');
-      elements['video-render-progress'].setAttribute('aria-valuetext', 'AI-videomalli luo kohtausta');
+      elements['video-render-progress'].setAttribute('aria-valuetext', `AI-videomalli luo ${videoSectionMetaForShot(activeShot()).label}`);
     } else {
       elements['video-render-progress'].setAttribute('aria-valuenow', String(progress));
       elements['video-render-progress'].removeAttribute('aria-valuetext');
@@ -1294,8 +1332,8 @@
     } else if (visibleJob?.state === 'cancelled') {
       setNotice('Videon luonti keskeytettiin. Kuvakäsikirjoitus säilyi muokattavana.', 'ready');
     } else if (isReady) {
-      const degraded = visibleJob.degraded ? ' Kohtaus valmistui varapolulla.' : '';
-      setNotice(`Valittu kohtaus on valmis.${degraded}`, 'ready');
+      const degraded = visibleJob.degraded ? ' Video-osio valmistui varapolulla.' : '';
+      setNotice(`Valittu video-osio on valmis.${degraded}`, 'ready');
     } else if (isActive) {
       setNotice(activeJobNotice(visibleJob, progress), 'loading');
     }
@@ -1360,8 +1398,8 @@
   }
 
   async function generateShotlist() {
-    if (!state.projectId || state.busy) return;
-    if (state.shotlist?.shots?.length && !window.confirm('Korvataanko nykyinen kuvakäsikirjoitus uudella versiolla?')) return;
+    if (!state.projectId || state.busy) return false;
+    if (state.shotlist?.shots?.length && !window.confirm('Korvataanko nykyinen kuvakäsikirjoitus uudella versiolla?')) return false;
     setBusy(true, 'Muodostetaan kuvakäsikirjoitusta projektin aineistoista…');
     try {
       const payload = await api('/api/video/shotlists', {
@@ -1374,11 +1412,13 @@
       const defaultsApplied = applySingleSceneDefaults(state.shotlist);
       if (defaultsApplied) state.editRevision += 1;
       renderShotlist();
-      if (defaultsApplied && !await saveShotlist()) return;
+      if (defaultsApplied && !await saveShotlist()) return false;
       await refreshEstimate('final');
-      setNotice(payload?.warning || 'Kuvakäsikirjoitus on valmis muokattavaksi.', 'ready');
+      setNotice(payload?.warning || 'Kansivideo on valmis muokattavaksi.', 'ready');
+      return true;
     } catch (error) {
       setNotice(error.message, 'error', 'Yritä uudelleen');
+      return false;
     } finally {
       setBusy(false);
     }
@@ -1499,7 +1539,7 @@
     const shot = activeShot();
     if (!activeSceneIsReady() || !shot) {
       setNotice(
-        'Valitse renderöitävä vähintään 3 sekunnin kohtaus.',
+        'Valitse renderöitävä vähintään 3 sekunnin video-osio.',
         'error',
       );
       return;
@@ -1699,7 +1739,8 @@
   async function uploadShotSource(shotId, file) {
     const shot = state.shotlist?.shots?.find((item) => item.id === shotId);
     if (!shot || shot.kind === 'card' || !state.projectId || state.busy) return;
-    setBusy(true, `Tuodaan kuvaa kohtaukseen ${Number(shot.order || 0) + 1}…`);
+    const meta = videoSectionMetaForShot(shot);
+    setBusy(true, `Tuodaan kuvaa ${meta.illative}…`);
     try {
       const form = new FormData();
       form.append('file', file);
@@ -1721,7 +1762,7 @@
       scheduleSave();
       if (!await saveShotlist()) return;
       await refreshEstimate('final');
-      setNotice(`Kuva “${sourceImage.title || file.name}” on kohtauksen kuvalähde.`, 'ready');
+      setNotice(`Kuva “${sourceImage.title || file.name}” on ${meta.genitive} kuvalähde.`, 'ready');
     } catch (error) {
       setNotice(`Kuvan tuonti epäonnistui: ${error.message}`, 'error');
     } finally {
@@ -1740,9 +1781,10 @@
       || !(state.job?.clips || []).some((clip) => String(clip?.shot_id) === String(shotId))
       || state.busy
     ) return;
+    const meta = videoSectionMetaForShot(shot);
     window.clearTimeout(state.saveTimer);
     window.clearTimeout(state.estimateTimer);
-    setBusy(true, `Valmistellaan kohtauksen ${Number(shot.order || 0) + 1} uudelleenluontia…`);
+    setBusy(true, `Valmistellaan ${meta.genitive} uudelleenluontia…`);
     try {
       if (!await saveShotlist()) return;
       const basePath = `/api/video/jobs/${encodeURIComponent(sourceJobId)}/clips/${encodeURIComponent(shotId)}`;
@@ -1758,15 +1800,15 @@
       if (requiresConfirmation) {
         confirmedCost = window.confirm(
           showcaseDemoMode
-            ? `Kohtauksen uudelleenluonti käyttää ulkoista videopalvelua. ${providerDataNotice()} Luodaanko kohtaus uudelleen?`
-            : `Kohtauksen uudelleenluonnin arvioitu kustannus on ${amount.toLocaleString('fi-FI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € (${provider}${modelLabel}). ${providerDataNotice()} Luodaanko kohtaus uudelleen?`,
+            ? `${meta.accessibleLabel} käyttää uudelleenluonnissa ulkoista videopalvelua. ${providerDataNotice()} Luodaanko ${meta.label} uudelleen?`
+            : `Tämän video-osion uudelleenluonnin arvioitu kustannus on ${amount.toLocaleString('fi-FI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € (${provider}${modelLabel}). ${providerDataNotice()} Luodaanko ${meta.label} uudelleen?`,
         );
         if (!confirmedCost) {
-          setNotice('Kohtauksen uudelleenluonti peruttiin.', 'ready');
+          setNotice('Video-osion uudelleenluonti peruttiin.', 'ready');
           return;
         }
       }
-      setNotice(`Luodaan kohtaus ${Number(shot.order || 0) + 1} uudelleen…`, 'loading');
+      setNotice(`Luodaan ${meta.label} uudelleen…`, 'loading');
       const payload = await api(`${basePath}/regenerate`, {
         method: 'POST',
         ...jsonBody({
@@ -1778,7 +1820,7 @@
       renderJob();
       startPolling();
     } catch (error) {
-      setNotice(`Kohtausta ei voitu luoda uudelleen: ${error.message}`, 'error');
+      setNotice(`Video-osiota ei voitu luoda uudelleen: ${error.message}`, 'error');
     } finally {
       setBusy(false);
     }
@@ -1786,12 +1828,12 @@
 
   async function addShot() {
     if (!state.shotlist) {
-      await generateShotlist();
-      return;
+      const generated = await generateShotlist();
+      if (!generated || !state.shotlist) return;
     }
     if (!canAddShot()) {
       setNotice(
-        'Kohtausta ei voi lisätä: enimmäismäärä on 8 ja yhteiskeston raja 35 sekuntia.',
+        'Video-osiota ei voi lisätä: enimmäismäärä on 8 ja yhteiskeston raja 35 sekuntia.',
         'error',
       );
       return;
@@ -1813,7 +1855,7 @@
     renderShotlist();
     scheduleSave();
     scheduleEstimate();
-    setNotice(`Kohtaus ${index + 1} lisättiin.`, 'ready');
+    setNotice(`${videoSectionMeta(index).accessibleLabel} lisättiin.`, 'ready');
     window.requestAnimationFrame(() => {
       Array.from(document.querySelectorAll('.shot-card'))
         .find((card) => card.dataset.shotId === shotId)
@@ -1826,9 +1868,12 @@
     const removedIndex = state.shotlist.shots.findIndex((shot) => shot.id === shotId);
     const removedShot = state.shotlist.shots[removedIndex];
     if (!removedShot || !canRemoveShot(removedShot)) {
-      setNotice('Kohtausta ei voi poistaa, jos video jäisi ilman kohtausta tai alle 3 sekunnin mittaiseksi.', 'error');
+      setNotice(removedIndex === 0
+        ? 'Kansivideota ei voi poistaa.'
+        : 'Kohtausta ei voi poistaa, jos video jäisi alle 3 sekunnin mittaiseksi.', 'error');
       return;
     }
+    const removedMeta = videoSectionMeta(removedIndex);
     state.shotlist.shots = state.shotlist.shots.filter((shot) => shot.id !== shotId)
       .map((shot, index) => ({ ...shot, order: index }));
     if (state.activeShotId === shotId) {
@@ -1838,14 +1883,14 @@
     renderShotlist();
     scheduleSave();
     scheduleEstimate();
-    setNotice(`Kohtaus ${removedIndex + 1} poistettiin.`, 'ready');
+    setNotice(`${removedMeta.accessibleLabel} poistettiin.`, 'ready');
     window.requestAnimationFrame(() => {
       const nextIndex = Math.min(removedIndex, state.shotlist.shots.length - 1);
       const nextShot = state.shotlist.shots[nextIndex];
       if (nextShot) {
-        Array.from(document.querySelectorAll('.shot-card'))
-          .find((card) => card.dataset.shotId === nextShot.id)
-          ?.querySelector('.drag-handle')?.focus();
+        const nextCard = Array.from(document.querySelectorAll('.shot-card'))
+          .find((card) => card.dataset.shotId === nextShot.id);
+        nextCard?.querySelector(nextIndex === 0 ? '.shot-number' : '.drag-handle')?.focus();
       } else {
         elements['video-add-shot'].focus();
       }
@@ -1864,7 +1909,7 @@
     const shots = [...state.shotlist.shots];
     const from = shots.findIndex((shot) => shot.id === sourceId);
     const to = shots.findIndex((shot) => shot.id === targetId);
-    if (from < 0 || to < 0) return;
+    if (from <= 0 || to <= 0) return;
     const [moved] = shots.splice(from, 1);
     shots.splice(to, 0, moved);
     state.shotlist.shots = shots.map((shot, index) => ({ ...shot, order: index }));
