@@ -26160,7 +26160,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (step) params.set('step', step);
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '27');
+        params.set('v', '28');
         const reloaded = updateEmbeddedModuleFrame(frame, 'manuskripti.html', params);
         if (!reloaded && frame.contentWindow) {
             frame.contentWindow.postMessage({ type: 'skriptlab:refresh-workflow-status' }, window.location.origin);
@@ -26233,7 +26233,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const params = new URLSearchParams();
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '14');
+        params.set('v', '16');
         frame.dataset.videoProjectId = String(projectId);
         updateEmbeddedModuleFrame(frame, 'video.html', params);
     }
