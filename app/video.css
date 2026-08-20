@@ -592,7 +592,7 @@ button:disabled {
   line-height: 1.45;
 }
 
-.storyboard-scene-placeholder .primary-action {
+.storyboard-cover-video-placeholder .primary-action {
   margin-top: 12px;
 }
 
@@ -645,6 +645,15 @@ button:disabled {
 .shot-card.is-active {
   border-color: var(--rust);
   box-shadow: inset 3px 0 0 var(--rust);
+}
+
+.shot-card.is-cover-video {
+  grid-template-columns: 42px minmax(0, 1fr);
+  padding-left: 14px;
+}
+
+.shot-card.is-cover-video .shot-topline {
+  grid-template-columns: minmax(150px, max-content) 72px;
 }
 
 .shot-card.is-dragging {
@@ -1381,6 +1390,15 @@ body.showcase-demo-mode .studio-footer {
     grid-template-columns: 22px 32px minmax(0, 1fr);
     gap: 8px;
     padding: 12px 10px 12px 5px;
+  }
+
+  .shot-card.is-cover-video {
+    grid-template-columns: 32px minmax(0, 1fr);
+    padding-left: 10px;
+  }
+
+  .shot-card.is-cover-video .shot-topline {
+    grid-template-columns: 1fr 67px;
   }
 
   .storyboard-cover-card,

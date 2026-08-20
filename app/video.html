@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="video.css?v=10">
+  <link rel="stylesheet" href="video.css?v=11">
 </head>
 <body>
   <main class="video-studio" aria-labelledby="video-title">
@@ -111,30 +111,30 @@
         </div>
 
         <div class="shot-list" id="video-shot-list" aria-live="polite">
-          <article class="storyboard-cover-card" aria-label="Kansi">
+          <article class="storyboard-cover-card storyboard-cover-video-placeholder" aria-label="Kansivideo">
             <span class="storyboard-card-number" aria-hidden="true">00</span>
             <div class="storyboard-cover-preview" aria-hidden="true"><span>KANSI</span></div>
             <div class="storyboard-card-copy">
-              <p>VIDEON LÄHDEKUVA</p>
-              <h3>Kansi</h3>
-              <small>Kansikuva ladataan projektista.</small>
+              <p>ENSIMMÄINEN VIDEO-OSIO</p>
+              <h3>Kansivideo</h3>
+              <small>Luo projektin kansikuvasta ensimmäinen muokattava video-osio.</small>
+              <button class="primary-action" id="video-generate" type="button" disabled>Luo kansivideo</button>
             </div>
           </article>
           <article class="storyboard-scene-placeholder" aria-label="Kohtaus 1">
             <span class="storyboard-card-number" aria-hidden="true">01</span>
             <div class="storyboard-card-copy">
-              <p>ENSIMMÄINEN VIDEO-OSIO</p>
+              <p>SEURAAVA VIDEO-OSIO</p>
               <h3>Kohtaus</h3>
-              <small>Luo ensimmäinen muokattava kohtaus projektin aineistoista.</small>
-              <button class="primary-action" id="video-generate" type="button" disabled>Luo kuvakäsikirjoitus</button>
+              <small>Lisää ensimmäinen kohtaus kansivideon jälkeen.</small>
             </div>
           </article>
         </div>
 
         <div class="shotlist-footer">
           <div>
-            <p id="video-shot-summary">0 kohtausta · 0 sekuntia</p>
-            <small id="video-shot-limits">Enintään 8 kohtausta ja 35 sekuntia · esikatsele ja renderöi valittu kohtaus kerrallaan</small>
+            <p id="video-shot-summary">0 video-osiota · 0 sekuntia</p>
+            <small id="video-shot-limits">Enintään 8 video-osiota ja 35 sekuntia · esikatsele ja renderöi valittu osio kerrallaan</small>
           </div>
           <button class="secondary-action small" id="video-add-shot" type="button" aria-describedby="video-shot-limits">+ Lisää kohtaus</button>
         </div>
@@ -284,7 +284,7 @@
         <div class="shot-clip-result" hidden>
           <video class="shot-clip-preview" controls playsinline preload="metadata" hidden></video>
           <div class="shot-clip-actions">
-            <button class="secondary-action small shot-regenerate" type="button" hidden>Tee tämä kohtaus uudelleen</button>
+            <button class="secondary-action small shot-regenerate" type="button" hidden>Tee tämä video-osio uudelleen</button>
             <a class="text-action shot-clip-download" href="#" download hidden>Lataa klippi</a>
           </div>
         </div>
@@ -301,6 +301,6 @@
     const apiUrl = (path) => `${API_BASE_URL}${path}`;
   </script>
   <script src="auth.js?v=4"></script>
-  <script src="video.js?v=16"></script>
+  <script src="video.js?v=17"></script>
 </body>
 </html>
