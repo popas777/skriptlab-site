@@ -1408,7 +1408,8 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 .top-bar-right { flex-shrink: 0; }
 
 .account-settings-toggle {
-    gap: 7px;
+    min-width: 44px;
+    justify-content: center;
     white-space: nowrap;
 }
 .account-settings-toggle:hover,
@@ -1417,8 +1418,8 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 }
 .account-settings-toggle-icons {
     position: relative;
-    width: 28px;
-    height: 20px;
+    width: 32px;
+    height: 22px;
     display: inline-block;
     flex: 0 0 auto;
 }
@@ -1429,8 +1430,8 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 }
 .account-settings-gear-icon {
     position: absolute;
-    right: 0;
-    bottom: -1px;
+    right: -1px;
+    bottom: -2px;
     color: var(--ai-gradient-start);
 }
 
@@ -6644,9 +6645,6 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
         white-space: nowrap;
         font-size: 12px;
         padding: 7px 9px;
-    }
-    .account-settings-toggle-label {
-        display: none;
     }
     #toggle-lang,
     #toggle-mobile {

@@ -1926,6 +1926,9 @@
     });
 
     $("btn-new-empty").addEventListener("click", async () => {
+      const button = $("btn-new-empty");
+      if (button.disabled) return;
+      button.disabled = true;
       try {
         const created = await apiSaveProject({
           title: showcaseDemoMode ? "Uusi teksti" : "Uusi käsikirjoitus",
@@ -1933,8 +1936,13 @@
         });
         await renderLibrary();
         await openProject(created.id);
+        if (hasModule("write_edit") && String(project?.id || "") === String(created.id)) {
+          notifyParent("skriptlab:open-module", { viewId: "view-kirjoita-editoi" });
+        }
       } catch (error) {
         toast(error.message);
+      } finally {
+        button.disabled = false;
       }
     });
 

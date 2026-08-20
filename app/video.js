@@ -40,7 +40,6 @@
   });
   const SINGLE_SCENE_PILOT = Object.freeze({
     enabled: true,
-    renderableShotCount: 1,
     durationS: 8,
   });
   const SINGLE_SCENE_PROMPT = "Single continuous shot with no cuts. Begin with a closed physical book already held steadily in an adult's hand; only the hand and forearm are visible against a simple neutral background. The camera slowly and smoothly zooms in until the front cover fills the frame. As the zoom settles, only the fictional illustrated figure already printed on the cover begins to move: it gently blinks and turns its head slightly, with subtle movement in hair or clothing, while remaining within the printed artwork. Preserve the original book, cover layout, illustration, and all existing lettering exactly. Introduce no additional people, faces, objects, logos, captions, watermarks, or readable text. End on a steady close-up with a calm, family-friendly book-trailer mood and subtle room ambience.";
@@ -94,6 +93,7 @@
     timingJobId: null,
     timingFallbackStartedAtMs: null,
     draggedShotId: null,
+    activeShotId: null,
   };
 
   function demoPriceSafeText(value, fallback = '') {
@@ -328,6 +328,27 @@
     return (state.shotlist?.shots || []).reduce((sum, shot) => sum + Number(shot.duration_s || 0), 0);
   }
 
+  function activeShot() {
+    const shots = state.shotlist?.shots || [];
+    return shots.find((shot) => shot.id === state.activeShotId) || shots[0] || null;
+  }
+
+  function ensureActiveShot() {
+    const shot = activeShot();
+    state.activeShotId = shot?.id || null;
+    return shot;
+  }
+
+  function jobShotId(job = state.job) {
+    return String(job?.clips?.[0]?.shot_id || '');
+  }
+
+  function jobMatchesActiveShot(job = state.job) {
+    const shot = activeShot();
+    const renderedShotId = jobShotId(job);
+    return Boolean(shot && renderedShotId && renderedShotId === shot.id);
+  }
+
   function minimumDurationForShot(shot) {
     return shot?.kind === 'ai_motion' ? 5 : SHOT_LIMITS.minimumShotDuration;
   }
@@ -337,16 +358,14 @@
     return duration >= SHOT_LIMITS.minimumDuration && duration <= SHOT_LIMITS.maximumDuration;
   }
 
-  function singleScenePilotIsReady() {
-    const shots = state.shotlist?.shots || [];
-    return !SINGLE_SCENE_PILOT.enabled || (
-      shots.length === SINGLE_SCENE_PILOT.renderableShotCount
-      && totalDuration() === SINGLE_SCENE_PILOT.durationS
-    );
+  function activeSceneIsReady() {
+    const shot = activeShot();
+    const duration = Number(shot?.duration_s || 0);
+    if (!shot || duration < SHOT_LIMITS.minimumDuration || duration > 20) return false;
+    return shot.kind !== 'ai_motion' || (duration >= 5 && duration <= 10);
   }
 
   function canAddShot() {
-    if (SINGLE_SCENE_PILOT.enabled) return false;
     const shots = state.shotlist?.shots || [];
     return shots.length < SHOT_LIMITS.maximumCount
       && totalDuration() + SHOT_LIMITS.minimumShotDuration <= SHOT_LIMITS.maximumDuration;
@@ -450,7 +469,7 @@
   }
 
   function aiMotionEnabled() {
-    return Boolean(state.shotlist?.shots?.some((shot) => shot.kind === 'ai_motion'));
+    return activeShot()?.kind === 'ai_motion';
   }
 
   function availableVoiceoverAsset() {
@@ -474,18 +493,16 @@
     const hasProject = Boolean(state.projectId && state.context);
     const hasShots = Boolean(state.shotlist?.shots?.length);
     const validDuration = hasShots && shotlistDurationIsValid();
-    const pilotReady = hasShots && singleScenePilotIsReady();
+    const activeSceneReady = hasShots && activeSceneIsReady();
     const jobActive = ACTIVE_STATES.has(state.job?.state);
     elements['video-generate'].disabled = !hasProject || state.busy || jobActive;
     elements['video-regenerate'].disabled = !hasProject || !hasShots || state.busy || jobActive;
-    elements['video-add-shot'].disabled = !hasShots || !canAddShot() || state.busy || jobActive;
-    elements['video-add-shot'].title = SINGLE_SCENE_PILOT.enabled
-      ? 'Monen kohtauksen video avataan myöhemmässä vaiheessa.'
-      : (canAddShot()
-        ? 'Lisää kohtaus'
-        : 'Kohtauksia voi olla enintään 8 ja yhteiskesto voi olla enintään 35 sekuntia.');
-    elements['video-preview'].disabled = !validDuration || !pilotReady || state.busy || jobActive;
-    elements['video-render'].disabled = !validDuration || !pilotReady || state.busy || jobActive;
+    elements['video-add-shot'].disabled = !hasProject || !canAddShot() || state.busy || jobActive;
+    elements['video-add-shot'].title = canAddShot()
+      ? 'Lisää kohtaus'
+      : 'Kohtauksia voi olla enintään 8 ja yhteiskesto voi olla enintään 35 sekuntia.';
+    elements['video-preview'].disabled = !validDuration || !activeSceneReady || state.busy || jobActive;
+    elements['video-render'].disabled = !validDuration || !activeSceneReady || state.busy || jobActive;
     elements['video-cancel'].hidden = !jobActive;
     [
       'video-duration', 'video-profile', 'video-ai-count', 'video-style',
@@ -550,7 +567,7 @@
     const meta = PROFILE_LABELS[profile];
     elements['video-format-badge'].textContent = meta.ratio;
     elements['video-preview-stage'].className = `preview-stage profile-${profile}`;
-    elements['video-preview-duration'].textContent = `${Math.round(totalDuration() || Number(elements['video-duration'].value))} s`;
+    elements['video-preview-duration'].textContent = `${Math.round(Number(activeShot()?.duration_s) || Number(elements['video-duration'].value))} s`;
   }
 
   function availableAiVideoModels() {
@@ -937,15 +954,74 @@
     scheduleEstimate();
   }
 
+  function renderCoverCard() {
+    const card = document.createElement('article');
+    card.className = 'storyboard-cover-card';
+    card.setAttribute('aria-label', 'Kansi');
+    card.innerHTML = `
+      <span class="storyboard-card-number" aria-hidden="true">00</span>
+      <div class="storyboard-cover-preview" aria-hidden="true"><span>KANSI</span></div>
+      <div class="storyboard-card-copy">
+        <p>VIDEON LÄHDEKUVA</p>
+        <h3>Kansi</h3>
+        <small></small>
+      </div>`;
+    const cover = coverSourceImage();
+    const preview = card.querySelector('.storyboard-cover-preview');
+    const coverUrl = mediaUrl(cover?.url || '');
+    if (coverUrl) {
+      preview.style.backgroundImage = `url("${String(coverUrl).replace(/"/g, '%22')}")`;
+      preview.classList.add('has-cover');
+    }
+    card.querySelector('small').textContent = cover
+      ? String(cover.title || 'Projektin kansikuva on videon ensisijainen kuvalähde.')
+      : 'Lisää projektille kansikuva Kansi ja grafiikka -moduulissa.';
+    return card;
+  }
+
+  function renderEmptySceneCard() {
+    const card = document.createElement('article');
+    card.className = 'storyboard-scene-placeholder';
+    card.setAttribute('aria-label', 'Kohtaus 1');
+    card.innerHTML = `
+      <span class="storyboard-card-number" aria-hidden="true">01</span>
+      <div class="storyboard-card-copy">
+        <p>ENSIMMÄINEN VIDEO-OSIO</p>
+        <h3>Kohtaus</h3>
+        <small>Luo ensimmäinen muokattava kohtaus projektin aineistoista.</small>
+        <button class="primary-action" id="video-generate-inline" type="button">Luo kuvakäsikirjoitus</button>
+      </div>`;
+    card.querySelector('#video-generate-inline')?.addEventListener('click', generateShotlist);
+    return card;
+  }
+
+  function selectShot(shotId) {
+    if (state.busy || ACTIVE_STATES.has(state.job?.state)) return;
+    const shot = state.shotlist?.shots?.find((item) => item.id === shotId);
+    if (!shot || shot.id === state.activeShotId) return;
+    state.activeShotId = shot.id;
+    renderShotlist();
+    renderFormat();
+    renderJob();
+    scheduleEstimate();
+    window.requestAnimationFrame(() => {
+      document.querySelector(`.shot-card[data-shot-id="${CSS.escape(shot.id)}"] .shot-number`)?.focus();
+    });
+  }
+
   function renderShotCard(shot, index) {
     const fragment = elements['video-shot-template'].content.cloneNode(true);
     const card = fragment.querySelector('.shot-card');
     const sceneNumber = index + 1;
     card.dataset.shotId = shot.id;
+    card.classList.toggle('is-active', shot.id === state.activeShotId);
     card.draggable = !(state.busy || ACTIVE_STATES.has(state.job?.state));
-    card.setAttribute('aria-label', `Kohtaus ${sceneNumber}`);
-    card.querySelector('.shot-number').textContent = String(sceneNumber).padStart(2, '0');
-    card.querySelector('.shot-number').setAttribute('aria-hidden', 'true');
+    card.setAttribute('aria-label', `Kohtaus ${sceneNumber}${shot.id === state.activeShotId ? ', valittu video-osio' : ''}`);
+    const numberButton = card.querySelector('.shot-number');
+    numberButton.textContent = String(sceneNumber).padStart(2, '0');
+    numberButton.setAttribute('aria-label', `Valitse kohtaus ${sceneNumber} renderöitäväksi`);
+    numberButton.setAttribute('aria-pressed', String(shot.id === state.activeShotId));
+    numberButton.addEventListener('click', () => selectShot(shot.id));
     const kindInput = card.querySelector('.shot-kind');
     kindInput.value = shot.kind;
     kindInput.setAttribute('aria-label', `Kohtauksen ${sceneNumber} tyyppi`);
@@ -1047,17 +1123,11 @@
   function renderShotlist() {
     const list = elements['video-shot-list'];
     const shots = state.shotlist?.shots || [];
+    ensureActiveShot();
     if (!shots.length) {
-      list.innerHTML = `
-        <div class="shot-empty">
-          <span aria-hidden="true">01</span>
-          <h3>Valmis ensimmäiseen leikkaukseen</h3>
-          <p>AI tekee kansikuvasta ja projektin markkinointiteksteistä muokattavan kuvakäsikirjoituksen.</p>
-          <button class="primary-action" id="video-generate-inline" type="button">Luo kuvakäsikirjoitus</button>
-        </div>`;
-      byId('video-generate-inline')?.addEventListener('click', generateShotlist);
+      list.replaceChildren(renderCoverCard(), renderEmptySceneCard());
     } else {
-      list.replaceChildren(...shots.map(renderShotCard));
+      list.replaceChildren(renderCoverCard(), ...shots.map(renderShotCard));
     }
     renderClipStatuses();
     renderSummary();
@@ -1069,12 +1139,12 @@
     const count = state.shotlist?.shots?.length || 0;
     const duration = Math.round(totalDuration());
     elements['video-shot-summary'].textContent = `${count} ${count === 1 ? 'kohtaus' : 'kohtausta'} · ${duration} sekuntia`;
-    elements['video-preview-duration'].textContent = `${duration || Number(elements['video-duration'].value)} s`;
+    elements['video-preview-duration'].textContent = `${Math.round(Number(activeShot()?.duration_s) || Number(elements['video-duration'].value))} s`;
   }
 
   function renderPreviewCaption() {
-    const firstText = state.shotlist?.shots?.find((shot) => shot.overlay_text)?.overlay_text;
-    elements['video-preview-caption'].textContent = firstText || 'Kuvakäsikirjoitus näkyy tässä';
+    const selectedText = activeShot()?.overlay_text;
+    elements['video-preview-caption'].textContent = selectedText || 'Valittu kohtaus näkyy tässä';
   }
 
   function renderClipStatuses(job = state.job) {
@@ -1185,13 +1255,14 @@
   }
 
   function renderJob(job = state.job) {
-    const isActive = ACTIVE_STATES.has(job?.state);
-    const isReady = job?.state === 'succeeded';
-    const canRetry = job?.state === 'failed' || job?.state === 'cancelled';
-    const isIndeterminate = isActive && indeterminateGeneration(job);
-    elements['video-job-state'].textContent = job ? (STATE_LABELS[job.state] || job.state) : 'Ei aloitettu';
-    elements['video-job-tier'].textContent = job?.tier === 'final' ? 'Lopullinen' : 'Esikatselu';
-    const progress = Math.max(0, Math.min(100, Number(job?.progress_percent || 0)));
+    const visibleJob = jobMatchesActiveShot(job) ? job : null;
+    const isActive = ACTIVE_STATES.has(visibleJob?.state);
+    const isReady = visibleJob?.state === 'succeeded';
+    const canRetry = visibleJob?.state === 'failed' || visibleJob?.state === 'cancelled';
+    const isIndeterminate = isActive && indeterminateGeneration(visibleJob);
+    elements['video-job-state'].textContent = visibleJob ? (STATE_LABELS[visibleJob.state] || visibleJob.state) : 'Ei aloitettu';
+    elements['video-job-tier'].textContent = visibleJob?.tier === 'final' ? 'Lopullinen' : 'Esikatselu';
+    const progress = Math.max(0, Math.min(100, Number(visibleJob?.progress_percent || 0)));
     elements['video-render-progress'].hidden = !isActive;
     elements['video-render-progress'].classList.toggle('is-indeterminate', isIndeterminate);
     if (isIndeterminate) {
@@ -1205,7 +1276,7 @@
     elements['video-result-actions'].hidden = !isReady && !canRetry;
     elements['video-download'].hidden = !isReady;
     elements['video-retry'].hidden = !canRetry;
-    const output = jobOutput(job);
+    const output = jobOutput(visibleJob);
     if (isReady && output?.url) {
       elements['video-player'].src = mediaUrl(output.url);
       elements['video-player'].hidden = false;
@@ -1218,19 +1289,19 @@
       elements['video-player'].hidden = true;
       elements['video-preview-placeholder'].hidden = false;
     }
-    if (job?.state === 'failed') {
-      setNotice(job.error_message || 'Videon luonti epäonnistui. Voit yrittää turvallisesti uudelleen.', 'error');
-    } else if (job?.state === 'cancelled') {
+    if (visibleJob?.state === 'failed') {
+      setNotice(visibleJob.error_message || 'Videon luonti epäonnistui. Voit yrittää turvallisesti uudelleen.', 'error');
+    } else if (visibleJob?.state === 'cancelled') {
       setNotice('Videon luonti keskeytettiin. Kuvakäsikirjoitus säilyi muokattavana.', 'ready');
     } else if (isReady) {
-      const degraded = job.degraded ? ' Vähintään yksi AI-klippi valmistui varapolulla.' : '';
-      setNotice(`Video on valmis.${degraded}`, 'ready');
+      const degraded = visibleJob.degraded ? ' Kohtaus valmistui varapolulla.' : '';
+      setNotice(`Valittu kohtaus on valmis.${degraded}`, 'ready');
     } else if (isActive) {
-      setNotice(activeJobNotice(job, progress), 'loading');
+      setNotice(activeJobNotice(visibleJob, progress), 'loading');
     }
-    syncJobTiming(job);
+    syncJobTiming(visibleJob);
     renderClipStatuses(job);
-    updateSteps(job);
+    updateSteps(visibleJob);
     syncControls();
   }
 
@@ -1382,7 +1453,8 @@
 
   async function refreshEstimate(tier = 'final') {
     const estimateToken = ++state.estimateToken;
-    if (!state.shotlist?.id) {
+    const shot = activeShot();
+    if (!state.shotlist?.id || !shot) {
       state.estimate = null;
       state.estimateTier = tier;
       renderEstimate();
@@ -1393,6 +1465,7 @@
         method: 'POST',
         ...jsonBody({
           shotlist_id: state.shotlist.id,
+          shot_id: shot.id,
           tier,
           profiles: selectedProfilesForTier(tier),
           no_ai: !aiMotionEnabled(),
@@ -1423,9 +1496,10 @@
 
   async function startJob(tier) {
     if (!state.shotlist?.id || state.busy) return;
-    if (!singleScenePilotIsReady()) {
+    const shot = activeShot();
+    if (!activeSceneIsReady() || !shot) {
       setNotice(
-        'Kokeiluvaiheessa voidaan renderöidä yksi 8 sekunnin kohtaus. Luo kuvakäsikirjoitus uudelleen.',
+        'Valitse renderöitävä vähintään 3 sekunnin kohtaus.',
         'error',
       );
       return;
@@ -1456,7 +1530,8 @@
       const canPromote = tier === 'final'
         && state.job?.tier === 'preview'
         && state.job?.state === 'succeeded'
-        && state.job?.shotlist_id === state.shotlist.id;
+        && state.job?.shotlist_id === state.shotlist.id
+        && jobShotId(state.job) === shot.id;
       const endpoint = canPromote
         ? `/api/video/jobs/${encodeURIComponent(state.job.id)}/promote`
         : '/api/video/jobs';
@@ -1469,6 +1544,7 @@
       if (!canPromote) {
         request.tier = tier;
         request.shotlist_id = state.shotlist.id;
+        request.shot_id = shot.id;
       }
       state.job = await api(endpoint, {
         method: 'POST',
@@ -1708,13 +1784,14 @@
     }
   }
 
-  function addShot() {
-    if (!state.shotlist) return;
+  async function addShot() {
+    if (!state.shotlist) {
+      await generateShotlist();
+      return;
+    }
     if (!canAddShot()) {
       setNotice(
-        SINGLE_SCENE_PILOT.enabled
-          ? 'Monen kohtauksen video avataan myöhemmässä vaiheessa. Lisää kohtaus -toiminto on jo valmiina.'
-          : 'Kohtausta ei voi lisätä: enimmäismäärä on 8 ja yhteiskeston raja 35 sekuntia.',
+        'Kohtausta ei voi lisätä: enimmäismäärä on 8 ja yhteiskeston raja 35 sekuntia.',
         'error',
       );
       return;
@@ -1722,15 +1799,17 @@
     const index = state.shotlist.shots.length;
     const duration = Math.min(3, SHOT_LIMITS.maximumDuration - totalDuration());
     const shotId = `shot_${Date.now()}_${index + 1}`;
+    const sourceReference = coverSourceImage()?.reference || state.sourceImages[0]?.reference || null;
     state.shotlist.shots.push(normalizeShot({
       id: shotId,
       title: '',
-      kind: 'kenburns',
-      source_asset: defaultSourceReference(),
+      kind: sourceReference ? 'kenburns' : 'card',
+      source_asset: sourceReference,
       duration_s: duration,
-      prompt: SINGLE_SCENE_PROMPT,
+      prompt: '',
       overlay_text: '',
     }, index));
+    state.activeShotId = shotId;
     renderShotlist();
     scheduleSave();
     scheduleEstimate();
@@ -1752,6 +1831,10 @@
     }
     state.shotlist.shots = state.shotlist.shots.filter((shot) => shot.id !== shotId)
       .map((shot, index) => ({ ...shot, order: index }));
+    if (state.activeShotId === shotId) {
+      const nextIndex = Math.min(removedIndex, state.shotlist.shots.length - 1);
+      state.activeShotId = state.shotlist.shots[nextIndex]?.id || null;
+    }
     renderShotlist();
     scheduleSave();
     scheduleEstimate();
@@ -1868,6 +1951,10 @@
       state.shotlist = normalizeShotlist(latestShotlist);
       resetSaveState();
       state.job = latestJob?.job || latestJob || null;
+      const latestJobShotId = jobShotId(state.job);
+      state.activeShotId = state.shotlist?.shots?.some((shot) => shot.id === latestJobShotId)
+        ? latestJobShotId
+        : state.shotlist?.shots?.[0]?.id || null;
       const aiVideoAvailable = Boolean(presets?.provider?.ai_video_available);
       const maxAiClips = aiVideoAvailable ? Math.max(0, Math.min(1, Number(presets?.max_ai_clips ?? 1))) : 0;
       elements['video-ai-count'].querySelectorAll('option').forEach((option) => {
@@ -1911,12 +1998,7 @@
       if (jobIsActive) startPolling();
       if (providerConfigurationError) setNotice(providerConfigurationError, 'error');
       else if (!jobIsActive && !state.shotlist) setNotice('Projektin aineistot ovat valmiit kuvakäsikirjoitusta varten.', 'ready');
-      else if (!jobIsActive && !singleScenePilotIsReady()) {
-        setNotice(
-          'Tallennetussa kuvakäsikirjoituksessa on vanhan version useita kohtauksia tai muu kesto. Luo uusi yhden 8 sekunnin kohtauksen versio.',
-          'error',
-        );
-      } else if (!jobIsActive && state.job?.state !== 'succeeded') setNotice('Tallennettu kuvakäsikirjoitus ladattiin.', 'ready');
+      else if (!jobIsActive && state.job?.state !== 'succeeded') setNotice('Tallennettu kuvakäsikirjoitus ladattiin.', 'ready');
     } catch (error) {
       setNotice(error.message, 'error', 'Yritä uudelleen');
     } finally {
@@ -1927,7 +2009,7 @@
   function bindEvents() {
     elements['video-generate']?.addEventListener('click', generateShotlist);
     elements['video-regenerate'].addEventListener('click', generateShotlist);
-    elements['video-add-shot'].addEventListener('click', addShot);
+    elements['video-add-shot'].addEventListener('click', () => { void addShot(); });
     elements['video-preview'].addEventListener('click', () => startJob('preview'));
     elements['video-render'].addEventListener('click', () => startJob('final'));
     elements['video-cancel'].addEventListener('click', cancelJob);
