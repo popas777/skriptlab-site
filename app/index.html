@@ -253,7 +253,7 @@
                     id="manuskripti-frame-kirjani"
                     class="manuskripti-frame"
                     title="Tekstini"
-                    src="manuskripti.html?v=25"
+                    src="manuskripti.html?v=26"
                     loading="lazy"
                 ></iframe>
                 <div id="legacy-kirjani-view" hidden aria-hidden="true">
@@ -416,7 +416,7 @@
                     id="manuskripti-frame-rakenne"
                     class="manuskripti-frame"
                     title="Rakenne"
-                    src="manuskripti.html?step=rakenne&v=25"
+                    src="manuskripti.html?step=rakenne&v=26"
                     loading="lazy"
                 ></iframe>
                 <div id="legacy-rakenne-view" hidden aria-hidden="true">
@@ -457,13 +457,13 @@
                 </div>
             </div>
 
-            <!-- 1.18 VIEW: KEHITYSEDITOINTI JA PROJEKTIMUISTI -->
+            <!-- 1.18 VIEW: KEHITYSEDITOINTI JA KONTEKSTIMUISTI -->
             <div id="view-kehityseditointi" class="view-section editorial-paper-workspace hidden">
                 <div class="header">
                     <div class="header-info">
                         <p class="eyebrow">Toimituksellinen työvaihe</p>
                         <h2>Kehityspalaute</h2>
-                        <p id="development-current-project">Analyysi luo editorille karkean projektimuistin automaattisesti. Tässä valinnaisessa työvaiheessa voit pyytää laajan kehityseditointipalautteen ja tarkentaa muistia.</p>
+                        <p id="development-current-project">Analyysi luo editorille karkean kontekstimuistin automaattisesti. Tässä valinnaisessa työvaiheessa voit pyytää laajan kehityseditointipalautteen ja tarkentaa muistia.</p>
                     </div>
                     <div class="header-actions">
                         <button class="btn btn-secondary" id="development-refresh-btn" type="button">Päivitä</button>
@@ -510,33 +510,33 @@
                             <div>
                                 <span class="development-step-number">2</span>
                                 <p class="eyebrow">Yhteinen tieto myöhempiin vaiheisiin</p>
-                                <h3>Projektimuisti</h3>
+                                <h3>Kontekstimuisti</h3>
                             </div>
                             <p id="knowledge-status" class="knowledge-status" role="status" aria-live="polite"></p>
                         </div>
-                        <p class="development-simple-lead">Analyysin luoma karkea projektimuisti on jo kirjoitusavustimen käytössä. Voit tässä täydentää henkilöitä, paikkoja, aikajanaa ja pysyviä faktoja tarkemmalla poiminnalla.</p>
+                        <p class="development-simple-lead">Analyysin luoma karkea kontekstimuisti on jo kirjoitusavustimen käytössä. Voit tässä täydentää henkilöitä, paikkoja, aikajanaa ja pysyviä faktoja tarkemmalla poiminnalla.</p>
                         <label class="development-simple-prompt" for="knowledge-extra-instructions">
-                            <span>Lisäohje projektimuistille <small>valinnainen</small></span>
+                            <span>Lisäohje kontekstimuistille <small>valinnainen</small></span>
                             <textarea id="knowledge-extra-instructions" rows="4" placeholder="Esim. kiinnitä erityistä huomiota henkilönnimien muotoihin, aikatasoihin ja historiallisiin faktoihin."></textarea>
                         </label>
                         <div class="development-action-row">
-                            <button id="knowledge-extract-btn" class="btn btn-primary development-primary-action" type="button">✦ Tarkenna projektimuistia</button>
+                            <button id="knowledge-extract-btn" class="btn btn-primary development-primary-action" type="button">✦ Tarkenna kontekstimuistia</button>
                             <button id="knowledge-stop-btn" class="btn btn-secondary development-stop-action hidden" type="button">■ Pysäytä luonti</button>
                         </div>
-                        <div id="knowledge-extraction-progress" class="knowledge-extraction-progress hidden" role="progressbar" aria-label="Projektimuistin poiminnan eteneminen" aria-valuemin="0" aria-valuenow="0" aria-valuemax="1">
+                        <div id="knowledge-extraction-progress" class="knowledge-extraction-progress hidden" role="progressbar" aria-label="Kontekstimuistin poiminnan eteneminen" aria-valuemin="0" aria-valuenow="0" aria-valuemax="1">
                             <div class="knowledge-extraction-progress-track"><span id="knowledge-extraction-progress-bar"></span></div>
                             <p id="knowledge-extraction-progress-text">0/0 osaa käsitelty</p>
                         </div>
-                        <p id="knowledge-workspace-summary" class="development-memory-summary">Projektimuistia ei ole vielä luotu.</p>
+                        <p id="knowledge-workspace-summary" class="development-memory-summary">Kontekstimuistia ei ole vielä luotu.</p>
                         <div class="knowledge-list-heading development-memory-heading">
                             <div>
                                 <p class="eyebrow">Automaattisesti tallennetut tietokortit</p>
-                                <h3>Projektimuistin sisältö</h3>
+                                <h3>Kontekstimuistin sisältö</h3>
                             </div>
-                            <input id="knowledge-search" type="search" placeholder="Hae projektimuistista" aria-label="Hae projektimuistista">
+                            <input id="knowledge-search" type="search" placeholder="Hae kontekstimuistista" aria-label="Hae kontekstimuistista">
                         </div>
                         <div id="knowledge-list" class="knowledge-list">
-                            <div class="knowledge-empty">Projektimuistissa ei ole vielä merkintöjä.</div>
+                            <div class="knowledge-empty">Kontekstimuistissa ei ole vielä merkintöjä.</div>
                         </div>
                     </section>
                 </div>
@@ -548,7 +548,7 @@
                     id="kirjoita-editoi-frame"
                     class="tyosto-frame"
                     title="Kirjoita ja editoi"
-                    src="kirjoita-editoi.html?v=10"
+                    src="kirjoita-editoi.html?v=11"
                     loading="lazy"
                 ></iframe>
             </div>
@@ -559,7 +559,7 @@
                     id="mobiili-editori-frame"
                     class="tyosto-frame"
                     title="Mobiili-editori"
-                    src="tyosto.html?mode=kirjoita&v=6"
+                    src="tyosto.html?mode=kirjoita&v=7"
                     loading="lazy"
                 ></iframe>
             </div>
@@ -696,7 +696,7 @@
                             <div class="settings-row">
                                 <label for="workflow-text-model">Tekstimalli</label>
                                 <select id="workflow-text-model"><option value="">Ladataan malleja…</option></select>
-                                <small>Analyysi, projektimuisti, editointi ja oikoluku.</small>
+                                <small>Analyysi, kontekstimuisti, editointi ja oikoluku.</small>
                             </div>
                             <div class="settings-row">
                                 <label for="workflow-translation-model">Käännösmalli</label>
@@ -1579,7 +1579,7 @@
                     id="manuskripti-frame-analyysi"
                     class="manuskripti-frame"
                     title="Analyysi"
-                    src="manuskripti.html?step=analyysi&v=25"
+                    src="manuskripti.html?step=analyysi&v=26"
                     loading="lazy"
                 ></iframe>
                 <div id="legacy-analyysi-view" hidden aria-hidden="true">
@@ -1644,7 +1644,7 @@
                             <div>
                             <span class="versions-step">Nykyinen työtila</span>
                             <h3>Tallenna uusi versio</h3>
-                                <p>Koko käsikirjoitus, rakenne, otsikot, analyysit ja projektimuisti tallennetaan samaan versioon.</p>
+                                <p>Koko käsikirjoitus, rakenne, otsikot, analyysit ja kontekstimuisti tallennetaan samaan versioon.</p>
                             </div>
                             <label for="version-label-input">Version nimi</label>
                             <input id="version-label-input" type="text" maxlength="160" placeholder="Esim. Rakenteellinen editointi valmis">
@@ -2111,7 +2111,7 @@
                             <h3>Luo usean osion kuvaehdotukset yhdellä kertaa</h3>
                             <p>Rakenna varsinaisista luvuista kuvaerä. Jokainen rivi saa oman luvun tekstiin perustuvan, muokattavan promptin.</p>
                         </div>
-                        <span class="graphics-context-badge">Analyysi + projektimuisti</span>
+                        <span class="graphics-context-badge">Analyysi + kontekstimuisti</span>
                     </div>
 
                     <div class="graphics-control-card glass-panel">
@@ -2167,7 +2167,7 @@
                         </div>
                         <div class="graphics-context-options" aria-label="Kuvamaailman lähdetiedot">
                             <label><input id="visual-use-analysis" type="checkbox" checked> Hyödynnä analyysiä</label>
-                            <label><input id="visual-use-memory" type="checkbox" checked> Hyödynnä projektimuistia</label>
+                            <label><input id="visual-use-memory" type="checkbox" checked> Hyödynnä kontekstimuistia</label>
                             <label><input id="visual-without-text" type="checkbox" checked> Kuva ilman tekstiä</label>
                         </div>
                         <div class="visual-cost-estimate" aria-label="Kuvaerän hinta-arvio" aria-live="polite">
@@ -2211,7 +2211,7 @@
                         <div>
                             <span class="graphics-workspace-kicker">INFOGRAFIIKKA</span>
                             <h3>Tee projektin tiedoista selkeä visuaalinen kokonaisuus</h3>
-                            <p>Luo esimerkiksi tapahtumien aikajana, henkilökartta tai teemoja jäsentävä kaavio analyysin ja projektimuistin pohjalta.</p>
+                            <p>Luo esimerkiksi tapahtumien aikajana, henkilökartta tai teemoja jäsentävä kaavio analyysin ja kontekstimuistin pohjalta.</p>
                         </div>
                         <span class="graphics-context-badge">Projektitieto kuviksi</span>
                     </div>
@@ -2250,7 +2250,7 @@
                             </div>
                             <div class="graphics-context-options" aria-label="Infografiikan lähdetiedot">
                                 <label><input id="infographic-use-analysis" type="checkbox" checked> Hyödynnä analyysiä</label>
-                                <label><input id="infographic-use-memory" type="checkbox" checked> Hyödynnä projektimuistia</label>
+                                <label><input id="infographic-use-memory" type="checkbox" checked> Hyödynnä kontekstimuistia</label>
                             </div>
                             <button class="btn btn-primary infographic-generate-button" id="infographic-generate-btn" type="button">Luo infografiikka</button>
                             <p id="infographic-status" class="graphics-inline-status" role="status" aria-live="polite">Valitse projekti ja infografiikan tyyppi.</p>
@@ -2280,7 +2280,7 @@
                         <div>
                             <span class="graphics-workspace-kicker">HTML-LUONNOS</span>
                             <h3>Luo kirjalle valmis verkkosivuluonnos</h3>
-                            <p>SkriptLab käyttää automaattisesti uusinta etukantta, analyysiä ja tarkistettua projektimuistia. Saat yhden itsenäisen HTML-tiedoston, jota voit katsella heti tai ladata jatkotyöstöön.</p>
+                            <p>SkriptLab käyttää automaattisesti uusinta etukantta, analyysiä ja tarkistettua kontekstimuistia. Uusin tallennettu henkilökartta liitetään sivulle omaksi osiokseen.</p>
                         </div>
                         <span class="graphics-context-badge">Yksi painike</span>
                     </div>
@@ -2304,8 +2304,9 @@
 
                             <ul class="graphics-html-source-list" aria-label="HTML-luonnoksen lähteet">
                                 <li><span aria-hidden="true">✓</span><div><strong>Analyysi</strong><small>Genre, kohderyhmä, synopsis ja teemat</small></div></li>
-                                <li><span aria-hidden="true">✓</span><div><strong>Projektimuisti</strong><small>Vahvistetut ja tarkistettavat tiedot</small></div></li>
+                                <li><span aria-hidden="true">✓</span><div><strong>Kontekstimuisti</strong><small>Vahvistetut ja tarkistettavat tiedot</small></div></li>
                                 <li><span aria-hidden="true">✓</span><div><strong>Kansikuva</strong><small>Uusin kelvollinen etu- tai koko kansi</small></div></li>
+                                <li><span aria-hidden="true">✓</span><div><strong>Henkilökartta</strong><small>Uusin tallennettu kartta, jos olet luonut sen</small></div></li>
                             </ul>
 
                             <p id="graphics-html-status" class="graphics-inline-status graphics-html-status" role="status" aria-live="polite">Valitse projekti ja luo tai tuo sille kansikuva.</p>
@@ -2330,7 +2331,7 @@
                                 </div>
                             </div>
                             <div class="marketing-html-result-row">
-                                <div><strong id="graphics-html-result-name">Ei vielä luotua tiedostoa</strong><small id="graphics-html-result-meta">Yhden tiedoston HTML · upotettu kansikuva · responsiivinen</small></div>
+                                <div><strong id="graphics-html-result-name">Ei vielä luotua tiedostoa</strong><small id="graphics-html-result-meta">Yhden tiedoston HTML · upotetut kuvat · responsiivinen</small></div>
                                 <button class="btn btn-secondary" id="graphics-html-download-btn" type="button" disabled>Lataa HTML</button>
                             </div>
                         </article>
@@ -2725,19 +2726,19 @@
                         <div class="marketing-html-hero-copy">
                             <span class="marketing-studio-eyebrow">HTML-LANDING PAGE · YKSI ITSENÄINEN TIEDOSTO</span>
                             <h2>Luo kirjalle oma<br><span>markkinointisivu.</span></h2>
-                            <p>Muodosta kirjan analyysistä, projektimuistista ja valitusta kannesta responsiivinen HTML-sivu. Tiedosto toimii sellaisenaan ja on valmis jatkomuokkaukseen tai julkaistavaksi omassa verkkopalvelussa.</p>
+                            <p>Muodosta kirjan analyysistä, kontekstimuistista ja valitusta kannesta responsiivinen HTML-sivu. Tiedosto toimii sellaisenaan ja on valmis jatkomuokkaukseen tai julkaistavaksi omassa verkkopalvelussa.</p>
                         </div>
                         <div class="marketing-html-cover-stage">
                             <div class="marketing-html-cover" id="marketing-html-cover"><span>KANSI VAADITAAN</span></div>
                             <div class="marketing-html-cover-copy">
                                 <span>ESIKATSELU</span>
                                 <strong id="marketing-html-preview-title">Valitse kirja ja kansi</strong>
-                                <p id="marketing-html-preview-tagline">Teoksen oma sivu syntyy analyysin ja projektimuistin pohjalta.</p>
+                                <p id="marketing-html-preview-tagline">Teoksen oma sivu syntyy analyysin ja kontekstimuistin pohjalta.</p>
                             </div>
                         </div>
                     </div>
 
-                    <p id="marketing-html-status" class="marketing-studio-status marketing-html-status" role="status">Tarkistetaan analyysiä, projektimuistia ja kansikuvaa.</p>
+                    <p id="marketing-html-status" class="marketing-studio-status marketing-html-status" role="status">Tarkistetaan analyysiä, kontekstimuistia ja kansikuvaa.</p>
 
                     <div class="marketing-html-readiness" aria-label="HTML-markkinointisivun valmius">
                         <article id="marketing-html-analysis-readiness" class="marketing-html-readiness-item">
@@ -2746,7 +2747,7 @@
                         </article>
                         <article id="marketing-html-memory-readiness" class="marketing-html-readiness-item">
                             <span class="marketing-html-readiness-icon" aria-hidden="true">02</span>
-                            <div><strong>Projektimuisti</strong><small id="marketing-html-memory-detail">Odottaa projektimuistin tietoja</small></div>
+                            <div><strong>Kontekstimuisti</strong><small id="marketing-html-memory-detail">Odottaa kontekstimuistin tietoja</small></div>
                         </article>
                         <article id="marketing-html-cover-readiness" class="marketing-html-readiness-item">
                             <span class="marketing-html-readiness-icon" aria-hidden="true">03</span>
@@ -2783,7 +2784,7 @@
 
                             <div class="marketing-html-create-row">
                                 <button class="btn btn-primary" id="marketing-html-generate-btn" type="button" disabled>Luo HTML-markkinointisivu</button>
-                                <p>Luonti käyttää aina projektin analyysiä, tarkistettua projektimuistia ja valittua kansikuvaa.</p>
+                                <p>Luonti käyttää aina projektin analyysiä, tarkistettua kontekstimuistia ja valittua kansikuvaa.</p>
                             </div>
                         </article>
 
@@ -2836,7 +2837,6 @@
             <div id="view-audio" class="view-section editorial-paper-workspace audio-modern-workspace hidden">
                 <div class="header audio-header">
                     <div class="header-info">
-                        <p class="production-workspace-eyebrow">ÄÄNIKIRJA · YHDEN NAPIN TUOTANTO · ÄÄNIMALLIT</p>
                         <h2>Audiotuotanto</h2>
                         <p id="audio-current-project">Käsikirjoitus: [Ei aktiivista teosta]</p>
                     </div>
@@ -4179,9 +4179,9 @@
     </div>
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=3"></script>
-    <script src="workflow-studio.js?v=3"></script>
+    <script src="workflow-studio.js?v=4"></script>
     <script src="correction-reprints.js?v=1"></script>
     <script src="demo-terminology.js?v=1"></script>
-    <script src="app.js?v=182"></script>
+    <script src="app.js?v=183"></script>
 </body>
 </html>

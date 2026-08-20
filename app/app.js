@@ -216,7 +216,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         setText('#top-book-name', 'Tekstiprojekti: Valitse projekti');
         setText('#sidebar-current-title', 'Ei tekstiä');
-        setText('#development-current-project', 'Analyysi luo karkean projektimuistin automaattisesti. Tässä valinnaisessa vaiheessa voit pyytää laajan kehityspalautteen ja tarkentaa muistia.');
+        setText('#development-current-project', 'Analyysi luo karkean kontekstimuistin automaattisesti. Tässä valinnaisessa vaiheessa voit pyytää laajan kehityspalautteen ja tarkentaa muistia.');
         setText('#publication-package-current-project', 'Tekstiprojekti: [Ei aktiivista tekstiä]');
         setText('#illustration-current-project', 'Tekstiprojekti: [Ei aktiivista tekstiä]');
         setText('#audio-current-project', 'Tekstiprojekti: [Ei aktiivista tekstiä]');
@@ -7639,7 +7639,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (graphicsHtmlDownloadBtn) graphicsHtmlDownloadBtn.disabled = true;
         if (graphicsHtmlResultName) graphicsHtmlResultName.textContent = 'Ei vielä luotua tiedostoa';
         if (graphicsHtmlResultMeta) {
-            graphicsHtmlResultMeta.textContent = 'Yhden tiedoston HTML · upotettu kansikuva · responsiivinen';
+            graphicsHtmlResultMeta.textContent = 'Yhden tiedoston HTML · upotetut kuvat · responsiivinen';
         }
         if (graphicsHtmlBrowserName) graphicsHtmlBrowserName.textContent = 'kirjan-html-luonnos.html';
     }
@@ -7678,7 +7678,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (graphicsHtmlGenerating) {
             if (graphicsHtmlPreviewEmptyTitle) graphicsHtmlPreviewEmptyTitle.textContent = 'Luonnosta muodostetaan…';
             if (graphicsHtmlPreviewEmptyCopy) {
-                graphicsHtmlPreviewEmptyCopy.textContent = 'Tekstit kootaan analyysistä ja projektimuistista turvalliseen HTML-pohjaan.';
+                graphicsHtmlPreviewEmptyCopy.textContent = 'Tekstit kootaan analyysistä ja kontekstimuistista turvalliseen HTML-pohjaan.';
             }
             return;
         }
@@ -7722,7 +7722,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
         clearGraphicsHtmlResult();
         graphicsHtmlGenerating = true;
-        setGraphicsHtmlStatus('Muodostetaan HTML-luonnosta analyysistä, projektimuistista ja kansikuvasta…');
+        setGraphicsHtmlStatus('Muodostetaan HTML-luonnosta analyysistä, kontekstimuistista, kansikuvasta ja henkilökartasta…');
         renderGraphicsHtmlWorkspace();
 
         let finalStatus = null;
@@ -7758,7 +7758,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             if (graphicsHtmlResultName) graphicsHtmlResultName.textContent = latestGraphicsHtmlPage.filename;
             if (graphicsHtmlBrowserName) graphicsHtmlBrowserName.textContent = latestGraphicsHtmlPage.filename;
             if (graphicsHtmlResultMeta) {
-                graphicsHtmlResultMeta.textContent = `Analyysi · ${Number(data.project_memory_items_used || 0)} projektimuistin merkintää · automaattinen kansi`;
+                const mapMeta = data.character_map_included ? 'henkilökartta mukana' : 'ei tallennettua henkilökarttaa';
+                graphicsHtmlResultMeta.textContent = `Analyysi · ${Number(data.project_memory_items_used || 0)} kontekstimuistin merkintää · ${mapMeta}`;
             }
             const warnings = Array.isArray(data.warnings) ? data.warnings.filter(Boolean) : [];
             finalStatus = {
@@ -9884,7 +9885,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 	        const title = project?.title || 'Valitse kirja ja kansi';
 	        const tagline = marketingFieldValue(
 	            'marketing-tagline',
-	            project ? `${title} — teoksen oma sivu analyysin ja projektimuistin pohjalta.` : 'Teoksen oma sivu syntyy analyysin ja projektimuistin pohjalta.'
+	            project ? `${title} — teoksen oma sivu analyysin ja kontekstimuistin pohjalta.` : 'Teoksen oma sivu syntyy analyysin ja kontekstimuistin pohjalta.'
 	        );
 	        const previewTitle = document.getElementById('marketing-html-preview-title');
 	        const previewTagline = document.getElementById('marketing-html-preview-tagline');
@@ -9921,7 +9922,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 	        if (memoryDetail) {
 	            memoryDetail.textContent = !project
 	                ? 'Odottaa aktiivista projektia'
-	                : memoryReady ? `${memoryCount} käyttökelpoista muistimerkintää` : 'Täydennä ja tarkista projektimuisti';
+	                : memoryReady ? `${memoryCount} käyttökelpoista muistimerkintää` : 'Täydennä ja tarkista kontekstimuisti';
 	        }
 	        if (coverDetail) {
 	            coverDetail.textContent = coverReady ? (cover.title || 'Kansikuva valittu') : 'Valitse kansi yläreunasta';
@@ -9943,7 +9944,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 	            } else if (!analysisReady) {
 	                setMarketingHtmlStatus('HTML-sivu vaatii tallennetun analyysin.', true);
 	            } else if (!memoryReady) {
-	                setMarketingHtmlStatus('HTML-sivu vaatii vahvistettua tai tarkistettavaa projektimuistia.', true);
+	                setMarketingHtmlStatus('HTML-sivu vaatii vahvistettua tai tarkistettavaa kontekstimuistia.', true);
 	            } else if (!coverReady) {
 	                setMarketingHtmlStatus('Valitse vähintään yksi kansikuva yläreunasta.', true);
 	            } else if (latestMarketingHtmlPage) {
@@ -10274,7 +10275,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 	            return;
 	        }
 	        if (Number(marketingContextSummary.projectMemoryCount || 0) < 1) {
-	            setMarketingHtmlStatus('Täydennä projektimuistiin vähintään yksi vahvistettu tai tarkistettava tieto.', true);
+	            setMarketingHtmlStatus('Täydennä kontekstimuistiin vähintään yksi vahvistettu tai tarkistettava tieto.', true);
 	            return;
 	        }
 	        if (!cover?.id) {
@@ -10309,7 +10310,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 	        const button = document.getElementById('marketing-html-generate-btn');
 	        marketingHtmlGenerating = true;
 	        if (button) button.textContent = 'Luodaan HTML-sivua…';
-	        setMarketingHtmlStatus('Muodostetaan tekstit analyysistä ja projektimuistista sekä rakennetaan itsenäinen HTML-tiedosto…');
+	        setMarketingHtmlStatus('Muodostetaan tekstit analyysistä ja kontekstimuistista sekä rakennetaan itsenäinen HTML-tiedosto…');
 	        renderMarketingHtmlWorkspace();
 
 	        let finalStatus = null;
@@ -10346,7 +10347,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 	            if (download) download.disabled = false;
 	            if (name) name.textContent = latestMarketingHtmlPage.filename;
 	            if (meta) {
-	                meta.textContent = `Analyysi · ${Number(data.project_memory_items_used || 0)} projektimuistin merkintää · valittu kansi`;
+	                meta.textContent = `Analyysi · ${Number(data.project_memory_items_used || 0)} kontekstimuistin merkintää · valittu kansi`;
 	            }
 	            const warnings = Array.isArray(data.warnings) ? data.warnings.filter(Boolean) : [];
 	            finalStatus = {
@@ -10840,7 +10841,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         syncGraphicsControls();
         setInfographicStatus(`Luodaan: ${infographicTypeLabels[type] || 'Infografiikka'}. Tässä voi mennä hetki.`);
         if (infographicLatestPreview) {
-            infographicLatestPreview.innerHTML = '<div class="graphics-preview-empty is-working"><span>◇</span><strong>Jäsennetään projektin tietoja…</strong><small>Analyysi ja projektimuisti ohjaavat sisältöä valintojesi mukaan.</small></div>';
+            infographicLatestPreview.innerHTML = '<div class="graphics-preview-empty is-working"><span>◇</span><strong>Jäsennetään projektin tietoja…</strong><small>Analyysi ja kontekstimuisti ohjaavat sisältöä valintojesi mukaan.</small></div>';
         }
         try {
             const response = await apiFetch(`/api/projects/${projectId}/infographics`, {
@@ -12428,8 +12429,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const formTitle = document.getElementById('knowledge-form-title');
         const saveButton = document.getElementById('knowledge-save-btn');
         const cancelButton = document.getElementById('knowledge-cancel-btn');
-        if (formTitle) formTitle.textContent = 'Lisää projektimuistiin';
-        if (saveButton) saveButton.textContent = 'Lisää projektimuistiin';
+        if (formTitle) formTitle.textContent = 'Lisää kontekstimuistiin';
+        if (saveButton) saveButton.textContent = 'Lisää kontekstimuistiin';
         cancelButton?.classList.add('hidden');
     }
 
@@ -12530,11 +12531,11 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             return haystack.includes(search);
         });
         if (!window.manuscriptData) {
-            list.innerHTML = '<div class="knowledge-empty"><strong>Valitse käsikirjoitus.</strong><span>Projektimuisti avautuu aktiiviselle käsikirjoitukselle.</span></div>';
+            list.innerHTML = '<div class="knowledge-empty"><strong>Valitse käsikirjoitus.</strong><span>Kontekstimuisti avautuu aktiiviselle käsikirjoitukselle.</span></div>';
             return;
         }
         if (!filtered.length) {
-            const message = projectKnowledgeItems.length ? 'Hakua tai suodatinta vastaavia kortteja ei löytynyt.' : 'Projektimuistissa ei ole vielä merkintöjä.';
+            const message = projectKnowledgeItems.length ? 'Hakua tai suodatinta vastaavia kortteja ei löytynyt.' : 'Kontekstimuistissa ei ole vielä merkintöjä.';
             list.innerHTML = `<div class="knowledge-empty"><strong>${escapeHtml(message)}</strong><span>Analyysi luo karkean muistin automaattisesti. Tarkempi ajo täydentää puuttuvia tietoja.</span></div>`;
             return;
         }
@@ -12549,7 +12550,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (summary) {
             summary.textContent = project
                 ? `${projectKnowledgeItems.length} tietokorttia · ${knowledgeWorkspaceVersionCount} palautuspistettä · ${project.title || 'Nimetön käsikirjoitus'}`
-                : 'Valitse käsikirjoitus nähdäksesi projektimuistin.';
+                : 'Valitse käsikirjoitus nähdäksesi kontekstimuistin.';
         }
         populateKnowledgeChapterSelect();
         updateKnowledgeTypeFields();
@@ -12581,14 +12582,14 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             extractButton.disabled = isMultiCallRunActive('project_memory') || !editable || !(project?.chapters || []).length;
             if (!isMultiCallRunActive('project_memory')) {
                 extractButton.textContent = knowledgeExtractionProgress?.status === 'partial'
-                    ? 'Jatka projektimuistin luontia'
-                    : (knowledgeExtractionProgress?.status === 'completed' ? 'Päivitä projektimuisti' : '✦ Tarkenna projektimuistia');
+                    ? 'Jatka kontekstimuistin luontia'
+                    : (knowledgeExtractionProgress?.status === 'completed' ? 'Päivitä kontekstimuisti' : '✦ Tarkenna kontekstimuistia');
             }
         }
         if (continuityButton) continuityButton.disabled = !editable || !projectKnowledgeItems.length;
         if (suggestionSelectAll) suggestionSelectAll.disabled = !editable;
         if (suggestionClear) suggestionClear.disabled = !editable;
-        if (project && !editable) setKnowledgeStatus('Projektimuisti on katselutilassa.');
+        if (project && !editable) setKnowledgeStatus('Kontekstimuisti on katselutilassa.');
         syncMultiCallRunControls('project_memory');
     }
 
@@ -12608,23 +12609,23 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             knowledgeWorkspaceVersionCount = 0;
             editingKnowledgeItemId = null;
         }
-        if (showFeedback) setKnowledgeStatus('Ladataan projektimuistia…');
+        if (showFeedback) setKnowledgeStatus('Ladataan kontekstimuistia…');
         try {
             const response = await apiFetch(`/api/projects/${projectId}/workspace`);
             const data = await response.json().catch(() => null);
-            if (!response.ok) throw new Error(data?.detail || 'Projektimuistin lataus epäonnistui.');
+            if (!response.ok) throw new Error(data?.detail || 'Kontekstimuistin lataus epäonnistui.');
             if (String(window.manuscriptData?.id || '') !== requestedProjectId) return [];
             projectKnowledgeItems = Array.isArray(data?.knowledge_items) ? data.knowledge_items : [];
             knowledgeWorkspaceProjectId = requestedProjectId;
             knowledgeWorkspaceVersionCount = Number(data?.version_count || 0);
             renderKnowledgeWorkspace();
             renderDevelopmentSummary();
-            if (showFeedback) setKnowledgeStatus(projectKnowledgeItems.length ? 'Projektimuisti ladattu.' : 'Projektimuisti voidaan nyt luoda käsikirjoituksesta.');
+            if (showFeedback) setKnowledgeStatus(projectKnowledgeItems.length ? 'Kontekstimuisti ladattu.' : 'Kontekstimuisti voidaan nyt luoda käsikirjoituksesta.');
             return projectKnowledgeItems;
         } catch (error) {
             knowledgeWorkspaceProjectId = requestedProjectId;
             renderKnowledgeWorkspace();
-            setKnowledgeStatus(error.message || 'Projektimuistin lataus epäonnistui.', true);
+            setKnowledgeStatus(error.message || 'Kontekstimuistin lataus epäonnistui.', true);
             return [];
         }
     }
@@ -12666,7 +12667,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         const saveButton = document.getElementById('knowledge-save-btn');
         if (saveButton) saveButton.disabled = true;
-        setKnowledgeStatus(editingKnowledgeItemId ? 'Tallennetaan muutoksia…' : 'Lisätään projektimuistiin…');
+        setKnowledgeStatus(editingKnowledgeItemId ? 'Tallennetaan muutoksia…' : 'Lisätään kontekstimuistiin…');
         try {
             const url = editingKnowledgeItemId
                 ? `/api/projects/${project.id}/knowledge/${editingKnowledgeItemId}`
@@ -12677,7 +12678,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 body: JSON.stringify(payload)
             });
             const data = await response.json().catch(() => null);
-            if (!response.ok) throw new Error(data?.detail || 'Projektimuistin tallennus epäonnistui.');
+            if (!response.ok) throw new Error(data?.detail || 'Kontekstimuistin tallennus epäonnistui.');
             const existingIndex = projectKnowledgeItems.findIndex(item => Number(item.id) === Number(data.id));
             if (existingIndex >= 0) projectKnowledgeItems.splice(existingIndex, 1, data);
             else projectKnowledgeItems.push(data);
@@ -12685,9 +12686,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             const savedType = data.item_type;
             resetKnowledgeForm(savedType);
             renderKnowledgeWorkspace();
-            setKnowledgeStatus(existingIndex >= 0 ? 'Merkintä päivitetty.' : 'Merkintä lisätty projektimuistiin.');
+            setKnowledgeStatus(existingIndex >= 0 ? 'Merkintä päivitetty.' : 'Merkintä lisätty kontekstimuistiin.');
         } catch (error) {
-            setKnowledgeStatus(error.message || 'Projektimuistin tallennus epäonnistui.', true);
+            setKnowledgeStatus(error.message || 'Kontekstimuistin tallennus epäonnistui.', true);
         } finally {
             if (saveButton) saveButton.disabled = !canEditProject(window.manuscriptData || {});
         }
@@ -12717,7 +12718,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const item = projectKnowledgeItems.find(candidate => Number(candidate.id) === Number(itemId));
         const projectId = window.manuscriptData?.id;
         if (!item || !projectId) return;
-        if (!window.confirm(`Poistetaanko projektimuistista ”${item.title}”?`)) return;
+        if (!window.confirm(`Poistetaanko kontekstimuistista ”${item.title}”?`)) return;
         setKnowledgeStatus('Poistetaan merkintää…');
         try {
             const response = await apiFetch(`/api/projects/${projectId}/knowledge/${item.id}`, { method: 'DELETE' });
@@ -12726,7 +12727,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             projectKnowledgeItems = projectKnowledgeItems.filter(candidate => Number(candidate.id) !== Number(item.id));
             if (Number(editingKnowledgeItemId) === Number(item.id)) resetKnowledgeForm(item.item_type);
             renderKnowledgeWorkspace();
-            setKnowledgeStatus('Merkintä poistettu projektimuistista.');
+            setKnowledgeStatus('Merkintä poistettu kontekstimuistista.');
         } catch (error) {
             setKnowledgeStatus(error.message || 'Merkinnän poistaminen epäonnistui.', true);
         }
@@ -12871,7 +12872,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function scheduleKnowledgeReviewSave() {
         window.clearTimeout(knowledgeReviewSaveTimer);
         knowledgeReviewSaveTimer = window.setTimeout(() => {
-            saveKnowledgeReviewState().catch(() => setKnowledgeStatus('Projektimuistin poimintatilan tallennus epäonnistui.', true));
+            saveKnowledgeReviewState().catch(() => setKnowledgeStatus('Kontekstimuistin poimintatilan tallennus epäonnistui.', true));
         }, 600);
     }
 
@@ -12882,7 +12883,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (acceptButton) {
             acceptButton.disabled = !selectedCount || !canEditProject(window.manuscriptData || {});
             acceptButton.textContent = selectedCount
-                ? `Hyväksy ${selectedCount} valittua projektimuistiin`
+                ? `Hyväksy ${selectedCount} valittua kontekstimuistiin`
                 : 'Valitse hyväksyttävät ehdotukset';
         }
         const status = document.getElementById('knowledge-suggestions-status');
@@ -13010,7 +13011,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 const pieceLabel = chapterPieces.length > 1 ? ` | osion pala ${pieceIndex + 1}/${chapterPieces.length}` : '';
                 const packed = `CHAPTER_${String(order + 1).padStart(2, '0')} | ${title} | chapter_custom_id=${chapterId}${pieceLabel}\n${text}`;
                 if (packed.length > safeMaxChunkChars) {
-                    throw new Error(`Projektimuistin lähdepala ylittää ${formatNumber(safeMaxChunkChars)} merkin turvarajan.`);
+                    throw new Error(`Kontekstimuistin lähdepala ylittää ${formatNumber(safeMaxChunkChars)} merkin turvarajan.`);
                 }
                 pieces.push(packed);
             });
@@ -13028,7 +13029,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         if (buffer) chunks.push(buffer);
         if (chunks.some(chunk => chunk.length > safeMaxChunkChars)) {
-            throw new Error(`Projektimuistin pyyntöön muodostui yli ${formatNumber(safeMaxChunkChars)} merkin pala.`);
+            throw new Error(`Kontekstimuistin pyyntöön muodostui yli ${formatNumber(safeMaxChunkChars)} merkin pala.`);
         }
         return {
             chunks,
@@ -13149,7 +13150,7 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
         if (!run) return;
         if (button) button.disabled = true;
         startLongOperationTimer('project_memory', {
-            message: 'Valmistellaan projektimuistin luontia…',
+            message: 'Valmistellaan kontekstimuistin luontia…',
             estimateLabel: 'Arvio tarkentuu, kun käsittelyosien määrä selviää',
             estimateToken: 'preparing'
         });
@@ -13199,11 +13200,11 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
                     [
                         `PROJEKTI: ${window.manuscriptData.title || 'Nimetön'}`,
                         chunk.index === 0 ? `AIEMPI ANALYYSI:\n${compactDevelopmentText(developmentAnalysisBrief(), 4500) || 'Ei aiempaa analyysiä.'}` : '',
-                        `JO PROJEKTIMUISTISSA:\n${compactKnowledgeIndex(4500) || 'Ei merkintöjä.'}`,
+                        `JO KONTEKSTIMUISTISSA:\n${compactKnowledgeIndex(4500) || 'Ei merkintöjä.'}`,
                         `KÄSIKIRJOITUS OSIOITTAIN:\n${chunk.text}`
                     ].filter(Boolean).join('\n\n'),
                     buildKnowledgeExtractionPrompt(extraInstructions),
-                    `Projektimuistin osa ${chunk.index + 1}/${chunks.length}`
+                    `Kontekstimuistin osa ${chunk.index + 1}/${chunks.length}`
                 );
                 const payload = await requestLongEdit({
                         purpose: 'development_editing',
@@ -13215,7 +13216,7 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
                     }, {
                         signal: run.controller.signal,
                         timerKey: 'project_memory',
-                        label: `Projektimuistin osa ${chunk.index + 1}/${chunks.length}`
+                        label: `Kontekstimuistin osa ${chunk.index + 1}/${chunks.length}`
                 });
                 const parsed = parseAiJsonObject(payload?.edited_text);
                 return sanitizeKnowledgeSuggestions(parsed?.suggestions);
@@ -13262,7 +13263,7 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
             await saveKnowledgeReviewState();
             throwIfMultiCallRunStopped(run);
             if (!knowledgeSuggestions.length && failures.length) throw new Error(failures[0].message);
-            if (!knowledgeSuggestions.length) throw new Error('Poiminta ei palauttanut projektimuistiin tallennettavia tietoja.');
+            if (!knowledgeSuggestions.length) throw new Error('Poiminta ei palauttanut kontekstimuistiin tallennettavia tietoja.');
             updateLongOperationTimer('project_memory', {
                 estimateMinSeconds: 30,
                 estimateMaxSeconds: 120,
@@ -13271,9 +13272,9 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
             });
             const persistence = await acceptKnowledgeSuggestions({ automatic: true, run });
             throwIfMultiCallRunStopped(run);
-            const retryNote = failures.length ? ` ${failures.length} osaa jäi kesken; jatka projektimuistin luontia yrittääksesi ne uudelleen.` : '';
+            const retryNote = failures.length ? ` ${failures.length} osaa jäi kesken; jatka kontekstimuistin luontia yrittääksesi ne uudelleen.` : '';
             setKnowledgeStatus(`${persistence.created} tietokorttia tallennettiin ja ne ovat heti myöhempien työvaiheiden käytössä.${retryNote}${manuscript.omittedPieces ? ` Erittäin pitkästä käsikirjoituksesta jäi ${manuscript.omittedPieces} tekstipalaa seuraavaan ajoon.` : ''}`, Boolean(failures.length || persistence.failures.length));
-            if (button) button.textContent = failures.length ? 'Jatka projektimuistin luontia' : 'Päivitä projektimuisti';
+            if (button) button.textContent = failures.length ? 'Jatka kontekstimuistin luontia' : 'Päivitä kontekstimuisti';
             loadUsage();
         } catch (error) {
             if (isMultiCallRunStopped(error, run)) {
@@ -13291,11 +13292,11 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
                         `${completedKeys.size}/${knowledgeExtractionProgress.total} osaa valmiina · luonti pysäytetty`
                     );
                 }
-                setKnowledgeStatus(`Projektimuistin luonti pysäytettiin. ${completedKeys.size}/${chunks.length || knowledgeExtractionProgress?.total || 0} osaa on tallessa. Voit jatkaa myöhemmin samasta kohdasta.`);
+                setKnowledgeStatus(`Kontekstimuistin luonti pysäytettiin. ${completedKeys.size}/${chunks.length || knowledgeExtractionProgress?.total || 0} osaa on tallessa. Voit jatkaa myöhemmin samasta kohdasta.`);
             } else {
                 setKnowledgeStatus(networkFailureMessage(error), true);
             }
-            if (button) button.textContent = 'Jatka projektimuistin luontia';
+            if (button) button.textContent = 'Jatka kontekstimuistin luontia';
             loadUsage();
         } finally {
             finishMultiCallRun(run);
@@ -13320,7 +13321,7 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
         }
         const button = document.getElementById('knowledge-suggestions-accept');
         if (button) button.disabled = true;
-        setKnowledgeStatus(automatic ? 'Tallennetaan projektimuistia…' : 'Tallennetaan valittuja tietoja projektimuistiin…');
+        setKnowledgeStatus(automatic ? 'Tallennetaan kontekstimuistia…' : 'Tallennetaan valittuja tietoja kontekstimuistiin…');
         const acceptedIds = new Set();
         const failures = [];
         for (const suggestion of selected) {
@@ -13355,7 +13356,7 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
         renderKnowledgeWorkspace();
         setKnowledgeStatus(failures.length
             ? `${acceptedIds.size} tietokorttia tallennettiin, ${failures.length} epäonnistui.`
-            : `${acceptedIds.size} tietokorttia lisättiin projektimuistiin.`, Boolean(failures.length));
+            : `${acceptedIds.size} tietokorttia lisättiin kontekstimuistiin.`, Boolean(failures.length));
         return { created: acceptedIds.size, failures, stopped: Boolean(run?.stopRequested) };
     }
 
@@ -13376,7 +13377,7 @@ ${userInstruction ? `\nKÄYTTÄJÄN LISÄOHJE:\n${compactDevelopmentText(userIns
 
     function buildContinuityPrompt() {
         return `PROJECT_MEMORY_TOOL:continuity
-Vertaa projektimuistin tietoja käsikirjoitukseen ja raportoi vain aidosti perustellut jatkuvuusristiriidat tai kohdat, jotka ihmisen kannattaa tarkistaa.
+Vertaa kontekstimuistin tietoja käsikirjoitukseen ja raportoi vain aidosti perustellut jatkuvuusristiriidat tai kohdat, jotka ihmisen kannattaa tarkistaa.
 
 Palauta ainoastaan kelvollinen JSON-objekti muodossa:
 {"issues":[{"severity":"high|warning|note","title":"...","description":"...","chapter":"CHAPTER_02","memory_title":"...","evidence":"...","recommendation":"...","confidence":"high|medium|low"}]}
@@ -13391,7 +13392,7 @@ Säännöt:
 
     async function runContinuityCheck() {
         if (!projectKnowledgeItems.length) {
-            setKnowledgeStatus('Lisää tai hyväksy projektimuistiin tietoja ennen jatkuvuustarkistusta.', true);
+            setKnowledgeStatus('Lisää tai hyväksy kontekstimuistiin tietoja ennen jatkuvuustarkistusta.', true);
             return;
         }
         const button = document.getElementById('knowledge-continuity-btn');
@@ -13405,7 +13406,7 @@ Säännöt:
             for (let index = 0; index < manuscript.chunks.length; index += 1) {
                 setKnowledgeStatus(`Tarkistetaan jatkuvuutta · osa ${index + 1}/${manuscript.chunks.length}…`);
                 const checkedInput = checkedLongEditInput(
-                    `PROJEKTIMUISTI:\n${memory}\n\nKÄSIKIRJOITUS OSIOITTAIN:\n${manuscript.chunks[index]}`,
+                    `KONTEKSTIMUISTI:\n${memory}\n\nKÄSIKIRJOITUS OSIOITTAIN:\n${manuscript.chunks[index]}`,
                     buildContinuityPrompt(),
                     `Jatkuvuustarkistuksen osa ${index + 1}/${manuscript.chunks.length}`
                 );
@@ -13465,7 +13466,7 @@ Säännöt:
                 item.source_url ? `Lähde tai viite: ${item.source_url}` : ''
             ].filter(Boolean).join('\n');
         });
-        if (projectKnowledgeItems.length > selected.length) rows.push(`HUOM: ${projectKnowledgeItems.length - selected.length} projektimuistin merkintää jätettiin pois pituusrajan vuoksi.`);
+        if (projectKnowledgeItems.length > selected.length) rows.push(`HUOM: ${projectKnowledgeItems.length - selected.length} kontekstimuistin merkintää jätettiin pois pituusrajan vuoksi.`);
         return rows.join('\n\n---\n\n');
     }
 
@@ -13560,7 +13561,7 @@ Säännöt:
         if (acceptButton) {
             acceptButton.disabled = !selectedCount || !canEditProject(window.manuscriptData || {});
             acceptButton.textContent = selectedCount
-                ? `Hyväksy ${selectedCount} valittua projektimuistiin`
+                ? `Hyväksy ${selectedCount} valittua kontekstimuistiin`
                 : 'Valitse hyväksyttävät ehdotukset';
         }
         setSceneSuggestionsStatus(`${developmentSceneSuggestions.length} ehdotusta · ${selectedCount} valittuna`);
@@ -13653,7 +13654,7 @@ Säännöt:
             setDevelopmentStatus(`${acceptedIds.size} ehdotusta hyväksyttiin, ${failures.length} epäonnistui.`, true);
             setSceneSuggestionsStatus(failures.join(' · '), true);
         } else {
-            setDevelopmentStatus(`${acceptedIds.size} kohtauskorttia lisättiin projektimuistiin tarkistettaviksi.`);
+            setDevelopmentStatus(`${acceptedIds.size} kohtauskorttia lisättiin kontekstimuistiin tarkistettaviksi.`);
         }
     }
 
@@ -13798,7 +13799,7 @@ Säännöt:
             'AIEMMAN ANALYYSIN TIIVISTETTY KONTEKSTI:',
             compactDevelopmentText(developmentAnalysisBrief(), 3200) || 'Ei tallennettua analyysiä.',
             '',
-            'PROJEKTIMUISTIN TIIVISTETTY KONTEKSTI:',
+            'KONTEKSTIMUISTIN TIIVISTETTY KONTEKSTI:',
             compactDevelopmentText(developmentKnowledgeBrief(20), 2200) || 'Ei erillisiä tietokortteja.',
             '',
             'KÄSITELTÄVÄT OSIOT:',
@@ -13827,7 +13828,7 @@ Säännöt:
             'AIEMMAN ANALYYSIN TIIVISTELMÄ:',
             compactDevelopmentText(developmentAnalysisBrief(), 4000) || 'Ei tallennettua analyysiä.',
             '',
-            'PROJEKTIMUISTIN TIIVISTELMÄ:',
+            'KONTEKSTIMUISTIN TIIVISTELMÄ:',
             compactDevelopmentText(developmentKnowledgeBrief(24), 2600) || 'Ei erillisiä tietokortteja.',
             '',
             'LYHYET OSARAPORTIT KOKO KÄSIKIRJOITUKSESTA:'
@@ -13938,8 +13939,8 @@ Säännöt:
             brief.author_questions ? `Kirjailijan kysymykset:\n${compactDevelopmentText(brief.author_questions, 1200)}` : '',
             brief.extra_instructions ? `Käyttäjän lisäohje kehityseditoijalle:\n${compactDevelopmentText(brief.extra_instructions, 1800)}` : '',
             '',
-            'PROJEKTIMUISTI (KIRJAILIJAN JA TOIMITTAJAN VAHVISTAMAT TAI TARKISTETTAVAT TIEDOT):',
-            developmentKnowledgeBrief() || 'Projektimuistissa ei ole vielä erillisiä tietokortteja.',
+            'KONTEKSTIMUISTI (KIRJAILIJAN JA TOIMITTAJAN VAHVISTAMAT TAI TARKISTETTAVAT TIEDOT):',
+            developmentKnowledgeBrief() || 'Kontekstimuistissa ei ole vielä erillisiä tietokortteja.',
             '',
             'AIEMPI ANALYYSI JA METADATA:',
             developmentAnalysisBrief() || 'Ei aiempaa analyysiä. Tee varovainen ensimmäinen rakennemalli tekstinäytteiden perusteella.',
@@ -13999,7 +14000,7 @@ Säännöt:
         const brief = readDevelopmentBriefFromForm();
         return `Toimi Agentti 2:na: kokeneena kehitys- ja rakenne-editoijana.
 
-Saat koko käsikirjoituksen lyhyet osaraportit, aiemman analyysin, projektimuistin ja käyttäjän lisäohjeen. Yhdistä ne konkreettiseksi, priorisoiduksi palautteeksi ilman tarpeetonta toistoa. Palautteen sävy: ${developmentToneLabel(brief.feedback_mode)}.
+Saat koko käsikirjoituksen lyhyet osaraportit, aiemman analyysin, kontekstimuistin ja käyttäjän lisäohjeen. Yhdistä ne konkreettiseksi, priorisoiduksi palautteeksi ilman tarpeetonta toistoa. Palautteen sävy: ${developmentToneLabel(brief.feedback_mode)}.
 
 Arvioi soveltuvin osin kaikki seuraavat alueet. Jos aineisto ei riitä jonkin alueen luotettavaan arviointiin, sano se suoraan sen sijaan, että täyttäisit osion geneerisillä neuvoilla:
 ${DEVELOPMENT_EDITORIAL_AREAS.map(area => `- ${area}`).join('\n')}
@@ -14123,7 +14124,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             ['Käsikirjoitus', data ? `${data.title || 'Nimetön'} · ${formatNumber(countWords(text))} sanaa · ${bodyCount || (data.chapters || []).length} osiota` : 'Ei aktiivista käsikirjoitusta.'],
             ['Analyysi', hasSavedAnalysis(data?.analysis) ? 'Tallennettu analyysi käytettävissä.' : 'Varsinaista analyysiä ei ole vielä tallennettu. Moduuli voi silti tehdä alustavan mallin.'],
             ['Kehityseditointipalaute', progressText || (dev.feedback_report ? `Valmis · ${dev.feedback_updated_at ? new Date(dev.feedback_updated_at).toLocaleString('fi-FI') : 'tallennettu'}.` : 'Ei vielä tehty.')],
-            ['Projektimuisti', projectKnowledgeItems.length ? `${projectKnowledgeItems.length} tietokorttia editorin käytettävissä.` : 'Ei vielä luotu.']
+            ['Kontekstimuisti', projectKnowledgeItems.length ? `${projectKnowledgeItems.length} tietokorttia editorin käytettävissä.` : 'Ei vielä luotu.']
         ];
         container.innerHTML = items.map(([title, value]) => `
             <div class="development-summary-item">
@@ -14139,8 +14140,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const data = window.manuscriptData;
         const dev = data?.analysis?.development_editing || {};
         current.textContent = demoUiText(data
-            ? `Käsikirjoitus: ${data.title || 'Nimetön'} · analyysin projektimuisti on editorin käytössä, kehityspalaute on valinnainen`
-            : 'Valitse käsikirjoitus. Analyysi luo projektimuistin automaattisesti, ja kehityspalaute on valinnainen.');
+            ? `Käsikirjoitus: ${data.title || 'Nimetön'} · analyysin kontekstimuisti on editorin käytössä, kehityspalaute on valinnainen`
+            : 'Valitse käsikirjoitus. Analyysi luo kontekstimuistin automaattisesti, ja kehityspalaute on valinnainen.');
         writeDevelopmentBriefToForm(dev.brief || {});
         const knowledgeInstructions = document.getElementById('knowledge-extra-instructions');
         const feedback = document.getElementById('development-feedback');
@@ -15108,11 +15109,11 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     }
 
     async function runWorkflowProjectMemory(options = {}) {
-        setWorkflowStep('project_memory', 'running', 'Projektimuistia tarkennetaan käsikirjoituksesta.');
+        setWorkflowStep('project_memory', 'running', 'Kontekstimuistia tarkennetaan käsikirjoituksesta.');
         await extractKnowledgeSuggestions(options);
         await loadKnowledgeWorkspace(false).catch(() => null);
         const count = projectKnowledgeItems.length;
-        if (!count) throw new Error('Projektimuistiin ei saatu tallennettua tietokortteja.');
+        if (!count) throw new Error('Kontekstimuistiin ei saatu tallennettua tietokortteja.');
         setWorkflowStep('project_memory', 'done', `${count} tietokorttia on myöhempien vaiheiden käytössä.`);
     }
 
@@ -20663,8 +20664,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const extractButton = document.getElementById('knowledge-extract-btn');
         if (extractButton) extractButton.textContent = 'Poimi käsikirjoituksesta';
         renderKnowledgeSuggestions();
-        saveKnowledgeReviewState().catch(() => setKnowledgeStatus('Projektimuistin poimintatilan tyhjennys ei tallentunut.', true));
-        setKnowledgeStatus('Projektimuistin poimintatila tyhjennettiin.');
+        saveKnowledgeReviewState().catch(() => setKnowledgeStatus('Kontekstimuistin poimintatilan tyhjennys ei tallentunut.', true));
+        setKnowledgeStatus('Kontekstimuistin poimintatila tyhjennettiin.');
     });
     document.getElementById('knowledge-suggestions-accept')?.addEventListener('click', () => {
         acceptKnowledgeSuggestions().catch(error => setKnowledgeStatus(error.message || 'Ehdotusten hyväksyminen epäonnistui.', true));
@@ -25859,7 +25860,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (step) params.set('step', step);
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '25');
+        params.set('v', '26');
         const reloaded = updateEmbeddedModuleFrame(frame, 'manuskripti.html', params);
         if (!reloaded && frame.contentWindow) {
             frame.contentWindow.postMessage({ type: 'skriptlab:refresh-workflow-status' }, window.location.origin);
@@ -25886,7 +25887,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (projectId) params.set('project', projectId);
         if (pendingWriteEditorChapterId) params.set('chapter', pendingWriteEditorChapterId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '10');
+        params.set('v', '11');
         updateEmbeddedModuleFrame(frame, 'kirjoita-editoi.html', params);
         pendingWriteEditorChapterId = null;
     }

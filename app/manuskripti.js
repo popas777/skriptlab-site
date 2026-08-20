@@ -80,7 +80,7 @@
     setText(".home-lead", "Tuo tekstisi ja käynnistä kokonaisanalyysi.");
     setText("#view-project .eyebrow", "Tekstiprojekti");
     setText("#view-kasikirjoitus h2", "Teksti");
-    setText("#view-analyysi .step-intro", "Tekoäly lukee koko tekstin, tuottaa kokonaisarvion ja kokoaa samalla karkean projektimuistin työtilan käyttöön. Pitkä teksti käsitellään osissa.");
+    setText("#view-analyysi .step-intro", "Tekoäly lukee koko tekstin, tuottaa kokonaisarvion ja kokoaa samalla karkean kontekstimuistin työtilan käyttöön. Pitkä teksti käsitellään osissa.");
   }
   const allowedModuleKeys = Array.isArray(authUser?.allowed_modules)
     ? new Set(authUser.allowed_modules.map((key) => String(key || "")))
@@ -1240,10 +1240,10 @@
     const developmentDone = memoryDone;
     const developmentStarted = Boolean(feedbackDone || memoryDone || development.blueprint || development.updated_at);
     const developmentDescription = feedbackDone
-      ? "Projektimuisti ja kehityspalaute valmiina"
+      ? "Kontekstimuisti ja kehityspalaute valmiina"
       : memoryDone
-        ? "Projektimuisti valmis · palaute valinnainen"
-        : "Projektimuisti syntyy analyysistä · palaute valinnainen";
+        ? "Kontekstimuisti valmis · palaute valinnainen"
+        : "Kontekstimuisti syntyy analyysistä · palaute valinnainen";
     const proofreadDone = Boolean(analysis.finishing && typeof analysis.finishing === "object")
       || workflowState.proofread?.status === "done";
     const proofreadStarted = proofreadDone || workflowState.proofread?.status === "progress";
@@ -1753,8 +1753,8 @@
               item.details?.source === "analysis" && item.details?.auto_generated
             ).length;
             toast(job.status === "partial"
-              ? `Analyysi valmistui osittain. Projektimuistissa on ${memoryCount} luonnosta.`
-              : `Analyysi valmis. Projektimuistiin luotiin ${memoryCount} luonnosta.`);
+              ? `Analyysi valmistui osittain. Kontekstimuistissa on ${memoryCount} luonnosta.`
+              : `Analyysi valmis. Kontekstimuistiin luotiin ${memoryCount} luonnosta.`);
           }
           return;
         }
