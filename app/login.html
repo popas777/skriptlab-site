@@ -11,14 +11,56 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 100vh;
-            width: 100vw;
+            width: 100%;
+            min-height: 100vh;
+            min-height: 100dvh;
+            padding: 24px 16px;
         }
         .login-box {
-            width: 420px;
+            width: min(420px, 100%);
             padding: 40px;
             border-radius: 20px;
             text-align: center;
+        }
+        .login-page {
+            min-height: 100vh;
+            min-height: 100dvh;
+            overflow: auto;
+        }
+        .login-language-row {
+            display: flex;
+            justify-content: flex-end;
+            margin: -16px -16px 4px 0;
+        }
+        .login-language-switch {
+            display: inline-grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3px;
+            padding: 3px;
+            border: 1px solid var(--border-color);
+            border-radius: 999px;
+            background: rgba(0,0,0,0.08);
+        }
+        .login-language-btn {
+            min-width: 38px;
+            min-height: 30px;
+            padding: 0 9px;
+            border: 0;
+            border-radius: 999px;
+            background: transparent;
+            color: var(--text-secondary);
+            font: 600 11px 'Inter', sans-serif;
+            letter-spacing: 0.06em;
+            cursor: pointer;
+        }
+        .login-language-btn[aria-pressed="true"] {
+            background: var(--text-primary);
+            color: var(--bg-color);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+        }
+        .login-language-btn:focus-visible {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 2px;
         }
         .login-box .logo {
             font-size: 36px;
@@ -85,6 +127,7 @@
             width: 20px;
             height: 20px;
         }
+        .password-visibility-toggle[hidden],
         .password-visibility-toggle svg[hidden] {
             display: none;
         }
@@ -119,6 +162,10 @@
             color: var(--text-primary);
             box-shadow: inset 0 0 0 1px rgba(121, 192, 255, 0.28);
         }
+        .login-mode-btn:disabled {
+            opacity: 0.55;
+            cursor: wait;
+        }
         .login-divider {
             margin: 24px 0;
             color: var(--text-secondary);
@@ -135,23 +182,40 @@
         }
         .login-divider::before { left: 0; }
         .login-divider::after { right: 0; }
+        @media (max-width: 480px) {
+            .login-wrapper {
+                padding: 16px 12px;
+            }
+            .login-box {
+                padding: 28px 22px;
+            }
+            .login-language-row {
+                margin: -8px -4px 8px 0;
+            }
+        }
     </style>
 </head>
-<body>
+<body class="login-page">
     <div class="login-wrapper">
         <div class="login-box glass-panel">
+            <div class="login-language-row">
+                <div class="login-language-switch" id="login-language-switch" role="group" aria-label="Kieli">
+                    <button type="button" class="login-language-btn" data-language="fi" aria-label="Suomi" aria-pressed="true" lang="fi">FI</button>
+                    <button type="button" class="login-language-btn" data-language="en" aria-label="English" aria-pressed="false" lang="en">EN</button>
+                </div>
+            </div>
             <h1 class="logo">SkriptLab<span class="accent">.</span></h1>
-            <p style="color: var(--text-secondary); margin-bottom: 30px; font-size: 15px;">Kirjailijan moderni työkalupakki</p>
+            <p id="login-tagline" style="color: var(--text-secondary); margin-bottom: 30px; font-size: 15px;">Kirjailijan moderni työkalupakki</p>
 
-            <div class="login-mode-switch" role="group" aria-label="Kirjautumistapa">
+            <div class="login-mode-switch" id="login-mode-switch" role="group" aria-label="Kirjautumistapa">
                 <button type="button" class="login-mode-btn active" data-login-mode="password" aria-pressed="true">Salasana</button>
                 <button type="button" class="login-mode-btn" data-login-mode="invite" aria-pressed="false">Kutsukoodi</button>
             </div>
             
             <form id="login-form">
                 <div class="input-group">
-                    <label>Sähköposti</label>
-                    <input type="text" inputmode="email" id="email" placeholder="nimi@example.com" required>
+                    <label id="email-label" for="email">Sähköposti</label>
+                    <input type="email" inputmode="email" id="email" autocomplete="username" placeholder="nimi@example.com" required>
                 </div>
                 <div class="input-group">
                     <label id="credential-label" for="credential">Salasana</label>
@@ -182,7 +246,7 @@
                 
                 <button type="submit" class="btn btn-primary login-btn" id="login-submit">Kirjaudu sisään</button>
             </form>
-            <p id="login-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px;"></p>
+            <p id="login-status" role="status" aria-live="polite" style="color: var(--text-secondary); min-height: 20px; font-size: 13px;"></p>
         </div>
     </div>
     
@@ -198,18 +262,172 @@
             window.location.replace(existingUser.role === 'admin' ? 'admin.html' : 'index.html');
         }
 
+        const LANGUAGE_KEY = 'skriptlab_site_language';
+        const SUPPORTED_LANGUAGES = new Set(['fi', 'en']);
+        const TRANSLATIONS = {
+            fi: {
+                title: 'SkriptLab - Kirjaudu',
+                languageSelector: 'Kieli',
+                tagline: 'Kirjailijan moderni työkalupakki',
+                loginMethod: 'Kirjautumistapa',
+                loginModes: {
+                    password: 'Salasana',
+                    invite: 'Kutsukoodi',
+                },
+                email: 'Sähköposti',
+                emailPlaceholder: 'nimi@example.com',
+                credentials: {
+                    password: {
+                        label: 'Salasana',
+                        placeholder: 'Kirjoita salasana',
+                    },
+                    invite: {
+                        label: 'Kutsukoodi',
+                        placeholder: 'Kirjoita saamasi kutsukoodi',
+                    },
+                },
+                showPassword: 'Näytä salasana',
+                hidePassword: 'Piilota salasana',
+                submit: 'Kirjaudu sisään',
+                status: {
+                    loading: 'Kirjaudutaan sisään...',
+                    passwordError: 'Sähköposti tai salasana ei kelpaa.',
+                    inviteError: 'Sähköposti tai kutsukoodi ei kelpaa.',
+                    networkError: 'Kirjautuminen epäonnistui. Tarkista verkkoyhteys ja yritä uudelleen.',
+                    serviceError: 'Palvelu ei voinut käsitellä kirjautumista. Yritä hetken kuluttua uudelleen.',
+                },
+            },
+            en: {
+                title: 'SkriptLab - Log in',
+                languageSelector: 'Language',
+                tagline: 'A modern toolkit for writers',
+                loginMethod: 'Sign-in method',
+                loginModes: {
+                    password: 'Password',
+                    invite: 'Invite code',
+                },
+                email: 'Email',
+                emailPlaceholder: 'name@example.com',
+                credentials: {
+                    password: {
+                        label: 'Password',
+                        placeholder: 'Enter your password',
+                    },
+                    invite: {
+                        label: 'Invite code',
+                        placeholder: 'Enter your invite code',
+                    },
+                },
+                showPassword: 'Show password',
+                hidePassword: 'Hide password',
+                submit: 'Log in',
+                status: {
+                    loading: 'Logging in...',
+                    passwordError: 'The email or password is incorrect.',
+                    inviteError: 'The email or invite code is incorrect.',
+                    networkError: 'Could not log in. Check your connection and try again.',
+                    serviceError: 'The service could not complete the login. Please try again shortly.',
+                },
+            },
+        };
+
+        let currentLanguage = 'fi';
         let loginMode = 'password';
+        const languageSwitch = document.getElementById('login-language-switch');
+        const tagline = document.getElementById('login-tagline');
+        const loginModeSwitch = document.getElementById('login-mode-switch');
+        const emailLabel = document.getElementById('email-label');
+        const emailInput = document.getElementById('email');
         const credentialInput = document.getElementById('credential');
         const credentialLabel = document.getElementById('credential-label');
         const passwordVisibilityToggle = document.getElementById('password-visibility-toggle');
         const passwordVisibleIcon = document.getElementById('password-visible-icon');
         const passwordHiddenIcon = document.getElementById('password-hidden-icon');
+        const status = document.getElementById('login-status');
+        const submit = document.getElementById('login-submit');
+
+        function getInitialLanguage() {
+            const requested = new URLSearchParams(window.location.search).get('lang');
+            if (SUPPORTED_LANGUAGES.has(requested)) return requested;
+
+            try {
+                const saved = window.localStorage.getItem(LANGUAGE_KEY);
+                if (SUPPORTED_LANGUAGES.has(saved)) return saved;
+            } catch (error) {
+                // The page still works in Finnish if localStorage is unavailable.
+            }
+
+            return 'fi';
+        }
+
+        function setStatus(messageKey = '') {
+            status.dataset.messageKey = messageKey;
+            status.textContent = messageKey ? TRANSLATIONS[currentLanguage].status[messageKey] : '';
+        }
+
+        function applyLanguage() {
+            const copy = TRANSLATIONS[currentLanguage];
+            const passwordVisible = credentialInput.type === 'text';
+            const credentialCopy = copy.credentials[loginMode];
+
+            document.documentElement.lang = currentLanguage;
+            document.body.dataset.language = currentLanguage;
+            document.title = copy.title;
+            languageSwitch.setAttribute('aria-label', copy.languageSelector);
+            tagline.textContent = copy.tagline;
+            loginModeSwitch.setAttribute('aria-label', copy.loginMethod);
+            emailLabel.textContent = copy.email;
+            emailInput.placeholder = copy.emailPlaceholder;
+            credentialLabel.textContent = credentialCopy.label;
+            credentialInput.placeholder = credentialCopy.placeholder;
+            passwordVisibilityToggle.setAttribute('aria-label', passwordVisible ? copy.hidePassword : copy.showPassword);
+            passwordVisibilityToggle.title = passwordVisible ? copy.hidePassword : copy.showPassword;
+            submit.textContent = copy.submit;
+
+            document.querySelectorAll('.login-language-btn[data-language]').forEach((button) => {
+                button.setAttribute('aria-pressed', String(button.dataset.language === currentLanguage));
+            });
+            document.querySelectorAll('[data-login-mode]').forEach((button) => {
+                button.textContent = copy.loginModes[button.dataset.loginMode];
+            });
+
+            const messageKey = status.dataset.messageKey;
+            status.textContent = messageKey ? copy.status[messageKey] : '';
+        }
+
+        function setLanguage(language, syncUrl = false) {
+            if (!SUPPORTED_LANGUAGES.has(language)) return;
+
+            currentLanguage = language;
+            try {
+                window.localStorage.setItem(LANGUAGE_KEY, language);
+            } catch (error) {
+                // Keep the selected language for this page even if storage is unavailable.
+            }
+            if (syncUrl) {
+                const url = new URL(window.location.href);
+                if (language === 'en') {
+                    url.searchParams.set('lang', 'en');
+                } else {
+                    url.searchParams.delete('lang');
+                }
+                window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+            }
+            applyLanguage();
+        }
+
+        function setLoginModeButtonsDisabled(disabled) {
+            document.querySelectorAll('[data-login-mode]').forEach((button) => {
+                button.disabled = disabled;
+            });
+        }
 
         function setPasswordVisible(visible) {
             credentialInput.type = visible ? 'text' : 'password';
             passwordVisibilityToggle.setAttribute('aria-pressed', String(visible));
-            passwordVisibilityToggle.setAttribute('aria-label', visible ? 'Piilota salasana' : 'Näytä salasana');
-            passwordVisibilityToggle.title = visible ? 'Piilota salasana' : 'Näytä salasana';
+            const copy = TRANSLATIONS[currentLanguage];
+            passwordVisibilityToggle.setAttribute('aria-label', visible ? copy.hidePassword : copy.showPassword);
+            passwordVisibilityToggle.title = visible ? copy.hidePassword : copy.showPassword;
             passwordVisibleIcon.toggleAttribute('hidden', visible);
             passwordHiddenIcon.toggleAttribute('hidden', !visible);
         }
@@ -219,34 +437,44 @@
             credentialInput.focus();
         });
 
-        document.querySelectorAll('[data-login-mode]').forEach((button) => {
-            button.addEventListener('click', () => {
-                loginMode = button.dataset.loginMode;
-                document.querySelectorAll('[data-login-mode]').forEach((item) => {
-                    const active = item === button;
-                    item.classList.toggle('active', active);
-                    item.setAttribute('aria-pressed', String(active));
-                });
-                const inviteMode = loginMode === 'invite';
-                setPasswordVisible(false);
-                passwordVisibilityToggle.hidden = inviteMode;
-                credentialLabel.textContent = inviteMode ? 'Kutsukoodi' : 'Salasana';
-                credentialInput.placeholder = inviteMode ? 'Kirjoita saamasi kutsukoodi' : 'Kirjoita salasana';
-                credentialInput.autocomplete = inviteMode ? 'one-time-code' : 'current-password';
-                document.getElementById('login-status').textContent = '';
-                credentialInput.focus();
+        function setLoginMode(mode, focusCredential = true) {
+            if (!['password', 'invite'].includes(mode)) return;
+
+            loginMode = mode;
+            document.querySelectorAll('[data-login-mode]').forEach((item) => {
+                const active = item.dataset.loginMode === loginMode;
+                item.classList.toggle('active', active);
+                item.setAttribute('aria-pressed', String(active));
             });
+            const inviteMode = loginMode === 'invite';
+            setPasswordVisible(false);
+            passwordVisibilityToggle.hidden = inviteMode;
+            credentialInput.autocomplete = inviteMode ? 'one-time-code' : 'current-password';
+            setStatus();
+            applyLanguage();
+            if (focusCredential) credentialInput.focus();
+        }
+
+        document.querySelectorAll('.login-language-btn[data-language]').forEach((button) => {
+            button.addEventListener('click', () => setLanguage(button.dataset.language, true));
         });
+
+        document.querySelectorAll('[data-login-mode]').forEach((button) => {
+            button.addEventListener('click', () => setLoginMode(button.dataset.loginMode));
+        });
+
+        setLanguage(getInitialLanguage());
+        setLoginMode('password', false);
 
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const status = document.getElementById('login-status');
-            const submit = document.getElementById('login-submit');
             const email = document.getElementById('email').value.trim().toLowerCase();
             const credential = credentialInput.value.trim();
 
-            status.textContent = 'Kirjaudutaan sisään...';
+            setStatus('loading');
             submit.disabled = true;
+            setLoginModeButtonsDisabled(true);
+            let failureKey = 'networkError';
 
             try {
                 const passwordMode = loginMode === 'password';
@@ -259,16 +487,18 @@
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) {
-                    throw new Error(passwordMode
-                        ? 'Sähköposti tai salasana ei kelpaa.'
-                        : 'Sähköposti tai kutsukoodi ei kelpaa.');
+                    failureKey = [400, 401, 403].includes(res.status)
+                        ? (passwordMode ? 'passwordError' : 'inviteError')
+                        : 'serviceError';
+                    throw new Error('Login rejected');
                 }
 
                 window.SkriptLabAuth.setSession(data.access_token, data.user);
                 window.location.replace(data.user.role === 'admin' ? 'admin.html' : 'index.html');
-            } catch (err) {
-                status.textContent = err.message;
+            } catch (error) {
+                setStatus(failureKey);
                 submit.disabled = false;
+                setLoginModeButtonsDisabled(false);
             }
         });
     </script>
