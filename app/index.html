@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=102">
+    <link rel="stylesheet" href="styles.css?v=103">
     <link rel="stylesheet" href="workflow-studio.css?v=2">
     <link rel="stylesheet" href="correction-reprints.css?v=1">
 </head>
@@ -75,9 +75,104 @@
             <button class="icon-btn text-btn" id="toggle-lang" title="Käyttöliittymän kieli">FI</button>
             <button class="icon-btn" id="toggle-theme" title="Vaihda teema (Dark/Light)">☀️</button>
             <button class="icon-btn" id="toggle-mobile" title="Simuloi mobiilinäkymää">📱</button>
+            <button class="icon-btn text-btn account-settings-toggle" id="settings-btn" type="button" aria-label="Avaa asetukset" aria-controls="account-settings-panel" aria-expanded="false" aria-haspopup="dialog" title="Avaa asetukset">
+                <span class="account-settings-toggle-icons" aria-hidden="true">
+                    <svg class="account-settings-user-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="7.5" r="3.25"></circle>
+                        <path d="M5.75 19.25c.45-4 2.55-6 6.25-6s5.8 2 6.25 6"></path>
+                    </svg>
+                    <svg class="account-settings-gear-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="2.75"></circle>
+                        <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.86 2.86-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .99V20.5h-4v-.11a1.7 1.7 0 0 0-1-.99 1.7 1.7 0 0 0-1.88.34l-.06.06-2.86-2.86.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.99-1H3.5v-4h.11a1.7 1.7 0 0 0 .99-1 1.7 1.7 0 0 0-.34-1.88l-.06-.06L7.06 4.2l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.99V3.5h4v.11a1.7 1.7 0 0 0 1 .99 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.86 2.86-.06.06A1.7 1.7 0 0 0 19.4 9c.14.38.5.75.99 1h.11v4h-.11c-.49.25-.85.62-.99 1Z"></path>
+                    </svg>
+                </span>
+                <span class="account-settings-toggle-label">Asetukset</span>
+            </button>
             <a href="login.html" class="icon-btn text-btn" id="logout-link" title="Kirjaudu ulos" style="text-decoration:none;">Kirjaudu ulos</a>
         </div>
     </nav>
+
+    <div class="account-settings-backdrop hidden" id="account-settings-backdrop" aria-hidden="true"></div>
+    <section class="account-settings-panel glass-panel hidden" id="account-settings-panel" role="dialog" aria-modal="false" aria-labelledby="account-settings-title" aria-hidden="true">
+        <header class="account-settings-header">
+            <div class="account-settings-heading">
+                <span class="account-settings-heading-icon" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="7.5" r="3.25"></circle>
+                        <path d="M5.75 19.25c.45-4 2.55-6 6.25-6s5.8 2 6.25 6"></path>
+                    </svg>
+                </span>
+                <div>
+                    <span>Oma tili</span>
+                    <h2 id="account-settings-title">Asetukset</h2>
+                </div>
+            </div>
+            <button class="account-settings-close" id="account-settings-close" type="button" aria-label="Sulje asetukset" title="Sulje asetukset">×</button>
+        </header>
+        <div class="account-settings-content">
+            <section class="account-user-card" aria-labelledby="account-user-title">
+                <h3 id="account-user-title">Käyttäjätiedot</h3>
+                <div class="account-user-info">
+                    <strong id="sidebar-user-name">-</strong>
+                    <span id="sidebar-user-email">-</span>
+                    <span class="role-badge" id="sidebar-user-role">Käyttäjäryhmä: -</span>
+                </div>
+            </section>
+            <div class="usage-box collapsed" id="usage-box">
+                <button class="usage-toggle" id="usage-toggle" type="button" aria-expanded="false" aria-controls="usage-details">
+                    <span>Käyttörajat</span>
+                    <span class="usage-chevron" aria-hidden="true">›</span>
+                </button>
+                <div class="usage-details" id="usage-details" hidden>
+                    <div class="usage-row">
+                        <div class="usage-label">
+                            <span>Pitkä AI-käsittely</span>
+                            <span id="usage-long-text">-</span>
+                        </div>
+                        <div class="usage-bar"><div id="usage-long-bar" role="progressbar" aria-label="Pitkän AI-käsittelyn käyttö" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div></div>
+                        <p class="usage-help">Monivaiheiset ja koko käsikirjoituksen työt.</p>
+                        <p id="usage-long-detail">-</p>
+                    </div>
+                    <div class="usage-row">
+                        <div class="usage-label">
+                            <span>Lyhyt AI-käsittely</span>
+                            <span id="usage-short-text">-</span>
+                        </div>
+                        <div class="usage-bar"><div id="usage-short-bar" role="progressbar" aria-label="Lyhyen AI-käsittelyn käyttö" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div></div>
+                        <p class="usage-help">Yhden mallikutsun pyynnöt. Koko kirjan työkalut käyttävät erillistä aineistorajaa.</p>
+                        <p id="usage-short-detail">-</p>
+                    </div>
+                    <div class="usage-row">
+                        <div class="usage-label">
+                            <span>Käännökset ja tarkistukset</span>
+                            <span id="usage-translation-text">-</span>
+                        </div>
+                        <div class="usage-bar"><div id="usage-translation-bar" role="progressbar" aria-label="Käännösten ja tarkistusten käyttö" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div></div>
+                        <p class="usage-help">Käännös-, oikoluku- ja laaduntarkistusajot.</p>
+                        <p id="usage-translation-detail">-</p>
+                    </div>
+                    <div class="usage-row">
+                        <div class="usage-label">
+                            <span>Audio</span>
+                            <span id="usage-audio-text">-</span>
+                        </div>
+                        <div class="usage-bar"><div id="usage-audio-bar" role="progressbar" aria-label="Audiokäyttö" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div></div>
+                        <p class="usage-help">Äänitestit ja audiotuotannot.</p>
+                        <p id="usage-audio-detail">-</p>
+                    </div>
+                    <div class="usage-row">
+                        <div class="usage-label">
+                            <span>Kuvat</span>
+                            <span id="usage-image-text">-</span>
+                        </div>
+                        <div class="usage-bar"><div id="usage-image-bar" role="progressbar" aria-label="Kuvakäyttö" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div></div>
+                        <p class="usage-help">Eräajossa jokainen kuva lasketaan erikseen.</p>
+                    </div>
+                    <p id="usage-status" role="status" aria-live="polite">Ladataan rajoja...</p>
+                </div>
+            </div>
+        </div>
+    </section>
 
     <div class="help-agent-backdrop hidden" id="help-agent-backdrop" aria-hidden="true"></div>
     <section class="help-agent-panel glass-panel hidden" id="help-agent-panel" role="dialog" aria-modal="false" aria-labelledby="help-agent-title" aria-hidden="true">
@@ -173,68 +268,6 @@
                     <span class="meta-label">Sanasto:</span>
                     <span class="meta-value" id="sidebar-vocab">-</span>
                 </div>
-            </div>
-            <div class="usage-box collapsed" id="usage-box">
-                <button class="usage-toggle" id="usage-toggle" type="button" aria-expanded="false" aria-controls="usage-details">
-                    <span>Käyttörajat</span>
-                    <span class="usage-chevron" aria-hidden="true">›</span>
-                </button>
-                <div class="usage-details" id="usage-details" hidden>
-                    <div class="usage-row">
-                        <div class="usage-label">
-                            <span>Pitkä AI-käsittely</span>
-                            <span id="usage-long-text">-</span>
-                        </div>
-                        <div class="usage-bar"><div id="usage-long-bar"></div></div>
-                        <p class="usage-help">Monivaiheiset ja koko käsikirjoituksen työt.</p>
-                        <p id="usage-long-detail">-</p>
-                    </div>
-                    <div class="usage-row">
-                        <div class="usage-label">
-                            <span>Lyhyt AI-käsittely</span>
-                            <span id="usage-short-text">-</span>
-                        </div>
-                        <div class="usage-bar"><div id="usage-short-bar"></div></div>
-                        <p class="usage-help">Yhden mallikutsun pyynnöt. Koko kirjan työkalut käyttävät erillistä aineistorajaa.</p>
-                        <p id="usage-short-detail">-</p>
-                    </div>
-                    <div class="usage-row">
-                        <div class="usage-label">
-                            <span>Käännökset ja tarkistukset</span>
-                            <span id="usage-translation-text">-</span>
-                        </div>
-                        <div class="usage-bar"><div id="usage-translation-bar"></div></div>
-                        <p class="usage-help">Käännös-, oikoluku- ja laaduntarkistusajot.</p>
-                        <p id="usage-translation-detail">-</p>
-                    </div>
-                    <div class="usage-row">
-                        <div class="usage-label">
-                            <span>Audio</span>
-                            <span id="usage-audio-text">-</span>
-                        </div>
-                        <div class="usage-bar"><div id="usage-audio-bar"></div></div>
-                        <p class="usage-help">Äänitestit ja audiotuotannot.</p>
-                        <p id="usage-audio-detail">-</p>
-                    </div>
-                    <div class="usage-row">
-                        <div class="usage-label">
-                            <span>Kuvat</span>
-                            <span id="usage-image-text">-</span>
-                        </div>
-                        <div class="usage-bar"><div id="usage-image-bar"></div></div>
-                        <p class="usage-help">Eräajossa jokainen kuva lasketaan erikseen.</p>
-                    </div>
-                    <p id="usage-status">Ladataan rajoja...</p>
-                </div>
-            </div>
-            <div class="sidebar-user-card">
-                <div class="sidebar-user-info">
-                    <span class="sidebar-user-label">Käyttäjä</span>
-                    <strong id="sidebar-user-name">-</strong>
-                    <span id="sidebar-user-email">-</span>
-                    <span class="role-badge" id="sidebar-user-role">Käyttäjäryhmä: -</span>
-                </div>
-                <button class="btn btn-secondary" id="settings-btn" type="button">Asetukset</button>
             </div>
         </aside>
         <div class="sidebar-backdrop" id="sidebar-backdrop" hidden></div>
@@ -4182,6 +4215,6 @@
     <script src="workflow-studio.js?v=5"></script>
     <script src="correction-reprints.js?v=1"></script>
     <script src="demo-terminology.js?v=1"></script>
-    <script src="app.js?v=185"></script>
+    <script src="app.js?v=186"></script>
 </body>
 </html>

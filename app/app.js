@@ -840,6 +840,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const logoutLink = document.getElementById('logout-link');
     const adminLink = document.getElementById('admin-link');
     const settingsBtn = document.getElementById('settings-btn');
+    const accountSettingsPanel = document.getElementById('account-settings-panel');
+    const accountSettingsBackdrop = document.getElementById('account-settings-backdrop');
+    const accountSettingsClose = document.getElementById('account-settings-close');
     const feedbackOpenBtn = document.getElementById('feedback-open-btn');
     const feedbackModal = document.getElementById('feedback-modal');
     const feedbackCloseBtn = document.getElementById('feedback-close-btn');
@@ -981,11 +984,51 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
     }
 
-    if (settingsBtn) {
-        settingsBtn.addEventListener('click', () => {
-            alert('Asetukset-osio rakennetaan myöhemmin.');
-        });
+    let accountSettingsLastFocused = null;
+
+    function setAccountSettingsOpen(open, restoreFocus = true) {
+        if (!settingsBtn || !accountSettingsPanel) return;
+        if (open) {
+            accountSettingsLastFocused = document.activeElement;
+            if (helpAgentToggle?.getAttribute('aria-expanded') === 'true') {
+                setHelpAgentOpen(false, false);
+            }
+            if (isMobileShell()) setSidebarDrawer(false);
+            accountSettingsPanel.classList.remove('hidden');
+            accountSettingsBackdrop?.classList.remove('hidden');
+            accountSettingsPanel.setAttribute('aria-hidden', 'false');
+            settingsBtn.setAttribute('aria-expanded', 'true');
+            settingsBtn.setAttribute('aria-label', 'Sulje asetukset');
+            settingsBtn.title = 'Sulje asetukset';
+            loadUsage();
+            window.requestAnimationFrame(() => accountSettingsClose?.focus());
+            return;
+        }
+        accountSettingsPanel.classList.add('hidden');
+        accountSettingsBackdrop?.classList.add('hidden');
+        accountSettingsPanel.setAttribute('aria-hidden', 'true');
+        settingsBtn.setAttribute('aria-expanded', 'false');
+        settingsBtn.setAttribute('aria-label', 'Avaa asetukset');
+        settingsBtn.title = 'Avaa asetukset';
+        if (restoreFocus) {
+            const focusTarget = accountSettingsLastFocused instanceof HTMLElement
+                ? accountSettingsLastFocused
+                : settingsBtn;
+            focusTarget.focus();
+        }
     }
+
+    settingsBtn?.addEventListener('click', () => {
+        setAccountSettingsOpen(settingsBtn.getAttribute('aria-expanded') !== 'true');
+    });
+    accountSettingsClose?.addEventListener('click', () => setAccountSettingsOpen(false));
+    accountSettingsBackdrop?.addEventListener('click', () => setAccountSettingsOpen(false));
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && settingsBtn?.getAttribute('aria-expanded') === 'true') {
+            event.preventDefault();
+            setAccountSettingsOpen(false);
+        }
+    });
 
     function currentModuleTitle() {
         const navItem = document.querySelector(`#nav-menu li[data-view="${navViewFor(currentViewId)}"]`);
@@ -1091,6 +1134,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function setHelpAgentOpen(open, restoreFocus = true) {
         if (!helpAgentPanel || !helpAgentToggle) return;
         if (open) {
+            setAccountSettingsOpen(false, false);
             helpAgentLastFocused = document.activeElement;
             updateHelpAgentContext();
             helpAgentPanel.classList.remove('hidden');
@@ -4679,7 +4723,14 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             const charsPercent = hasChars ? usagePercent(metric.charsUsed, metric.charsLimit) : 0;
             metric.percent = Math.max(countPercent, charsPercent);
             if (metric.text) metric.text.textContent = hasCount ? `${metric.used}/${metric.limit}` : '–';
-            if (metric.bar) metric.bar.style.width = `${metric.percent}%`;
+            if (metric.bar) {
+                metric.bar.style.width = `${metric.percent}%`;
+                metric.bar.setAttribute('aria-valuenow', String(metric.percent));
+                const valueParts = [];
+                if (hasCount) valueParts.push(`${metric.used}/${metric.limit} ajoa`);
+                if (hasChars) valueParts.push(`${formatNumber(metric.charsUsed)}/${formatNumber(metric.charsLimit)} merkkiä`);
+                metric.bar.setAttribute('aria-valuetext', valueParts.join(', ') || 'Käyttötietoa ei ole saatavilla');
+            }
             if (metric.detail) {
                 metric.detail.textContent = hasChars
                     ? `${metric.maxCharsLabel || 'Enintään'} ${formatNumber(metric.maxChars)} merkkiä / ajo · ${formatNumber(metric.charsUsed)}/${formatNumber(metric.charsLimit)} merkkiä / kk`
@@ -4709,7 +4760,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const data = await res.json().catch(() => null);
         const detail = data?.detail || fallback;
         if (res.status === 429) {
-            return `${detail} Käyttörajasi näkyvät vasemmassa sivupalkissa.`;
+            return `${detail} Käyttörajasi näkyvät Asetukset-valikossa.`;
         }
         if (res.status === 413) {
             return `${detail} Lyhennä tekstiä tai jaa työ pienempiin osiin.`;
@@ -4761,6 +4812,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     toggleSidebarBtn.addEventListener('click', () => {
+        setAccountSettingsOpen(false, false);
+        if (helpAgentToggle?.getAttribute('aria-expanded') === 'true') setHelpAgentOpen(false, false);
         if (isMobileShell()) {
             setSidebarDrawer(!appWrapper.classList.contains('sidebar-open'));
             return;
