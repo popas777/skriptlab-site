@@ -1062,6 +1062,14 @@ button:disabled {
   gap: 4px 12px;
 }
 
+body.showcase-demo-mode .cost-summary {
+  display: none;
+}
+
+body.showcase-demo-mode .studio-footer {
+  justify-content: flex-end;
+}
+
 .cost-summary strong {
   color: var(--rust-dark);
   font-family: Fraunces, Georgia, serif;

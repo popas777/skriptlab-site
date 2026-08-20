@@ -190,13 +190,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (error) {
         console.warn('Käyttäjän käyttöoikeuksia ei saatu päivitettyä.', error);
     }
-    const showcaseDemoMode = ['Demo', 'Kustantamodemo'].includes(String(currentUser?.access_group_name || ''));
+    const showcaseDemoMode = window.SkriptLabAuth.isShowcaseDemoUser
+        ? window.SkriptLabAuth.isShowcaseDemoUser(currentUser)
+        : ['Demo', 'Kustantamodemo'].includes(String(currentUser?.access_group_name || ''));
     document.body.classList.toggle('showcase-demo-mode', showcaseDemoMode);
 
     function demoUiText(value) {
         const text = String(value == null ? '' : value);
         if (!showcaseDemoMode) return text;
         return window.SkriptLabDemoTerminology?.neutralize(text) || text;
+    }
+
+    const demoPriceInformationPattern = /[€$£¥]|\b(?:EUR|USD|GBP|CAD|CHF|SEK|NOK|DKK|AUD|JPY|price|prices|pricing|cost|costs|charge|charges|fee|fees|billing|payment|payments|credit|credits|quota|subscription)\b|hinn|kustann|maksu|veloit|laskut|saldo|budjet|edulli|sääst|tilaus|merkkikiinti/iu;
+
+    function demoPriceSafeText(value, fallback = '') {
+        const text = String(value == null ? '' : value).trim();
+        if (!showcaseDemoMode || !text || !demoPriceInformationPattern.test(text)) return demoUiText(text);
+        return demoUiText(fallback);
     }
 
     function applyShowcaseTerminology(root = document) {
@@ -221,6 +231,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         setText('#illustration-current-project', 'Tekstiprojekti: [Ei aktiivista tekstiä]');
         setText('#audio-current-project', 'Tekstiprojekti: [Ei aktiivista tekstiä]');
         setText('#translation-current-project', 'Valitse tekstiprojekti ja käännösasetukset.');
+        setText('#workflow-estimator-title', 'Aika-arvio');
+        setText('.workflow-strategy-option input[value="economy"] + span strong', 'Eräajot');
+        setText('#visual-batch-mode-option strong', 'Gemini-eräajo');
+        setText('#audio-production-batch-start-btn', 'Eräajo · 24 h');
+        setText('#translation-batch-start-btn', 'Eräajo');
+        setText('#finnish-translation-batch-start-btn', 'Eräajo');
+        setText('#finnish-translation-ai-check-batch-btn', 'Eräajo · 24 h');
+        setText('#translation-workspace-batch-start-btn', 'Eräajo');
+        setText('#translation-workspace-review-batch-btn', 'Eräajo · 24 h');
+
+        [
+            'audio-production-batch-start-btn',
+            'translation-batch-start-btn',
+            'finnish-translation-batch-start-btn',
+            'finnish-translation-ai-check-batch-btn',
+            'translation-workspace-batch-start-btn',
+            'translation-workspace-review-batch-btn'
+        ].forEach(id => {
+            document.getElementById(id)?.setAttribute('title', 'Eräajo valmistuu tavoiteajan mukaan enintään 24 tunnissa.');
+        });
+        document.querySelector('.visual-cost-estimate')?.setAttribute('aria-label', 'Kuvaerän arvio');
 
         const demoCoverSideSelect = document.getElementById('cover-side-select');
         const demoCoverPrompt = document.getElementById('cover-prompt');
@@ -2149,7 +2180,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 + 'Teksti ei välttämättä ole virheellinen.'
             );
         }
-        return message || 'Tuntematon virhe.';
+        return demoPriceSafeText(message, 'Toiminto epäonnistui.') || 'Tuntematon virhe.';
     }
 
     function getFullManuscriptText(data = window.manuscriptData) {
@@ -7400,7 +7431,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function setVisualStatus(message, isError = false) {
         if (!visualStatus) return;
-        visualStatus.textContent = String(message || '');
+        visualStatus.textContent = demoPriceSafeText(
+            message || '',
+            isError ? 'Kuvatoimintoa ei voitu suorittaa. Yritä uudelleen.' : 'Kuvaerän tila päivittyi.'
+        );
         visualStatus.classList.toggle('is-error', Boolean(isError));
     }
 
@@ -7503,8 +7537,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function renderVisualEstimate(data = null, message = '', isError = false) {
         const count = Number(data?.image_count ?? visualPlannedImageCount());
         if (visualEstimateCount) visualEstimateCount.textContent = count ? formatNumber(count) : '–';
-        if (visualEstimateUnit) visualEstimateUnit.textContent = data ? visualCurrency(data.unit_cost_eur, 'EUR', 4) : '–';
-        if (visualEstimateTotal) visualEstimateTotal.textContent = data ? visualCurrency(data.estimated_cost_eur, 'EUR', 3) : '–';
+        if (visualEstimateUnit) visualEstimateUnit.textContent = showcaseDemoMode ? '–' : data ? visualCurrency(data.unit_cost_eur, 'EUR', 4) : '–';
+        if (visualEstimateTotal) visualEstimateTotal.textContent = showcaseDemoMode ? '–' : data ? visualCurrency(data.estimated_cost_eur, 'EUR', 3) : '–';
         if (visualEstimateQuota) {
             const remaining = Number(data?.monthly_remaining);
             const limit = Number(data?.monthly_limit);
@@ -7515,6 +7549,11 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 : '–';
         }
         if (visualEstimateNote) {
+            if (showcaseDemoMode) {
+                visualEstimateNote.textContent = '';
+                visualEstimateNote.classList.remove('is-error');
+                return;
+            }
             const modeLabel = data?.execution_mode === 'batch' ? 'Gemini-eräajo' : 'suora ajo';
             const defaultMessage = data
                 ? `${data.model_display_name || data.model_name || 'Valittu malli'} · ${data.image_size || visualSelectedImageSize()} · ${modeLabel}. ${data.disclaimer || ''}`.trim()
@@ -15205,7 +15244,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             }
         } else {
             setWorkflowStep('translation', 'running', executionMode === 'batch'
-                ? 'Valmistellaan käännöksen edullista 24 tunnin eräajoa.'
+                ? (showcaseDemoMode
+                    ? 'Valmistellaan käännöksen 24 tunnin eräajoa.'
+                    : 'Valmistellaan käännöksen edullista 24 tunnin eräajoa.')
                 : 'Käännöstä valmistellaan ja jaetaan käsittelyosiin.');
             let intent = workflowLaunchIntent('translation');
             if (intent) {
@@ -15214,8 +15255,12 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 data = recovered.translation || null;
                 if (!job && !data) {
                     throw new Error(executionMode === 'batch'
-                        ? 'Aiemman käännöseräajon käynnistys jäi vahvistamatta. Uutta maksullista työtä ei käynnistetty; tarkista tila hetken kuluttua uudelleen.'
-                        : 'Aiemman suoran käännöksen käynnistys jäi vahvistamatta. Uutta maksullista työtä ei käynnistetty; odota työn valmistumista ja jatka sitten työnkulkua.');
+                        ? (showcaseDemoMode
+                            ? 'Aiemman käännöseräajon käynnistys jäi vahvistamatta. Uutta työtä ei käynnistetty; tarkista tila hetken kuluttua uudelleen.'
+                            : 'Aiemman käännöseräajon käynnistys jäi vahvistamatta. Uutta maksullista työtä ei käynnistetty; tarkista tila hetken kuluttua uudelleen.')
+                        : (showcaseDemoMode
+                            ? 'Aiemman suoran käännöksen käynnistys jäi vahvistamatta. Uutta työtä ei käynnistetty; odota työn valmistumista ja jatka sitten työnkulkua.'
+                            : 'Aiemman suoran käännöksen käynnistys jäi vahvistamatta. Uutta maksullista työtä ei käynnistetty; odota työn valmistumista ja jatka sitten työnkulkua.'));
                 }
             } else {
                 intent = await persistWorkflowLaunchIntent('translation', launchKey, {
@@ -15365,7 +15410,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     job = recovered.job || null;
                     if (recovered.translation) translation = recovered.translation;
                     if (!job && !recovered.translation) {
-                        throw new Error('Aiemman tarkastuseräajon käynnistys jäi vahvistamatta. Uutta maksullista työtä ei käynnistetty.');
+                        throw new Error(showcaseDemoMode
+                            ? 'Aiemman tarkastuseräajon käynnistys jäi vahvistamatta. Uutta työtä ei käynnistetty.'
+                            : 'Aiemman tarkastuseräajon käynnistys jäi vahvistamatta. Uutta maksullista työtä ei käynnistetty.');
                     }
                 } else {
                     intent = await persistWorkflowLaunchIntent('translation_review', launchKey, {
@@ -15617,7 +15664,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     'Audiotuotannon palautustilaa ei saatu tarkistettua.'
                 );
                 if (!workflowAudioProductionMatches(latest, selection, executionMode, intent)) {
-                    throw new Error('Aiemman audiotuotannon käynnistystä ei voitu vahvistaa. Uutta maksullista työtä ei käynnistetty.');
+                    throw new Error(showcaseDemoMode
+                        ? 'Aiemman audiotuotannon käynnistystä ei voitu vahvistaa. Uutta työtä ei käynnistetty.'
+                        : 'Aiemman audiotuotannon käynnistystä ei voitu vahvistaa. Uutta maksullista työtä ei käynnistetty.');
                 }
                 production = latest;
             } else {
@@ -15677,7 +15726,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             workflowRunStatePatch({ activeAudioProductionId: productionId, activeAudioLaunchKey: launchKey });
             await persistWorkflowRunStateNow();
             setWorkflowStep('audio', executionMode === 'batch' ? 'queued' : 'running', executionMode === 'batch'
-                ? 'Audiotuotanto on lähetetty edulliseen eräajoon.'
+                ? (showcaseDemoMode ? 'Audiotuotanto on lähetetty eräajoon.' : 'Audiotuotanto on lähetetty edulliseen eräajoon.')
                 : 'Audiotuotanto on käynnissä.');
         }
         if (!finished) finished = await pollWorkflowAudioProduction(productionId);
@@ -15893,7 +15942,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     function setAudioProductionStatus(message, isError = false) {
         const status = document.getElementById('audio-production-status');
         if (!status) return;
-        status.textContent = demoUiText(message || '');
+        status.textContent = demoPriceSafeText(
+            message || '',
+            isError ? 'Audiotuotantoa ei voitu käsitellä. Yritä uudelleen.' : 'Audiotuotannon tila päivittyi.'
+        );
         status.classList.toggle('is-error', isError);
     }
 
@@ -15958,7 +16010,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 voice_id: id,
                 voice_name: String(item.voice_name || item.name || id).trim(),
                 display_name: String(item.display_name || item.name || item.voice_name || id).trim(),
-                description: String(item.description || item.summary || '').trim(),
+                description: demoPriceSafeText(item.description || item.summary || '', ''),
                 preview_url: String(item.preview_url || item.previewUrl || '').trim(),
                 is_default: Boolean(item.is_default || item.default),
                 verified_language: Boolean(item.verified_language || item.verified_finnish),
@@ -15979,7 +16031,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     provider,
                     model_id: id,
                     display_name: String(item.display_name || item.name || item.model_name || id).trim(),
-                    description: String(item.description || item.summary || item.price_note || '').trim(),
+                    description: demoPriceSafeText(item.description || item.summary || (showcaseDemoMode ? '' : item.price_note) || '', ''),
                     is_default: Boolean(item.is_default || item.default || item.recommended),
                     max_chars: Math.max(0, Number(item.max_chars || item.max_chars_per_segment || 0) || 0),
                     supports_batch: item.supports_batch === true || item.supportsBatch === true,
@@ -16020,7 +16072,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 voice_id: voiceId,
                 voice_name: voiceName,
                 display_name: String(voice?.display_name || voiceName).trim(),
-                description: String(voice?.description || existing.description || '').trim(),
+                description: demoPriceSafeText(voice?.description || existing.description || '', ''),
                 preview_url: String(voice?.preview_url || existing.preview_url || '').trim(),
                 is_default: Boolean(existing.is_default || voice?.is_default || voice?.default),
                 disabled: false
@@ -16273,16 +16325,16 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (unit) unit.textContent = formatNumber(unitCount === null ? audioChapterEntries().length : unitCount);
         if (duration) duration.textContent = source.estimated_audio_duration_label || (audioSeconds === null ? '–' : formatDuration(audioSeconds));
         if (creation) creation.textContent = source.estimated_generation_label || source.estimated_processing_label || (creationSeconds === null ? '–' : formatDuration(creationSeconds));
-        if (cost) cost.textContent = formatAudioProductionCost(source);
+        if (cost) cost.textContent = showcaseDemoMode ? '–' : formatAudioProductionCost(source);
         if (status) {
             const warnings = Array.isArray(source.warnings)
                 ? source.warnings.filter(Boolean).join(' ')
                 : String(source.warning || source.warnings || '').trim();
-            const estimateNote = String(source.cost_disclaimer || source.cost_basis || '').trim();
-            status.textContent = demoUiText(message
-                || warnings
-                || estimateNote
-                || (Object.keys(source).length ? 'Arvio perustuu nykyiseen käsikirjoitukseen ja valittuun malliin.' : 'Valitse malli ja ääni, niin tuotantoarvio päivittyy.'));
+            const estimateNote = showcaseDemoMode ? '' : String(source.cost_disclaimer || source.cost_basis || '').trim();
+            const defaultMessage = Object.keys(source).length
+                ? 'Arvio perustuu nykyiseen käsikirjoitukseen ja valittuun malliin.'
+                : 'Valitse malli ja ääni, niin tuotantoarvio päivittyy.';
+            status.textContent = demoPriceSafeText(message || warnings || estimateNote || defaultMessage, defaultMessage);
             status.classList.remove('is-error');
         }
     }
@@ -16290,7 +16342,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     function setAudioProductionChunksStatus(message = '', isError = false) {
         const status = document.getElementById('audio-production-chunks-status');
         if (!status) return;
-        status.textContent = demoUiText(message);
+        status.textContent = demoPriceSafeText(
+            message,
+            isError ? 'Tuotantopalojen arviota ei voitu päivittää.' : 'Tuotantopalojen arvio päivitetään.'
+        );
         status.classList.toggle('is-error', Boolean(isError));
     }
 
@@ -16598,7 +16653,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (!payload) return;
         const button = document.getElementById('audio-production-chunks-estimate');
         if (button) button.disabled = true;
-        setAudioProductionChunksStatus('Tarkistetaan palat ja päivitetään kesto- sekä kustannusarvio…');
+        setAudioProductionChunksStatus(showcaseDemoMode
+            ? 'Tarkistetaan palat ja päivitetään kestoarvio…'
+            : 'Tarkistetaan palat ja päivitetään kesto- sekä kustannusarvio…');
         try {
             const response = await apiFetch('/api/audio/productions/estimate', {
                 method: 'POST',
@@ -16810,7 +16867,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         list.innerHTML = segments.map((segment, index) => {
             const status = String(segment?.status || 'pending').trim().toLowerCase();
             const title = segment?.section_title || segment?.chapter_title || segment?.title || segment?.label || `Osa ${index + 1}`;
-            const detail = segment?.error || segment?.message || segment?.duration_label || '';
+            const detail = demoPriceSafeText(
+                segment?.error || segment?.error_message || segment?.message || segment?.duration_label || '',
+                status === 'failed' ? 'Tuotanto-osa epäonnistui.' : ''
+            );
             const icon = ['completed', 'complete', 'ready'].includes(status) ? '✓' : status === 'failed' ? '!' : audioProductionIsActive({ status }) ? '…' : String(index + 1);
             return `<div class="audio-production-unit is-${escapeHtml(status.replace(/[^a-z0-9_-]/g, ''))}">
                 <span class="audio-production-unit-icon">${escapeHtml(icon)}</span>
@@ -16861,7 +16921,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     function setAudioProductionPartsStatus(message, isError = false) {
         const status = document.getElementById('audio-parts-status');
         if (!status) return;
-        status.textContent = demoUiText(message || '');
+        status.textContent = demoPriceSafeText(
+            message || '',
+            isError ? 'Tuotanto-osien käsittely epäonnistui.' : 'Tuotanto-osien tila päivittyi.'
+        );
         status.classList.toggle('is-error', isError);
     }
 
@@ -17038,7 +17101,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             }
         }
         if (cardStatus) {
-            const error = validationError || String(part.error || '').trim();
+            const error = demoPriceSafeText(
+                validationError || String(part.error || part.error_message || '').trim(),
+                'Tuotanto-osan käsittely epäonnistui.'
+            );
             cardStatus.textContent = error || (dirty
                 ? 'Tekstimuutos lähetetään vain tätä osaa varten.'
                 : 'Voit tehdä osan uudelleen myös muuttamatta tekstiä.');
@@ -17399,9 +17465,11 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             batchButton.disabled = active || !hasProject || !hasSelection || Boolean(draftError) || !batchSupported;
             batchButton.textContent = active && audioProductionCurrent?.execution_mode === 'batch'
                 ? 'Eräajo käynnissä…'
-                : 'Edullinen eräajo · 24 h';
+                : showcaseDemoMode ? 'Eräajo · 24 h' : 'Edullinen eräajo · 24 h';
             batchButton.title = batchSupported
-                ? 'Gemini Batch API, noin 50 % normaalihinnasta. Tavoiteaika enintään 24 tuntia.'
+                ? showcaseDemoMode
+                    ? 'Gemini Batch API. Tavoiteaika enintään 24 tuntia.'
+                    : 'Gemini Batch API, noin 50 % normaalihinnasta. Tavoiteaika enintään 24 tuntia.'
                 : 'Valittu äänimalli ei tue Gemini-eräajoa. Valitse Gemini 3.1 Flash TTS tai Gemini 2.5 Pro TTS.';
         }
         if (cancelButton) {
@@ -17719,7 +17787,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             && audioProductionInitializationIsCurrent(projectId, initializationGeneration)
         );
         if (status) {
-            status.textContent = 'Lasketaan tuotannon kestoa ja kustannusta…';
+            status.textContent = showcaseDemoMode
+                ? 'Lasketaan tuotannon kestoa…'
+                : 'Lasketaan tuotannon kestoa ja kustannusta…';
             status.classList.remove('is-error');
         }
         try {
@@ -17737,10 +17807,13 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         } catch (err) {
             if (!isCurrentRequest()) return null;
             if (status) {
-                status.textContent = audioCatalogRequestError(
-                    err,
-                    'Tuotantoarvion laskeminen aikakatkaistiin. Malli- ja äänivalinnat ovat silti käytettävissä.',
-                    'Audiotuotannon arvion laskeminen epäonnistui.'
+                status.textContent = demoPriceSafeText(
+                    audioCatalogRequestError(
+                        err,
+                        'Tuotantoarvion laskeminen aikakatkaistiin. Malli- ja äänivalinnat ovat silti käytettävissä.',
+                        'Audiotuotannon arvion laskeminen epäonnistui.'
+                    ),
+                    'Audiotuotannon arviota ei voitu laskea. Malli- ja äänivalinnat ovat silti käytettävissä.'
                 );
                 status.classList.add('is-error');
             }
@@ -18486,7 +18559,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     function setAudioScriptPreparationStatus(message, kind = '') {
         const status = document.getElementById('audio-preparation-status');
         if (!status) return;
-        status.textContent = demoUiText(message || '');
+        status.textContent = demoPriceSafeText(
+            message || '',
+            kind === 'error' ? 'Äänitekstin valmistelua ei voitu käsitellä.' : 'Äänitekstin valmistelun tila päivittyi.'
+        );
         status.classList.toggle('is-error', kind === 'error');
         status.classList.toggle('is-stale', kind === 'stale');
     }
@@ -19057,7 +19133,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     function setAudioStatus(message, isError = false) {
         const status = document.getElementById('audio-status');
         if (!status) return;
-        status.textContent = demoUiText(message);
+        status.textContent = demoPriceSafeText(
+            message,
+            isError ? 'Äänitoimintoa ei voitu käsitellä.' : 'Äänitoiminnon tila päivittyi.'
+        );
         status.classList.toggle('is-error', isError);
         status.style.removeProperty('color');
     }
@@ -19206,7 +19285,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             meta.textContent = 'Gemini TTS -mallia ei ole valittu.';
             return;
         }
-        const tier = model.model_tier === 'pro' ? 'laatuun painottuva' : 'nopea ja kustannustehokas';
+        const tier = model.model_tier === 'pro'
+            ? 'laatuun painottuva'
+            : showcaseDemoMode ? 'nopea' : 'nopea ja kustannustehokas';
         const deliveryLabels = { stable: 'vakaa', natural: 'luonteva', expressive: 'ilmeikäs' };
         meta.textContent = `${model.display_name} · ${tier} · ääni ${voiceSelect?.value || 'Kore'} · ${deliveryLabels[deliverySelect?.value] || 'luonteva'} lukutapa.`;
     }
@@ -21637,7 +21718,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (batchBtn) {
             batchBtn.disabled = missing || !batchSupported;
             batchBtn.title = batchSupported
-                ? 'Edullisempi Gemini-eräajo, jonka tavoiteaika on enintään 24 tuntia.'
+                ? showcaseDemoMode
+                    ? 'Gemini-eräajo, jonka tavoiteaika on enintään 24 tuntia.'
+                    : 'Edullisempi Gemini-eräajo, jonka tavoiteaika on enintään 24 tuntia.'
                 : 'Eräajo vaatii tuetun Gemini Flash -mallin.';
         }
         if (estimateBtn) estimateBtn.disabled = missing;
@@ -21659,7 +21742,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (batchBtn) {
             batchBtn.disabled = missing || !batchSupported;
             batchBtn.title = batchSupported
-                ? 'Edullisempi Gemini-eräajo, jonka tavoiteaika on enintään 24 tuntia.'
+                ? showcaseDemoMode
+                    ? 'Gemini-eräajo, jonka tavoiteaika on enintään 24 tuntia.'
+                    : 'Edullisempi Gemini-eräajo, jonka tavoiteaika on enintään 24 tuntia.'
                 : 'Eräajo vaatii tuetun Gemini Flash -mallin.';
         }
         if (estimateBtn) estimateBtn.disabled = missing;
@@ -21708,7 +21793,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 min: 500,
                 max: 1000,
                 ideal: 1000,
-                note: 'nopea ja edullinen; pienempi pala vähentää tyylin ja vastauspituuden riskiä pitkällä promptilla'
+                note: showcaseDemoMode
+                    ? 'nopea; pienempi pala vähentää tyylin ja vastauspituuden riskiä pitkällä promptilla'
+                    : 'nopea ja edullinen; pienempi pala vähentää tyylin ja vastauspituuden riskiä pitkällä promptilla'
             };
         }
         if (model.includes('3.1-pro') || model.includes('pro')) {
@@ -22182,7 +22269,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (batchButton) {
             batchButton.disabled = !batchSupported;
             batchButton.title = batchSupported
-                ? 'Edullisempi Gemini-eräajo, jonka tavoiteaika on enintään 24 tuntia.'
+                ? showcaseDemoMode
+                    ? 'Gemini-eräajo, jonka tavoiteaika on enintään 24 tuntia.'
+                    : 'Edullisempi Gemini-eräajo, jonka tavoiteaika on enintään 24 tuntia.'
                 : 'Eräajo vaatii tuetun Gemini Flash -mallin.';
         }
         if (estimate) estimate.textContent = 'Lasketaan segmenttejä ja työmäärää...';
@@ -22191,7 +22280,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             if (estimate) estimate.textContent = translationEstimateSummary(data, payload, true);
             return data;
         } catch (err) {
-            if (estimate) estimate.textContent = err.message;
+            if (estimate) estimate.textContent = demoPriceSafeText(
+                err?.message || 'Käännösarviota ei saatu.',
+                'Käännösarviota ei saatu.'
+            );
             return null;
         }
     }
@@ -22201,11 +22293,15 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const done = Number(job?.done_chunks || 0);
         let percent = total ? done / total * 100 : 0;
         let title = 'Käännös käynnissä';
-        let message = total ? `Valmiina ${Math.min(done, total)}/${total} segmenttiä.` : (job?.message || 'Käännös käynnissä.');
+        let message = total
+            ? `Valmiina ${Math.min(done, total)}/${total} segmenttiä.`
+            : demoPriceSafeText(job?.message || 'Käännös käynnissä.', 'Käännös käynnissä.');
         if (job?.execution_mode === 'batch') {
             const phasePercent = { submitting: 5, queued: 10, running: 35, processing: 90 };
             percent = Math.max(percent, phasePercent[job.status] || 10);
-            title = job.status === 'processing' ? 'Eräajon vastausta tallennetaan' : 'Edullinen eräajo käynnissä';
+            title = job.status === 'processing'
+                ? 'Eräajon vastausta tallennetaan'
+                : showcaseDemoMode ? 'Eräajo käynnissä' : 'Edullinen eräajo käynnissä';
             message = translationJobProgressText(job, 'Käännöksen eräajo');
         }
         setTranslationWorkspaceProgress(percent, title, message);
@@ -22216,7 +22312,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         setTranslationWorkspaceProgress(
             100,
             data.status === 'partial' ? 'Käännös valmistui osittain' : 'Käännös valmis',
-            data.warnings || `${data.chunks_count} segmenttiä tallennettiin projektiin.`
+            demoPriceSafeText(data.warnings, 'Käännöstyössä on huomautuksia.')
+                || `${data.chunks_count} segmenttiä tallennettiin projektiin.`
         );
         await loadTranslationWorkspaceHistory(data.id);
         loadUsage();
@@ -22248,7 +22345,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 body: JSON.stringify(payload)
             });
             const started = await startRes.json().catch(() => null);
-            if (!startRes.ok) throw new Error(started?.detail || 'Käännöstyö ei käynnistynyt.');
+            if (!startRes.ok) throw new Error(demoPriceSafeText(
+                started?.detail || 'Käännöstyö ei käynnistynyt.',
+                'Käännöstyö ei käynnistynyt.'
+            ));
             if (batch) translationWorkspaceBatchJobId = started.job_id;
             setActiveTranslationJob('workspace', started.job_id);
             const data = await pollTranslationJob(
@@ -22398,7 +22498,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 ? 'Eräajo vaatii käytettävissä olevan Gemini Flash -mallin.'
                 : selectedModelSupported
                     ? 'Lähetä koko tarkastus Gemini Batch APIin. Tavoiteaika on enintään 24 tuntia.'
-                    : 'Eräajo valitsee automaattisesti edullisen Gemini Flash -mallin.';
+                    : showcaseDemoMode
+                        ? 'Eräajo valitsee automaattisesti Gemini Flash -mallin.'
+                        : 'Eräajo valitsee automaattisesti edullisen Gemini Flash -mallin.';
         }
         if (status && !options.preserveStatus) {
             status.textContent = `${translationWorkspaceVersionLabel(item)} · tarkastettu ${reviewedCount}/${chunks.length} segmenttiä.`;
@@ -22605,7 +22707,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         try {
             let job = existingJob;
             if (!job) {
-                if (status) status.textContent = 'Valmistellaan tarkastuksen edullista eräajoa…';
+                if (status) status.textContent = showcaseDemoMode
+                    ? 'Valmistellaan tarkastuksen eräajoa…'
+                    : 'Valmistellaan tarkastuksen edullista eräajoa…';
                 const response = await apiFetch(`/api/translations/${item.id}/review-jobs`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -22636,7 +22740,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             applyTranslationReviewBatchResult(data);
             if (status) {
                 const reviewed = translationChunkDetails(data).filter(chunk => finnishTranslationAiCheckedText(chunk)).length;
-                const partialError = String(data.batch_job_error || '').trim();
+                const partialError = demoPriceSafeText(data.batch_job_error, 'Kaikkia segmenttejä ei voitu tarkistaa.');
                 finalStatusMessage = `Käännöksen erätarkastus ${partialError ? 'valmistui osittain' : 'valmis'}. Tarkastettu ${reviewed}/${translationChunkDetails(data).length} segmenttiä.${partialError ? ` ${partialError}` : ''}`;
                 status.textContent = finalStatusMessage;
             }
@@ -23096,12 +23200,12 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (job?.execution_mode === 'batch') {
             const phase = job.status === 'processing'
                 ? 'Vastausta tallennetaan projektiin.'
-                : (job.message || 'Eräajo on Geminin käsittelyssä.');
+                : demoPriceSafeText(job.message || 'Eräajo on Geminin käsittelyssä.', 'Eräajo on Geminin käsittelyssä.');
             return `${label}: ${phase} ${translationBatchCountdown(job.target_completion_at)}`;
         }
         return total
             ? `${label} käynnissä. Osa ${Math.min(done, total)}/${total}.`
-            : (job?.message || `${label} käynnissä.`);
+            : demoPriceSafeText(job?.message || `${label} käynnissä.`, `${label} käynnissä.`);
     }
 
     function translationStoppedError(status, label) {
@@ -23162,7 +23266,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     async function requestTranslationJobCancellation(jobId) {
         const response = await apiFetch(`/api/translations/jobs/${jobId}/cancel`, { method: 'POST' });
         const data = await response.json().catch(() => null);
-        if (!response.ok) throw new Error(data?.detail || 'Työn pysäyttäminen epäonnistui.');
+        if (!response.ok) throw new Error(demoPriceSafeText(
+            data?.detail || 'Työn pysäyttäminen epäonnistui.',
+            'Työn pysäyttäminen epäonnistui.'
+        ));
         return data || {};
     }
 
@@ -23198,7 +23305,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     : view === 'finnish' ? 'finnish-translation-status'
                     : 'translation-status'
             );
-            if (statusElement) statusElement.textContent = err?.message || 'Työn pysäyttäminen epäonnistui.';
+            if (statusElement) statusElement.textContent = demoPriceSafeText(
+                err?.message || 'Työn pysäyttäminen epäonnistui.',
+                'Työn pysäyttäminen epäonnistui.'
+            );
         }
     }
 
@@ -23223,7 +23333,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     token.requestController = null;
                 }
                 const job = await res.json().catch(() => null);
-                if (!res.ok) throw new Error(job?.detail || 'Käännöstyön tilan haku epäonnistui.');
+                if (!res.ok) throw new Error(demoPriceSafeText(
+                    job?.detail || 'Käännöstyön tilan haku epäonnistui.',
+                    'Käännöstyön tilan haku epäonnistui.'
+                ));
                 latestJob = job;
                 if (statusEl) statusEl.textContent = translationJobProgressText(job, label);
                 if (typeof onProgress === 'function') onProgress(job);
@@ -23237,15 +23350,26 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     const savedTranslation = await fetchSavedTranslation(job.translation_id);
                     if (job.status === 'partial') {
                         savedTranslation.batch_job_status = 'partial';
-                        if (job.error || job.message) savedTranslation.batch_job_error = job.error || job.message;
+                        if (job.error || job.message) {
+                            savedTranslation.batch_job_error = demoPriceSafeText(
+                                job.error || job.message,
+                                'Kaikkia segmenttejä ei voitu käsitellä.'
+                            );
+                        }
                     }
                     return savedTranslation;
                 }
                 if (job.status === 'done' || job.status === 'completed' || job.status === 'partial') {
-                    throw new Error(job.message || `${label} valmistui, mutta valmista käännöstä ei löytynyt.`);
+                    throw new Error(demoPriceSafeText(
+                        job.message || `${label} valmistui, mutta valmista käännöstä ei löytynyt.`,
+                        `${label} valmistui, mutta valmista käännöstä ei löytynyt.`
+                    ));
                 }
                 if (job.status === 'failed' || job.status === 'error') {
-                    throw new Error(job.error || job.message || `${label} epäonnistui.`);
+                    throw new Error(demoPriceSafeText(
+                        job.error || job.message || `${label} epäonnistui.`,
+                        `${label} epäonnistui.`
+                    ));
                 }
                 if (['cancelled', 'canceled', 'cancel_requested', 'expired'].includes(String(job.status || '').toLowerCase())) {
                     throw translationStoppedError(job.status, label);
@@ -23268,7 +23392,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             body: JSON.stringify(payload)
         });
         const job = await res.json().catch(() => null);
-        if (!res.ok) throw new Error(job?.detail || `${label} ei käynnistynyt.`);
+        if (!res.ok) throw new Error(demoPriceSafeText(
+            job?.detail || `${label} ei käynnistynyt.`,
+            `${label} ei käynnistynyt.`
+        ));
         if (statusEl) {
             const total = Number(job?.total_chunks || 0);
             statusEl.textContent = job?.execution_mode === 'batch'
@@ -24046,20 +24173,28 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 method: 'POST'
             });
             const started = await startRes.json().catch(() => null);
-            if (!startRes.ok) throw new Error(started?.detail || 'Käännöksen uudelleenajo ei käynnistynyt.');
+            if (!startRes.ok) throw new Error(demoPriceSafeText(
+                started?.detail || 'Käännöksen uudelleenajo ei käynnistynyt.',
+                'Käännöksen uudelleenajo ei käynnistynyt.'
+            ));
             if (!started?.job_id) throw new Error('Käännöksen uudelleenajo ei palauttanut työn tunnistetta.');
 
             while (true) {
                 const statusRes = await apiFetch(`/api/translations/jobs/${started.job_id}`);
                 const job = await statusRes.json().catch(() => null);
-                if (!statusRes.ok) throw new Error(job?.detail || 'Käännöstyön tilaa ei saatu.');
+                if (!statusRes.ok) throw new Error(demoPriceSafeText(
+                    job?.detail || 'Käännöstyön tilaa ei saatu.',
+                    'Käännöstyön tilaa ei saatu.'
+                ));
                 const done = Number(job?.done_chunks || 0);
                 const total = Number(job?.total_chunks || 0);
                 const percent = total ? done / total * 100 : 0;
                 setTranslationWorkspaceProgress(
                     percent,
                     'Käännös käynnissä',
-                    total ? `Valmiina ${Math.min(done, total)}/${total} segmenttiä.` : (job?.message || 'Käännös käynnissä.')
+                    total
+                        ? `Valmiina ${Math.min(done, total)}/${total} segmenttiä.`
+                        : demoPriceSafeText(job?.message || 'Käännös käynnissä.', 'Käännös käynnissä.')
                 );
                 if (['done', 'completed', 'partial'].includes(job?.status) && job?.translation_id) {
                     const data = await fetchSavedTranslation(job.translation_id);
@@ -24067,7 +24202,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     setTranslationWorkspaceProgress(
                         100,
                         data.status === 'partial' ? 'Käännös valmistui osittain' : 'Käännös valmis',
-                        data.warnings || `${data.chunks_count} segmenttiä tallennettiin projektiin.`
+                        demoPriceSafeText(data.warnings, 'Käännöstyössä on huomautuksia.')
+                            || `${data.chunks_count} segmenttiä tallennettiin projektiin.`
                     );
                     translationWorkspaceFileSavedForRerun = false;
                     await loadTranslationWorkspaceHistory(data.id);
@@ -24075,7 +24211,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     return;
                 }
                 if (['failed', 'error'].includes(job?.status)) {
-                    throw new Error(job?.error || job?.message || 'Käännöstyö epäonnistui.');
+                    throw new Error(demoPriceSafeText(
+                        job?.error || job?.message || 'Käännöstyö epäonnistui.',
+                        'Käännöstyö epäonnistui.'
+                    ));
                 }
                 await wait(2500);
             }
@@ -24794,7 +24933,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 ? 'Eräajo vaatii käytettävissä olevan Gemini Flash -mallin.'
                 : selectedModelSupported
                     ? 'Lähetä koko tarkastus Gemini Batch APIin. Tavoiteaika on enintään 24 tuntia.'
-                    : 'Eräajo valitsee automaattisesti edullisen Gemini Flash -mallin.';
+                    : showcaseDemoMode
+                        ? 'Eräajo valitsee automaattisesti Gemini Flash -mallin.'
+                        : 'Eräajo valitsee automaattisesti edullisen Gemini Flash -mallin.';
         }
     }
 
@@ -25077,7 +25218,12 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             if (!proposedTranslation) {
                 throw new Error('Uudelleenajo ei palauttanut käännöstekstiä.');
             }
-            const warningText = preview.quality_warning ? `\n\nHuomautus: ${preview.quality_warning}` : '';
+            const warningText = preview.quality_warning
+                ? `\n\nHuomautus: ${demoPriceSafeText(
+                    preview.quality_warning,
+                    'Ehdotuksen laadussa on tarkistettavaa.'
+                )}`
+                : '';
             const previewText = proposedTranslation.length > 1600
                 ? `${proposedTranslation.slice(0, 1600)}\n\n[...]`
                 : proposedTranslation;
@@ -25237,12 +25383,18 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         renderAlignedTranslationReview('translation', project, selectedTranslation, 'Valitse käännös.');
         status.textContent = `${selectedTranslation.target_language_label}, ${selectedTranslation.style_label}: ${translationStatusLabel(selectedTranslation.status)}.`;
         if (selectedTranslation.warnings) {
-            status.textContent += ` Huomautukset: ${formatTranslationWarnings(selectedTranslation.warnings)}`;
+            status.textContent += ` Huomautukset: ${demoPriceSafeText(
+                formatTranslationWarnings(selectedTranslation.warnings),
+                'Käännöstyössä on huomautuksia.'
+            )}`;
         }
         if (output) output.value = latestTranslationText;
         if (outputStatus) {
             outputStatus.textContent = `${selectedTranslation.target_language_label}, ${selectedTranslation.style_label}: ${translationStatusLabel(selectedTranslation.status)}`;
-            if (selectedTranslation.warnings) outputStatus.textContent += ` Huomautukset: ${formatTranslationWarnings(selectedTranslation.warnings)}`;
+            if (selectedTranslation.warnings) outputStatus.textContent += ` Huomautukset: ${demoPriceSafeText(
+                formatTranslationWarnings(selectedTranslation.warnings),
+                'Käännöstyössä on huomautuksia.'
+            )}`;
         }
     }
 
@@ -25268,12 +25420,18 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const languageLabel = selectedFinnishTranslation.target_language_label || selectedFinnishTranslation.target_language || 'Käännös';
         status.textContent = `${languageLabel}, ${selectedFinnishTranslation.style_label}: ${translationStatusLabel(selectedFinnishTranslation.status)}.`;
         if (selectedFinnishTranslation.warnings) {
-            status.textContent += ` Huomautukset: ${formatTranslationWarnings(selectedFinnishTranslation.warnings)}`;
+            status.textContent += ` Huomautukset: ${demoPriceSafeText(
+                formatTranslationWarnings(selectedFinnishTranslation.warnings),
+                'Käännöstyössä on huomautuksia.'
+            )}`;
         }
         if (output) output.value = latestFinnishTranslationText;
         if (outputStatus) {
             outputStatus.textContent = `${languageLabel}, ${selectedFinnishTranslation.style_label}: ${translationStatusLabel(selectedFinnishTranslation.status)}`;
-            if (selectedFinnishTranslation.warnings) outputStatus.textContent += ` Huomautukset: ${formatTranslationWarnings(selectedFinnishTranslation.warnings)}`;
+            if (selectedFinnishTranslation.warnings) outputStatus.textContent += ` Huomautukset: ${demoPriceSafeText(
+                formatTranslationWarnings(selectedFinnishTranslation.warnings),
+                'Käännöstyössä on huomautuksia.'
+            )}`;
         }
     }
 
@@ -25297,7 +25455,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (button) button.disabled = true;
         if (alternateButton) alternateButton.disabled = true;
         try {
-            if (status) status.textContent = batch ? 'Valmistellaan edullista eräajoa...' : 'Valmistellaan käännöstä ja lasketaan osat...';
+            if (status) status.textContent = batch
+                ? (showcaseDemoMode ? 'Valmistellaan eräajoa...' : 'Valmistellaan edullista eräajoa...')
+                : 'Valmistellaan käännöstä ja lasketaan osat...';
             const estimateKey = translationEstimateKey(payload);
             const estimate = latestTranslationEstimate?.payload_key === estimateKey
                 ? latestTranslationEstimate
@@ -25316,14 +25476,18 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             if (output) output.value = latestTranslationText;
             if (status) {
                 status.textContent = `${data.target_language_label}, ${data.style_label}: ${translationStatusLabel(data.status)}. ${data.chunks_count} osaa, ${formatNumber(data.word_count)} sanaa.`;
-                if (data.warnings) status.textContent += ` Huomautukset: ${formatTranslationWarnings(data.warnings)}`;
+                if (data.warnings) status.textContent += ` Huomautukset: ${demoPriceSafeText(
+                    formatTranslationWarnings(data.warnings),
+                    'Käännöstyössä on huomautuksia.'
+                )}`;
             }
             await renderTranslationHistory();
             selectTranslationForReview(data.id);
             showTranslationPanel('translation-parts-panel');
         } catch (err) {
-            if (status) status.textContent = err.message;
-            if (!err?.operationStopped) alert('Käännös epäonnistui: ' + err.message);
+            const message = networkFailureMessage(err);
+            if (status) status.textContent = message;
+            if (!err?.operationStopped) alert('Käännös epäonnistui: ' + message);
         } finally {
             stopTranslationTimer();
             if (button) button.disabled = false;
@@ -25368,7 +25532,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 ? 'Räätälöity käännös'
                 : 'Käännös';
             if (status) status.textContent = batch
-                ? 'Valmistellaan edullista eräajoa...'
+                ? (showcaseDemoMode ? 'Valmistellaan eräajoa...' : 'Valmistellaan edullista eräajoa...')
                 : useCustomInstructions
                 ? 'Valmistellaan räätälöityä käännöstä ja lasketaan osat...'
                 : 'Valmistellaan käännöstä ja lasketaan osat...';
@@ -25387,15 +25551,19 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             if (output) output.value = latestFinnishTranslationText;
             if (status) {
                 status.textContent = `${data.target_language_label || translationLanguageLabel(payload.target_language)}, ${data.style_label}: ${translationStatusLabel(data.status)}. ${data.chunks_count} osaa, ${formatNumber(data.word_count)} sanaa.`;
-                if (data.warnings) status.textContent += ` Huomautukset: ${formatTranslationWarnings(data.warnings)}`;
+                if (data.warnings) status.textContent += ` Huomautukset: ${demoPriceSafeText(
+                    formatTranslationWarnings(data.warnings),
+                    'Käännöstyössä on huomautuksia.'
+                )}`;
             }
             await renderFinnishTranslationHistory();
             selectFinnishTranslationForReview(data.id);
             showFinnishTranslationPanel('suomentaja-ai-check-panel');
             loadUsage();
         } catch (err) {
-            if (status) status.textContent = err.message;
-            if (!err?.operationStopped) alert('Käännös epäonnistui: ' + networkFailureMessage(err));
+            const message = networkFailureMessage(err);
+            if (status) status.textContent = message;
+            if (!err?.operationStopped) alert('Käännös epäonnistui: ' + message);
             loadUsage();
         } finally {
             stopFinnishTranslationTimer();
@@ -25933,7 +26101,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const params = new URLSearchParams();
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '7');
+        params.set('v', '14');
         frame.dataset.videoProjectId = String(projectId);
         updateEmbeddedModuleFrame(frame, 'video.html', params);
     }
@@ -26624,6 +26792,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         workflowStudio = window.SkriptLabWorkflowStudio.create({
             getProject: () => window.manuscriptData,
             getUser: () => currentUser,
+            hidePricing: showcaseDemoMode,
             apiFetch,
             formatNumber,
             formatDuration,

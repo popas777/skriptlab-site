@@ -392,6 +392,13 @@
         const onStart = typeof options.onStart === 'function' ? options.onStart : null;
         const onPlanChange = typeof options.onPlanChange === 'function' ? options.onPlanChange : null;
         const onOpenModule = typeof options.onOpenModule === 'function' ? options.onOpenModule : null;
+        const hidePricing = options.hidePricing === true;
+        const priceInformationPattern = /[€$£¥]|\b(?:EUR|USD|GBP|CAD|CHF|SEK|NOK|DKK|AUD|JPY|price|prices|pricing|cost|costs|charge|charges|fee|fees|billing|payment|payments|credit|credits|quota|subscription)\b|hinn|kustann|maksu|veloit|laskut|saldo|budjet|edulli|sääst|tilaus|merkkikiinti/iu;
+
+        function pricingSafeText(value, fallback = '') {
+            const text = safeString(value, 1500);
+            return hidePricing && priceInformationPattern.test(text) ? fallback : text;
+        }
 
         let initialized = false;
         let listenersBound = false;
@@ -1154,7 +1161,7 @@
 
         function statusMarkup(step) {
             const meta = STATUS_META[step.status] || STATUS_META.pending;
-            const detail = step.detail || meta.label;
+            const detail = pricingSafeText(step.detail || meta.label, meta.label);
             return `<span class="workflow-step-state workflow-step-state-${escapeHtml(step.status)}">
                 <span aria-hidden="true">${escapeHtml(meta.icon)}</span>
                 <span>${escapeHtml(detail)}</span>
@@ -1178,6 +1185,7 @@
         function moduleEstimateLabel(stepId) {
             const estimate = lastEstimate.modules.find(item => item.id === stepId);
             if (!estimate || !currentProject()) return 'Arvio tarkentuu projektista';
+            if (hidePricing) return formatSeconds(estimate.activeSeconds);
             const price = estimate.priceRelevant
                 ? (estimate.costKnown ? formatCurrency(estimate.cost) : 'Hinta avoin')
                 : 'Ei AI-kustannusta';
@@ -1249,12 +1257,12 @@
             const metrics = projectMetrics(project);
             const allKnown = lastEstimate.costKnown;
             const anyPriced = lastEstimate.pricedCount > 0;
-            const costText = !project
+            const costText = hidePricing ? '' : !project
                 ? '—'
                 : (!lastEstimate.priceRelevantCount
                     ? formatCurrency(0)
                     : (anyPriced ? `${allKnown ? '' : '≥ '}${formatCurrency(lastEstimate.totalCost)}` : 'Hinnoittelu avoin'));
-            const rangeText = !project
+            const rangeText = hidePricing ? '' : !project
                 ? 'Valitse käsikirjoitus, jotta arvio voidaan laskea.'
                 : (!lastEstimate.priceRelevantCount
                     ? 'Valitut vaiheet eivät aiheuta erillistä AI-kustannusta.'
@@ -1267,7 +1275,7 @@
                 'workflow-cost-range': rangeText,
                 'workflow-active-time': project ? formatSeconds(lastEstimate.activeSeconds) : '—',
                 'workflow-total-time': project ? formatSeconds(lastEstimate.calendarSeconds) : '—',
-                'workflow-batch-savings': project ? formatCurrency(lastEstimate.batchSavings) : '0 €',
+                'workflow-batch-savings': hidePricing ? '' : project ? formatCurrency(lastEstimate.batchSavings) : '0 €',
                 'workflow-chapter-count': formatInteger(metrics.chapters),
                 'workflow-char-count': formatInteger(metrics.characters),
                 'workflow-ready-date': project ? readyDateLabel(lastEstimate.readyAt) : '—',
@@ -1288,9 +1296,11 @@
                     ? 'Päivitetään…'
                     : (!project
                         ? 'Odottaa projektia'
-                        : (allKnown ? 'Hinnoiteltu' : `${lastEstimate.pricedCount}/${lastEstimate.priceRelevantCount} hinnoiteltu`));
+                        : hidePricing
+                            ? 'Arvio valmis'
+                            : (allKnown ? 'Hinnoiteltu' : `${lastEstimate.pricedCount}/${lastEstimate.priceRelevantCount} hinnoiteltu`));
                 badge.classList.toggle('is-loading', estimateLoading);
-                badge.classList.toggle('is-partial', Boolean(project && !allKnown));
+                badge.classList.toggle('is-partial', Boolean(project && !hidePricing && !allKnown));
             }
 
             const schedule = getElement('workflow-schedule-list');
@@ -1310,7 +1320,9 @@
             const disclaimer = getElement('workflow-estimator-disclaimer');
             if (disclaimer) {
                 const errorText = estimateErrors.length ? ` Kaikkia palveluarvioita ei saatu: ${estimateErrors.join(' ')}` : '';
-                disclaimer.textContent = 'Tekstihinta näytetään vain, kun valitulla mallilla on sekä syöte- että tuotoshinta mallirekisterissä. Kuva- ja audioarviot tulevat palveluiden omista laskureista. Eräajosäästö huomioidaan vain tuetulle mallille.' + errorText;
+                disclaimer.textContent = hidePricing
+                    ? ''
+                    : 'Tekstihinta näytetään vain, kun valitulla mallilla on sekä syöte- että tuotoshinta mallirekisterissä. Kuva- ja audioarviot tulevat palveluiden omista laskureista. Eräajosäästö huomioidaan vain tuetulle mallille.' + errorText;
             }
         }
 
@@ -1381,7 +1393,7 @@
             if (status && activeDialog === 'settings') {
                 const errors = Object.values(catalogErrors).filter(Boolean);
                 status.textContent = errors.length
-                    ? `Osa mallilistoista ei latautunut. ${errors.join(' ')}`
+                    ? `Osa mallilistoista ei latautunut. ${pricingSafeText(errors.join(' '), 'Kaikkia mallilistoja ei saatu ladattua.')}`
                     : 'Asetukset tallennetaan tälle käsikirjoitukselle ja synkronoidaan palvelimelle.';
                 status.classList.toggle('is-error', Boolean(errors.length));
             }
@@ -1393,7 +1405,9 @@
             if (projectTextElement) {
                 projectTextElement.textContent = project
                     ? `${project.title || project.name || 'Nimetön käsikirjoitus'} · kokoa työnkulku ja tarkista arvio ennen käynnistystä.`
-                    : 'Valitse käsikirjoitus, kokoa tarvittavat työvaiheet ja näe aika- sekä kustannusarvio ennen käynnistystä.';
+                    : hidePricing
+                        ? 'Valitse käsikirjoitus, kokoa tarvittavat työvaiheet ja näe aika-arvio ennen käynnistystä.'
+                        : 'Valitse käsikirjoitus, kokoa tarvittavat työvaiheet ja näe aika- sekä kustannusarvio ennen käynnistystä.';
             }
             const issues = dependencyIssues();
             const hasBlockingIssues = issues.some(issue => issue.severity === 'error');
@@ -1434,7 +1448,7 @@
         function setStatusElement(message, isError) {
             const element = getElement('workflow-status');
             if (!element) return;
-            element.textContent = safeString(message, 1500);
+            element.textContent = pricingSafeText(message, isError ? 'Työnkulkua ei voitu käsitellä.' : 'Työnkulun tila päivittyi.');
             element.classList.toggle('is-error', Boolean(isError));
         }
 

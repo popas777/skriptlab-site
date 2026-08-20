@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=101">
+    <link rel="stylesheet" href="styles.css?v=102">
     <link rel="stylesheet" href="workflow-studio.css?v=2">
     <link rel="stylesheet" href="correction-reprints.css?v=1">
 </head>
@@ -609,7 +609,7 @@
                             <button class="btn btn-secondary" id="workflow-empty-add-btn" type="button">Lisää moduuli</button>
                         </div>
                         <div class="workflow-mobile-action-bar" aria-label="Työnkulun käynnistys">
-                            <div><span>Arvio</span><strong id="workflow-mobile-cost">—</strong><small id="workflow-mobile-ready">—</small></div>
+                            <div><span class="showcase-price-info">Arvio</span><strong id="workflow-mobile-cost" class="showcase-price-info">—</strong><small id="workflow-mobile-ready">—</small></div>
                             <button class="btn btn-primary" id="workflow-mobile-start-btn" type="button">Käynnistä</button>
                         </div>
                     </section>
@@ -623,7 +623,7 @@
                         </div>
 
                         <div class="workflow-estimator-primary">
-                            <div>
+                            <div class="showcase-price-info">
                                 <span>Arvioitu hinta</span>
                                 <strong id="workflow-cost-estimate">—</strong>
                             </div>
@@ -631,7 +631,7 @@
                                 <span>Valmistuu</span>
                                 <strong class="workflow-ready-value" id="workflow-ready-date">—</strong>
                             </div>
-                            <p id="workflow-cost-range">Valitse käsikirjoitus, jotta arvio voidaan laskea.</p>
+                            <p id="workflow-cost-range" class="showcase-price-info">Valitse käsikirjoitus, jotta arvio voidaan laskea.</p>
                         </div>
                         <details class="workflow-estimator-details">
                             <summary>Näytä tarkempi arvio</summary>
@@ -640,7 +640,7 @@
                                     <div><dt>Aktiivinen käsittely</dt><dd id="workflow-active-time">—</dd></div>
                                     <div><dt>Kokonaisaika</dt><dd id="workflow-total-time">—</dd></div>
                                     <div><dt>Käsikirjoitus</dt><dd><span id="workflow-chapter-count">0</span> lukua · <span id="workflow-char-count">0</span> merkkiä</dd></div>
-                                    <div><dt>Eräajosäästö</dt><dd id="workflow-batch-savings">0 €</dd></div>
+                                    <div class="showcase-price-info"><dt>Eräajosäästö</dt><dd id="workflow-batch-savings">0 €</dd></div>
                                 </dl>
 
                                 <div class="workflow-schedule" aria-labelledby="workflow-schedule-title">
@@ -650,7 +650,7 @@
                                     <div id="workflow-schedule-list" class="workflow-schedule-list"></div>
                                 </div>
 
-                                <p class="workflow-estimator-disclaimer" id="workflow-estimator-disclaimer">
+                                <p class="workflow-estimator-disclaimer showcase-price-info" id="workflow-estimator-disclaimer">
                                     Arvio käyttää valittujen mallien hintoja, tekstin pituutta ja eräajojen tavoitesäästöä.
                                 </p>
                                 <div class="workflow-estimator-actions">
@@ -2172,10 +2172,10 @@
                         </div>
                         <div class="visual-cost-estimate" aria-label="Kuvaerän hinta-arvio" aria-live="polite">
                             <div><span>Kuvia yhteensä</span><strong id="visual-estimate-count">–</strong></div>
-                            <div><span>Arvio / kuva</span><strong id="visual-estimate-unit">–</strong></div>
-                            <div><span>Hinta-arvio</span><strong id="visual-estimate-total">–</strong></div>
+                            <div class="showcase-price-info"><span>Arvio / kuva</span><strong id="visual-estimate-unit">–</strong></div>
+                            <div class="showcase-price-info"><span>Hinta-arvio</span><strong id="visual-estimate-total">–</strong></div>
                             <div><span>Kuukausikiintiötä jäljellä</span><strong id="visual-estimate-quota">–</strong></div>
-                            <p id="visual-estimate-note">Valitse projekti ja kuvamalli, niin hinta-arvio päivittyy.</p>
+                            <p id="visual-estimate-note" class="showcase-price-info">Valitse projekti ja kuvamalli, niin hinta-arvio päivittyy.</p>
                         </div>
                     </div>
 
@@ -2828,7 +2828,7 @@
                     id="video-studio-frame"
                     class="video-studio-frame"
                     title="Videostudio"
-                    src="video.html?v=13"
+                    src="video.html?v=14"
                     loading="lazy"
                 ></iframe>
             </div>
@@ -2895,7 +2895,7 @@
                                 <div><strong id="audio-production-unit-count">–</strong><span>tuotanto-osaa</span></div>
                                 <div><strong id="audio-production-duration-estimate">–</strong><span>äänikirjan kesto</span></div>
                                 <div><strong id="audio-production-time-estimate">–</strong><span>arvioitu luontiaika</span></div>
-                                <div><strong id="audio-production-cost-estimate">–</strong><span>arvioitu kustannus</span></div>
+                                <div class="showcase-price-info"><strong id="audio-production-cost-estimate">–</strong><span>arvioitu kustannus</span></div>
                             </div>
                             <p id="audio-production-estimate-status" class="audio-production-estimate-status">Valitse malli ja ääni, niin tuotantoarvio päivittyy.</p>
 
@@ -3522,7 +3522,7 @@
                             <button class="btn btn-secondary" id="translation-batch-start-btn" title="Edullisempi Gemini-eräajo, jonka tavoiteaika on enintään 24 tuntia.">Edullinen eräajo</button>
                             <button class="btn btn-secondary hidden" id="translation-cancel-btn" type="button">Pysäytä käännös</button>
                         </div>
-                        <div class="card-meta" style="line-height:1.45; margin-top:10px;">Eräajo maksaa noin puolet normaalista Gemini-kutsusta. Työ valmistuu 24 tunnin sisällä tai vapautetaan automaattisesti määräajan täyttyessä.</div>
+                        <div class="card-meta showcase-price-info" style="line-height:1.45; margin-top:10px;">Eräajo maksaa noin puolet normaalista Gemini-kutsusta. Työ valmistuu 24 tunnin sisällä tai vapautetaan automaattisesti määräajan täyttyessä.</div>
                     </div>
                     <div class="card glass-panel">
                         <h3>Käännöksen tulos</h3>
@@ -3713,7 +3713,7 @@
                                 <button class="btn btn-secondary" id="finnish-translation-batch-start-btn" title="Edullisempi Gemini-eräajo, jonka tavoiteaika on enintään 24 tuntia.">Edullinen eräajo</button>
                                 <button class="btn btn-secondary hidden" id="finnish-translation-cancel-btn" type="button">Pysäytä käännös</button>
                             </div>
-                            <div class="card-meta" style="line-height:1.45; margin-top:10px;">Eräajo maksaa noin puolet normaalista Gemini-kutsusta. Työ valmistuu 24 tunnin sisällä tai vapautetaan automaattisesti määräajan täyttyessä.</div>
+                            <div class="card-meta showcase-price-info" style="line-height:1.45; margin-top:10px;">Eräajo maksaa noin puolet normaalista Gemini-kutsusta. Työ valmistuu 24 tunnin sisällä tai vapautetaan automaattisesti määräajan täyttyessä.</div>
                             <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
                                 <button class="btn btn-secondary" id="finnish-translation-custom-start-btn">Aja räätälöidyllä käännöspromptilla</button>
                             </div>
@@ -3990,7 +3990,7 @@
                                 <button id="translation-workspace-batch-start-btn" class="btn btn-secondary" type="button" title="Edullisempi Gemini-eräajo, jonka tavoiteaika on enintään 24 tuntia.">Edullinen eräajo</button>
                                 <button id="translation-workspace-cancel-btn" class="btn btn-secondary hidden" type="button">Pysäytä käännös</button>
                             </div>
-                            <p class="card-meta">Eräajo maksaa noin puolet normaalista Gemini-kutsusta. Voit poistua sivulta: työ tallentuu projektiin valmistuttuaan.</p>
+                            <p class="card-meta showcase-price-info">Eräajo maksaa noin puolet normaalista Gemini-kutsusta. Voit poistua sivulta: työ tallentuu projektiin valmistuttuaan.</p>
                         </div>
                         <div class="card glass-panel translation-workspace-run-card">
                             <div class="translation-workspace-run-heading">
@@ -4178,10 +4178,10 @@
         </main>
     </div>
     <script src="config.js?v=1"></script>
-    <script src="auth.js?v=3"></script>
-    <script src="workflow-studio.js?v=4"></script>
+    <script src="auth.js?v=4"></script>
+    <script src="workflow-studio.js?v=5"></script>
     <script src="correction-reprints.js?v=1"></script>
     <script src="demo-terminology.js?v=1"></script>
-    <script src="app.js?v=183"></script>
+    <script src="app.js?v=184"></script>
 </body>
 </html>

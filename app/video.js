@@ -9,6 +9,11 @@
   const TERMINAL_STATES = new Set(['succeeded', 'failed', 'cancelled']);
   const ACTIVE_STATES = new Set(['queued', 'preparing', 'generating_clips', 'assembling']);
   const EXTERNAL_VIDEO_PROVIDERS = new Set(['veo', 'omni', 'higgsfield']);
+  const showcaseDemoMode = window.SkriptLabAuth?.isShowcaseDemoUser
+    ? window.SkriptLabAuth.isShowcaseDemoUser()
+    : ['Demo', 'Kustantamodemo'].includes(String(window.SkriptLabAuth?.getUser?.()?.access_group_name || ''));
+  const PRICE_INFORMATION_PATTERN = /[€$£¥]|\b(?:EUR|USD|GBP|CAD|CHF|SEK|NOK|DKK|AUD|JPY|price|prices|pricing|cost|costs|charge|charges|fee|fees|billing|payment|payments|credit|credits|quota|subscription)\b|hinn|kustann|maksu|veloit|laskut|saldo|budjet|edulli|sääst|tilaus|merkkikiinti/iu;
+  document.body?.classList.toggle('showcase-demo-mode', showcaseDemoMode);
   const STATE_LABELS = {
     queued: 'Jonossa',
     preparing: 'Valmistellaan',
@@ -91,6 +96,11 @@
     draggedShotId: null,
   };
 
+  function demoPriceSafeText(value, fallback = '') {
+    const text = String(value == null ? '' : value).trim();
+    return showcaseDemoMode && PRICE_INFORMATION_PATTERN.test(text) ? fallback : text;
+  }
+
   function byId(id) {
     return document.getElementById(id);
   }
@@ -141,7 +151,10 @@
     const notice = elements['video-notice'];
     notice.classList.toggle('is-loading', tone === 'loading');
     notice.classList.toggle('is-error', tone === 'error');
-    elements['video-notice-text'].textContent = message;
+    elements['video-notice-text'].textContent = demoPriceSafeText(
+      message,
+      tone === 'error' ? 'Videotoimintoa ei voitu suorittaa. Yritä uudelleen.' : 'Videotyön tila päivittyi.',
+    );
     const action = elements['video-notice-action'];
     action.hidden = !actionLabel;
     action.textContent = actionLabel;
@@ -559,6 +572,9 @@
   }
 
   function providerDataNotice() {
+    if (showcaseDemoMode) {
+      return 'AI-videossa kohtaukseen valittu kuvalähde ja englanninkielinen liikeprompti lähetetään valitulle videopalvelulle.';
+    }
     return String(
       state.presets?.provider_data_notice
       || state.presets?.provider?.data_notice
@@ -1094,7 +1110,7 @@
         status.hidden = false;
         status.dataset.state = failed ? 'failed' : clip.state;
         status.textContent = `${provider} · ${label}`;
-        status.title = clip.error || '';
+        status.title = demoPriceSafeText(clip.error || '', 'Videoklipin käsittely ei onnistunut.');
       }
 
       const clipUrl = mediaUrl(clip?.url);
@@ -1137,6 +1153,11 @@
   }
 
   function renderEstimate(estimate = state.estimate) {
+    if (showcaseDemoMode) {
+      elements['video-cost'].textContent = '';
+      elements['video-cost-note'].textContent = '';
+      return;
+    }
     if (!estimate) {
       const configurationError = String(state.presets?.provider?.configuration_error || '').trim();
       elements['video-cost'].textContent = '—';
@@ -1418,13 +1439,17 @@
       if (!saved) return;
       if (!await refreshEstimate(tier)) {
         const label = tier === 'final' ? 'Lopullista renderöintiä' : 'Esikatselua';
-        setNotice(`Kustannusarviota ei saatu. ${label} ei käynnistetty.`, 'error', 'Yritä uudelleen');
+        setNotice(showcaseDemoMode
+          ? `Renderöinnin arviota ei saatu. ${label} ei käynnistetty.`
+          : `Kustannusarviota ei saatu. ${label} ei käynnistetty.`, 'error', 'Yritä uudelleen');
         return;
       }
       const amount = Number(state.estimate?.estimated_cost_eur ?? state.estimate?.cost_eur ?? 0);
       const tierLabel = tier === 'final' ? 'Lopullisen videon' : 'AI-esikatselun';
       const confirmCost = amount <= 0 || window.confirm(
-        `${tierLabel} arvioitu kustannus on ${amount.toLocaleString('fi-FI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €. ${providerDataNotice()} Aloitetaanko renderöinti?`,
+        showcaseDemoMode
+          ? `${tier === 'final' ? 'Lopullinen video' : 'AI-esikatselu'} käyttää ulkoista videopalvelua. ${providerDataNotice()} Aloitetaanko renderöinti?`
+          : `${tierLabel} arvioitu kustannus on ${amount.toLocaleString('fi-FI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €. ${providerDataNotice()} Aloitetaanko renderöinti?`,
       );
       if (!confirmCost) return;
       setNotice(tier === 'final' ? 'Aloitetaan lopullisen videon renderöinti…' : 'Aloitetaan esikatselu…', 'loading');
@@ -1525,7 +1550,9 @@
       && clip?.state !== 'completed'
     ));
     const providerWarning = paidProviderMayBeRunning
-      ? ' Jo videopalvelulle lähetetty maksullinen työ voi silti valmistua ja tulla veloitetuksi.'
+      ? showcaseDemoMode
+        ? ' Jo videopalvelulle lähetetty työ voi silti valmistua.'
+        : ' Jo videopalvelulle lähetetty maksullinen työ voi silti valmistua ja tulla veloitetuksi.'
       : '';
     if (!window.confirm(`Keskeytetäänkö videon luonti? Valmis kuvakäsikirjoitus säilyy.${providerWarning}`)) return;
     try {
@@ -1545,7 +1572,9 @@
         { method: 'POST' },
       );
     } catch (error) {
-      setNotice(`Kustannusarviota ei saatu: ${error.message}`, 'error', 'Yritä uudelleen');
+      setNotice(showcaseDemoMode
+        ? `Uudelleenyrityksen arviota ei saatu: ${error.message}`
+        : `Kustannusarviota ei saatu: ${error.message}`, 'error', 'Yritä uudelleen');
       return;
     }
     const amount = Number(retryEstimate?.estimated_cost_eur ?? retryEstimate?.cost_eur ?? 0);
@@ -1557,11 +1586,17 @@
     const resumesProviderRequest = resumableProviderClips.length > 0;
     const resumeNotice = resumesProviderRequest
       ? (resumableProviderClips.length === 1
-        ? 'Uudelleenyritys jatkaa aiempaa videopalvelun työtä samalla tunnisteella. Sitä ei lähetetä uutena videotyönä, mutta jo käynnistetty työ voi silti tulla veloitetuksi.'
-        : 'Uudelleenyritys jatkaa aiempia videopalvelun töitä samoilla tunnisteilla. Niitä ei lähetetä uusina videotöinä, mutta jo käynnistetyt työt voivat silti tulla veloitetuiksi.')
+        ? showcaseDemoMode
+          ? 'Uudelleenyritys jatkaa aiempaa videopalvelun työtä samalla tunnisteella. Sitä ei lähetetä uutena videotyönä.'
+          : 'Uudelleenyritys jatkaa aiempaa videopalvelun työtä samalla tunnisteella. Sitä ei lähetetä uutena videotyönä, mutta jo käynnistetty työ voi silti tulla veloitetuksi.'
+        : showcaseDemoMode
+          ? 'Uudelleenyritys jatkaa aiempia videopalvelun töitä samoilla tunnisteilla. Niitä ei lähetetä uusina videotöinä.'
+          : 'Uudelleenyritys jatkaa aiempia videopalvelun töitä samoilla tunnisteilla. Niitä ei lähetetä uusina videotöinä, mutta jo käynnistetyt työt voivat silti tulla veloitetuiksi.')
       : '';
     const retryPrompt = amount > 0
-      ? `Uudelleenyrityksen arvioitu kustannus on ${amount.toLocaleString('fi-FI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €. ${resumeNotice} ${providerDataNotice()} Aloitetaanko renderöinti?`
+      ? showcaseDemoMode
+        ? `${resumeNotice} Uudelleenyritys käyttää ulkoista videopalvelua. ${providerDataNotice()} Aloitetaanko renderöinti?`
+        : `Uudelleenyrityksen arvioitu kustannus on ${amount.toLocaleString('fi-FI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €. ${resumeNotice} ${providerDataNotice()} Aloitetaanko renderöinti?`
       : `${resumeNotice} Jatketaanko uudelleenyritystä?`;
     const confirmedCost = amount <= 0 && !resumesProviderRequest
       ? true
@@ -1646,7 +1681,9 @@
       let confirmedCost = false;
       if (requiresConfirmation) {
         confirmedCost = window.confirm(
-          `Kohtauksen uudelleenluonnin arvioitu kustannus on ${amount.toLocaleString('fi-FI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € (${provider}${modelLabel}). ${providerDataNotice()} Luodaanko kohtaus uudelleen?`,
+          showcaseDemoMode
+            ? `Kohtauksen uudelleenluonti käyttää ulkoista videopalvelua. ${providerDataNotice()} Luodaanko kohtaus uudelleen?`
+            : `Kohtauksen uudelleenluonnin arvioitu kustannus on ${amount.toLocaleString('fi-FI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € (${provider}${modelLabel}). ${providerDataNotice()} Luodaanko kohtaus uudelleen?`,
         );
         if (!confirmedCost) {
           setNotice('Kohtauksen uudelleenluonti peruttiin.', 'ready');
@@ -1921,6 +1958,7 @@
 
   async function init() {
     collectElements();
+    elements['video-cost']?.closest('.cost-summary')?.toggleAttribute('hidden', showcaseDemoMode);
     if (!window.SkriptLabAuth?.requireLogin()) return;
     bindEvents();
     renderFormat();

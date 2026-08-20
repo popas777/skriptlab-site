@@ -23,6 +23,14 @@ body.showcase-demo-mode .showcase-hidden {
     display: none !important;
 }
 
+body.showcase-demo-mode .showcase-price-info {
+    display: none !important;
+}
+
+body.showcase-demo-mode .audio-production-estimates {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
 body.showcase-demo-mode .multilingual-edition-stages {
     grid-template-columns: repeat(4, minmax(0, 1fr));
 }

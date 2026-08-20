@@ -1,6 +1,7 @@
 (function () {
     const TOKEN_KEY = "skriptlab_auth_token";
     const USER_KEY = "skriptlab_auth_user";
+    const SHOWCASE_DEMO_ACCESS_GROUPS = new Set(["Demo", "Kustantamodemo"]);
     const WORKSPACE_KEYS = [
         "skriptlab_manuscript",
         "skriptlab_raw_text",
@@ -23,6 +24,10 @@
             } catch (e) {
                 return null;
             }
+        },
+
+        isShowcaseDemoUser(user = this.getUser()) {
+            return SHOWCASE_DEMO_ACCESS_GROUPS.has(String(user?.access_group_name || ""));
         },
 
         setSession(token, user) {
