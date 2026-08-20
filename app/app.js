@@ -2813,6 +2813,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             const actionModule = String(check.action_module || '');
             const label = String(check.label || '').toLocaleLowerCase('fi-FI');
             return !['view-tuotetiedot', 'view-julkaise', 'view-markkinointi'].includes(actionModule)
+                && (!actionModule || isViewAllowed(actionModule))
                 && !/(tuotetied|metadata|oikeu|isbn|julkais)/.test(label);
         });
         if (checks) {
@@ -4810,18 +4811,20 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const showcaseDemoNavOrder = [
         'view-kirjani',
         'view-analyysi',
-        'view-kehityseditointi',
         'view-kirjoita-editoi',
-        'view-oikoluku',
         'view-kuvitus',
-        'view-oheisaineistot',
-        'view-taitto',
         'view-kaannokset',
         'view-audio',
         'view-video',
         'view-julkaisupaketti',
         'view-monikielinen-julkaisu'
     ];
+    const showcaseDemoHiddenViews = new Set([
+        'view-kehityseditointi',
+        'view-oikoluku',
+        'view-oheisaineistot',
+        'view-taitto'
+    ]);
     function canonicalViewId(viewId) {
         if (viewId === 'view-kirjoita' || viewId === 'view-toimitus') return 'view-mobiilieditori';
         if (viewId === 'view-rakenne') return 'view-analyysi';
@@ -4838,6 +4841,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function isViewAllowed(viewId) {
         viewId = canonicalViewId(viewId);
+        if (showcaseDemoMode && showcaseDemoHiddenViews.has(viewId)) return false;
         if (canSeeAllModules) return true;
         const groupViews = customAccessViews();
         if (groupViews) return groupViews.has(viewId);
@@ -4858,7 +4862,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const showcaseViews = new Set(showcaseDemoNavOrder);
         navItems.forEach(item => {
             const viewId = item.getAttribute('data-view');
-            item.hidden = !showcaseViews.has(viewId);
+            item.hidden = !showcaseViews.has(viewId) || !isViewAllowed(viewId);
             item.classList.remove('module-overflow-hidden');
             if (viewId === 'view-audio') item.textContent = 'Audio';
         });
@@ -7661,12 +7665,85 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         status.classList.toggle('is-error', Boolean(isError));
     }
 
+    function htmlPresentationFilename(value) {
+        const filename = String(value || '').trim() || 'kirjan-esittely.html';
+        return filename
+            .replace(/markkinointisivu/gi, 'esittely')
+            .replace(/markkinointi(?=\.html?$)/gi, 'esittely');
+    }
+
+    function decodeHtmlDataUrl(dataUrl) {
+        const value = String(dataUrl || '');
+        const separator = value.indexOf(',');
+        if (separator < 0 || !/^data:text\/html(?:;[^,]*)?$/i.test(value.slice(0, separator))) return '';
+        const metadata = value.slice(0, separator);
+        const payload = value.slice(separator + 1);
+        try {
+            if (!/;base64(?:;|$)/i.test(metadata)) return decodeURIComponent(payload);
+            const binary = window.atob(payload);
+            const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
+            return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+        } catch (error) {
+            return '';
+        }
+    }
+
+    function setHtmlPreviewPlaceholder(empty, title, copy) {
+        if (!empty) return;
+        const titleElement = empty.querySelector('strong');
+        const copyElement = empty.querySelector('p');
+        if (titleElement) titleElement.textContent = title;
+        if (copyElement) copyElement.textContent = copy;
+        empty.hidden = false;
+    }
+
+    function clearHtmlPreviewFrame(frame) {
+        if (!frame) return;
+        window.clearTimeout(frame._skriptlabPreviewFallbackTimer);
+        frame._skriptlabPreviewFallbackTimer = null;
+        frame.onload = null;
+        frame.onerror = null;
+        frame.removeAttribute('src');
+        frame.removeAttribute('srcdoc');
+        frame.hidden = true;
+    }
+
+    function renderHtmlDataUrlPreview(frame, empty, dataUrl, filename) {
+        clearHtmlPreviewFrame(frame);
+        const source = decodeHtmlDataUrl(dataUrl);
+        const readyTitle = 'HTML-esittely on valmis';
+        const fallbackCopy = `${filename} on valmis ladattavaksi. Esikatselua ei voitu avata tässä selaimessa.`;
+        if (!frame || !source) {
+            setHtmlPreviewPlaceholder(empty, readyTitle, fallbackCopy);
+            return false;
+        }
+
+        setHtmlPreviewPlaceholder(empty, readyTitle, 'Avataan esikatselua…');
+        const showFallback = () => {
+            window.clearTimeout(frame._skriptlabPreviewFallbackTimer);
+            frame._skriptlabPreviewFallbackTimer = null;
+            frame.onload = null;
+            frame.onerror = null;
+            frame.hidden = true;
+            setHtmlPreviewPlaceholder(empty, readyTitle, fallbackCopy);
+        };
+        frame.onload = () => {
+            window.clearTimeout(frame._skriptlabPreviewFallbackTimer);
+            frame._skriptlabPreviewFallbackTimer = null;
+            frame.onload = null;
+            frame.onerror = null;
+            frame.hidden = false;
+            if (empty) empty.hidden = true;
+        };
+        frame.onerror = showFallback;
+        frame._skriptlabPreviewFallbackTimer = window.setTimeout(showFallback, 4000);
+        frame.srcdoc = source;
+        return true;
+    }
+
     function clearGraphicsHtmlResult() {
         latestGraphicsHtmlPage = null;
-        if (graphicsHtmlPreviewFrame) {
-            graphicsHtmlPreviewFrame.removeAttribute('src');
-            graphicsHtmlPreviewFrame.hidden = true;
-        }
+        clearHtmlPreviewFrame(graphicsHtmlPreviewFrame);
         if (graphicsHtmlPreviewEmpty) {
             graphicsHtmlPreviewEmpty.hidden = false;
             graphicsHtmlPreviewEmpty.classList.remove('is-working');
@@ -7680,7 +7757,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (graphicsHtmlResultMeta) {
             graphicsHtmlResultMeta.textContent = 'Yhden tiedoston HTML · upotetut kuvat · responsiivinen';
         }
-        if (graphicsHtmlBrowserName) graphicsHtmlBrowserName.textContent = 'kirjan-html-luonnos.html';
+        if (graphicsHtmlBrowserName) graphicsHtmlBrowserName.textContent = 'kirjan-esittely.html';
     }
 
     function renderGraphicsHtmlWorkspace() {
@@ -7786,13 +7863,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 projectId: project.id,
                 coverAssetId: cover.id,
                 dataUrl: data.page.data_url,
-                filename: data.filename || 'kirjan-html-luonnos.html'
+                filename: htmlPresentationFilename(data.filename)
             };
-            if (graphicsHtmlPreviewFrame) {
-                graphicsHtmlPreviewFrame.src = latestGraphicsHtmlPage.dataUrl;
-                graphicsHtmlPreviewFrame.hidden = false;
-            }
-            if (graphicsHtmlPreviewEmpty) graphicsHtmlPreviewEmpty.hidden = true;
             if (graphicsHtmlDownloadBtn) graphicsHtmlDownloadBtn.disabled = false;
             if (graphicsHtmlResultName) graphicsHtmlResultName.textContent = latestGraphicsHtmlPage.filename;
             if (graphicsHtmlBrowserName) graphicsHtmlBrowserName.textContent = latestGraphicsHtmlPage.filename;
@@ -7800,6 +7872,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 const mapMeta = data.character_map_included ? 'henkilökartta mukana' : 'ei tallennettua henkilökarttaa';
                 graphicsHtmlResultMeta.textContent = `Analyysi · ${Number(data.project_memory_items_used || 0)} kontekstimuistin merkintää · ${mapMeta}`;
             }
+            renderHtmlDataUrlPreview(
+                graphicsHtmlPreviewFrame,
+                graphicsHtmlPreviewEmpty,
+                latestGraphicsHtmlPage.dataUrl,
+                latestGraphicsHtmlPage.filename
+            );
             const warnings = Array.isArray(data.warnings) ? data.warnings.filter(Boolean) : [];
             finalStatus = {
                 message: warnings.length
@@ -7825,7 +7903,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         const link = document.createElement('a');
         link.href = latestGraphicsHtmlPage.dataUrl;
-        link.download = latestGraphicsHtmlPage.filename || 'kirjan-html-luonnos.html';
+        link.download = latestGraphicsHtmlPage.filename || 'kirjan-esittely.html';
         document.body.appendChild(link);
         link.click();
         link.remove();
@@ -9904,14 +9982,17 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 	        const download = document.getElementById('marketing-html-download-btn');
 	        const name = document.getElementById('marketing-html-result-name');
 	        const meta = document.getElementById('marketing-html-result-meta');
-	        if (frame) {
-	            frame.removeAttribute('src');
-	            frame.hidden = true;
-	        }
-	        if (empty) empty.hidden = false;
+	        clearHtmlPreviewFrame(frame);
+	        setHtmlPreviewPlaceholder(
+	            empty,
+	            'Esikatselu avautuu tähän',
+	            'Kun kaikki kolme lähtöaineistoa ovat valmiina, luo ensimmäinen sivu.'
+	        );
 	        if (download) download.disabled = true;
 	        if (name) name.textContent = 'Ei vielä luotua tiedostoa';
 	        if (meta) meta.textContent = 'Yhden tiedoston HTML · upotettu kansikuva · responsiivinen';
+	        const browserName = document.getElementById('marketing-html-browser-name');
+	        if (browserName) browserName.textContent = 'kirjan-esittely.html';
 	    }
 
 	    function renderMarketingHtmlWorkspace() {
@@ -10292,7 +10373,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 	        }
 	        const link = document.createElement('a');
 	        link.href = latestMarketingHtmlPage.dataUrl;
-	        link.download = latestMarketingHtmlPage.filename || 'kirjan-markkinointisivu.html';
+	        link.download = latestMarketingHtmlPage.filename || 'kirjan-esittely.html';
 	        document.body.appendChild(link);
 	        link.click();
 	        link.remove();
@@ -10371,23 +10452,21 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 	                projectId: project.id,
 	                coverAssetId: cover.id,
 	                dataUrl: data.page.data_url,
-	                filename: data.filename || 'kirjan-markkinointisivu.html'
+	                filename: htmlPresentationFilename(data.filename)
 	            };
 	            const frame = document.getElementById('marketing-html-preview-frame');
 	            const empty = document.getElementById('marketing-html-preview-empty');
 	            const download = document.getElementById('marketing-html-download-btn');
 	            const name = document.getElementById('marketing-html-result-name');
 	            const meta = document.getElementById('marketing-html-result-meta');
-	            if (frame) {
-	                frame.src = data.page.data_url;
-	                frame.hidden = false;
-	            }
-	            if (empty) empty.hidden = true;
 	            if (download) download.disabled = false;
 	            if (name) name.textContent = latestMarketingHtmlPage.filename;
+	            const browserName = document.getElementById('marketing-html-browser-name');
+	            if (browserName) browserName.textContent = latestMarketingHtmlPage.filename;
 	            if (meta) {
 	                meta.textContent = `Analyysi · ${Number(data.project_memory_items_used || 0)} kontekstimuistin merkintää · valittu kansi`;
 	            }
+	            renderHtmlDataUrlPreview(frame, empty, latestMarketingHtmlPage.dataUrl, latestMarketingHtmlPage.filename);
 	            const warnings = Array.isArray(data.warnings) ? data.warnings.filter(Boolean) : [];
 	            finalStatus = {
 	                message: warnings.length
@@ -26028,7 +26107,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (step) params.set('step', step);
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '26');
+        params.set('v', '27');
         const reloaded = updateEmbeddedModuleFrame(frame, 'manuskripti.html', params);
         if (!reloaded && frame.contentWindow) {
             frame.contentWindow.postMessage({ type: 'skriptlab:refresh-workflow-status' }, window.location.origin);

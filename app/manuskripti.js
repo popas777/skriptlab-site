@@ -85,7 +85,16 @@
   const allowedModuleKeys = Array.isArray(authUser?.allowed_modules)
     ? new Set(authUser.allowed_modules.map((key) => String(key || "")))
     : null;
-  const hasModule = (moduleKey) => !allowedModuleKeys || allowedModuleKeys.has(moduleKey);
+  const showcaseDemoHiddenModuleKeys = new Set([
+    "development_editing",
+    "proofread",
+    "support_materials",
+    "book_layout",
+  ]);
+  const hasModule = (moduleKey) => (
+    (!showcaseDemoMode || !showcaseDemoHiddenModuleKeys.has(moduleKey))
+    && (!allowedModuleKeys || allowedModuleKeys.has(moduleKey))
+  );
   let pendingInitialStep = ["kasikirjoitus", "analyysi", "rakenne"].includes(requestedStep) ? requestedStep : "";
 
   const ANALYSIS_SECTIONS = [
