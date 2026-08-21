@@ -1320,6 +1320,20 @@
     localStorage.setItem(ASSISTANT_OPEN_KEY, String(!collapsed));
   }
 
+  function collapseContextMemorySections() {
+    const groups = Array.from(document.querySelectorAll("#notes-pane details.note-group"));
+    const focusedGroup = document.activeElement?.closest?.("#notes-pane details.note-group");
+    if (focusedGroup?.open) focusedGroup.querySelector("summary")?.focus();
+    groups.forEach((group) => {
+      group.open = false;
+    });
+  }
+
+  function handleParentMessage(event) {
+    if (event.source !== window.parent || event.origin !== window.location.origin) return;
+    if (event.data?.type === "skriptlab:write-editor-opened") collapseContextMemorySections();
+  }
+
   function bindEvents() {
     $("notes-toggle").addEventListener("click", () => toggleNotes());
     $("notes-close").addEventListener("click", () => toggleNotes(false));
@@ -1398,6 +1412,8 @@
       button.addEventListener("click", () => setMobilePanel(button.dataset.mobileTarget));
     });
 
+    window.addEventListener("message", handleParentMessage);
+
     window.addEventListener("beforeunload", () => {
       if (state.dirty) syncEditorToState();
     });
@@ -1418,6 +1434,7 @@
   }
 
   async function boot() {
+    collapseContextMemorySections();
     bindEvents();
     if (localStorage.getItem(NOTES_OPEN_KEY) === "false") $("workspace-shell").classList.add("notes-collapsed");
     if (localStorage.getItem(ASSISTANT_OPEN_KEY) === "false") $("workspace-shell").classList.add("assistant-collapsed");

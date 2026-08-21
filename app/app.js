@@ -26187,8 +26187,11 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (projectId) params.set('project', projectId);
         if (pendingWriteEditorChapterId) params.set('chapter', pendingWriteEditorChapterId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '11');
-        updateEmbeddedModuleFrame(frame, 'kirjoita-editoi.html', params);
+        params.set('v', '12');
+        const reloaded = updateEmbeddedModuleFrame(frame, 'kirjoita-editoi.html', params);
+        if (!reloaded && frame.contentWindow) {
+            frame.contentWindow.postMessage({ type: 'skriptlab:write-editor-opened' }, window.location.origin);
+        }
         pendingWriteEditorChapterId = null;
     }
 
