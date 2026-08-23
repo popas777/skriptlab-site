@@ -330,6 +330,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     let translationWorkspaceReviewCancelRequested = false;
     let translationWorkspaceReviewController = null;
     let translationWorkspaceBatchJobId = null;
+    const translationWorkspaceSavedDownloads = Object.freeze({
+        translation: Object.freeze({
+            path: 'output/translated_manuscript.txt',
+            pending: 'Ladataan tallennettua käännöstä...',
+            success: 'Tallennettu käännös ladattu.',
+            error: 'Tallennetun käännöksen lataus epäonnistui.'
+        }),
+        metadata: Object.freeze({
+            path: 'metadata/translation_metadata.json',
+            pending: 'Ladataan käännöksen metadataa...',
+            success: 'Käännöksen metadata ladattu.',
+            error: 'Käännöksen metadatan lataus epäonnistui.'
+        })
+    });
     let translationReviewBatchJobId = null;
     let translationReviewBatchSource = null;
     let translationReviewBatchResumePromise = null;
@@ -22282,13 +22296,35 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     <strong>${escapeHtml(item.target_language_label || item.target_language || 'Käännös')}</strong>
                     <small>${escapeHtml(item.style_label || item.style || '')} · ${escapeHtml(translationStatusLabel(item.status))} · ${formatNumber(item.chunks_count || 0)} segmenttiä</small>
                 </div>
-                <button class="btn btn-secondary" type="button" data-workspace-review-translation="${item.id}">Tarkasta</button>
+                <div class="translation-workspace-version-actions">
+                    <button class="btn btn-secondary" type="button" data-workspace-review-translation="${item.id}">Tarkasta</button>
+                    <button class="btn btn-secondary" type="button" data-workspace-download-translation="${item.id}" aria-label="Lataa käännösversio ${item.id} tekstinä">Lataa käännös</button>
+                    <button class="btn btn-secondary" type="button" data-workspace-download-metadata="${item.id}" aria-label="Lataa käännösversion ${item.id} metadata">Lataa metadata</button>
+                </div>
             </div>
         `).join('');
         container.querySelectorAll('[data-workspace-review-translation]').forEach(button => {
             button.addEventListener('click', () => {
                 if (!selectTranslationWorkspaceTranslation(button.dataset.workspaceReviewTranslation)) return;
                 showTranslationWorkspacePanel('translation-workspace-review-panel');
+            });
+        });
+        container.querySelectorAll('[data-workspace-download-translation]').forEach(button => {
+            button.addEventListener('click', () => {
+                downloadTranslationWorkspaceSavedFile(
+                    button.dataset.workspaceDownloadTranslation,
+                    'translation',
+                    { button, statusId: 'translation-workspace-run-status' }
+                );
+            });
+        });
+        container.querySelectorAll('[data-workspace-download-metadata]').forEach(button => {
+            button.addEventListener('click', () => {
+                downloadTranslationWorkspaceSavedFile(
+                    button.dataset.workspaceDownloadMetadata,
+                    'metadata',
+                    { button, statusId: 'translation-workspace-run-status' }
+                );
             });
         });
     }
@@ -23933,11 +23969,15 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
 
     function populateTranslationWorkspaceTranslationSelect() {
         const select = document.getElementById('translation-workspace-file-translation-select');
-        if (!select) return;
+        if (!select) {
+            syncTranslationWorkspaceSavedDownloadButtons();
+            return;
+        }
         const previous = selectedFinnishTranslation?.id || select.value || '';
         select.innerHTML = '';
         if (!currentFinnishTranslationHistory.length) {
             select.innerHTML = '<option value="">Ei tallennettuja käännöksiä</option>';
+            syncTranslationWorkspaceSavedDownloadButtons();
             return;
         }
         currentFinnishTranslationHistory.forEach(item => {
@@ -23951,6 +23991,24 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         } else {
             select.value = String(currentFinnishTranslationHistory[0].id);
         }
+        syncTranslationWorkspaceSavedDownloadButtons();
+    }
+
+    function syncTranslationWorkspaceSavedDownloadButtons() {
+        const select = document.getElementById('translation-workspace-file-translation-select');
+        const selectedId = select?.value || selectedFinnishTranslation?.id || '';
+        const hasSavedTranslation = currentFinnishTranslationHistory.some(
+            item => String(item.id) === String(selectedId)
+        );
+        [
+            'translation-workspace-files-download-translation-btn',
+            'translation-workspace-files-download-metadata-btn'
+        ].forEach(id => {
+            const button = document.getElementById(id);
+            if (button) {
+                button.disabled = button.dataset.workspaceDownloadBusy === 'true' || !hasSavedTranslation;
+            }
+        });
     }
 
     function translationWorkspaceCategoryLabel(category) {
@@ -24383,28 +24441,82 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
     }
 
-    async function downloadTranslationWorkspaceFile() {
-        const translationId = selectedFinnishTranslation?.id;
-        const path = selectedTranslationWorkspaceFilePath;
-        const status = document.getElementById('translation-workspace-files-status');
-        if (!translationId || !path) return;
+    function translationWorkspaceSavedDownloadFileName(translationId, kind) {
+        const project = currentTranslationWorkspaceProject();
+        const item = currentFinnishTranslationHistory.find(
+            entry => String(entry.id) === String(translationId)
+        );
+        const safeTitle = String(project?.title || 'kaannos')
+            .toLowerCase()
+            .replace(/[^a-z0-9åäö]+/gi, '-')
+            .replace(/^-+|-+$/g, '') || 'kaannos';
+        const language = String(item?.target_language || 'translation')
+            .toLowerCase()
+            .replace(/[^a-z0-9_-]+/g, '') || 'translation';
+        const version = String(translationId || '').replace(/[^0-9]+/g, '') || 'saved';
+        return kind === 'metadata'
+            ? `${safeTitle}-${language}-kaannos-${version}-metadata.json`
+            : `${safeTitle}-${language}-kaannos-${version}.txt`;
+    }
+
+    async function downloadTranslationWorkspacePath(translationId, path, options = {}) {
+        const status = document.getElementById(options.statusId || 'translation-workspace-files-status');
+        const button = options.button || null;
+        if (!translationId || !path) return false;
+        const originalLabel = button?.textContent || '';
+        if (button) {
+            button.dataset.workspaceDownloadBusy = 'true';
+            button.disabled = true;
+            button.textContent = options.pendingLabel || 'Ladataan…';
+        }
+        if (status && options.pendingMessage) status.textContent = options.pendingMessage;
         try {
             const query = new URLSearchParams({ path, download: 'true' });
             const res = await apiFetch(`/api/translations/${translationId}/workspace-files/content?${query}`);
-            if (!res.ok) throw new Error(await apiErrorMessage(res, 'Työtiedoston lataus epäonnistui.'));
+            if (!res.ok) throw new Error(await apiErrorMessage(res, options.errorMessage || 'Työtiedoston lataus epäonnistui.'));
             const blob = await res.blob();
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = path.split('/').pop() || 'translation-file.txt';
+            link.download = options.fileName || path.split('/').pop() || 'translation-file.txt';
             document.body.appendChild(link);
             link.click();
             link.remove();
             URL.revokeObjectURL(url);
-            if (status) status.textContent = `${path} ladattu.`;
+            if (status) status.textContent = options.successMessage || `${path} ladattu.`;
+            return true;
         } catch (err) {
             if (status) status.textContent = err.message;
+            return false;
+        } finally {
+            if (button) {
+                delete button.dataset.workspaceDownloadBusy;
+                button.textContent = originalLabel;
+                button.disabled = false;
+            }
+            syncTranslationWorkspaceSavedDownloadButtons();
         }
+    }
+
+    async function downloadTranslationWorkspaceSavedFile(translationId, kind, options = {}) {
+        const config = translationWorkspaceSavedDownloads[kind];
+        if (!config) return false;
+        return downloadTranslationWorkspacePath(translationId, config.path, {
+            ...options,
+            fileName: translationWorkspaceSavedDownloadFileName(translationId, kind),
+            pendingLabel: 'Ladataan…',
+            pendingMessage: config.pending,
+            successMessage: config.success,
+            errorMessage: config.error
+        });
+    }
+
+    async function downloadTranslationWorkspaceFile() {
+        return downloadTranslationWorkspacePath(
+            selectedFinnishTranslation?.id,
+            selectedTranslationWorkspaceFilePath,
+            { statusId: 'translation-workspace-files-status' }
+        );
     }
 
     async function downloadTranslationWorkspaceArchive() {
@@ -26828,6 +26940,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     const finnishTranslationReviewText = document.getElementById('finnish-translation-review-text');
     const translationWorkspaceTranslationSelect = document.getElementById('translation-workspace-file-translation-select');
     const translationWorkspaceRefreshBtn = document.getElementById('translation-workspace-files-refresh-btn');
+    const translationWorkspaceDownloadTranslationBtn = document.getElementById('translation-workspace-files-download-translation-btn');
+    const translationWorkspaceDownloadMetadataBtn = document.getElementById('translation-workspace-files-download-metadata-btn');
     const translationWorkspaceDownloadAllBtn = document.getElementById('translation-workspace-files-download-all-btn');
     const translationWorkspaceSearch = document.getElementById('translation-workspace-file-search');
     const translationWorkspaceDownloadBtn = document.getElementById('translation-workspace-file-download-btn');
@@ -27069,6 +27183,24 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     }
     if (translationWorkspaceRefreshBtn) {
         translationWorkspaceRefreshBtn.addEventListener('click', () => loadTranslationWorkspaceFiles(true));
+    }
+    if (translationWorkspaceDownloadTranslationBtn) {
+        translationWorkspaceDownloadTranslationBtn.addEventListener('click', () => {
+            const translationId = translationWorkspaceTranslationSelect?.value || selectedFinnishTranslation?.id;
+            downloadTranslationWorkspaceSavedFile(translationId, 'translation', {
+                button: translationWorkspaceDownloadTranslationBtn,
+                statusId: 'translation-workspace-files-status'
+            });
+        });
+    }
+    if (translationWorkspaceDownloadMetadataBtn) {
+        translationWorkspaceDownloadMetadataBtn.addEventListener('click', () => {
+            const translationId = translationWorkspaceTranslationSelect?.value || selectedFinnishTranslation?.id;
+            downloadTranslationWorkspaceSavedFile(translationId, 'metadata', {
+                button: translationWorkspaceDownloadMetadataBtn,
+                statusId: 'translation-workspace-files-status'
+            });
+        });
     }
     if (translationWorkspaceDownloadAllBtn) {
         translationWorkspaceDownloadAllBtn.addEventListener('click', downloadTranslationWorkspaceArchive);

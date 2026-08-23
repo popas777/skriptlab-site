@@ -10542,6 +10542,24 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     margin-top: 3px;
     color: var(--text-secondary);
 }
+.translation-workspace-version-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.translation-workspace-version-actions .btn {
+    padding: 7px 10px;
+    font-size: 12px;
+}
+@media (max-width: 720px) {
+    .translation-workspace-version {
+        grid-template-columns: 1fr;
+    }
+    .translation-workspace-version-actions {
+        justify-content: flex-start;
+    }
+}
 .translation-workspace-import {
     margin-bottom: 18px;
 }
@@ -10736,6 +10754,7 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
         font-size: 16px;
     }
     .translation-workspace-actions .btn,
+    .translation-workspace-version-actions .btn,
     .translation-workspace-segment-toolbar .btn,
     .translation-workspace-review-toolbar .btn {
         flex: 1 1 140px;
@@ -10753,6 +10772,15 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 .app-wrapper.mobile-simulate .translation-workspace-review-toolbar,
 .app-wrapper.mobile-simulate .translation-workspace-review-columns {
     grid-template-columns: 1fr;
+}
+.app-wrapper.mobile-simulate .translation-workspace-version {
+    grid-template-columns: 1fr;
+}
+.app-wrapper.mobile-simulate .translation-workspace-version-actions {
+    justify-content: flex-start;
+}
+.app-wrapper.mobile-simulate .translation-workspace-version-actions .btn {
+    flex: 1 1 140px;
 }
 
 /* Analysis pulse animation */
