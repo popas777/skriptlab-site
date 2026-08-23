@@ -4512,6 +4512,7 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 .manuskripti-frame,
 .tyosto-frame,
 .tuotanto-frame,
+.skill-frame,
 .video-studio-frame {
     display: block;
     width: 100%;

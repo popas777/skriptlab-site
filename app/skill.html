@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#fbfaf7">
+  <title>Skill – SkriptLab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
+  <link rel="stylesheet" href="skill.css?v=1">
+</head>
+<body>
+  <main class="skill-shell" aria-labelledby="skill-title">
+    <div class="skill-notice" id="skill-notice" role="status" aria-live="polite" hidden>
+      <span id="skill-notice-text"></span>
+      <button id="skill-notice-action" type="button" hidden>Yritä uudelleen</button>
+    </div>
+
+    <section class="skill-start" id="skill-start">
+      <header class="start-heading">
+        <h1 id="skill-title">Skill</h1>
+        <p>Muuta analysoitu teos käytettäväksi työkaluksi.</p>
+        <p class="active-project">Aktiivinen teos: <strong id="skill-project-name">Ladataan…</strong></p>
+      </header>
+
+      <div class="start-illustration" aria-hidden="true">
+        <i class="ph ph-book-open-text"></i>
+        <i class="ph ph-arrow-right"></i>
+        <i class="ph ph-list-numbers"></i>
+      </div>
+
+      <button class="primary-action" id="skill-generate" type="button" disabled>
+        <span>Skilliksi</span>
+        <i class="ph ph-arrow-right" aria-hidden="true"></i>
+      </button>
+      <p class="start-note">Skill rakentuu analyysistä ja käsikirjoituksen rakenteesta.</p>
+    </section>
+
+    <section class="skill-workspace" id="skill-workspace" aria-labelledby="skill-workspace-title" hidden>
+      <header class="workspace-header">
+        <div>
+          <h1 id="skill-workspace-title"><span id="skill-workspace-name">Teos</span> — skill</h1>
+          <p id="skill-workspace-lead">Skill on valmis. Kysy teoksesta tai valitse toiminto.</p>
+        </div>
+        <div class="workspace-actions">
+          <button class="secondary-action" id="skill-refresh" type="button">
+            <i class="ph ph-arrows-clockwise" aria-hidden="true"></i>
+            Päivitä
+          </button>
+          <button class="secondary-action" id="skill-download" type="button">
+            <i class="ph ph-download-simple" aria-hidden="true"></i>
+            Lataa skill
+          </button>
+        </div>
+      </header>
+
+      <div class="stale-notice" id="skill-stale" role="status" hidden>
+        <i class="ph ph-warning-circle" aria-hidden="true"></i>
+        <span>Teoksen analyysi on muuttunut. Päivitä skill ajan tasalle.</span>
+      </div>
+
+      <nav class="feature-grid" aria-label="Skillin toiminnot">
+        <button type="button" data-focus="core_models"><i class="ph ph-tree-structure" aria-hidden="true"></i>Ydinmallit</button>
+        <button type="button" data-focus="principles"><i class="ph ph-file-text" aria-hidden="true"></i>Sovella teokseen</button>
+        <button type="button" data-focus="patterns"><i class="ph ph-wave-sine" aria-hidden="true"></i>Tarkista jatkuvuus</button>
+        <button type="button" data-focus="anti_patterns"><i class="ph ph-warning" aria-hidden="true"></i>Anti-patternit</button>
+        <button type="button" data-focus="glossary"><i class="ph ph-book" aria-hidden="true"></i>Sanasto</button>
+        <button type="button" data-focus="chapters"><i class="ph ph-list-bullets" aria-hidden="true"></i>Luvut</button>
+      </nav>
+
+      <section class="chat-panel" aria-label="Keskustelu skillin kanssa">
+        <div class="chat-messages" id="skill-messages" role="log" aria-live="polite" aria-relevant="additions text"></div>
+        <div class="chat-footer">
+          <p class="skill-meta" id="skill-meta">Skill on valmis</p>
+          <form class="chat-form" id="skill-chat-form">
+            <label class="sr-only" for="skill-input">Kysy skilliltä</label>
+            <textarea id="skill-input" rows="1" maxlength="4000" placeholder="Kysy skilliltä…" aria-describedby="skill-input-help"></textarea>
+            <button class="send-action" id="skill-send" type="submit">Lähetä</button>
+          </form>
+          <p class="input-help" id="skill-input-help">Enter lähettää · Shift+Enter rivinvaihto</p>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="config.js?v=1"></script>
+  <script>
+    const API_BASE_URL = (window.SKRIPTLAB_CONFIG && window.SKRIPTLAB_CONFIG.API_BASE_URL) || "http://127.0.0.1:8000";
+    const apiUrl = (path) => `${API_BASE_URL}${path}`;
+  </script>
+  <script src="auth.js?v=2"></script>
+  <script src="skill.js?v=1"></script>
+</body>
+</html>

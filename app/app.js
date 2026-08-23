@@ -709,13 +709,14 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     const fullWorkspaceRoles = new Set(['admin', 'test_user']);
-    const writerViews = new Set(['view-kirjani', 'view-analyysi', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-oikoluku', 'view-kuvitus', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-julkaisupaketti', 'view-audio', 'view-video', 'view-viimeistely', 'view-korjaukset']);
+    const writerViews = new Set(['view-kirjani', 'view-analyysi', 'view-skill', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-oikoluku', 'view-kuvitus', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-julkaisupaketti', 'view-audio', 'view-video', 'view-viimeistely', 'view-korjaukset']);
     const betaCoreViews = new Set([...writerViews, 'view-monikielinen-julkaisu', 'view-markkinointi']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset', 'view-kaannostyotila']);
     const biographyViews = new Set(['view-kirjani', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-ai-tyonkulku', 'view-viimeistely', 'view-korjaukset', 'view-elamakerta', 'view-oikoluku', 'view-kuvitus', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-markkinointi', 'view-audio', 'view-video', 'view-julkaisupaketti', 'view-julkaise']);
     const accessModuleViews = {
         manuscripts: ['view-kirjani'],
         analysis: ['view-analyysi'],
+        skill: ['view-skill'],
         development_editing: ['view-kehityseditointi'],
         write_edit: ['view-kirjoita-editoi'],
         write: ['view-mobiilieditori'],
@@ -4878,6 +4879,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const showcaseDemoNavOrder = [
         'view-kirjani',
         'view-analyysi',
+        'view-skill',
         'view-kirjoita-editoi',
         'view-kuvitus',
         'view-kaannokset',
@@ -5035,6 +5037,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         if (viewId === 'view-video') {
             refreshVideoFrame();
+        }
+        if (viewId === 'view-skill') {
+            refreshSkillFrame();
         }
         if (['view-kirjani', 'view-analyysi', 'view-rakenne'].includes(viewId)) {
             refreshManuskriptiFrame(viewId);
@@ -21147,6 +21152,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             refreshTuotantoFrame(currentViewId);
         }
         if (currentViewId === 'view-video') refreshVideoFrame();
+        if (currentViewId === 'view-skill') refreshSkillFrame();
         renderCoverImages([]);
         visualRowsInitializedProjectId = null;
         renderVisualBatchDefaults(true);
@@ -21258,6 +21264,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
         if (!options.skipVideoFrameRefresh && currentViewId === 'view-video') {
             refreshVideoFrame();
+        }
+        if (!options.skipSkillFrameRefresh && currentViewId === 'view-skill') {
+            refreshSkillFrame();
         }
         renderAnalysisSummary(window.manuscriptData.analysis);
         renderProductInfo(true);
@@ -26351,6 +26360,29 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         params.set('v', '17');
         frame.dataset.videoProjectId = String(projectId);
         updateEmbeddedModuleFrame(frame, 'video.html', params);
+    }
+
+    function refreshSkillFrame() {
+        const frame = document.getElementById('skill-frame');
+        if (!frame) return;
+        const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
+        try {
+            if (frame.contentWindow && frame.dataset.skillProjectId === String(projectId)) {
+                frame.contentWindow.postMessage({
+                    type: 'skriptlab:skill-project-changed',
+                    projectId: projectId || null
+                }, window.location.origin);
+                return;
+            }
+        } catch (err) {
+            // Reload the frame if it is not ready for a same-origin message yet.
+        }
+        const params = new URLSearchParams();
+        if (projectId) params.set('project', projectId);
+        params.set('r', embeddedProjectRevision());
+        params.set('v', '1');
+        frame.dataset.skillProjectId = String(projectId);
+        updateEmbeddedModuleFrame(frame, 'skill.html', params);
     }
 
     function refreshElamakertaFrame() {

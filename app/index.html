@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=105">
+    <link rel="stylesheet" href="styles.css?v=106">
     <link rel="stylesheet" href="workflow-studio.css?v=2">
     <link rel="stylesheet" href="correction-reprints.css?v=1">
 </head>
@@ -223,12 +223,13 @@
             <div class="app-brand">
                 <h1 class="logo">SkriptLab<span class="accent">.</span></h1>
                 <!-- Increase 0.xxx by 0.001 and replace the suffix with the latest SkriptLab Main update hash on each release. -->
-                <span class="app-version" aria-label="Sovellusversio 0.111, päivitys fa1bc66" title="Sovellusversio 0.111 · päivitys fa1bc66">0.111fa1bc66</span>
+                <span class="app-version" aria-label="Sovellusversio 0.112, päivitys 1cb7885" title="Sovellusversio 0.112 · päivitys 1cb7885">0.1121cb7885</span>
             </div>
             <nav class="sidebar-nav">
                 <ul id="nav-menu">
                     <li class="active" data-view="view-kirjani">Tekstini</li>
                     <li data-view="view-analyysi">Analyysi</li>
+                    <li data-view="view-skill">Skill</li>
                     <li data-view="view-kehityseditointi">Kehityspalaute</li>
                     <li data-view="view-kirjoita-editoi">Kirjoita ja editoi</li>
                     <li data-view="view-mobiilieditori">Mobiili-editori</li>
@@ -1656,6 +1657,17 @@
                 </div>
             </div>
 
+
+            <!-- 4.5 VIEW: SKILL -->
+            <div id="view-skill" class="view-section hidden">
+                <iframe
+                    id="skill-frame"
+                    class="skill-frame"
+                    title="Skill"
+                    src="skill.html?v=1"
+                    loading="lazy"
+                ></iframe>
+            </div>
 
 
 
@@ -4216,6 +4228,6 @@
     <script src="workflow-studio.js?v=5"></script>
     <script src="correction-reprints.js?v=1"></script>
     <script src="demo-terminology.js?v=1"></script>
-    <script src="app.js?v=191"></script>
+    <script src="app.js?v=192"></script>
 </body>
 </html>
