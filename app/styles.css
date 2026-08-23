@@ -4513,6 +4513,7 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 .tyosto-frame,
 .tuotanto-frame,
 .skill-frame,
+.notebooklm-frame,
 .video-studio-frame {
     display: block;
     width: 100%;

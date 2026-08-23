@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=106">
+    <link rel="stylesheet" href="styles.css?v=107">
     <link rel="stylesheet" href="workflow-studio.css?v=2">
     <link rel="stylesheet" href="correction-reprints.css?v=1">
 </head>
@@ -223,7 +223,7 @@
             <div class="app-brand">
                 <h1 class="logo">SkriptLab<span class="accent">.</span></h1>
                 <!-- Increase 0.xxx by 0.001 and replace the suffix with the latest SkriptLab Main update hash on each release. -->
-                <span class="app-version" aria-label="Sovellusversio 0.112, päivitys 1cb7885" title="Sovellusversio 0.112 · päivitys 1cb7885">0.1121cb7885</span>
+                <span class="app-version" aria-label="Sovellusversio 0.113, päivitys 4093f29" title="Sovellusversio 0.113 · päivitys 4093f29">0.1134093f29</span>
             </div>
             <nav class="sidebar-nav">
                 <ul id="nav-menu">
@@ -235,6 +235,7 @@
                     <li data-view="view-mobiilieditori">Mobiili-editori</li>
                     <li data-view="view-oikoluku">Oikoluku ja viimeistely</li>
                     <li data-view="view-kuvitus">Kansi ja grafiikka</li>
+                    <li data-view="view-notebooklm">NotebookLM</li>
                     <li data-view="view-oheisaineistot">Oheisaineistot</li>
                     <li data-view="view-taitto">Taitto</li>
                     <li data-view="view-tuotetiedot">Tuotetiedot</li>
@@ -2383,6 +2384,17 @@
                 </section>
             </div>
 
+            <!-- 7. VIEW: NOTEBOOKLM -->
+            <div id="view-notebooklm" class="view-section hidden">
+                <iframe
+                    id="notebooklm-frame"
+                    class="notebooklm-frame"
+                    title="NotebookLM"
+                    src="notebooklm.html?v=1"
+                    loading="lazy"
+                ></iframe>
+            </div>
+
             <!-- 7. VIEW: TUOTETIEDOT -->
             <div id="view-tuotetiedot" class="view-section editorial-paper-workspace hidden">
                 <header class="production-workspace-hero product-workspace-hero">
@@ -4228,6 +4240,6 @@
     <script src="workflow-studio.js?v=5"></script>
     <script src="correction-reprints.js?v=1"></script>
     <script src="demo-terminology.js?v=1"></script>
-    <script src="app.js?v=192"></script>
+    <script src="app.js?v=193"></script>
 </body>
 </html>

@@ -709,10 +709,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     const fullWorkspaceRoles = new Set(['admin', 'test_user']);
-    const writerViews = new Set(['view-kirjani', 'view-analyysi', 'view-skill', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-oikoluku', 'view-kuvitus', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-julkaisupaketti', 'view-audio', 'view-video', 'view-viimeistely', 'view-korjaukset']);
+    const writerViews = new Set(['view-kirjani', 'view-analyysi', 'view-skill', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-oikoluku', 'view-kuvitus', 'view-notebooklm', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-julkaisupaketti', 'view-audio', 'view-video', 'view-viimeistely', 'view-korjaukset']);
     const betaCoreViews = new Set([...writerViews, 'view-monikielinen-julkaisu', 'view-markkinointi']);
     const translatorViews = new Set([...betaCoreViews, 'view-kaannokset', 'view-kaannostyotila']);
-    const biographyViews = new Set(['view-kirjani', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-ai-tyonkulku', 'view-viimeistely', 'view-korjaukset', 'view-elamakerta', 'view-oikoluku', 'view-kuvitus', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-markkinointi', 'view-audio', 'view-video', 'view-julkaisupaketti', 'view-julkaise']);
+    const biographyViews = new Set(['view-kirjani', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-ai-tyonkulku', 'view-viimeistely', 'view-korjaukset', 'view-elamakerta', 'view-oikoluku', 'view-kuvitus', 'view-notebooklm', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-markkinointi', 'view-audio', 'view-video', 'view-julkaisupaketti', 'view-julkaise']);
     const accessModuleViews = {
         manuscripts: ['view-kirjani'],
         analysis: ['view-analyysi'],
@@ -724,6 +724,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         proofread: ['view-oikoluku'],
         support_materials: ['view-oheisaineistot'],
         cover_illustration: ['view-kuvitus'],
+        notebooklm: ['view-notebooklm'],
         book_layout: ['view-taitto'],
         publication_package: ['view-julkaisupaketti', 'view-korjaukset'],
         publish: ['view-julkaise'],
@@ -5040,6 +5041,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         if (viewId === 'view-skill') {
             refreshSkillFrame();
+        }
+        if (viewId === 'view-notebooklm') {
+            refreshNotebookLMFrame();
         }
         if (['view-kirjani', 'view-analyysi', 'view-rakenne'].includes(viewId)) {
             refreshManuskriptiFrame(viewId);
@@ -21153,6 +21157,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
         if (currentViewId === 'view-video') refreshVideoFrame();
         if (currentViewId === 'view-skill') refreshSkillFrame();
+        if (currentViewId === 'view-notebooklm') refreshNotebookLMFrame();
         renderCoverImages([]);
         visualRowsInitializedProjectId = null;
         renderVisualBatchDefaults(true);
@@ -21267,6 +21272,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
         if (!options.skipSkillFrameRefresh && currentViewId === 'view-skill') {
             refreshSkillFrame();
+        }
+        if (!options.skipNotebookLMFrameRefresh && currentViewId === 'view-notebooklm') {
+            refreshNotebookLMFrame();
         }
         renderAnalysisSummary(window.manuscriptData.analysis);
         renderProductInfo(true);
@@ -26383,6 +26391,29 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         params.set('v', '1');
         frame.dataset.skillProjectId = String(projectId);
         updateEmbeddedModuleFrame(frame, 'skill.html', params);
+    }
+
+    function refreshNotebookLMFrame() {
+        const frame = document.getElementById('notebooklm-frame');
+        if (!frame) return;
+        const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
+        try {
+            if (frame.contentWindow && frame.dataset.notebooklmProjectId === String(projectId)) {
+                frame.contentWindow.postMessage({
+                    type: 'skriptlab:notebooklm-project-changed',
+                    projectId: projectId || null
+                }, window.location.origin);
+                return;
+            }
+        } catch (err) {
+            // Reload the frame if it is not ready for a same-origin message yet.
+        }
+        const params = new URLSearchParams();
+        if (projectId) params.set('project', projectId);
+        params.set('r', embeddedProjectRevision());
+        params.set('v', '1');
+        frame.dataset.notebooklmProjectId = String(projectId);
+        updateEmbeddedModuleFrame(frame, 'notebooklm.html', params);
     }
 
     function refreshElamakertaFrame() {

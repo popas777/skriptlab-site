@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f7f4ed">
+  <title>NotebookLM – SkriptLab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="notebooklm.css?v=1">
+</head>
+<body>
+  <main class="notebooklm-shell" aria-labelledby="notebooklm-title">
+    <header class="notebooklm-header">
+      <div class="module-heading">
+        <span class="module-mark" aria-hidden="true">N</span>
+        <div>
+          <div class="title-line">
+            <h1 id="notebooklm-title">NotebookLM</h1>
+            <span class="experimental-badge" id="notebooklm-experimental" hidden>Kokeellinen</span>
+          </div>
+          <p>Muuta käsikirjoituksesi kuunneltaviksi, katseltaviksi ja ladattaviksi aineistoiksi.</p>
+          <p class="project-line">Aktiivinen teos: <strong id="notebooklm-project-name">Ladataan…</strong></p>
+        </div>
+      </div>
+      <div class="connection-summary" aria-label="NotebookLM-yhteyden tila">
+        <span class="connection-dot" id="notebooklm-connection-dot" aria-hidden="true"></span>
+        <div>
+          <small>YHTEYS</small>
+          <strong id="notebooklm-connection-badge">Tarkistetaan…</strong>
+          <span id="notebooklm-connection-message">Luetaan palvelun asetuksia.</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="module-notice" id="notebooklm-notice" role="status" aria-live="polite" hidden>
+      <span class="notice-symbol" aria-hidden="true"></span>
+      <p id="notebooklm-notice-text"></p>
+      <button id="notebooklm-notice-action" type="button" hidden>Yritä uudelleen</button>
+    </section>
+
+    <section class="notebook-overview" id="notebooklm-overview" aria-labelledby="notebooklm-notebook-heading" data-state="loading">
+      <div class="overview-copy">
+        <p class="eyebrow">KÄSIKIRJOITUKSEN NOTEBOOK</p>
+        <h2 id="notebooklm-notebook-heading">Valmistellaan työtilaa</h2>
+        <p id="notebooklm-notebook-description">Tarkistamme, onko aktiivinen käsikirjoitus jo yhdistetty NotebookLM:ään.</p>
+        <div class="notebook-meta" id="notebooklm-notebook-meta" aria-label="Notebookin tiedot">
+          <span><small>TILA</small><strong id="notebooklm-notebook-status">Ladataan</strong></span>
+          <span><small>AINEISTO</small><strong id="notebooklm-source-size">—</strong></span>
+          <span><small>SYNKRONOITU</small><strong id="notebooklm-synced-at">—</strong></span>
+        </div>
+      </div>
+      <div class="overview-actions">
+        <a class="text-link" id="notebooklm-open" href="#" target="_blank" rel="noopener noreferrer" hidden>Avaa NotebookLM:ssä <span aria-hidden="true">↗</span></a>
+        <button class="primary-action" id="notebooklm-sync" type="button" disabled>
+          <span class="button-icon" aria-hidden="true">↻</span>
+          <span id="notebooklm-sync-label">Synkronoi käsikirjoitus</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="stale-banner" id="notebooklm-stale" role="status" hidden>
+      <span aria-hidden="true">!</span>
+      <div>
+        <strong>Käsikirjoitus on muuttunut synkronoinnin jälkeen.</strong>
+        <p>Päivitä NotebookLM ennen uusien aineistojen luomista, jotta ne perustuvat uusimpaan versioon.</p>
+      </div>
+    </section>
+
+    <section class="consent-panel" id="notebooklm-consent-panel" aria-labelledby="notebooklm-consent-title">
+      <div class="external-service-mark" aria-hidden="true">↗</div>
+      <div class="consent-copy">
+        <h2 id="notebooklm-consent-title">Käsikirjoitus käsitellään ulkoisessa palvelussa</h2>
+        <p>Synkronointi lähettää käsikirjoituksen tilannekuvan Googlen NotebookLM-palveluun. Lähetä vain aineistoa, jonka käsittelyyn sinulla on oikeus.</p>
+        <label class="consent-check" for="notebooklm-consent">
+          <input id="notebooklm-consent" type="checkbox" aria-describedby="notebooklm-consent-help">
+          <span aria-hidden="true"></span>
+          <strong>Hyväksyn käsikirjoituksen lähettämisen NotebookLM:ään.</strong>
+        </label>
+        <small id="notebooklm-consent-help">Hyväksyntä tarvitaan ennen ensimmäistä synkronointia.</small>
+      </div>
+    </section>
+
+    <div class="workspace-grid">
+      <section class="creation-panel" aria-labelledby="notebooklm-create-title">
+        <header class="section-heading">
+          <div>
+            <p class="eyebrow">LUO UUSI AINEISTO</p>
+            <h2 id="notebooklm-create-title">Valitse artifact</h2>
+          </div>
+          <span class="language-badge" title="Luontikieli">FI</span>
+        </header>
+
+        <form id="notebooklm-artifact-form">
+          <fieldset class="artifact-fieldset" id="notebooklm-artifact-fieldset" disabled>
+            <legend class="sr-only">Artifact-tyyppi</legend>
+            <div class="artifact-type-grid" id="notebooklm-artifact-types" aria-describedby="notebooklm-artifact-type-help"></div>
+          </fieldset>
+          <p class="field-help" id="notebooklm-artifact-type-help">Valitse käsikirjoituksesta luotava aineisto.</p>
+
+          <label class="instructions-field" for="notebooklm-instructions">
+            <span>Ohjeet NotebookLM:lle <small>valinnainen</small></span>
+            <textarea id="notebooklm-instructions" rows="4" maxlength="2000" placeholder="Esim. keskity henkilöiden välisiin ristiriitoihin ja vältä juonipaljastuksia."></textarea>
+          </label>
+
+          <div class="creation-footer">
+            <p id="notebooklm-create-help">Synkronoi käsikirjoitus ensin.</p>
+            <button class="primary-action compact" id="notebooklm-generate" type="submit" disabled>
+              <span aria-hidden="true">＋</span>
+              Luo artifact
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <aside class="activity-panel" aria-labelledby="notebooklm-jobs-title">
+        <header class="section-heading">
+          <div>
+            <p class="eyebrow">TYÖT</p>
+            <h2 id="notebooklm-jobs-title">Käynnissä ja viimeisimmät</h2>
+          </div>
+          <button class="icon-action" id="notebooklm-refresh" type="button" aria-label="Päivitä työt ja artifactit" title="Päivitä" disabled>↻</button>
+        </header>
+        <div class="job-list" id="notebooklm-jobs" aria-live="polite" aria-busy="false"></div>
+        <div class="empty-state" id="notebooklm-jobs-empty">
+          <span aria-hidden="true">○</span>
+          <p>Ei vielä käynnistettyjä töitä.</p>
+        </div>
+      </aside>
+    </div>
+
+    <section class="artifact-library" aria-labelledby="notebooklm-library-title">
+      <header class="section-heading library-heading">
+        <div>
+          <p class="eyebrow">VALMIIT AINEISTOT</p>
+          <h2 id="notebooklm-library-title">Artifact-kirjasto</h2>
+          <p>Valmiit tiedostot ladataan turvallisesti SkriptLabin kautta.</p>
+        </div>
+        <span class="artifact-count" id="notebooklm-artifact-count">0 artifactia</span>
+      </header>
+      <div class="artifact-list" id="notebooklm-artifacts" aria-live="polite" aria-busy="false"></div>
+      <div class="library-empty" id="notebooklm-artifacts-empty">
+        <span class="empty-orbit" aria-hidden="true">N</span>
+        <div>
+          <strong>Artifact-kirjastosi odottaa ensimmäistä aineistoa.</strong>
+          <p>Kun NotebookLM saa työn valmiiksi, lataus ilmestyy tähän.</p>
+        </div>
+      </div>
+    </section>
+
+    <footer class="module-footer">
+      <p>NotebookLM on Googlen palvelu. SkriptLab näyttää vain tähän projektiin liitetyt notebookit ja artifactit.</p>
+    </footer>
+  </main>
+
+  <script src="config.js?v=1"></script>
+  <script>
+    window.API_BASE_URL = (window.SKRIPTLAB_CONFIG && window.SKRIPTLAB_CONFIG.API_BASE_URL) || "";
+    window.apiUrl = (path) => `${window.API_BASE_URL}${path}`;
+  </script>
+  <script src="auth.js?v=2"></script>
+  <script src="notebooklm.js?v=1"></script>
+</body>
+</html>
