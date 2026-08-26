@@ -983,6 +983,20 @@ details.mass-section .mass-body { padding: 0 14px 14px; }
 .check-row { display: flex; align-items: center; gap: 10px; min-height: 40px; font-size: 15px; }
 .check-row input { width: 20px; height: 20px; accent-color: var(--mustikka); }
 
+.layout-cover-option {
+  margin: 10px 0 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--raja);
+  border-radius: var(--radius-s);
+  background: color-mix(in srgb, var(--kortti) 88%, var(--mustikka-vaalea));
+}
+
+.layout-cover-option .field-label { margin-bottom: 8px; color: var(--muste); }
+.layout-cover-option select { min-height: 44px; padding-block: 10px; }
+.layout-cover-option select:disabled { cursor: not-allowed; opacity: 0.62; }
+.layout-cover-option.is-unavailable { background: var(--kortti); }
+.layout-cover-option .hint { min-height: 1.3em; }
+
 .undo-toast {
   position: fixed;
   left: 16px; right: 16px;

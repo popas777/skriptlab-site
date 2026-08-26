@@ -106,6 +106,9 @@
   let selectedParagraphIndent = "medium";
   let selectedParagraphSpacing = "none";
   let assets = [];           // GET /misc-assets
+  let layoutCoverOptions = [];
+  let layoutCoverLoadState = "idle";
+  let layoutCoverLoadError = "";
   let pendingResult = null;  // { tool, title, result }
   let viewedAsset = null;
   let bookPreviewSource = "";
@@ -432,8 +435,14 @@
                    "&include_toc=" + includeToc);
   }
 
+  async function apiListLayoutCoverOptions(activeId) {
+    if (demoMode) return [];
+    return api("/projects/" + activeId + "/layout-cover-options");
+  }
+
   async function apiRunLayout() {
     const outputFormats = selectedOutputFormats();
+    const coverAssetId = selectedLayoutCoverAssetId(outputFormats);
     if (demoMode) {
       await new Promise((r) => setTimeout(r, 700));
       const content = demo.bookText($("opt-title-page").checked, $("opt-toc").checked);
@@ -470,6 +479,7 @@
       output_formats: outputFormats,
       include_title_page: $("opt-title-page").checked,
       include_toc: $("opt-toc").checked,
+      cover_asset_id: coverAssetId,
     }));
   }
 
@@ -499,7 +509,7 @@
     $("production-tabs").hidden = AVAILABLE_TABS.size < 2;
   }
 
-  function switchTab(next, refresh = true) {
+  function switchTab(next, refresh = true, refreshCovers = true) {
     if (!AVAILABLE_TABS.has(next)) return;
     tab = next;
     $("layout-common").hidden = !(tab === "kirja" || tab === "taitto");
@@ -509,7 +519,10 @@
       $("panel-" + name).hidden = name !== tab;
     }
     if (refresh && tab === "kirja") refreshBook();
-    if (refresh && tab === "taitto") refreshLayoutAssets();
+    if (refresh && tab === "taitto") {
+      refreshLayoutAssets();
+      if (refreshCovers) refreshLayoutCoverOptions();
+    }
   }
 
   /* ------------------------------------------------------------ aineistot */
@@ -1027,6 +1040,91 @@
     return OUTPUT_FORMAT_ORDER.filter((value) => selected.has(value));
   }
 
+  function coverFormatsSelected(outputFormats = selectedOutputFormats()) {
+    return outputFormats.includes("pdf") || outputFormats.includes("epub");
+  }
+
+  function selectedLayoutCoverAssetId(outputFormats = selectedOutputFormats()) {
+    if (!coverFormatsSelected(outputFormats)) return null;
+    const value = Number($("layout-cover-select").value || 0);
+    return Number.isInteger(value) && value > 0 ? value : null;
+  }
+
+  function renderLayoutCoverOptions() {
+    const select = $("layout-cover-select");
+    const previousValue = select.value;
+    select.replaceChildren(new Option("Ei kansikuvaa", ""));
+    layoutCoverOptions.forEach((cover, index) => {
+      const assetId = Number(cover && cover.id);
+      if (!Number.isInteger(assetId) || assetId <= 0) return;
+      select.add(new Option(String(cover.title || "Etukansi " + (index + 1)), String(assetId)));
+    });
+    select.value = layoutCoverOptions.some((cover) => String(cover.id) === previousValue)
+      ? previousValue
+      : "";
+    updateLayoutCoverAvailability();
+  }
+
+  function updateLayoutCoverAvailability() {
+    const select = $("layout-cover-select");
+    const help = $("layout-cover-help");
+    const supportsCover = coverFormatsSelected();
+    const hasOptions = layoutCoverOptions.length > 0;
+    select.disabled = layoutCoverLoadState !== "ready" || !hasOptions || !supportsCover;
+    $("layout-cover-option").classList.toggle("is-unavailable", select.disabled);
+
+    if (layoutCoverLoadState === "loading" || layoutCoverLoadState === "idle") {
+      help.textContent = "Ladataan projektin etukansia…";
+    } else if (layoutCoverLoadState === "error") {
+      help.textContent = layoutCoverLoadError || "Etukansia ei voitu ladata. Taiton voi silti muodostaa ilman kantta.";
+    } else if (!hasOptions) {
+      help.textContent = "Projektilla ei ole vielä etukansia. Luo kansi Kansi ja grafiikka -osiossa.";
+    } else if (!supportsCover) {
+      help.textContent = "Valitse PDF tai EPUB käyttääksesi kansikuvaa.";
+    } else {
+      help.textContent = "Valinta koskee vain PDF- ja EPUB-tiedostoja. Muut vientimuodot eivät sisällä kantta.";
+    }
+  }
+
+  async function refreshLayoutCoverOptions() {
+    let activeId;
+    try {
+      activeId = String(requireProjectId());
+    } catch (error) {
+      layoutCoverOptions = [];
+      layoutCoverLoadState = "empty";
+      renderLayoutCoverOptions();
+      return;
+    }
+
+    layoutCoverOptions = [];
+    layoutCoverLoadError = "";
+    layoutCoverLoadState = "loading";
+    $("layout-cover-select").value = "";
+    renderLayoutCoverOptions();
+    try {
+      const response = await apiListLayoutCoverOptions(activeId);
+      if (String(resolveProjectId() || "") !== activeId) return;
+      const items = Array.isArray(response)
+        ? response
+        : Array.isArray(response && response.covers)
+          ? response.covers
+          : Array.isArray(response && response.items)
+            ? response.items
+            : [];
+      layoutCoverOptions = items.filter((cover) => (
+        cover && cover.id != null && (!cover.asset_type || cover.asset_type === "cover_image")
+      ));
+      layoutCoverLoadState = "ready";
+    } catch (error) {
+      if (String(resolveProjectId() || "") !== activeId) return;
+      layoutCoverOptions = [];
+      layoutCoverLoadState = "error";
+      layoutCoverLoadError = "Etukansia ei voitu ladata. Taiton voi silti muodostaa ilman kantta.";
+    }
+    renderLayoutCoverOptions();
+  }
+
   function updateOutputFormatSelection() {
     const selected = selectedOutputFormats();
     document.querySelectorAll("[data-layout-format]").forEach((input) => {
@@ -1038,6 +1136,7 @@
       ? "Muodosta " + selected.length + " valittua aineistoa"
       : "Valitse tiedostomuoto";
     button.disabled = selected.length === 0 || button.dataset.projectUnavailable === "true";
+    updateLayoutCoverAvailability();
   }
 
   function openSheet(id) {
@@ -1153,8 +1252,10 @@
     }
     $("project-title").textContent = projectTitle;
     $("status-text").textContent = "Ladataan aineistoja…";
-    await refreshAssets();
-    switchTab(tab);
+    const bootTasks = [refreshAssets()];
+    if (AVAILABLE_TABS.has("taitto")) bootTasks.push(refreshLayoutCoverOptions());
+    await Promise.all(bootTasks);
+    switchTab(tab, true, false);
     if (!demoMode) $("status-text").textContent = "";
     working(false);
   }

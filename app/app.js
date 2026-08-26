@@ -26488,7 +26488,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         params.set('tab', nextTab);
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '17');
+        params.set('v', '18');
         updateEmbeddedModuleFrame(frame, 'tuotanto.html', params);
     }
 
