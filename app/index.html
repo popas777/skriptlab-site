@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=108">
+    <link rel="stylesheet" href="styles.css?v=109">
     <link rel="stylesheet" href="workflow-studio.css?v=2">
     <link rel="stylesheet" href="correction-reprints.css?v=1">
 </head>
@@ -3898,6 +3898,12 @@
                                 <button id="finnish-translation-ai-check-bilingual-btn" class="btn btn-secondary" type="button">Lataa bilingual</button>
                             </div>
                         </div>
+                        <section
+                            id="finnish-translation-ai-check-summary"
+                            class="translation-review-summary"
+                            aria-live="polite"
+                            hidden
+                        ></section>
                         <div class="translation-ai-check-grid">
                             <div class="translation-part-list-wrap">
                                 <h4>Käännöspalat</h4>
@@ -4148,6 +4154,12 @@
                             <button id="translation-workspace-review-bilingual-btn" class="btn btn-secondary" type="button">Lataa bilingual</button>
                         </div>
                         <p id="translation-workspace-review-status" class="translation-workspace-message">Valitse käännös tai tuo rinnakkaiskäsikirjoitus.</p>
+                        <section
+                            id="translation-workspace-review-summary"
+                            class="translation-review-summary"
+                            aria-live="polite"
+                            hidden
+                        ></section>
                         <div class="translation-workspace-review-layout">
                             <aside class="translation-workspace-segments">
                                 <h3>Segmentit</h3>
@@ -4239,6 +4251,6 @@
     <script src="workflow-studio.js?v=5"></script>
     <script src="correction-reprints.js?v=1"></script>
     <script src="demo-terminology.js?v=1"></script>
-    <script src="app.js?v=195"></script>
+    <script src="app.js?v=196"></script>
 </body>
 </html>

@@ -3988,6 +3988,150 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     font-size: 13px;
     margin: 6px 0 0;
 }
+.translation-review-summary {
+    display: grid;
+    gap: 14px;
+    margin: 0 0 16px;
+    padding: 16px;
+    border: 1px solid rgba(121, 192, 255, 0.22);
+    border-radius: 10px;
+    background:
+        linear-gradient(135deg, rgba(121, 192, 255, 0.09), rgba(210, 168, 255, 0.035)),
+        rgba(0, 0, 0, 0.1);
+}
+.translation-review-summary[hidden] {
+    display: none;
+}
+.translation-review-summary-head {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 18px;
+}
+.translation-review-summary-eyebrow {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--ai-gradient-start);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+}
+.translation-review-summary h3 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 16px;
+}
+.translation-review-summary p {
+    max-width: 670px;
+    margin: 5px 0 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.5;
+}
+.translation-review-summary-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(82px, 1fr));
+    gap: 7px;
+    min-width: min(100%, 430px);
+}
+.translation-review-summary-stats > span {
+    display: grid;
+    gap: 2px;
+    padding: 9px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.14);
+    color: var(--text-secondary);
+    font-size: 10px;
+    line-height: 1.25;
+}
+.translation-review-summary-stats strong {
+    color: var(--text-primary);
+    font-size: 17px;
+    font-variant-numeric: tabular-nums;
+}
+.translation-review-summary-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 8px;
+    max-height: 260px;
+    overflow: auto;
+    padding-right: 2px;
+}
+.translation-review-summary-item {
+    display: grid;
+    align-content: start;
+    gap: 5px;
+    min-width: 0;
+    padding: 11px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.035);
+    color: var(--text-secondary);
+    text-align: left;
+    cursor: pointer;
+    font-family: inherit;
+}
+.translation-review-summary-item:hover,
+.translation-review-summary-item.active {
+    border-color: var(--ai-gradient-start);
+    background: rgba(121, 192, 255, 0.1);
+}
+.translation-review-summary-item:focus-visible {
+    outline: 2px solid var(--ai-gradient-start);
+    outline-offset: 2px;
+}
+.translation-review-summary-item-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.translation-review-summary-item-head strong {
+    color: var(--text-primary);
+    font-size: 12px;
+}
+.translation-review-summary-item-head > span {
+    flex: 0 0 auto;
+    padding: 3px 6px;
+    border-radius: 999px;
+    background: rgba(255, 176, 46, 0.13);
+    color: #ffcf70;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+}
+.translation-review-summary-item-meta {
+    overflow: hidden;
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.translation-review-summary-item-notes {
+    display: -webkit-box;
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 11px;
+    line-height: 1.45;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+}
+.translation-review-summary-empty {
+    padding: 11px 12px;
+    border: 1px dashed var(--border-color);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+[data-theme="light"] .translation-review-summary {
+    background:
+        linear-gradient(135deg, rgba(9, 105, 218, 0.075), rgba(130, 80, 223, 0.025)),
+        rgba(255, 255, 255, 0.45);
+}
+[data-theme="light"] .translation-review-summary-stats > span,
+[data-theme="light"] .translation-review-summary-item {
+    background: rgba(255, 255, 255, 0.58);
+}
 .translation-review-actions {
     display: flex;
     gap: 8px;
@@ -4388,6 +4532,13 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     .translation-review-header {
         display: grid;
     }
+    .translation-review-summary-head {
+        display: grid;
+    }
+    .translation-review-summary-stats {
+        width: 100%;
+        min-width: 0;
+    }
     .translation-review-actions {
         justify-content: flex-start;
     }
@@ -4427,6 +4578,17 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     .translation-response-editor {
         height: 520px;
         min-height: 420px;
+    }
+}
+@media (max-width: 560px) {
+    .translation-review-summary {
+        padding: 13px;
+    }
+    .translation-review-summary-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .translation-review-summary-list {
+        grid-template-columns: 1fr;
     }
 }
 .layout-offers button {

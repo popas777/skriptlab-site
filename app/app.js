@@ -22665,6 +22665,11 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (modelSelect) modelSelect.disabled = translationWorkspaceReviewRunning;
         populateTranslationWorkspaceReviewSelect();
         if (!item || !chunks.length) {
+            renderTranslationReviewSummary(
+                'translation-workspace-review-summary',
+                [],
+                selectedFinnishTranslationPartIndex
+            );
             if (list) list.innerHTML = '<p class="card-meta">Ei tarkastettavia segmenttejä.</p>';
             if (position) position.textContent = 'Ei segmenttiä';
             if (source) source.value = '';
@@ -22678,6 +22683,15 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         selectedFinnishTranslationPartIndex = Math.max(
             0,
             Math.min(selectedFinnishTranslationPartIndex, chunks.length - 1)
+        );
+        renderTranslationReviewSummary(
+            'translation-workspace-review-summary',
+            chunks,
+            selectedFinnishTranslationPartIndex,
+            index => {
+                selectedFinnishTranslationPartIndex = index;
+                renderTranslationWorkspaceReview();
+            }
         );
         const chunk = chunks[selectedFinnishTranslationPartIndex];
         const aiCheck = workspaceChunkCheck(chunk);
@@ -24713,6 +24727,110 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         return String(aiCheck.checked_translation || '').trim();
     }
 
+    function normalizeTranslationReviewText(value) {
+        return String(value || '').replace(/\r\n?/g, '\n').trim();
+    }
+
+    function translationReviewSuggestionState(chunk) {
+        const checked = normalizeTranslationReviewText(finnishTranslationAiCheckedText(chunk));
+        if (!checked) return 'unchecked';
+        const current = normalizeTranslationReviewText(chunk?.translation);
+        return checked === current ? 'unchanged' : 'pending';
+    }
+
+    function translationReviewSummaryModel(chunks) {
+        const safeChunks = Array.isArray(chunks) ? chunks : [];
+        const entries = safeChunks.map((chunk, index) => ({
+            chunk,
+            index,
+            state: translationReviewSuggestionState(chunk)
+        }));
+        const checked = entries.filter(entry => entry.state !== 'unchecked').length;
+        const suggestions = entries.filter(entry => entry.state === 'pending');
+        return {
+            total: entries.length,
+            checked,
+            unchecked: entries.length - checked,
+            unchanged: checked - suggestions.length,
+            suggestions
+        };
+    }
+
+    function renderTranslationReviewSummary(containerId, chunks, selectedIndex, onSelect) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        const summary = translationReviewSummaryModel(chunks);
+        if (!summary.total) {
+            container.hidden = true;
+            container.innerHTML = '';
+            return;
+        }
+
+        container.hidden = false;
+        const progressText = summary.checked === 0
+            ? 'Yhteenveto täyttyy, kun tarkastat yhden tai useamman segmentin.'
+            : summary.suggestions.length
+                ? `AI ehdottaa muutosta ${summary.suggestions.length} segmenttiin. Avaa ehdotus siirtyäksesi suoraan kyseiseen kohtaan.`
+                : summary.unchecked
+                    ? 'Tarkastetuissa segmenteissä ei ole avoimia korjausehdotuksia. Jatka vielä tarkastamattomiin segmentteihin.'
+                    : 'Koko käännös on tarkastettu eikä nykyiseen tekstiin ole avoimia korjausehdotuksia.';
+        const suggestionMarkup = summary.suggestions.length
+            ? `
+                <div class="translation-review-summary-list">
+                    ${summary.suggestions.map(entry => {
+                        const label = translationPartLabel(entry.chunk, entry.index);
+                        const aiCheck = workspaceChunkCheck(entry.chunk);
+                        const notes = String(aiCheck.notes || '').trim() || 'Tarkastettu teksti poikkeaa nykyisestä käännöksestä.';
+                        return `
+                            <button
+                                type="button"
+                                class="translation-review-summary-item ${entry.index === selectedIndex ? 'active' : ''}"
+                                data-translation-review-summary-index="${entry.index}"
+                                ${entry.index === selectedIndex ? 'aria-current="true"' : ''}
+                            >
+                                <span class="translation-review-summary-item-head">
+                                    <strong>${escapeHtml(label.title)}</strong>
+                                    <span>Korjausehdotus</span>
+                                </span>
+                                <span class="translation-review-summary-item-meta">${escapeHtml(label.meta)}</span>
+                                <span class="translation-review-summary-item-notes">${escapeHtml(notes)}</span>
+                            </button>
+                        `;
+                    }).join('')}
+                </div>
+            `
+            : `
+                <div class="translation-review-summary-empty">
+                    ${summary.checked
+                        ? 'Ei avoimia korjausehdotuksia tarkastetuissa segmenteissä.'
+                        : 'Ei korjausehdotuksia ennen ensimmäistä tarkastusta.'}
+                </div>
+            `;
+
+        container.innerHTML = `
+            <div class="translation-review-summary-head">
+                <div>
+                    <span class="translation-review-summary-eyebrow">KOKONAISKUVA</span>
+                    <h3>Korjausehdotusten yhteenveto</h3>
+                    <p>${escapeHtml(progressText)}</p>
+                </div>
+                <div class="translation-review-summary-stats" aria-label="Tarkastuksen tilanne">
+                    <span><strong>${summary.checked}/${summary.total}</strong>Tarkastettu</span>
+                    <span><strong>${summary.suggestions.length}</strong>Muutosta ehdottavia</span>
+                    <span><strong>${summary.unchanged}</strong>Ei muutosta</span>
+                    <span><strong>${summary.unchecked}</strong>Tarkastamatta</span>
+                </div>
+            </div>
+            ${suggestionMarkup}
+        `;
+        container.querySelectorAll('[data-translation-review-summary-index]').forEach(button => {
+            button.addEventListener('click', () => {
+                const index = Number(button.dataset.translationReviewSummaryIndex);
+                if (Number.isInteger(index) && typeof onSelect === 'function') onSelect(index);
+            });
+        });
+    }
+
     function translationPartLabel(chunk, fallbackIndex) {
         const index = Number(chunk?.index || fallbackIndex + 1);
         const total = Number(chunk?.total || 0);
@@ -25048,6 +25166,11 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
 
         const chunks = translationChunkDetails(selectedFinnishTranslation);
         if (!selectedFinnishTranslation) {
+            renderTranslationReviewSummary(
+                'finnish-translation-ai-check-summary',
+                [],
+                selectedFinnishTranslationPartIndex
+            );
             list.innerHTML = '';
             renderTranslationPartDetail('finnish-translation', null, 'Valitse käännös.');
             status.textContent = 'Valitse käännös ja tarkastele käännöspalakohtainen kutsu ja vastaus.';
@@ -25140,6 +25263,11 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             return;
         }
         if (!chunks.length) {
+            renderTranslationReviewSummary(
+                'finnish-translation-ai-check-summary',
+                [],
+                selectedFinnishTranslationPartIndex
+            );
             list.innerHTML = '<div style="color:var(--text-secondary); font-size:13px;">Tällä käännöksellä ei ole osalokia. Luo käännös uudelleen, niin AI-tarkastus voidaan tehdä paloittain.</div>';
             setTranslationAiCheckText('source', '');
             setTranslationAiCheckText('current', selectedFinnishTranslation.translated_text || '');
@@ -25158,6 +25286,16 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
 
         selectedFinnishTranslationPartIndex = Math.max(0, Math.min(selectedFinnishTranslationPartIndex, chunks.length - 1));
+        renderTranslationReviewSummary(
+            'finnish-translation-ai-check-summary',
+            chunks,
+            selectedFinnishTranslationPartIndex,
+            index => {
+                selectedFinnishTranslationPartIndex = index;
+                renderFinnishTranslationParts();
+                renderFinnishTranslationAiCheck();
+            }
+        );
         const checkedIndexes = chunks
             .map((chunk, index) => finnishTranslationAiCheckedText(chunk) ? index : null)
             .filter(index => index !== null);
