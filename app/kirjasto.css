@@ -31,14 +31,14 @@
 }
 
 html {
-  min-width: 320px;
+  min-width: 0;
   min-height: 100%;
   background: var(--paper);
   scroll-behavior: smooth;
 }
 
 body {
-  min-width: 320px;
+  min-width: 0;
   min-height: 100vh;
   min-height: 100dvh;
   margin: 0;
@@ -628,6 +628,17 @@ body.has-audio .library-screen {
   gap: 18px;
 }
 
+.results-heading-copy {
+  min-width: 0;
+}
+
+.results-description {
+  max-width: 680px;
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
 .results-heading span {
   color: var(--muted);
   font-size: 13px;
@@ -720,14 +731,29 @@ body.has-audio .library-screen {
   z-index: 3;
   top: 8px;
   left: 8px;
+  max-width: calc(100% - 16px);
   padding: 4px 7px;
+  overflow: hidden;
   border-radius: 999px;
   background: rgba(23, 37, 31, 0.86);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.03em;
+  text-overflow: ellipsis;
   text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.work-status.is-managed-example {
+  border: 1px solid color-mix(in srgb, var(--forest) 28%, transparent);
+  background: color-mix(in srgb, var(--forest-soft) 94%, transparent);
+  color: var(--forest-dark);
+  box-shadow: 0 3px 10px rgba(18, 40, 30, 0.12);
+}
+
+.work-status.is-shared {
+  background: color-mix(in srgb, var(--forest-dark) 90%, transparent);
 }
 
 .work-card-progress {
@@ -866,6 +892,12 @@ body.has-audio .library-screen {
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
+}
+
+.detail-status.is-managed-example,
+.detail-status.is-shared {
+  background: var(--forest-soft);
+  color: var(--forest-dark);
 }
 
 .media-labels {
@@ -2330,7 +2362,7 @@ input[type="range"] {
     left: 0;
     display: grid;
     height: calc(76px + var(--safe-bottom));
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     padding: 7px max(10px, var(--safe-right)) var(--safe-bottom) max(10px, var(--safe-left));
     border-top: 1px solid var(--line);
     background: color-mix(in srgb, var(--surface) 96%, transparent);

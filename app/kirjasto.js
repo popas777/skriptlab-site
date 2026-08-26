@@ -97,10 +97,12 @@
       "library-media-filters",
       "library-theme-filter",
       "library-loading",
+      "library-loading-text",
       "library-continue-section",
       "library-continue-card",
       "library-results",
       "library-results-title",
+      "library-results-description",
       "library-result-count",
       "library-work-grid",
       "library-empty",
@@ -456,6 +458,8 @@
     const themeLabels = normalizeThema(firstValue(source, ["theme_labels", "themes", "theme"], []));
     const themes = mergeThemes(themaSubjects, themeLabels);
     const suggestions = themaSubjects.filter((item) => item.status !== "confirmed");
+    const managedExample = booleanValue(firstValue(source, ["managed_example", "managedExample", "is_managed_example"], false));
+    const shared = managedExample || booleanValue(firstValue(source, ["shared", "is_shared", "shared_work"], false));
 
     return {
       id: text(firstValue(source, ["id", "work_id", "uuid"], "")),
@@ -473,6 +477,8 @@
       progress: normalizeProgress(progressSource),
       ownerId: text(firstValue(source, ["owner_user_id", "owner_id", "user_id", "created_by"], "")),
       canEdit: booleanValue(firstValue(source, ["can_manage", "can_edit", "editable"], false)),
+      managedExample,
+      shared,
       chapterCount,
       durationSeconds: Math.max(0, finiteNumber(firstValue(source, ["audio_duration_seconds", "duration_seconds", "audio_duration"], 0))),
       publishedAt: text(firstValue(source, ["published_at", "publication_date"], "")),
@@ -504,6 +510,7 @@
 
   function canManageWork(work) {
     if (!work || !canPublish()) return false;
+    if (work.managedExample || work.shared) return false;
     if (work.canEdit) return true;
     const user = currentUser();
     if (!user) return false;
@@ -642,6 +649,18 @@
     elements["library-continue-section"].hidden = false;
   }
 
+  function workStatusLabel(work) {
+    if (work?.managedExample) return "SkriptLab-esimerkki";
+    if (work?.shared) return "Jaettu";
+    if (work?.status === "draft") return "Luonnos";
+    return "";
+  }
+
+  function styleWorkStatus(element, work) {
+    element.classList.toggle("is-managed-example", Boolean(work?.managedExample));
+    element.classList.toggle("is-shared", Boolean(work?.shared && !work?.managedExample));
+  }
+
   function createWorkCard(work) {
     const article = document.createElement("article");
     article.className = "work-card";
@@ -651,10 +670,12 @@
     cover.className = "work-cover";
     renderCover(cover, work);
 
-    if (work.status === "draft") {
+    const statusLabel = workStatusLabel(work);
+    if (statusLabel) {
       const status = document.createElement("span");
       status.className = "work-status";
-      status.textContent = "Luonnos";
+      status.textContent = statusLabel;
+      styleWorkStatus(status, work);
       cover.append(status);
     }
 
@@ -700,10 +721,16 @@
   }
 
   function resultsHeading(scope) {
+    if (scope === "shared") return state.query || state.media || state.theme ? "Jaetut hakutulokset" : "Jaetut teokset";
     if (scope === "continue") return "Jatka lukemista ja kuuntelua";
     if (scope === "mine") return "Omat teokset";
     if (state.query || state.media || state.theme) return "Hakutulokset";
     return "Poimintoja sinulle";
+  }
+
+  function resultsDescription(scope) {
+    if (scope === "shared") return "SkriptLabin ylläpitämiä esimerkkiteoksia, joilla voit kokeilla lukualustaa.";
+    return "";
   }
 
   function renderEmptyState(visibleWorks, continuation) {
@@ -727,6 +754,13 @@
       elements["library-clear-filters"].hidden = true;
       return;
     }
+    if (state.scope === "shared") {
+      elements["library-empty-title"].textContent = "Ei vielä jaettuja teoksia";
+      elements["library-empty-copy"].textContent = "SkriptLabin esimerkkiteokset ilmestyvät tähän, kun ne ovat saatavilla.";
+      elements["library-empty-add"].hidden = true;
+      elements["library-clear-filters"].hidden = true;
+      return;
+    }
     if (state.scope === "mine") {
       elements["library-empty-title"].textContent = "Et ole vielä lisännyt teoksia";
       elements["library-empty-copy"].textContent = "Tuo oma teksti tai julkaise valmis SkriptLab-projekti.";
@@ -746,6 +780,9 @@
       ? state.works.filter((work) => work.id !== continuation.id)
       : (continuation ? [] : state.works);
     elements["library-results-title"].textContent = resultsHeading(state.scope);
+    const description = resultsDescription(state.scope);
+    elements["library-results-description"].textContent = description;
+    elements["library-results-description"].hidden = !description;
     elements["library-result-count"].textContent = `${state.works.length} ${state.works.length === 1 ? "teos" : "teosta"}`;
     elements["library-work-grid"].replaceChildren(...visibleWorks.map(createWorkCard));
     renderEmptyState(visibleWorks, continuation);
@@ -802,6 +839,7 @@
     if (state.media) params.set("media", state.media);
     if (state.theme) params.set("theme", state.theme);
 
+    elements["library-loading-text"].textContent = state.scope === "shared" ? "Ladataan jaettuja teoksia…" : "Ladataan kirjastoa…";
     elements["library-loading"].hidden = false;
     elements["library-work-grid"].setAttribute("aria-busy", "true");
     elements["library-empty"].hidden = true;
@@ -821,11 +859,12 @@
       state.works = [];
       renderWorks();
       elements["library-empty"].hidden = false;
-      elements["library-empty-title"].textContent = "Kirjastoa ei voitu ladata";
+      const sharedError = state.scope === "shared";
+      elements["library-empty-title"].textContent = sharedError ? "Jaettuja teoksia ei voitu ladata" : "Kirjastoa ei voitu ladata";
       elements["library-empty-copy"].textContent = "Tarkista yhteys ja yritä uudelleen.";
       elements["library-empty-add"].hidden = true;
       elements["library-clear-filters"].hidden = true;
-      showNotice(errorMessage(error, "Kirjaston lataaminen epäonnistui."), {
+      showNotice(errorMessage(error, sharedError ? "Jaettujen teosten lataaminen epäonnistui." : "Kirjaston lataaminen epäonnistui."), {
         action: () => loadWorks(),
       });
     } finally {
@@ -837,7 +876,7 @@
   }
 
   function setScope(scope) {
-    if (!["all", "continue", "mine"].includes(scope)) return;
+    if (!["all", "shared", "continue", "mine"].includes(scope)) return;
     state.scope = scope;
     syncScopeControls();
     closeDetail(false);
@@ -889,6 +928,7 @@
   function renderDetailMeta(work) {
     const rows = [];
     const values = [
+      ["Teostyyppi", work.managedExample ? "SkriptLab-esimerkki" : (work.shared ? "Jaettu teos" : "")],
       ["Kieli", languageLabel(work.language)],
       ["Lukuja", work.chapterCount ? String(work.chapterCount) : ""],
       ["Äänitteen kesto", durationLabel(work.durationSeconds)],
@@ -914,8 +954,10 @@
     elements["detail-author"].textContent = work.author;
     elements["detail-description"].textContent = work.description || "Teokselle ei ole vielä lisätty kuvausta.";
 
-    elements["detail-status"].hidden = work.status !== "draft";
-    elements["detail-status"].textContent = work.status === "draft" ? "Luonnos" : "";
+    const statusLabel = workStatusLabel(work);
+    elements["detail-status"].hidden = !statusLabel;
+    elements["detail-status"].textContent = statusLabel;
+    styleWorkStatus(elements["detail-status"], work);
 
     const mediaLabels = [];
     if (work.hasText) {

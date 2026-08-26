@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
-  <link rel="stylesheet" href="kirjasto.css?v=2">
+  <link rel="stylesheet" href="kirjasto.css?v=3">
 </head>
 <body data-shell-theme="light">
   <a class="skip-link" href="#library-results">Siirry teoksiin</a>
@@ -38,6 +38,7 @@
 
       <nav class="scope-tabs" id="library-scope-tabs" aria-label="Kirjaston näkymät">
         <button type="button" data-scope="all" aria-current="page">Kirjasto</button>
+        <button type="button" data-scope="shared">Jaetut</button>
         <button type="button" data-scope="continue">Jatka</button>
         <button type="button" data-scope="mine">Omat teokset</button>
       </nav>
@@ -72,7 +73,7 @@
 
       <div class="library-loading" id="library-loading" role="status" aria-live="polite" hidden>
         <i class="ph ph-circle-notch" aria-hidden="true"></i>
-        <span>Ladataan kirjastoa…</span>
+        <span id="library-loading-text">Ladataan kirjastoa…</span>
       </div>
 
       <section class="continue-section" id="library-continue-section" aria-labelledby="library-continue-title" hidden>
@@ -82,7 +83,10 @@
 
       <section class="results-section" id="library-results" aria-labelledby="library-results-title" tabindex="-1">
         <header class="results-heading">
-          <h2 id="library-results-title">Poimintoja sinulle</h2>
+          <div class="results-heading-copy">
+            <h2 id="library-results-title">Poimintoja sinulle</h2>
+            <p class="results-description" id="library-results-description" hidden></p>
+          </div>
           <span id="library-result-count" aria-live="polite"></span>
         </header>
         <div class="work-grid" id="library-work-grid" aria-live="polite" aria-busy="false"></div>
@@ -479,6 +483,7 @@
 
   <nav class="mobile-library-nav" id="mobile-library-nav" aria-label="Kirjaston päänavigaatio">
     <button class="is-active" type="button" data-mobile-action="all" aria-current="page"><i class="ph ph-book-open" aria-hidden="true"></i><span>Kirjasto</span></button>
+    <button type="button" data-mobile-action="shared"><i class="ph ph-users-three" aria-hidden="true"></i><span>Jaetut</span></button>
     <button type="button" data-mobile-action="search"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><span>Haku</span></button>
     <button type="button" data-mobile-action="continue"><i class="ph ph-play-circle" aria-hidden="true"></i><span>Jatka</span></button>
     <button type="button" data-mobile-action="mine"><i class="ph ph-user" aria-hidden="true"></i><span>Omat</span></button>
@@ -490,6 +495,6 @@
     window.apiUrl = (path) => `${window.API_BASE_URL}${path}`;
   </script>
   <script src="auth.js?v=3"></script>
-  <script src="kirjasto.js?v=2"></script>
+  <script src="kirjasto.js?v=3"></script>
 </body>
 </html>
