@@ -444,7 +444,13 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     let writerDeskAssistantDraftKind = '';
     let writerDeskStructureVisible = localStorage.getItem(WRITER_DESK_STRUCTURE_VISIBLE_KEY) === 'true';
     function defaultViewForUser() {
-        if (Array.isArray(currentUser?.allowed_modules)) return 'view-kirjani';
+        if (Array.isArray(currentUser?.allowed_modules)) {
+            const allowedModules = new Set(currentUser.allowed_modules);
+            if (!allowedModules.has('manuscripts') && allowedModules.has('published_library')) {
+                return 'view-kirjasto';
+            }
+            return 'view-kirjani';
+        }
         if (currentUser?.role === 'kirjailija') {
             return localStorage.getItem('skriptlab_manuscript') ? 'view-mobiilieditori' : 'view-kirjani';
         }
@@ -477,6 +483,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     let knowledgeReviewSaveTimer = null;
     let knowledgeExtractionProgress = null;
     let pendingWriteEditorChapterId = null;
+    let pendingLibraryPublishRequest = null;
     let developmentSceneSuggestions = [];
     let developmentSuggestionsProjectId = null;
     const activeMultiCallRuns = new Map();
@@ -740,7 +747,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         contracts: ['view-sopimukset'],
         timeline: ['view-aikajana'],
         versions: ['view-viimeistely'],
-        correction_reprints: ['view-korjaukset', 'view-julkaisupaketti']
+        correction_reprints: ['view-korjaukset', 'view-julkaisupaketti'],
+        published_library: ['view-kirjasto']
     };
     function customAccessViews() {
         if (!Array.isArray(currentUser?.allowed_modules)) return null;
@@ -1455,7 +1463,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function renderTopVersionBadge() {
         const button = document.getElementById('top-version-btn');
         if (!button) return;
-        button.hidden = !isViewAllowed('view-viimeistely');
+        button.hidden = currentViewId === 'view-kirjasto' || !isViewAllowed('view-viimeistely');
         if (button.hidden) return;
         const hasProject = Boolean(window.manuscriptData?.id);
         button.disabled = !hasProject;
@@ -4852,6 +4860,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             document.documentElement.setAttribute('data-theme', 'dark');
             toggleThemeBtn.textContent = '🌓';
         }
+        refreshLibraryFrame();
     });
 
     const toggleLangBtn = document.getElementById('toggle-lang');
@@ -4957,10 +4966,21 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (!hasOverflow) moduleMenuExpanded = false;
         const showExpandedMenu = hasOverflow && moduleMenuExpanded;
         const collapsedVisibleItems = new Set(availableItems.slice(0, MODULE_MENU_COLLAPSED_LIMIT));
+        const pinnedLibraryItem = canSeeAllModules
+            ? availableItems.find(item => item.dataset.view === 'view-kirjasto')
+            : null;
         const activeItem = availableItems.find(item => item.classList.contains('active'));
-        if (!showExpandedMenu && activeItem && !collapsedVisibleItems.has(activeItem)) {
-            collapsedVisibleItems.delete(availableItems[MODULE_MENU_COLLAPSED_LIMIT - 1]);
-            collapsedVisibleItems.add(activeItem);
+        function reserveCollapsedItem(item, protectedItem = null) {
+            if (!item || collapsedVisibleItems.has(item)) return;
+            const displacedItem = Array.from(collapsedVisibleItems)
+                .reverse()
+                .find(candidate => candidate !== protectedItem);
+            if (displacedItem) collapsedVisibleItems.delete(displacedItem);
+            collapsedVisibleItems.add(item);
+        }
+        if (!showExpandedMenu) {
+            reserveCollapsedItem(pinnedLibraryItem);
+            reserveCollapsedItem(activeItem, pinnedLibraryItem);
         }
         availableItems.forEach(item => {
             item.classList.toggle(
@@ -5000,6 +5020,22 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         } else {
             renderBookOverview();
         }
+    }
+
+    function syncTopBarContextForView(viewId = currentViewId) {
+        const topBookName = document.getElementById('top-book-name');
+        if (topBookName) {
+            if (canonicalViewId(viewId) === 'view-kirjasto') {
+                topBookName.textContent = 'Kirjasto: julkaistut teokset';
+            } else if (window.manuscriptData) {
+                const title = window.manuscriptData.title || 'Nimetön';
+                const author = window.manuscriptData.author || 'Tuntematon';
+                topBookName.textContent = `${showcaseDemoMode ? 'Tekstiprojekti' : 'Käsikirjoitus'}: ${title} (${author})`;
+            } else {
+                topBookName.textContent = `${showcaseDemoMode ? 'Tekstiprojekti' : 'Käsikirjoitus'}: Valitse projekti...`;
+            }
+        }
+        renderTopVersionBadge();
     }
 
     function openModule(viewId) {
@@ -5061,6 +5097,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (viewId === 'view-korjaukset') {
             window.SkriptLabCorrectionReprints?.load();
         }
+        if (viewId === 'view-kirjasto') {
+            refreshLibraryFrame();
+        }
         if (viewId === 'view-julkaisupaketti') {
             loadPublicationPackageReadiness();
         }
@@ -5086,6 +5125,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 console.warn('Työnkulun arviota ei saatu päivitettyä.', error);
             });
         }
+        syncTopBarContextForView(currentViewId);
         updateHelpAgentContext();
     }
 
@@ -5158,13 +5198,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             if (nextViewId === 'view-ai-tyonkulku') {
                 renderWorkflowView();
             }
-            if(nextViewId !== 'view-kirjani') {
-                document.getElementById('top-book-name').textContent = window.manuscriptData
-                    ? `${showcaseDemoMode ? 'Tekstiprojekti' : 'Käsikirjoitus'}: ${window.manuscriptData.title}`
-                    : `${showcaseDemoMode ? 'Tekstiprojekti' : 'Käsikirjoitus'}: Valitse projekti...`;
-            } else {
-                document.getElementById('top-book-name').textContent = `${showcaseDemoMode ? 'Tekstiprojekti' : 'Käsikirjoitus'}: Valitse projekti...`;
-            }
+            syncTopBarContextForView(nextViewId);
             applyShowcaseTerminology(document.getElementById(nextViewId));
         });
     });
@@ -5172,6 +5206,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     
     // Alistetaan globaaliksi, jotta onclickit HTML:ssä toimivat
     window.openModule = openModule;
+    window.openLibraryPublishFlow = openLibraryPublishFlow;
 
 
     // --- 3. Analysis Simulation Logic ---
@@ -7390,12 +7425,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     window.updateDynamicTexts = function() {
         if (!window.manuscriptData) return;
         const title = window.manuscriptData.title || "Nimetön";
-        const author = window.manuscriptData.author || "Tuntematon";
-        
-        const topBookName = document.getElementById('top-book-name');
-        if (topBookName) {
-            topBookName.textContent = `${showcaseDemoMode ? 'Tekstiprojekti' : 'Käsikirjoitus'}: ${title} (${author})`;
-        }
+
+        syncTopBarContextForView(currentViewId);
         const sidebarCurrentTitle = document.getElementById('sidebar-current-title');
         if (sidebarCurrentTitle) {
             sidebarCurrentTitle.textContent = title;
@@ -21121,8 +21152,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         localStorage.removeItem('skriptlab_raw_text');
         localStorage.removeItem(ACTIVE_PROJECT_ID_KEY);
 
-        const topBookName = document.getElementById('top-book-name');
-        if (topBookName) topBookName.textContent = `${showcaseDemoMode ? 'Tekstiprojekti' : 'Käsikirjoitus'}: Valitse projekti...`;
+        syncTopBarContextForView(currentViewId);
         const sidebarCurrentTitle = document.getElementById('sidebar-current-title');
         if (sidebarCurrentTitle) sidebarCurrentTitle.textContent = showcaseDemoMode ? 'Ei tekstiä' : 'Ei käsikirjoitusta';
         const sidebarStyle = document.getElementById('sidebar-style');
@@ -21158,6 +21188,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (currentViewId === 'view-video') refreshVideoFrame();
         if (currentViewId === 'view-skill') refreshSkillFrame();
         if (currentViewId === 'view-notebooklm') refreshNotebookLMFrame();
+        refreshLibraryFrame();
         renderCoverImages([]);
         visualRowsInitializedProjectId = null;
         renderVisualBatchDefaults(true);
@@ -21276,6 +21307,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (!options.skipNotebookLMFrameRefresh && currentViewId === 'view-notebooklm') {
             refreshNotebookLMFrame();
         }
+        refreshLibraryFrame();
         renderAnalysisSummary(window.manuscriptData.analysis);
         renderProductInfo(true);
         if (currentViewId === 'view-audio') renderAudioView(true);
@@ -21714,9 +21746,19 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             }
         }
 
+        if (message.type === 'skriptlab:open-library-publish') {
+            openLibraryPublishFlow(message);
+            return;
+        }
+
         if (message.type === 'skriptlab:open-module') {
             const viewId = String(message.viewId || '');
             if (!viewId || !document.getElementById(viewId)) return;
+            const requestedMode = String(message.mode || message.action || '');
+            if (viewId === 'view-kirjasto' && ['add', 'publish'].includes(requestedMode)) {
+                openLibraryPublishFlow(message);
+                return;
+            }
             const navItem = Array.from(navItems).find(item => item.dataset.view === viewId && !item.hidden);
             if (navItem) navItem.click();
             else openModule(viewId);
@@ -26271,6 +26313,109 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const requestParams = new URLSearchParams(stableQuery);
         requestParams.set('t', String(Date.now()));
         frame.src = `${page}?${requestParams.toString()}`;
+        return true;
+    }
+
+    function currentLibraryContext() {
+        const manuscript = window.manuscriptData;
+        const projectId = manuscript?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || null;
+        const rawThemaClasses = manuscript?.analysis?.thema_classes;
+        const themaClasses = (Array.isArray(rawThemaClasses) ? rawThemaClasses : [])
+            .map(value => (typeof value === 'string' ? value : value?.code))
+            .map(value => String(value || '').trim())
+            .filter(Boolean)
+            .slice(0, 24);
+        return {
+            projectId,
+            projectTitle: manuscript?.title ? String(manuscript.title).slice(0, 300) : null,
+            projectAuthor: manuscript?.author ? String(manuscript.author).slice(0, 300) : null,
+            themaClasses,
+            theme: document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'
+        };
+    }
+
+    function libraryFrameIsReady(frame) {
+        if (!frame) return false;
+        if (frame.dataset.libraryBridgeBound !== 'true') {
+            frame.dataset.libraryBridgeBound = 'true';
+            frame.addEventListener('load', () => {
+                frame.dataset.libraryReady = 'true';
+                postLibraryContext();
+                flushLibraryPublishRequest();
+            });
+        }
+        if (frame.dataset.libraryReady === 'true') return true;
+        try {
+            const frameDocument = frame.contentDocument;
+            const loadedLibraryDocument = frameDocument?.readyState === 'complete'
+                && /\/kirjasto\.html(?:[?#]|$)/.test(String(frameDocument.URL || ''));
+            if (loadedLibraryDocument) frame.dataset.libraryReady = 'true';
+        } catch (err) {
+            // The load listener will deliver the latest context when the frame is ready.
+        }
+        return frame.dataset.libraryReady === 'true';
+    }
+
+    function postLibraryContext() {
+        const frame = document.getElementById('kirjasto-frame');
+        if (!frame || !libraryFrameIsReady(frame) || !frame.contentWindow) return false;
+        frame.contentWindow.postMessage({
+            type: 'skriptlab:library-context-changed',
+            ...currentLibraryContext()
+        }, window.location.origin);
+        return true;
+    }
+
+    function flushLibraryPublishRequest() {
+        if (!pendingLibraryPublishRequest) return false;
+        const frame = document.getElementById('kirjasto-frame');
+        if (!frame || !libraryFrameIsReady(frame) || !frame.contentWindow) return false;
+        frame.contentWindow.postMessage(pendingLibraryPublishRequest, window.location.origin);
+        pendingLibraryPublishRequest = null;
+        return true;
+    }
+
+    function refreshLibraryFrame() {
+        const frame = document.getElementById('kirjasto-frame');
+        if (!frame) return;
+        libraryFrameIsReady(frame);
+        postLibraryContext();
+        flushLibraryPublishRequest();
+    }
+
+    function normalizedLibraryPublishSource(value) {
+        const source = String(value || '').toLowerCase();
+        if (['production', 'tuotanto', 'view-taitto', 'view-oheisaineistot'].includes(source)) {
+            return 'production';
+        }
+        if (['correction', 'corrections', 'korjaukset', 'correction-reprints', 'view-korjaukset'].includes(source)) {
+            return 'correction-reprints';
+        }
+        return 'shell';
+    }
+
+    function safeLibraryMessageId(value) {
+        const normalized = String(value == null ? '' : value).trim();
+        return normalized ? normalized.slice(0, 200) : null;
+    }
+
+    function openLibraryPublishFlow(request = {}) {
+        if (!isViewAllowed('view-kirjasto')) return false;
+        const context = currentLibraryContext();
+        pendingLibraryPublishRequest = {
+            type: 'skriptlab:library-open-publish',
+            projectId: safeLibraryMessageId(request.projectId) || context.projectId,
+            projectTitle: safeLibraryMessageId(request.projectTitle) || context.projectTitle,
+            projectAuthor: safeLibraryMessageId(request.projectAuthor) || context.projectAuthor,
+            source: normalizedLibraryPublishSource(request.source || request.sourceModule),
+            publicationId: safeLibraryMessageId(request.publicationId || request.workId),
+            packageId: safeLibraryMessageId(request.packageId || request.publicationPackageId),
+            editionId: safeLibraryMessageId(request.editionId)
+        };
+        const navItem = Array.from(navItems).find(item => item.dataset.view === 'view-kirjasto' && !item.hidden);
+        if (navItem && currentViewId !== 'view-kirjasto') navItem.click();
+        else openModule('view-kirjasto');
+        refreshLibraryFrame();
         return true;
     }
 

@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#fbfaf7">
+  <title>Kirjasto – SkriptLab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
+  <link rel="stylesheet" href="kirjasto.css?v=2">
+</head>
+<body data-shell-theme="light">
+  <a class="skip-link" href="#library-results">Siirry teoksiin</a>
+
+  <main class="library-app" id="library-app" aria-labelledby="library-title">
+    <div class="library-notice" id="library-notice" role="status" aria-live="polite" hidden>
+      <i class="ph ph-info" aria-hidden="true"></i>
+      <span id="library-notice-text"></span>
+      <button id="library-notice-action" type="button" hidden>Yritä uudelleen</button>
+      <button class="notice-close" id="library-notice-close" type="button" aria-label="Sulje ilmoitus">
+        <i class="ph ph-x" aria-hidden="true"></i>
+      </button>
+    </div>
+
+    <section class="library-screen browser-screen" id="library-browser">
+      <header class="library-header">
+        <div>
+          <h1 id="library-title">Kirjasto</h1>
+          <p>Lue tai kuuntele omaan tahtiisi.</p>
+        </div>
+        <button class="primary-action add-work-action" id="library-add-work" type="button" hidden>
+          <i class="ph ph-plus" aria-hidden="true"></i>
+          <span>Lisää teos</span>
+        </button>
+      </header>
+
+      <nav class="scope-tabs" id="library-scope-tabs" aria-label="Kirjaston näkymät">
+        <button type="button" data-scope="all" aria-current="page">Kirjasto</button>
+        <button type="button" data-scope="continue">Jatka</button>
+        <button type="button" data-scope="mine">Omat teokset</button>
+      </nav>
+
+      <form class="library-search" id="library-search-form" role="search">
+        <label class="search-field" for="library-search-input">
+          <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+          <span class="sr-only">Hae kirjastosta</span>
+          <input id="library-search-input" name="q" type="search" autocomplete="off" placeholder="Hae teosta, tekijää tai teemaa">
+          <button id="library-search-clear" type="button" aria-label="Tyhjennä haku" hidden>
+            <i class="ph ph-x" aria-hidden="true"></i>
+          </button>
+        </label>
+        <button class="sr-only" type="submit">Hae</button>
+
+        <div class="filter-row" aria-label="Rajaa teoksia">
+          <div class="media-filters" id="library-media-filters" role="group" aria-label="Teoksen media">
+            <button class="filter-chip is-active" type="button" data-media="" aria-pressed="true">Kaikki</button>
+            <button class="filter-chip" type="button" data-media="read" aria-pressed="false">Luettavat</button>
+            <button class="filter-chip" type="button" data-media="audio" aria-pressed="false">Kuunneltavat</button>
+          </div>
+          <span class="filter-divider" aria-hidden="true"></span>
+          <label class="theme-filter" for="library-theme-filter">
+            <span class="sr-only">Rajaa teeman mukaan</span>
+            <select id="library-theme-filter" name="theme">
+              <option value="">Kaikki teemat</option>
+            </select>
+            <i class="ph ph-caret-down" aria-hidden="true"></i>
+          </label>
+        </div>
+      </form>
+
+      <div class="library-loading" id="library-loading" role="status" aria-live="polite" hidden>
+        <i class="ph ph-circle-notch" aria-hidden="true"></i>
+        <span>Ladataan kirjastoa…</span>
+      </div>
+
+      <section class="continue-section" id="library-continue-section" aria-labelledby="library-continue-title" hidden>
+        <h2 id="library-continue-title">Jatka siitä, mihin jäit</h2>
+        <div id="library-continue-card"></div>
+      </section>
+
+      <section class="results-section" id="library-results" aria-labelledby="library-results-title" tabindex="-1">
+        <header class="results-heading">
+          <h2 id="library-results-title">Poimintoja sinulle</h2>
+          <span id="library-result-count" aria-live="polite"></span>
+        </header>
+        <div class="work-grid" id="library-work-grid" aria-live="polite" aria-busy="false"></div>
+
+        <div class="library-empty" id="library-empty" hidden>
+          <div class="empty-icon" aria-hidden="true"><i class="ph ph-books"></i></div>
+          <h3 id="library-empty-title">Kirjasto odottaa ensimmäistä teosta</h3>
+          <p id="library-empty-copy">Tuo oma teos tai julkaise valmis projekti luettavaksi ja kuunneltavaksi.</p>
+          <div class="empty-actions">
+            <button class="primary-action" id="library-empty-add" type="button" hidden>
+              <i class="ph ph-plus" aria-hidden="true"></i>
+              Lisää teos
+            </button>
+            <button class="secondary-action" id="library-clear-filters" type="button" hidden>Tyhjennä rajaukset</button>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section class="library-screen detail-screen" id="library-detail" aria-labelledby="detail-title" hidden>
+      <header class="detail-topbar">
+        <button class="back-action" id="detail-back" type="button">
+          <i class="ph ph-arrow-left" aria-hidden="true"></i>
+          Takaisin kirjastoon
+        </button>
+        <div class="detail-owner-actions" id="detail-owner-actions" hidden>
+          <button class="secondary-action" id="detail-review" type="button" hidden>Tarkista ja julkaise</button>
+          <button class="danger-action" id="detail-unpublish" type="button" hidden>
+            <i class="ph ph-eye-slash" aria-hidden="true"></i>
+            Poista julkaisusta
+          </button>
+          <button class="danger-action" id="detail-delete" type="button" hidden>
+            <i class="ph ph-trash" aria-hidden="true"></i>
+            Poista luonnos
+          </button>
+        </div>
+      </header>
+
+      <div class="detail-layout">
+        <div class="detail-cover" id="detail-cover" aria-hidden="true"></div>
+        <article class="detail-copy">
+          <p class="detail-status" id="detail-status" hidden></p>
+          <h1 id="detail-title" tabindex="-1">Teos</h1>
+          <p class="detail-author" id="detail-author"></p>
+          <div class="media-labels" id="detail-media-labels" aria-label="Saatavilla olevat muodot"></div>
+          <p class="detail-description" id="detail-description"></p>
+          <div class="theme-list" id="detail-themes" aria-label="Teemat"></div>
+
+          <div class="detail-progress" id="detail-progress" hidden>
+            <div>
+              <span id="detail-progress-label">Jatka teosta</span>
+              <strong id="detail-progress-value">0 %</strong>
+            </div>
+            <div class="progress-track" aria-hidden="true"><span id="detail-progress-bar"></span></div>
+          </div>
+
+          <div class="detail-actions">
+            <button class="primary-action" id="detail-read" type="button" hidden>
+              <i class="ph ph-book-open-text" aria-hidden="true"></i>
+              <span>Aloita lukeminen</span>
+            </button>
+            <button class="secondary-action audio-action" id="detail-listen" type="button" hidden>
+              <i class="ph ph-headphones" aria-hidden="true"></i>
+              <span>Kuuntele</span>
+            </button>
+          </div>
+
+          <dl class="detail-meta" id="detail-meta"></dl>
+        </article>
+      </div>
+    </section>
+
+    <section class="reader-screen" id="library-reader" aria-labelledby="reader-work-title" hidden data-reader-theme="light" data-font-size="medium" data-line-height="comfortable" data-column-width="medium">
+      <header class="reader-header">
+        <button class="back-action reader-back" id="reader-back" type="button">
+          <i class="ph ph-caret-left" aria-hidden="true"></i>
+          <span>Takaisin kirjastoon</span>
+        </button>
+        <div class="reader-work-heading">
+          <strong id="reader-work-title">Teos</strong>
+          <span aria-hidden="true">·</span>
+          <span id="reader-work-author"></span>
+        </div>
+        <div class="reader-tools" role="toolbar" aria-label="Lukijan työkalut">
+          <button id="reader-contents-toggle" type="button" aria-expanded="true" aria-controls="reader-contents">
+            <i class="ph ph-list-bullets" aria-hidden="true"></i>
+            <span>Sisällys</span>
+          </button>
+          <button id="reader-bookmark" type="button" aria-pressed="false">
+            <i class="ph ph-bookmark-simple" aria-hidden="true"></i>
+            <span>Kirjanmerkki</span>
+          </button>
+          <button class="is-active" id="reader-settings-toggle" type="button" aria-expanded="true" aria-controls="reader-settings">
+            <i class="ph ph-text-align-left" aria-hidden="true"></i>
+            <span>Lukunäkymä</span>
+          </button>
+          <button id="reader-close" type="button">
+            <i class="ph ph-x" aria-hidden="true"></i>
+            <span>Sulje</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="reader-backdrop" id="reader-backdrop" hidden></div>
+
+      <div class="reader-layout">
+        <aside class="reader-contents" id="reader-contents" aria-labelledby="reader-contents-title">
+          <header>
+            <h2 id="reader-contents-title">Sisällys</h2>
+            <button class="reader-panel-close" data-close-reader-panel="contents" type="button" aria-label="Sulje sisällysluettelo">
+              <i class="ph ph-x" aria-hidden="true"></i>
+            </button>
+          </header>
+          <nav aria-label="Teoksen luvut">
+            <ol id="reader-chapter-list"></ol>
+          </nav>
+        </aside>
+
+        <div class="reader-scroll" id="reader-scroll" tabindex="0">
+          <article class="reader-page" id="reader-page">
+            <h1 id="reader-chapter-title" tabindex="-1">Luku</h1>
+            <div class="reader-text" id="reader-text"></div>
+            <footer class="reader-page-progress" aria-label="Lukemisen eteneminen">
+              <span></span>
+              <strong id="reader-progress-percent">0 %</strong>
+              <span></span>
+            </footer>
+          </article>
+        </div>
+
+        <aside class="reader-settings" id="reader-settings" aria-labelledby="reader-settings-title">
+          <header>
+            <h2 id="reader-settings-title">Lukunäkymä</h2>
+            <button class="reader-panel-close" data-close-reader-panel="settings" type="button" aria-label="Sulje lukunäkymän asetukset">
+              <i class="ph ph-x" aria-hidden="true"></i>
+            </button>
+          </header>
+
+          <fieldset class="reader-setting-group">
+            <legend>Tekstin koko</legend>
+            <div class="setting-scale">
+              <button id="reader-font-decrease" type="button" aria-label="Pienennä tekstin kokoa">A−</button>
+              <span aria-hidden="true">A</span>
+              <button id="reader-font-increase" type="button" aria-label="Suurenna tekstin kokoa">A+</button>
+            </div>
+          </fieldset>
+
+          <fieldset class="reader-setting-group">
+            <legend>Riviväli</legend>
+            <div class="setting-options" id="reader-line-height-options">
+              <button type="button" data-line-height="compact" aria-label="Tiivis riviväli"><i class="ph ph-rows" aria-hidden="true"></i></button>
+              <button class="is-selected" type="button" data-line-height="comfortable" aria-label="Tavallinen riviväli"><i class="ph ph-rows-plus-bottom" aria-hidden="true"></i></button>
+              <button type="button" data-line-height="relaxed" aria-label="Väljä riviväli"><i class="ph ph-arrows-out-line-vertical" aria-hidden="true"></i></button>
+            </div>
+          </fieldset>
+
+          <fieldset class="reader-setting-group">
+            <legend>Palstan leveys</legend>
+            <div class="setting-options" id="reader-width-options">
+              <button type="button" data-column-width="narrow" aria-label="Kapea tekstipalsta"><i class="ph ph-text-columns" aria-hidden="true"></i></button>
+              <button class="is-selected" type="button" data-column-width="medium" aria-label="Tavallinen tekstipalsta"><i class="ph ph-text-align-center" aria-hidden="true"></i></button>
+              <button type="button" data-column-width="wide" aria-label="Leveä tekstipalsta"><i class="ph ph-text-align-justify" aria-hidden="true"></i></button>
+            </div>
+          </fieldset>
+
+          <fieldset class="reader-setting-group theme-settings">
+            <legend>Tausta</legend>
+            <div class="theme-options" id="reader-theme-options">
+              <button class="is-selected" type="button" data-reader-theme="light" aria-label="Vaalea tausta"><span></span>Vaalea</button>
+              <button type="button" data-reader-theme="sepia" aria-label="Seepia-tausta"><span></span>Seepia</button>
+              <button type="button" data-reader-theme="dark" aria-label="Tumma tausta"><span></span>Tumma</button>
+            </div>
+          </fieldset>
+
+          <label class="reader-switch" id="reader-follow-audio-setting" for="reader-follow-audio" hidden>
+            <span>
+              <strong>Seuraa ääntä tekstissä</strong>
+              <small>Korosta parhaillaan kuunneltavaa kohtaa, kun synkronointi on saatavilla.</small>
+            </span>
+            <input id="reader-follow-audio" type="checkbox" disabled>
+            <span class="switch-track" aria-hidden="true"></span>
+          </label>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <dialog class="add-work-dialog" id="library-add-dialog" aria-labelledby="add-work-title">
+    <form class="add-work-form" id="library-add-form" method="dialog" novalidate>
+      <header class="dialog-header">
+        <div>
+          <h2 id="add-work-title">Lisää teos</h2>
+          <p id="add-work-description">Tuo valmis teksti tai julkaise SkriptLab-projekti kirjastoon.</p>
+        </div>
+        <button class="dialog-close" id="add-work-close" type="button" aria-label="Sulje Lisää teos -ikkuna">
+          <i class="ph ph-x" aria-hidden="true"></i>
+        </button>
+      </header>
+
+      <div class="dialog-notice" id="add-work-notice" role="status" aria-live="polite" hidden></div>
+
+      <div class="add-step" id="add-work-source-step">
+        <div class="dialog-tabs" role="tablist" aria-label="Teoksen lähde">
+          <button id="add-tab-import" type="button" role="tab" aria-selected="true" aria-controls="add-panel-import" data-add-source="import">
+            <i class="ph ph-upload-simple" aria-hidden="true"></i>
+            Oma teksti tai tiedosto
+          </button>
+          <button id="add-tab-project" type="button" role="tab" aria-selected="false" aria-controls="add-panel-project" data-add-source="project">
+            <i class="ph ph-folder-open" aria-hidden="true"></i>
+            Julkaise projektista
+          </button>
+        </div>
+
+        <section class="add-panel" id="add-panel-import" role="tabpanel" aria-labelledby="add-tab-import">
+          <fieldset class="source-choice">
+            <legend>Sisältö</legend>
+            <label>
+              <input type="radio" name="content_source" value="text" checked>
+              <span><i class="ph ph-text-t" aria-hidden="true"></i><strong>Kirjoita tai liitä teksti</strong></span>
+            </label>
+            <label>
+              <input type="radio" name="content_source" value="file">
+              <span><i class="ph ph-file-arrow-up" aria-hidden="true"></i><strong>Valitse tiedosto</strong></span>
+            </label>
+          </fieldset>
+
+          <label class="form-field text-source-field" for="add-work-text">
+            <span>Teoksen teksti</span>
+            <textarea id="add-work-text" rows="9" placeholder="Liitä teoksen teksti tähän…"></textarea>
+            <small>Tekstistä muodostetaan tuonnin yhteydessä UTF-8-tiedosto.</small>
+          </label>
+
+          <label class="file-drop file-source-field" for="add-work-file" hidden>
+            <i class="ph ph-file-arrow-up" aria-hidden="true"></i>
+            <strong>Valitse teostiedosto</strong>
+            <span>TXT, MD, DOCX, PDF, RTF, ODT tai HTML</span>
+            <input id="add-work-file" name="file" type="file" accept=".txt,.md,.docx,.pdf,.rtf,.odt,.html,.htm,text/plain,text/markdown,text/html,application/pdf,application/rtf,application/vnd.oasis.opendocument.text,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+            <small id="add-work-file-name">Ei valittua tiedostoa</small>
+          </label>
+        </section>
+
+        <section class="add-panel project-panel" id="add-panel-project" role="tabpanel" aria-labelledby="add-tab-project" hidden>
+          <div class="project-source-card">
+            <i class="ph ph-book-open-text" aria-hidden="true"></i>
+            <div>
+              <span>Aktiivinen projekti</span>
+              <strong id="add-project-name">Projektia ei ole valittu</strong>
+              <small id="add-project-id">Avaa projekti työtilassa ennen julkaisemista.</small>
+            </div>
+          </div>
+          <p>Kirjastoon tehdään projektin tämänhetkisestä tekstistä muuttumaton julkaisuversio. Uusin kansi ja valmis äänite liitetään mukaan, jos ne löytyvät.</p>
+          <input id="add-project-id-value" name="project_id" type="hidden">
+        </section>
+
+        <div class="metadata-grid">
+          <label class="form-field" for="add-work-title-input">
+            <span>Nimi <small>valinnainen</small></span>
+            <input id="add-work-title-input" name="title" type="text" maxlength="300" autocomplete="off" placeholder="Luetaan aineistosta, jos tyhjä">
+          </label>
+          <label class="form-field" for="add-work-author-input">
+            <span>Tekijä <small>valinnainen</small></span>
+            <input id="add-work-author-input" name="author" type="text" maxlength="300" autocomplete="off" placeholder="Luetaan aineistosta, jos tyhjä">
+          </label>
+          <label class="form-field metadata-wide" for="add-work-description-input">
+            <span>Kuvaus <small>valinnainen</small></span>
+            <textarea id="add-work-description-input" name="description" rows="3" maxlength="3000" placeholder="Lyhyt esittely teoksesta"></textarea>
+          </label>
+          <label class="form-field" for="add-work-language">
+            <span>Kieli</span>
+            <select id="add-work-language" name="language">
+              <option value="fi" selected>Suomi</option>
+              <option value="sv">Ruotsi</option>
+              <option value="en">Englanti</option>
+              <option value="de">Saksa</option>
+              <option value="fr">Ranska</option>
+              <option value="es">Espanja</option>
+              <option value="">Muu / tunnista automaattisesti</option>
+            </select>
+          </label>
+          <label class="form-field file-inline" for="add-work-cover">
+            <span>Kansikuva <small>valinnainen</small></span>
+            <input id="add-work-cover" name="cover" type="file" accept="image/jpeg,image/png,image/webp">
+          </label>
+          <label class="form-field file-inline" for="add-work-audio">
+            <span>Äänite <small>valinnainen</small></span>
+            <input id="add-work-audio" name="audio" type="file" accept="audio/*">
+          </label>
+        </div>
+
+        <aside class="classification-explainer">
+          <i class="ph ph-sparkle" aria-hidden="true"></i>
+          <div>
+            <strong>Automaattinen Thema-ehdotus</strong>
+            <p>Luokitus muodostetaan aineistosta luonnoksen tallennuksen jälkeen. Ehdotukset näytetään aina tarkistettavina ennen julkaisua.</p>
+          </div>
+        </aside>
+
+        <footer class="dialog-actions">
+          <button class="text-action" id="add-cancel" type="button">Peruuta</button>
+          <button class="secondary-action" type="submit" data-add-intent="draft">Tallenna luonnos</button>
+          <button class="primary-action" type="submit" data-add-intent="review">
+            Jatka luokitukseen
+            <i class="ph ph-arrow-right" aria-hidden="true"></i>
+          </button>
+        </footer>
+      </div>
+
+      <section class="add-step classification-step" id="add-work-classification-step" aria-labelledby="classification-title" hidden>
+        <div class="classification-heading">
+          <span class="classification-mark" aria-hidden="true"><i class="ph ph-sparkle"></i></span>
+          <div>
+            <h3 id="classification-title" tabindex="-1">Tarkista Thema-ehdotukset</h3>
+            <p>Nämä ovat automaattisia ehdotuksia, eivät varmennettuja virallisia luokituksia. Valitse teosta kuvaavat aiheet ennen julkaisua.</p>
+          </div>
+        </div>
+
+        <div class="thema-review-list" id="thema-review-list" role="group" aria-label="Automaattiset Thema-ehdotukset"></div>
+        <p class="thema-empty" id="thema-review-empty" hidden>Automaattisia ehdotuksia ei löytynyt. Voit lisätä aiheen itse tai julkaista ilman Thema-luokitusta.</p>
+
+        <div class="thema-add-row">
+          <label class="form-field" for="thema-custom-input">
+            <span>Lisää Thema-koodi tai aihe</span>
+            <input id="thema-custom-input" type="text" maxlength="160" placeholder="Esim. FBA · Moderni kaunokirjallisuus">
+          </label>
+          <button class="secondary-action" id="thema-custom-add" type="button">Lisää</button>
+        </div>
+
+        <label class="rights-confirmation" for="add-work-rights">
+          <input id="add-work-rights" type="checkbox" required>
+          <span aria-hidden="true"><i class="ph ph-check"></i></span>
+          <strong>Vakuutan, että minulla on oikeus jakaa tämä teos palvelussa.</strong>
+        </label>
+        <p class="rights-help">Vahvistus vaaditaan julkaisemiseen. Voit säilyttää teoksen luonnoksena ilman vahvistusta.</p>
+
+        <footer class="dialog-actions">
+          <button class="text-action" id="classification-back" type="button">
+            <i class="ph ph-arrow-left" aria-hidden="true"></i>
+            Takaisin
+          </button>
+          <button class="secondary-action" id="classification-keep-draft" type="button">Pidä luonnoksena</button>
+          <button class="primary-action" id="classification-publish" type="button">
+            <i class="ph ph-book-open" aria-hidden="true"></i>
+            Julkaise teos
+          </button>
+        </footer>
+      </section>
+    </form>
+  </dialog>
+
+  <section class="audio-dock" id="library-audio-dock" aria-label="Äänikirjasoitin" hidden>
+    <audio id="library-audio" preload="metadata" playsinline></audio>
+    <button class="audio-work" id="audio-open-work" type="button" aria-label="Avaa soitettava teos">
+      <span class="audio-cover" id="audio-cover" aria-hidden="true"><i class="ph ph-book-open-text"></i></span>
+      <span>
+        <strong id="audio-title">Teos</strong>
+        <small id="audio-chapter">Äänite</small>
+      </span>
+    </button>
+
+    <div class="audio-transport" role="group" aria-label="Toiston ohjaus">
+      <button id="audio-back-15" type="button" aria-label="Siirry 15 sekuntia taaksepäin"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i><span aria-hidden="true">15</span></button>
+      <button id="audio-previous" type="button" aria-label="Edellinen ääniluku" hidden disabled><i class="ph ph-skip-back" aria-hidden="true"></i></button>
+      <button class="audio-play" id="audio-play" type="button" aria-label="Toista"><i class="ph ph-play" aria-hidden="true"></i></button>
+      <button id="audio-next" type="button" aria-label="Seuraava ääniluku" hidden disabled><i class="ph ph-skip-forward" aria-hidden="true"></i></button>
+      <button id="audio-forward-15" type="button" aria-label="Siirry 15 sekuntia eteenpäin"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i><span aria-hidden="true">15</span></button>
+    </div>
+
+    <div class="audio-timeline">
+      <span id="audio-time-current">0:00</span>
+      <input id="audio-seek" type="range" min="0" max="100" value="0" step="0.1" aria-label="Äänitteen kohta">
+      <span id="audio-time-duration">0:00</span>
+    </div>
+
+    <label class="audio-speed" for="audio-speed">
+      <span class="sr-only">Toistonopeus</span>
+      <select id="audio-speed" aria-label="Toistonopeus">
+        <option value="0.75">0,75×</option>
+        <option value="1" selected>1×</option>
+        <option value="1.25">1,25×</option>
+        <option value="1.5">1,5×</option>
+        <option value="2">2×</option>
+      </select>
+    </label>
+
+    <div class="audio-volume">
+      <button id="audio-mute" type="button" aria-label="Mykistä"><i class="ph ph-speaker-high" aria-hidden="true"></i></button>
+      <input id="audio-volume" type="range" min="0" max="1" value="1" step="0.05" aria-label="Äänenvoimakkuus">
+    </div>
+
+    <button class="audio-collapse" id="audio-collapse" type="button" aria-label="Pienennä soitin" aria-expanded="true">
+      <i class="ph ph-caret-down" aria-hidden="true"></i>
+    </button>
+  </section>
+
+  <nav class="mobile-library-nav" id="mobile-library-nav" aria-label="Kirjaston päänavigaatio">
+    <button class="is-active" type="button" data-mobile-action="all" aria-current="page"><i class="ph ph-book-open" aria-hidden="true"></i><span>Kirjasto</span></button>
+    <button type="button" data-mobile-action="search"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><span>Haku</span></button>
+    <button type="button" data-mobile-action="continue"><i class="ph ph-play-circle" aria-hidden="true"></i><span>Jatka</span></button>
+    <button type="button" data-mobile-action="mine"><i class="ph ph-user" aria-hidden="true"></i><span>Omat</span></button>
+  </nav>
+
+  <script src="config.js?v=1"></script>
+  <script>
+    window.API_BASE_URL = (window.SKRIPTLAB_CONFIG && window.SKRIPTLAB_CONFIG.API_BASE_URL) || "";
+    window.apiUrl = (path) => `${window.API_BASE_URL}${path}`;
+  </script>
+  <script src="auth.js?v=3"></script>
+  <script src="kirjasto.js?v=2"></script>
+</body>
+</html>

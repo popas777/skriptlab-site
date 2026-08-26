@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=107">
+    <link rel="stylesheet" href="styles.css?v=108">
     <link rel="stylesheet" href="workflow-studio.css?v=2">
     <link rel="stylesheet" href="correction-reprints.css?v=1">
 </head>
@@ -253,6 +253,7 @@
                     <li data-view="view-aikajana">Aikajana</li>
                     <li data-view="view-viimeistely">Versiot</li>
                     <li data-view="view-korjaukset">Korjaukset ja uusintapainokset</li>
+                    <li data-view="view-kirjasto">Kirjasto</li>
                 </ul>
                 <button class="sidebar-more-button" id="nav-show-more" type="button" aria-controls="nav-menu" aria-expanded="false" hidden>
                     <span>Näytä lisää</span>
@@ -1808,6 +1809,17 @@
                         <div id="correction-history-list" class="correction-history-list"></div>
                     </section>
                 </section>
+            </div>
+
+            <!-- 5.7 VIEW: JULKAISTUJEN TEOSTEN KIRJASTO -->
+            <div id="view-kirjasto" class="view-section hidden">
+                <iframe
+                    id="kirjasto-frame"
+                    class="kirjasto-frame"
+                    src="kirjasto.html?v=2"
+                    title="Julkaistujen teosten kirjasto"
+                    loading="lazy"
+                ></iframe>
             </div>
 
             <!-- 5.2 VIEW: OIKOLUKU -->
@@ -4227,6 +4239,6 @@
     <script src="workflow-studio.js?v=5"></script>
     <script src="correction-reprints.js?v=1"></script>
     <script src="demo-terminology.js?v=1"></script>
-    <script src="app.js?v=193"></script>
+    <script src="app.js?v=194"></script>
 </body>
 </html>

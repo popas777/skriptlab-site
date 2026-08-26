@@ -4514,6 +4514,7 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 .tuotanto-frame,
 .skill-frame,
 .notebooklm-frame,
+.kirjasto-frame,
 .video-studio-frame {
     display: block;
     width: 100%;
@@ -4522,6 +4523,30 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     border-radius: 16px;
     background: #fbf9f4;
     box-shadow: 0 18px 55px rgba(0, 0, 0, 0.22);
+}
+
+#view-kirjasto {
+    min-height: 0;
+}
+
+.kirjasto-frame {
+    flex: 1 1 auto;
+    height: calc(100dvh - var(--topbar-height) - 48px);
+    min-height: max(480px, calc(100dvh - var(--topbar-height) - 48px));
+}
+
+@media (max-width: 860px) {
+    .kirjasto-frame {
+        height: calc(100dvh - var(--topbar-height) - 32px);
+        min-height: max(420px, calc(100dvh - var(--topbar-height) - 32px));
+        border-radius: 12px;
+    }
+}
+
+.app-wrapper.mobile-simulate .kirjasto-frame {
+    height: calc(100dvh - var(--topbar-height) - 80px);
+    min-height: max(420px, calc(100dvh - var(--topbar-height) - 80px));
+    border-radius: 12px;
 }
 
 #view-oheisaineistot > :not(.tuotanto-frame),
