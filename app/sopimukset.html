@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="sopimukset.css?v=1">
+  <link rel="stylesheet" href="sopimukset.css?v=2">
 </head>
 <body>
   <div class="contracts-shell" id="contracts-shell">
@@ -185,7 +185,7 @@
             <div>
               <p class="section-kicker">Sopimustarjous</p>
               <h3>Teokselle voidaan tarjota tekijänpalkkiosopimusta.</h3>
-              <p>34 % painetun kirjan, e-kirjan ja äänikirjan myynneistä. Ei ennakkomaksua.</p>
+              <p>Painettu kirja portaittain 26–34 %, e-kirja ja äänikirja 34 %. Ei ennakkomaksua.</p>
             </div>
             <button class="primary-button" id="contracts-open-offer" type="button">Avaa sopimustarjous</button>
           </article>
@@ -248,7 +248,7 @@
             <h3 id="contracts-draft-card-title">Tekijänpalkkiosopimus</h3>
             <p class="contract-meta" id="contracts-draft-card-meta">Odottaa myönteistä kustannuspäätöstä</p>
             <div class="royalty-row" aria-label="Tarjotut tekijänpalkkiot">
-              <span><small>Printti</small><strong>34 %</strong></span>
+              <span><small>Printti · portaittain</small><strong>26–34 %</strong></span>
               <span><small>E-kirja</small><strong>34 %</strong></span>
               <span><small>Audio</small><strong>34 %</strong></span>
             </div>
@@ -303,9 +303,27 @@
 
             <section class="royalty-section">
               <h3>4. Tekijänpalkkio ja ennakko</h3>
-              <p>Tekijälle maksetaan jokaisesta julkaisumuodosta <strong>34 % Kustantajan Teoksesta tosiasiallisesti saamasta arvonlisäverottomasta myyntitulosta</strong>:</p>
+              <p>Tekijänpalkkio lasketaan <strong>Kustantajan Teoksesta tosiasiallisesti saamasta arvonlisäverottomasta myyntitulosta</strong>.</p>
+              <p><strong>Painetun kirjan ja print-on-demand-kappaleiden palkkio määräytyy myytyä kappaletta kohden seuraavasti:</strong></p>
+              <table class="royalty-tier-table">
+                <caption>Painetun kirjan palkkioportaat</caption>
+                <thead>
+                  <tr><th scope="col">Kumulatiivinen nettomyynti</th><th scope="col">Palkkio</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>1–1 000 kappaletta</td><td>26 %</td></tr>
+                  <tr><td>1 001–2 000 kappaletta</td><td>27 %</td></tr>
+                  <tr><td>2 001–3 000 kappaletta</td><td>28 %</td></tr>
+                  <tr><td>3 001–4 000 kappaletta</td><td>29 %</td></tr>
+                  <tr><td>4 001–5 000 kappaletta</td><td>30 %</td></tr>
+                  <tr><td>5 001–6 000 kappaletta</td><td>31 %</td></tr>
+                  <tr><td>6 001–7 000 kappaletta</td><td>32 %</td></tr>
+                  <tr><td>7 001–8 000 kappaletta</td><td>33 %</td></tr>
+                  <tr><td>8 001. kappaleesta alkaen</td><td>34 %</td></tr>
+                </tbody>
+              </table>
+              <p>Portaat ovat marginaalisia: ylemmän portaan saavuttaminen ei muuta aiemmin myytyjen kappaleiden palkkioprosenttia. Kappalemäärään lasketaan Teoksen kaikkien painettujen laitosten ja print-on-demand-kappaleiden yhteenlaskettu kumulatiivinen nettomyynti. Laskuri ei nollaudu tilityskauden, painoksen, laitoksen, ISBN-tunnuksen tai jakelukanavan vaihtuessa, eivätkä e-kirja- tai audiotapahtumat kerrytä printtiportaita. Nettomyynti tarkoittaa myytyjä kappaleita vähennettynä palautuksilla; ilmais-, arvostelu- ja vapaakappaleita ei lasketa myyntiin. Palautukset vähennetään porrastuksessa viimeksi saavutetusta eli korkeimmasta portaasta, tarvittaessa portaita alaspäin, ja hyvitys oikaistaan sen portaan prosentilla, josta palautus vähennetään.</p>
               <ul>
-                <li>painettu kirja ja print-on-demand: 34 %</li>
                 <li>e-kirja: 34 %</li>
                 <li>äänikirja, mukaan lukien yksittäismyynti ja suoratoistopalvelut: 34 %</li>
               </ul>
@@ -321,7 +339,7 @@
 
             <section>
               <h3>6. Tilitys, maksaminen ja tarkastusoikeus</h3>
-              <p>Kustantaja toimittaa vuosittain viimeistään 31.5. edellisen kalenterivuoden tilityksen ja maksaa samalla kertyneet tekijänpalkkiot. Tilityksessä eritellään julkaisumuodoittain ja jakelukanavittain vähintään myynti, palautukset, suoratoiston käytettävissä olevat käyttöluvut, Kustantajan saama arvonlisäveroton tulo, palkkioprosentti ja maksettava määrä.</p>
+              <p>Kustantaja toimittaa vuosittain viimeistään 31.5. edellisen kalenterivuoden tilityksen ja maksaa samalla kertyneet tekijänpalkkiot. Tilityksessä eritellään julkaisumuodoittain ja jakelukanavittain vähintään myynti, palautukset, suoratoiston käytettävissä olevat käyttöluvut, Kustantajan saama arvonlisäveroton tulo, palkkioprosentti ja maksettava määrä. Printin osalta eritellään lisäksi kumulatiivisen nettomyynnin alku- ja loppusaldo sekä kunkin saavutetun portaan myyntikappaleet, palautukset, myyntitulo ja tekijänpalkkio.</p>
               <p>Tekijällä on oikeus tarkastuttaa tilityksen perusteena olevat Teosta koskevat tiedot riippumattomalla tilintarkastajalla salassapitovelvollisuutta noudattaen. Jos tarkastuksessa havaitaan olennainen Tekijän vahingoksi tehty virhe, Kustantaja korjaa tilityksen viipymättä viivästyskorkoineen ja vastaa kohtuullisista tarkastuskuluista.</p>
             </section>
 
@@ -361,6 +379,6 @@
   </div>
 
   <script src="config.js?v=1"></script>
-  <script src="sopimukset.js?v=1"></script>
+  <script src="sopimukset.js?v=2"></script>
 </body>
 </html>

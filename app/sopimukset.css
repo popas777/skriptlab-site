@@ -953,6 +953,52 @@ h3 {
   background: rgba(236, 232, 242, 0.48);
 }
 
+.royalty-tier-table {
+  width: 100%;
+  margin: 15px 0;
+  border: 1px solid var(--line-strong);
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: 13px;
+}
+
+.royalty-tier-table caption {
+  margin-bottom: 7px;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.royalty-tier-table th,
+.royalty-tier-table td {
+  padding: 8px 11px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+.royalty-tier-table th {
+  background: rgba(81, 69, 104, 0.08);
+  color: var(--ink);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.royalty-tier-table th:last-child,
+.royalty-tier-table td:last-child {
+  text-align: right;
+}
+
+.royalty-tier-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
 .signature-section {
   border-bottom: 0 !important;
 }
