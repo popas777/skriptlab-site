@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f7f3ea">
+  <title>Sopimukset – SkriptLab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="sopimukset.css?v=1">
+</head>
+<body>
+  <div class="contracts-shell" id="contracts-shell">
+    <header class="module-header">
+      <div>
+        <p class="eyebrow">Kustantaminen</p>
+        <h1>Sopimukset</h1>
+        <p class="module-lead" id="contracts-project-context">Valitse käsikirjoitus pääsovelluksesta.</p>
+      </div>
+      <span class="context-state" id="contracts-context-state">Ei aktiivista teosta</span>
+    </header>
+
+    <nav class="contracts-tabs" role="tablist" aria-label="Sopimukset-moduulin välilehdet">
+      <button
+        id="contracts-decision-tab"
+        class="contracts-tab is-active"
+        type="button"
+        role="tab"
+        aria-selected="true"
+        aria-controls="contracts-decision-panel"
+        tabindex="0"
+        data-contracts-panel="contracts-decision-panel"
+      >
+        <span class="tab-index">01</span>
+        Kustannuspäätösanalyysi
+      </button>
+      <button
+        id="contracts-list-tab"
+        class="contracts-tab"
+        type="button"
+        role="tab"
+        aria-selected="false"
+        aria-controls="contracts-list-panel"
+        tabindex="-1"
+        data-contracts-panel="contracts-list-panel"
+      >
+        <span class="tab-index">02</span>
+        Sopimukset
+        <span class="tab-count" id="contracts-tab-count">3</span>
+      </button>
+    </nav>
+
+    <main>
+      <section
+        id="contracts-decision-panel"
+        class="contracts-panel is-active"
+        role="tabpanel"
+        aria-labelledby="contracts-decision-tab"
+      >
+        <article class="decision-hero surface-card">
+          <div class="decision-hero-copy">
+            <span class="section-kicker">Toimituksellinen minianalyysi</span>
+            <h2>Onko teos valmis kustannusohjelmaan?</h2>
+            <p>
+              Arvio yhdistää käsikirjoituksen rakenteen, tekstinäytteet ja aiemmin tallennetun teosanalyysin.
+              Se tarkastelee erikseen julkaisukuntoa ja markkinakelpoisuutta – eikä lupaa myyntiä tai yleisömenestystä.
+            </p>
+          </div>
+          <div class="decision-seal" aria-hidden="true">
+            <span>SL</span>
+            <small>editorial</small>
+          </div>
+        </article>
+
+        <div class="manuscript-facts" aria-label="Käsikirjoituksen lähtötiedot">
+          <div class="fact-card">
+            <span>Tekstin laajuus</span>
+            <strong id="contracts-character-count">–</strong>
+            <small id="contracts-word-count">Ei aktiivista tekstiä</small>
+          </div>
+          <div class="fact-card">
+            <span>Rakenne</span>
+            <strong id="contracts-chapter-count">–</strong>
+            <small>lukua tai osiota</small>
+          </div>
+          <div class="fact-card">
+            <span>Arviointikonteksti</span>
+            <strong id="contracts-analysis-context">–</strong>
+            <small id="contracts-analysis-context-detail">Odottaa käsikirjoitusta</small>
+          </div>
+        </div>
+
+        <section class="analysis-action surface-card" aria-labelledby="analysis-action-title">
+          <div>
+            <h3 id="analysis-action-title">Käynnistä kustannuspäätös</h3>
+            <p id="contracts-analysis-guidance">
+              Valitse tekstillinen käsikirjoitus. Päätös tallennetaan teoksen yhteyteen ja sen voi päivittää tekstin muuttuessa.
+            </p>
+          </div>
+          <button class="primary-button" id="contracts-run-analysis" type="button" disabled>
+            <span aria-hidden="true">✦</span>
+            Tee minianalyysi
+          </button>
+        </section>
+        <p class="status-line" id="contracts-status" role="status" aria-live="polite"></p>
+
+        <section class="analysis-empty surface-card" id="contracts-analysis-empty">
+          <div class="empty-mark" aria-hidden="true">↗</div>
+          <div>
+            <h3>Ei vielä kustannuspäätöstä</h3>
+            <p>
+              Saat tiiviin päätöksen, perustelut, kaksi pisteytystä ja tarvittaessa kehityseditointipalautteen
+              seuraavaa versiota varten.
+            </p>
+          </div>
+        </section>
+
+        <section class="analysis-result" id="contracts-analysis-result" hidden aria-live="polite">
+          <article class="verdict-card surface-card" id="contracts-verdict-card">
+            <div class="verdict-heading">
+              <div>
+                <p class="section-kicker">Kustannuspäätös</p>
+                <h2 id="contracts-verdict-headline">–</h2>
+              </div>
+              <span class="verdict-badge" id="contracts-verdict-badge">–</span>
+            </div>
+            <div class="rich-copy" id="contracts-verdict-summary"></div>
+            <p class="analysis-date" id="contracts-analysis-date"></p>
+          </article>
+
+          <div class="score-grid">
+            <article class="score-card surface-card">
+              <div class="score-heading">
+                <span>Julkaisukunto</span>
+                <strong id="contracts-readiness-score">0</strong>
+              </div>
+              <div class="score-track" aria-hidden="true"><span id="contracts-readiness-meter"></span></div>
+              <p>Rakenne, eheys, viimeistely ja tuotantoon siirtymisen valmius.</p>
+            </article>
+            <article class="score-card surface-card">
+              <div class="score-heading">
+                <span>Markkinakelpoisuus</span>
+                <strong id="contracts-marketability-score">0</strong>
+              </div>
+              <div class="score-track" aria-hidden="true"><span id="contracts-marketability-meter"></span></div>
+              <p>Kohderyhmä, positio, erottuvuus ja teoksen lupauksen selkeys.</p>
+            </article>
+          </div>
+
+          <div class="finding-grid">
+            <article class="finding-card surface-card is-positive">
+              <p class="section-kicker">Toimivat lähtökohdat</p>
+              <h3>Vahvuudet</h3>
+              <ul id="contracts-strengths"></ul>
+            </article>
+            <article class="finding-card surface-card is-risk">
+              <p class="section-kicker">Päätökseen vaikuttavat</p>
+              <h3>Riskit ja avoimet kysymykset</h3>
+              <ul id="contracts-risks"></ul>
+            </article>
+          </div>
+
+          <article class="feedback-card surface-card" id="contracts-feedback-card">
+            <div class="feedback-heading">
+              <div>
+                <p class="section-kicker" id="contracts-feedback-kicker">Kehityseditointipalaute</p>
+                <h3 id="contracts-feedback-title">Mitä seuraavaan versioon tarvitaan</h3>
+              </div>
+              <span class="feedback-state" id="contracts-feedback-state">Toimenpiteet</span>
+            </div>
+            <div class="feedback-body" id="contracts-development-feedback"></div>
+          </article>
+
+          <article class="next-steps surface-card">
+            <div>
+              <p class="section-kicker">Seuraava käsittely</p>
+              <h3>Päätöksen jälkeiset askeleet</h3>
+            </div>
+            <ol id="contracts-next-steps"></ol>
+          </article>
+
+          <article class="offer-callout surface-card" id="contracts-offer-callout" hidden>
+            <div class="offer-icon" aria-hidden="true">✓</div>
+            <div>
+              <p class="section-kicker">Sopimustarjous</p>
+              <h3>Teokselle voidaan tarjota tekijänpalkkiosopimusta.</h3>
+              <p>34 % painetun kirjan, e-kirjan ja äänikirjan myynneistä. Ei ennakkomaksua.</p>
+            </div>
+            <button class="primary-button" id="contracts-open-offer" type="button">Avaa sopimustarjous</button>
+          </article>
+        </section>
+      </section>
+
+      <section
+        id="contracts-list-panel"
+        class="contracts-panel"
+        role="tabpanel"
+        aria-labelledby="contracts-list-tab"
+        hidden
+      >
+        <header class="panel-heading">
+          <div>
+            <p class="section-kicker">Asiakirjat ja tarjoukset</p>
+            <h2>Sopimukset</h2>
+            <p>
+              Nykyinen sopimuslistaus sekä kustannuspäätöksen perusteella muodostuva uusi sopimusrunko.
+              Kaksi ensimmäistä korttia ovat esimerkkiaineistoa, kunnes varsinainen sopimusarkisto kytketään.
+            </p>
+          </div>
+          <span class="document-count" id="contracts-document-count">3 asiakirjaa</span>
+        </header>
+
+        <div class="contract-list" id="contracts-list">
+          <article class="contract-card surface-card">
+            <div class="contract-card-topline">
+              <span class="document-kind">Esimerkki · Kustannussopimus</span>
+              <span class="document-status is-example">Demo</span>
+            </div>
+            <h3>Kustannussopimus</h3>
+            <p class="contract-meta">Allekirjoitettu 15.05.2023</p>
+            <dl class="contract-facts">
+              <div><dt>Tyyppi</dt><dd>Julkaisuoikeudet</dd></div>
+              <div><dt>Tila</dt><dd>Allekirjoitettu</dd></div>
+            </dl>
+            <button class="secondary-button existing-contract-download" type="button" data-document-name="Kustannussopimus">Lataa sopimus (PDF)</button>
+          </article>
+
+          <article class="contract-card surface-card">
+            <div class="contract-card-topline">
+              <span class="document-kind">Esimerkki · Tekijänpalkkio</span>
+              <span class="document-status is-example">Demo</span>
+            </div>
+            <h3>Tekijänpalkkio</h3>
+            <p class="contract-meta">Allekirjoitettu 15.05.2023</p>
+            <dl class="contract-facts">
+              <div><dt>Tyyppi</dt><dd>Palkkioehdot</dd></div>
+              <div><dt>Tila</dt><dd>Allekirjoitettu</dd></div>
+            </dl>
+            <button class="secondary-button existing-contract-download" type="button" data-document-name="Tekijänpalkkio">Lataa sopimus (PDF)</button>
+          </article>
+
+          <article class="contract-card surface-card is-draft" id="contracts-draft-card">
+            <div class="contract-card-topline">
+              <span class="document-kind">Uusi sopimusrunko</span>
+              <span class="document-status is-waiting" id="contracts-draft-status">Malli</span>
+            </div>
+            <h3 id="contracts-draft-card-title">Tekijänpalkkiosopimus</h3>
+            <p class="contract-meta" id="contracts-draft-card-meta">Odottaa myönteistä kustannuspäätöstä</p>
+            <div class="royalty-row" aria-label="Tarjotut tekijänpalkkiot">
+              <span><small>Printti</small><strong>34 %</strong></span>
+              <span><small>E-kirja</small><strong>34 %</strong></span>
+              <span><small>Audio</small><strong>34 %</strong></span>
+            </div>
+            <p class="advance-note"><strong>Ennakko 0 €.</strong> Palkkio kertyy ensimmäisestä myyntieurosta.</p>
+            <button class="primary-button" id="contracts-open-draft" type="button">Esikatsele sopimusrunkoa</button>
+          </article>
+        </div>
+
+        <p class="status-line" id="contracts-document-status" role="status" aria-live="polite"></p>
+
+        <article class="contract-document surface-card" id="contracts-document" hidden>
+          <header class="contract-document-header">
+            <div>
+              <p class="section-kicker" id="contracts-document-kicker">Neuvottelupohja</p>
+              <h2 id="contracts-document-title" tabindex="-1">Tekijänpalkkio- ja kustannussopimusluonnos</h2>
+              <p id="contracts-document-intro">
+                Tämä on muokattava sopimusrunko, ei sitova tarjous ennen osapuolten hyväksyntää ja allekirjoituksia.
+              </p>
+            </div>
+            <span class="draft-stamp" id="contracts-draft-stamp">LUONNOS</span>
+          </header>
+
+          <div class="contract-toolbar" aria-label="Sopimusluonnoksen toiminnot">
+            <button class="secondary-button" id="contracts-copy-draft" type="button">Kopioi teksti</button>
+            <button class="secondary-button" id="contracts-download-draft" type="button">Lataa TXT</button>
+            <button class="secondary-button" id="contracts-print-draft" type="button">Tulosta / PDF</button>
+          </div>
+
+          <div class="legal-note">
+            Täydennä osapuolten tiedot, päivämäärät, oikeusalue ja muut hakasulkeissa olevat kohdat.
+            Luonnos kannattaa tarkastuttaa kustannusalan sopimuksiin perehtyneellä juristilla ennen allekirjoittamista.
+          </div>
+
+          <div class="contract-body" id="contracts-contract-body">
+            <section>
+              <h3>1. Sopijapuolet ja teos</h3>
+              <p><strong>Kustantaja:</strong> [nimi, Y-tunnus ja osoite]</p>
+              <p><strong>Tekijä:</strong> <span data-contract-author>[tekijän nimi]</span>, [henkilö- tai Y-tunnus ja osoite]</p>
+              <p><strong>Teos:</strong> <span data-contract-title>[teoksen nimi]</span> (jäljempänä ”Teos”). Sopimus koskee osapuolten hyväksymää lopullista käsikirjoitusversiota.</p>
+            </section>
+
+            <section>
+              <h3>2. Luovutettavat oikeudet</h3>
+              <p>Tekijä myöntää Kustantajalle yksinomaisen oikeuden valmistaa, julkaista, markkinoida ja myydä Teosta suomenkielisenä painettuna kirjana, e-kirjana ja äänikirjana sovitulla alueella [Suomi / maailma] tämän sopimuksen voimassaoloaikana.</p>
+              <p>Käännös-, näyttämö-, elokuva-, televisio-, peli-, oheistuote- ja muut erikseen luettelemattomat oikeudet jäävät Tekijälle. Niistä sovitaan tarvittaessa erillisellä kirjallisella sopimuksella. Oikeutta käyttää Teosta tekoälymallien kouluttamiseen tai yleiseen tekstin- ja tiedonlouhintaan ei luovuteta tällä sopimuksella.</p>
+            </section>
+
+            <section>
+              <h3>3. Käsikirjoitus ja toimitustyö</h3>
+              <p>Tekijä toimittaa viimeistellyn käsikirjoituksen viimeistään [pp.kk.vvvv]. Kustantaja vastaa tavanomaisesta kustannustoimituksesta, oikoluvusta, tuotannosta, jakelusta ja markkinoinnista omalla kustannuksellaan. Olennaisista sisältömuutoksista sovitaan Tekijän kanssa, eikä Tekijän moraalisia oikeuksia loukata.</p>
+            </section>
+
+            <section class="royalty-section">
+              <h3>4. Tekijänpalkkio ja ennakko</h3>
+              <p>Tekijälle maksetaan jokaisesta julkaisumuodosta <strong>34 % Kustantajan Teoksesta tosiasiallisesti saamasta arvonlisäverottomasta myyntitulosta</strong>:</p>
+              <ul>
+                <li>painettu kirja ja print-on-demand: 34 %</li>
+                <li>e-kirja: 34 %</li>
+                <li>äänikirja, mukaan lukien yksittäismyynti ja suoratoistopalvelut: 34 %</li>
+              </ul>
+              <p>Myyntitulosta ei vähennetä Kustantajan toimitus-, tuotanto-, painatus-, jakelu- tai markkinointikuluja. Asianmukaisesti dokumentoidut palautukset ja hyvitykset voidaan oikaista. Suoratoistossa laskentaperusteena on palvelun tilitysraportin mukaan Teokselle kohdistuva Kustantajan arvonlisäveroton tulo.</p>
+              <p><strong>Ennakkomaksua ei makseta (0 €).</strong> Tekijänpalkkio kertyy ensimmäisestä tilitettävästä myyntitulosta lähtien.</p>
+              <p>Tekijänpalkkioon lisätään kulloinkin sovellettava arvonlisävero, jos Tekijä on arvonlisäverovelvollinen. Palkkio maksetaan sovitusti verokorttia vastaan ennakonpidätys toimittaen tai Tekijän laskua vastaan.</p>
+            </section>
+
+            <section>
+              <h3>5. Hinnoittelu, julkaiseminen ja markkinointi</h3>
+              <p>Kustantaja päättää vähittäis- ja kampanjahinnoittelusta kaupallisesti perustellulla tavalla sekä kuulee Tekijää olennaisista Teoksen asemointiin, nimeen, kanteen ja markkinointiin liittyvistä ratkaisuista. Teos julkaistaan viimeistään [18] kuukauden kuluessa hyväksytyn lopullisen käsikirjoituksen luovutuksesta, elleivät osapuolet kirjallisesti sovi muusta.</p>
+            </section>
+
+            <section>
+              <h3>6. Tilitys, maksaminen ja tarkastusoikeus</h3>
+              <p>Kustantaja toimittaa vuosittain viimeistään 31.5. edellisen kalenterivuoden tilityksen ja maksaa samalla kertyneet tekijänpalkkiot. Tilityksessä eritellään julkaisumuodoittain ja jakelukanavittain vähintään myynti, palautukset, suoratoiston käytettävissä olevat käyttöluvut, Kustantajan saama arvonlisäveroton tulo, palkkioprosentti ja maksettava määrä.</p>
+              <p>Tekijällä on oikeus tarkastuttaa tilityksen perusteena olevat Teosta koskevat tiedot riippumattomalla tilintarkastajalla salassapitovelvollisuutta noudattaen. Jos tarkastuksessa havaitaan olennainen Tekijän vahingoksi tehty virhe, Kustantaja korjaa tilityksen viipymättä viivästyskorkoineen ja vastaa kohtuullisista tarkastuskuluista.</p>
+            </section>
+
+            <section>
+              <h3>7. Tekijän vakuutukset ja kolmansien aineistot</h3>
+              <p>Tekijä vakuuttaa olevansa Teoksen tekijä ja voivansa luovuttaa tässä sopimuksessa määritellyt oikeudet. Tekijä ilmoittaa Kustantajalle lainauksista, kuvista ja muista kolmansien aineistoista. Osapuolet sopivat tarvittavien lupien hankkimisesta ja kustannuksista ennen julkaisemista.</p>
+            </section>
+
+            <section>
+              <h3>8. Voimassaolo ja oikeuksien palautuminen</h3>
+              <p>Sopimus tulee voimaan allekirjoituksin ja on voimassa [5] vuotta Teoksen ensimmäisestä julkaisusta. Tämän jälkeen sopimus jatkuu vuoden kerrallaan, ellei jompikumpi osapuoli irtisano sitä kirjallisesti vähintään kuusi kuukautta ennen sopimuskauden päättymistä.</p>
+              <p>Jos sovittua julkaisumuotoa ei julkaista 18 kuukauden määräajassa, se ei ole kaupallisesti saatavilla yhtäjaksoisesti 12 kuukauteen tai siitä Tekijälle tilitetty palkkio jää 12 kuukauden jaksolla alle [100] euroon, Tekijä voi vaatia kyseisen julkaisumuodon aktiivista hyödyntämistä kirjallisesti. Ellei Kustantaja korjaa tilannetta kuuden kuukauden kuluessa, kyseisen julkaisumuodon oikeus palautuu Tekijälle.</p>
+              <p>Sopimuksen päättyessä kaikki tämän sopimuksen nojalla luovutetut oikeudet palautuvat Tekijälle. Kustantaja saa myydä ennen päättymistä valmistetun painetun varaston loppuun enintään kuuden kuukauden ajan ja antaa lopputilityksen 90 päivän kuluessa. Mikään tämän sopimuksen ehto ei rajoita Tekijälle pakottavan lain nojalla kuuluvaa peruuttamis- tai oikeuksien palauttamisoikeutta, mukaan lukien tekijänoikeuslain 30 b §:n mukainen oikeus.</p>
+              <p>Olennaiseen sopimusrikkomukseen syyllistyneelle osapuolelle varataan 30 päivää kirjallisen huomautuksen saamisesta rikkomuksen korjaamiseen, ellei rikkomus ole luonteeltaan korjaamaton.</p>
+            </section>
+
+            <section>
+              <h3>9. Muut ehdot</h3>
+              <p>Sopimuksen muutokset tehdään kirjallisesti. Kustantaja ei saa siirtää sopimusta olennaisesti Tekijän asemaa heikentävällä tavalla ilman Tekijän kirjallista suostumusta, yritysjärjestelyjä lukuun ottamatta. Sopimukseen sovelletaan Suomen lakia. Erimielisyydet pyritään ratkaisemaan ensin neuvotteluin ja viime kädessä [käräjäoikeus]-käräjäoikeudessa.</p>
+            </section>
+
+            <section class="signature-section">
+              <h3>10. Allekirjoitukset</h3>
+              <div class="signature-grid">
+                <div><span>Paikka ja aika</span><strong>____________________________</strong></div>
+                <div><span>Paikka ja aika</span><strong>____________________________</strong></div>
+                <div><span>Kustantaja</span><strong>____________________________</strong></div>
+                <div><span>Tekijä</span><strong>____________________________</strong></div>
+                <div><span>Nimenselvennys</span><strong>____________________________</strong></div>
+                <div><span>Nimenselvennys</span><strong>____________________________</strong></div>
+              </div>
+            </section>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <script src="config.js?v=1"></script>
+  <script src="sopimukset.js?v=1"></script>
+</body>
+</html>

@@ -1524,26 +1524,13 @@
 
             <!-- 2. VIEW: SOPIMUKSET -->
             <div id="view-sopimukset" class="view-section hidden">
-                <div class="header">
-                    <div class="header-info">
-                        <h2>Sopimukset</h2>
-                        <p>Käsikirjoitus: [Ei aktiivista teosta]</p>
-                    </div>
-                </div>
-                <div class="grid-cards">
-                    <div class="card glass-panel">
-                        <h3>Kustannussopimus</h3>
-                        <p class="card-meta">Allekirjoitettu: 15.05.2023</p>
-                        <p class="card-status"><span class="badge" style="background:#238636;color:white;border:none;">Voimassa</span></p>
-                        <button class="btn btn-secondary" style="margin-top:20px; width:100%;" onclick="alert('Ladataan PDF...')">Lataa sopimus (PDF)</button>
-                    </div>
-                    <div class="card glass-panel">
-                        <h3>Tekijänpalkkio</h3>
-                        <p class="card-meta">Allekirjoitettu: 15.05.2023</p>
-                        <p class="card-status"><span class="badge" style="background:#238636;color:white;border:none;">Voimassa</span></p>
-                        <button class="btn btn-secondary" style="margin-top:20px; width:100%;" onclick="alert('Ladataan PDF...')">Lataa sopimus (PDF)</button>
-                    </div>
-                </div>
+                <iframe
+                    id="sopimukset-frame"
+                    class="manuskripti-frame sopimukset-frame"
+                    src="sopimukset.html?v=1"
+                    title="Kustannuspäätösanalyysi ja sopimukset"
+                    loading="lazy"
+                ></iframe>
             </div>
 
             <!-- 3. VIEW: AIKAJANA -->
