@@ -5,6 +5,7 @@
   const AUTH_TOKEN_KEY = "skriptlab_auth_token";
   const API_BASE = String(window.SKRIPTLAB_CONFIG?.API_BASE_URL || "").replace(/\/$/, "");
   const PROJECT_POLL_INTERVAL_MS = 700;
+  const EXPECTED_TERMS_SOURCE = "server_fixed_print_tiers_v3";
 
   const state = {
     projectId: "",
@@ -15,6 +16,7 @@
     projectController: null,
     activePanel: "contracts-decision-panel",
     parentViewVisible: false,
+    termsMismatch: false,
   };
 
   const elements = {};
@@ -304,14 +306,28 @@
     return sections.join("\n\n");
   }
 
-  function normalizeDecision(raw) {
-    if (!raw || typeof raw !== "object") return null;
-    if (raw.__contractsNormalized === true) return raw;
+  function hasUnsupportedOfferTerms(raw) {
+    if (!raw || typeof raw !== "object") return false;
     const source = raw.publishing_decision && typeof raw.publishing_decision === "object"
       ? raw.publishing_decision
       : raw;
     const rawDecision = String(source.decision || source.outcome || "").toLowerCase();
     const offer = ["contract_offer", "offer", "tarjous", "publish"].includes(rawDecision);
+    if (!offer) return false;
+    return String(source.contract_offer?.terms_source || "") !== EXPECTED_TERMS_SOURCE;
+  }
+
+  function normalizeDecision(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    if (raw.__contractsNormalized === true) {
+      return hasUnsupportedOfferTerms(raw) ? null : raw;
+    }
+    const source = raw.publishing_decision && typeof raw.publishing_decision === "object"
+      ? raw.publishing_decision
+      : raw;
+    const rawDecision = String(source.decision || source.outcome || "").toLowerCase();
+    const offer = ["contract_offer", "offer", "tarjous", "publish"].includes(rawDecision);
+    if (offer && hasUnsupportedOfferTerms(source)) return null;
     const feedback = source.developmental_feedback ?? source.development_feedback;
     const feedbackObject = feedback && typeof feedback === "object" ? feedback : null;
     const summary = String(source.summary || "").trim();
@@ -470,7 +486,8 @@
       elements["contracts-analysis-guidance"].textContent = "Arvio käyttää tallennettua teosanalyysiä sekä käsikirjoituksen alku-, keski- ja loppuosan näytteitä.";
     }
 
-    const savedDecision = analysis.publishing_decision || analysis.contract_decision || null;
+    const savedDecision = analysis.publishing_decision || null;
+    state.termsMismatch = hasUnsupportedOfferTerms(savedDecision);
     renderDecision(savedDecision);
     setBusy(state.busy);
   }
@@ -481,6 +498,7 @@
     state.decision = null;
     state.projectController?.abort();
     state.projectController = null;
+    state.termsMismatch = false;
     renderProject();
     setStatus("");
   }
@@ -497,14 +515,24 @@
     state.projectController = controller;
     if (!options.quiet) setStatus("Ladataan käsikirjoituksen kustannuskontekstia…");
     try {
-      const response = await apiFetch(`/api/projects/${encodeURIComponent(requestedId)}`, { signal: controller.signal });
+      const response = await apiFetch(
+        `/api/projects/${encodeURIComponent(requestedId)}?contracts_terms_source=${encodeURIComponent(EXPECTED_TERMS_SOURCE)}`,
+        { signal: controller.signal },
+      );
       if (!response.ok) throw new Error(await responseMessage(response, "Käsikirjoituksen lataus epäonnistui."));
       const project = await response.json();
       if (sequence !== state.requestSequence || activeProjectId() !== requestedId) return null;
       state.projectId = requestedId;
       state.project = project;
       renderProject();
-      if (!options.quiet) setStatus(state.decision ? "Tallennettu kustannuspäätös ladattu." : "Valmis minianalyysiin.");
+      if (!options.quiet) {
+        setStatus(
+          state.termsMismatch
+            ? "Tallennetun sopimustarjouksen ehdot ovat vanhentuneet. Tee minianalyysi uudelleen."
+            : (state.decision ? "Tallennettu kustannuspäätös ladattu." : "Valmis minianalyysiin."),
+          state.termsMismatch,
+        );
+      }
       return project;
     } catch (error) {
       if (error?.name === "AbortError") return null;
@@ -583,7 +611,7 @@
       const response = await apiFetch(`/api/projects/${encodeURIComponent(requestedProjectId)}/contracts/decision-analysis`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ terms_source: EXPECTED_TERMS_SOURCE }),
       });
       if (
         state.requestSequence !== runRequestSequence
@@ -597,7 +625,11 @@
         || String(state.projectId || "") !== requestedProjectId
         || activeProjectId() !== requestedProjectId
       ) return;
-      const decision = normalizeDecision(payload);
+      const rawDecision = payload.publishing_decision || payload;
+      if (hasUnsupportedOfferTerms(rawDecision)) {
+        throw new Error("Palvelimen sopimusehdot eivät vastaa tätä näkymää. Päivitä sivu ja yritä uudelleen.");
+      }
+      const decision = normalizeDecision(rawDecision);
       if (!decision) throw new Error("Kustannuspäätös ei ollut luettavassa muodossa.");
       state.project.analysis = state.project.analysis || {};
       state.project.analysis.publishing_decision = payload.publishing_decision || payload;
