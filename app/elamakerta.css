@@ -31,6 +31,18 @@
   display: none !important;
 }
 
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
 html { height: 100%; }
 
 body {
@@ -433,7 +445,142 @@ button:focus-visible {
 
 .step-actions .btn { flex: 1; }
 
-/* sanelu */
+/* puheesta tekstiksi */
+
+.transcription-review-note { margin: -6px 0 16px; }
+
+.transcription-panel {
+  min-width: 0;
+  margin: 0 0 18px;
+  padding: 14px;
+  border: 1px solid var(--raja);
+  border-radius: var(--radius-s);
+  background: var(--paperi);
+  transition: border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.transcription-panel legend {
+  padding: 0 6px;
+  font-family: var(--display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--mustikka);
+}
+
+.pilot-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  margin-left: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--hilla-vaalea);
+  color: #80500E;
+  font-family: var(--body);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: 2px;
+}
+
+.transcription-privacy {
+  margin: 0 0 14px;
+  color: var(--muste-70);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.transcription-privacy strong { color: var(--muste); }
+
+.transcription-actions > .btn { flex: 1 1 210px; }
+
+.audio-file-button span[aria-hidden="true"] {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.transcription-feedback { margin-top: 12px; }
+
+.transcription-status-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.transcription-status {
+  flex: 1;
+  margin: 0;
+  color: var(--muste-70);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.recording-timer {
+  flex: none;
+  color: var(--virhe);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.transcription-progress {
+  display: block;
+  width: 100%;
+  height: 7px;
+  margin: 10px 0 0;
+  border: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  accent-color: var(--mustikka);
+  background: var(--paperi-tumma);
+}
+
+.transcription-progress::-webkit-progress-bar { background: var(--paperi-tumma); }
+.transcription-progress::-webkit-progress-value { background: var(--mustikka); }
+.transcription-progress::-moz-progress-bar { background: var(--mustikka); }
+
+.transcription-formats { margin-top: 8px; }
+
+.transcription-error {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--virhe);
+  border-radius: 0 8px 8px 0;
+  background: rgba(163, 59, 46, 0.08);
+  color: var(--virhe);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.transcription-cancel {
+  width: 100%;
+  min-height: 42px;
+  margin-top: 10px;
+  padding-block: 8px;
+  color: var(--virhe);
+}
+
+.add-material-btn { width: 100%; }
+
+.transcription-panel[data-transcription-state="recording"] {
+  border-color: rgba(163, 59, 46, 0.55);
+  background: rgba(163, 59, 46, 0.035);
+}
+
+.transcription-panel[data-transcription-state="success"] {
+  border-color: rgba(67, 64, 110, 0.48);
+  background: var(--mustikka-vaalea);
+}
+
+.transcription-panel[data-transcription-state="error"] { border-color: rgba(163, 59, 46, 0.55); }
+
+.transcription-panel :focus-visible {
+  outline: 3px solid rgba(67, 64, 110, 0.3);
+  outline-offset: 2px;
+}
+
 .mic-btn .mic-dot {
   width: 10px;
   height: 10px;

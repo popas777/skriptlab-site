@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="elamakerta.css?v=2">
+<link rel="stylesheet" href="elamakerta.css?v=3">
 </head>
 <body>
 
@@ -98,7 +98,7 @@
     </div>
   </header>
   <div class="step-body">
-    <p class="step-intro">Kerää muistot, haastatteluvastaukset ja muistiinpanot. Voit myös sanella.</p>
+    <p class="step-intro">Kerää muistot, haastatteluvastaukset ja muistiinpanot. Voit kirjoittaa, nauhoittaa puhetta tai tuoda valmiin äänitiedoston.</p>
 
     <div class="card">
       <label class="field">
@@ -117,15 +117,40 @@
       </label>
       <label class="field">
         <span class="field-label">Sisältö</span>
-        <textarea id="m-text" rows="5" placeholder="Kirjoita tai paina mikrofonia ja kerro ääneen"></textarea>
+        <textarea id="m-text" rows="7" aria-describedby="transcription-review-note" placeholder="Kirjoita tai litteroi puhe tähän"></textarea>
       </label>
-      <div class="row">
-        <button type="button" class="btn btn-ghost mic-btn" id="btn-dictate" aria-pressed="false">
-          <span class="mic-dot" aria-hidden="true"></span><span id="dictate-label">Sanele</span>
-        </button>
-        <button type="button" class="btn btn-primary" id="btn-add-material">Lisää aineistoon</button>
-      </div>
-      <p class="hint" id="dictate-hint" hidden>Sanelu käynnissä – puhe ilmestyy tekstikenttään.</p>
+      <p class="hint transcription-review-note" id="transcription-review-note">Litterointi täyttää tämän kentän tarkistettavaksi. Teksti ei tallennu aineistoon ennen kuin painat Lisää aineistoon.</p>
+
+      <fieldset class="transcription-panel" id="transcription-panel" aria-describedby="transcription-privacy transcription-formats">
+        <legend>Puheesta tekstiksi <span class="pilot-badge">Kokeilu</span></legend>
+        <p class="transcription-privacy" id="transcription-privacy"><strong>SkriptLab ei tallenna äänitiedostoa.</strong> Ääni lähetetään Google Gemini -palveluun väliaikaista litterointia varten. Geminiin ladattu tiedosto poistetaan heti litteroinnin jälkeen; jos välitön poisto epäonnistuu, Gemini poistaa sen automaattisesti viimeistään 48 tunnin kuluttua. Projektiin tallentuu vasta teksti, jonka olet tarkistanut ja lisännyt aineistoon. Litteroinnin kieli on suomi.</p>
+        <div class="row transcription-actions">
+          <button type="button" class="btn btn-ghost mic-btn" id="btn-record-audio" aria-pressed="false" aria-describedby="transcription-status">
+            <span class="mic-dot" aria-hidden="true"></span><span id="record-audio-label">Aloita äänitys</span>
+          </button>
+          <button type="button" class="btn btn-ghost audio-file-button" id="btn-upload-audio">
+            <span aria-hidden="true">↑</span><span>Tuo äänitiedosto</span>
+          </button>
+          <input
+            class="visually-hidden"
+            id="audio-file-input"
+            type="file"
+            accept=".wav,.mp3,.aiff,.aif,.aac,.ogg,.flac,audio/wav,audio/x-wav,audio/mpeg,audio/mp3,audio/aiff,audio/x-aiff,audio/aac,audio/ogg,audio/flac"
+          >
+        </div>
+        <div class="transcription-feedback" id="transcription-feedback" aria-busy="false">
+          <div class="transcription-status-line">
+            <p class="transcription-status" id="transcription-status" role="status" aria-live="polite">Valitse äänitys tai tuo WAV-, MP3-, AIFF-, AAC-, OGG- tai FLAC-tiedosto.</p>
+            <span class="recording-timer" id="recording-timer" hidden>0:00 / 10:00</span>
+          </div>
+          <progress class="transcription-progress" id="transcription-progress" max="600" value="0" aria-label="Äänityksen tai litteroinnin eteneminen" hidden></progress>
+          <p class="hint transcription-formats" id="transcription-formats">Tuetut muodot: WAV, MP3, AIFF, AAC, OGG ja FLAC, enintään 25 Mt. Äänitys pysähtyy viimeistään 10 minuutin kohdalla.</p>
+          <p class="transcription-error" id="transcription-error" role="alert" hidden></p>
+          <button type="button" class="btn btn-ghost transcription-cancel" id="btn-cancel-transcription" hidden>Peruuta äänitys</button>
+        </div>
+      </fieldset>
+
+      <button type="button" class="btn btn-primary add-material-btn" id="btn-add-material">Lisää aineistoon</button>
     </div>
 
     <h3 class="list-title">Kerätty aineisto <span class="count" id="material-count">0</span></h3>
@@ -330,6 +355,6 @@
     }
   };
 </script>
-<script src="elamakerta.js?v=2"></script>
+<script src="elamakerta.js?v=3"></script>
 </body>
 </html>

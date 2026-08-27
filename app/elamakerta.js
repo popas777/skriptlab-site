@@ -3,6 +3,7 @@
    API-sopimus:
      GET   {apiBase}/projects/{id}/biography
      PATCH {apiBase}/projects/{id}/biography        { data }
+     POST  {apiBase}/projects/{id}/biography/transcribe  multipart { file, language_code }
      POST  {apiBase}/projects/{id}/biography/run    { action, data, payload }
    Ilman projectId:tä toimii demotilassa (tila vain muistissa).
    ========================================================================== */
@@ -31,6 +32,17 @@
     timeline_note: "Aikajanamerkintä",
   };
 
+  const TRANSCRIPTION_LANGUAGE_CODE = "fi-FI";
+  const TRANSCRIPTION_SAMPLE_RATE = 16000;
+  const MAX_RECORDING_SECONDS = 10 * 60;
+  const MAX_RECORDING_SAMPLES = TRANSCRIPTION_SAMPLE_RATE * MAX_RECORDING_SECONDS;
+  const MAX_AUDIO_FILE_BYTES = 25 * 1024 * 1024;
+  const SUPPORTED_AUDIO_EXTENSIONS = new Set(["wav", "mp3", "aiff", "aif", "aac", "ogg", "flac"]);
+  const SUPPORTED_AUDIO_MIME_TYPES = new Set([
+    "audio/wav", "audio/x-wav", "audio/mpeg", "audio/mp3", "audio/aiff",
+    "audio/x-aiff", "audio/aac", "audio/ogg", "audio/flac", "audio/x-flac",
+  ]);
+
   const STEPS = [
     { id: "tavoite", name: "Tavoite", desc: "Tarkoitus, tyyli ja rajat", done: (s) => !!s.purpose },
     { id: "aineisto", name: "Aineisto", desc: "Muistot ja muistiinpanot", done: (s) => s.materials.length > 0 },
@@ -45,9 +57,20 @@
 
   let biographyState = defaultBiographyState();
   let saveTimer = null;
-  let dictation = null;
-  let dictationActive = false;
   let demoState = null; // demotilan "backend"
+  let transcriptionPhase = "idle";
+  let recordingSupported = false;
+  let recordingStream = null;
+  let recordingContext = null;
+  let recordingSource = null;
+  let recordingProcessor = null;
+  let recordingSilentGain = null;
+  let recordingTimer = null;
+  let recordingPcmChunks = [];
+  let recordingPcmLength = 0;
+  let recordingResampler = null;
+  let recordingLimitStopRequested = false;
+  let transcriptionController = null;
 
   function defaultBiographyState() {
     return {
@@ -395,52 +418,464 @@
     $("result-sheet").hidden = true;
   }
 
-  /* ------------------------------------------------------------ sanelu */
+  /* ------------------------------------------------------------ puheesta tekstiksi */
 
-  function setupDictation() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const btn = $("btn-dictate");
-    if (!SpeechRecognition) {
-      btn.disabled = true;
-      $("dictate-label").textContent = "Sanelu ei ole tuettu tässä selaimessa";
+  function formatAudioDuration(seconds) {
+    const safeSeconds = Math.max(0, Math.min(MAX_RECORDING_SECONDS, Math.floor(Number(seconds) || 0)));
+    const minutes = Math.floor(safeSeconds / 60);
+    const remainder = safeSeconds % 60;
+    return `${minutes}:${String(remainder).padStart(2, "0")}`;
+  }
+
+  function setTranscriptionError(message) {
+    const error = $("transcription-error");
+    if (!error) return;
+    error.textContent = message || "";
+    error.hidden = !message;
+  }
+
+  function setTranscriptionPhase(phase, message) {
+    transcriptionPhase = phase;
+    const panel = $("transcription-panel");
+    const feedback = $("transcription-feedback");
+    const recordButton = $("btn-record-audio");
+    const uploadButton = $("btn-upload-audio");
+    const fileInput = $("audio-file-input");
+    const cancelButton = $("btn-cancel-transcription");
+    const progress = $("transcription-progress");
+    const timer = $("recording-timer");
+    const status = $("transcription-status");
+    const busy = ["requesting", "recording", "preparing", "transcribing"].includes(phase);
+    const recording = phase === "recording";
+    const indeterminate = ["requesting", "preparing", "transcribing"].includes(phase);
+
+    if (panel) panel.dataset.transcriptionState = phase;
+    if (feedback) feedback.setAttribute("aria-busy", String(indeterminate));
+    if (status && message) status.textContent = message;
+    if (recordButton) {
+      recordButton.disabled = !recording && (busy || !recordingSupported);
+      recordButton.setAttribute("aria-pressed", String(recording));
+    }
+    if ($("record-audio-label")) {
+      $("record-audio-label").textContent = recording ? "Lopeta ja litteroi" : "Aloita äänitys";
+    }
+    if (uploadButton) uploadButton.disabled = busy;
+    if (fileInput) fileInput.disabled = busy;
+    if ($("btn-add-material")) $("btn-add-material").disabled = busy;
+    if (cancelButton) {
+      cancelButton.hidden = !busy;
+      cancelButton.textContent = phase === "transcribing" ? "Peruuta litterointi" : "Peruuta äänitys";
+    }
+    if (timer) timer.hidden = !recording;
+    if (progress) {
+      progress.hidden = !(recording || indeterminate);
+      if (recording) {
+        progress.max = MAX_RECORDING_SECONDS;
+        progress.value = Math.min(MAX_RECORDING_SECONDS, recordingPcmLength / TRANSCRIPTION_SAMPLE_RATE);
+      } else if (indeterminate) {
+        progress.removeAttribute("value");
+      } else {
+        progress.max = MAX_RECORDING_SECONDS;
+        progress.value = 0;
+      }
+    }
+  }
+
+  function failTranscription(message) {
+    setTranscriptionPhase("error", "Litterointi ei onnistunut.");
+    setTranscriptionError(message || "Yritä uudelleen hetken kuluttua.");
+  }
+
+  function pcmSampleToInt16(sample) {
+    const clamped = Math.max(-1, Math.min(1, Number(sample) || 0));
+    return clamped < 0 ? Math.round(clamped * 0x8000) : Math.round(clamped * 0x7fff);
+  }
+
+  function resamplePcmChunk(input, state) {
+    if (!input || !input.length) return new Int16Array(0);
+    const chunkStart = state.inputSamplesSeen;
+    const chunkEnd = chunkStart + input.length;
+    const sourceStep = state.inputSampleRate / TRANSCRIPTION_SAMPLE_RATE;
+    const output = [];
+
+    while (state.nextOutputSourceIndex < chunkEnd - 1) {
+      const relativeIndex = state.nextOutputSourceIndex - chunkStart;
+      const lowerIndex = Math.floor(relativeIndex);
+      const fraction = relativeIndex - lowerIndex;
+      let lowerSample;
+      let upperSample;
+
+      if (lowerIndex < 0) {
+        if (!state.hasPreviousSample) break;
+        lowerSample = state.previousSample;
+        upperSample = input[0];
+      } else {
+        lowerSample = input[lowerIndex];
+        upperSample = input[lowerIndex + 1];
+      }
+      output.push(pcmSampleToInt16(lowerSample + (upperSample - lowerSample) * fraction));
+      state.nextOutputSourceIndex += sourceStep;
+    }
+
+    state.inputSamplesSeen = chunkEnd;
+    state.previousSample = input[input.length - 1];
+    state.hasPreviousSample = true;
+    return Int16Array.from(output);
+  }
+
+  function updateRecordingProgress() {
+    const seconds = Math.min(MAX_RECORDING_SECONDS, recordingPcmLength / TRANSCRIPTION_SAMPLE_RATE);
+    const progress = $("transcription-progress");
+    const timer = $("recording-timer");
+    if (progress && transcriptionPhase === "recording") progress.value = seconds;
+    if (timer) timer.textContent = `${formatAudioDuration(seconds)} / ${formatAudioDuration(MAX_RECORDING_SECONDS)}`;
+  }
+
+  function storeRecordingChunk(input) {
+    if (transcriptionPhase !== "recording" || !recordingResampler) return;
+    const encoded = resamplePcmChunk(input, recordingResampler);
+    const remaining = MAX_RECORDING_SAMPLES - recordingPcmLength;
+    if (encoded.length && remaining > 0) {
+      const kept = encoded.length > remaining ? encoded.slice(0, remaining) : encoded;
+      recordingPcmChunks.push(kept);
+      recordingPcmLength += kept.length;
+    }
+    updateRecordingProgress();
+
+    if (recordingPcmLength >= MAX_RECORDING_SAMPLES && !recordingLimitStopRequested) {
+      recordingLimitStopRequested = true;
+      Promise.resolve().then(() => finishAudioRecording(true));
+    }
+  }
+
+  function clearRecordingBuffer() {
+    recordingPcmChunks = [];
+    recordingPcmLength = 0;
+    recordingResampler = null;
+    recordingLimitStopRequested = false;
+    updateRecordingProgress();
+  }
+
+  async function closeRecordingResources() {
+    window.clearInterval(recordingTimer);
+    recordingTimer = null;
+    const processor = recordingProcessor;
+    const source = recordingSource;
+    const silentGain = recordingSilentGain;
+    const stream = recordingStream;
+    const context = recordingContext;
+    recordingProcessor = null;
+    recordingSource = null;
+    recordingSilentGain = null;
+    recordingStream = null;
+    recordingContext = null;
+
+    if (processor) {
+      processor.onaudioprocess = null;
+      try { processor.disconnect(); } catch (error) { /* yhteys on jo suljettu */ }
+    }
+    if (source) {
+      try { source.disconnect(); } catch (error) { /* yhteys on jo suljettu */ }
+    }
+    if (silentGain) {
+      try { silentGain.disconnect(); } catch (error) { /* yhteys on jo suljettu */ }
+    }
+    if (stream) stream.getTracks().forEach((track) => track.stop());
+    if (context && context.state !== "closed") {
+      try { await context.close(); } catch (error) { /* selain sulki kontekstin */ }
+    }
+  }
+
+  function writeWaveText(view, offset, value) {
+    for (let index = 0; index < value.length; index++) {
+      view.setUint8(offset + index, value.charCodeAt(index));
+    }
+  }
+
+  function createRecordingWavFile(chunks, sampleCount) {
+    const buffer = new ArrayBuffer(44 + sampleCount * 2);
+    const view = new DataView(buffer);
+    writeWaveText(view, 0, "RIFF");
+    view.setUint32(4, 36 + sampleCount * 2, true);
+    writeWaveText(view, 8, "WAVE");
+    writeWaveText(view, 12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, TRANSCRIPTION_SAMPLE_RATE, true);
+    view.setUint32(28, TRANSCRIPTION_SAMPLE_RATE * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeWaveText(view, 36, "data");
+    view.setUint32(40, sampleCount * 2, true);
+
+    let byteOffset = 44;
+    chunks.forEach((chunk) => {
+      for (let index = 0; index < chunk.length; index++) {
+        view.setInt16(byteOffset, chunk[index], true);
+        byteOffset += 2;
+      }
+    });
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    return new File([buffer], `elamakerta-aanitys-${timestamp}.wav`, { type: "audio/wav" });
+  }
+
+  function appendTranscriptToEditor(transcript) {
+    const textarea = $("m-text");
+    if (!textarea) return;
+    const existing = textarea.value.trimEnd();
+    textarea.value = existing ? `${existing}\n\n${transcript}` : transcript;
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+  }
+
+  async function transcriptionErrorMessage(response) {
+    try {
+      const payload = await response.json();
+      if (payload && payload.detail) return String(payload.detail);
+    } catch (error) {
+      // Palvelin ei palauttanut JSON-virhettä.
+    }
+    if (response.status === 413) return "Äänitiedosto on liian suuri litteroitavaksi.";
+    if (response.status === 415) return "Äänitiedoston muotoa ei tueta.";
+    return `Litterointipalvelu palautti virheen (${response.status}).`;
+  }
+
+  function throwIfTranscriptionCancelled(controller) {
+    if (!controller.signal.aborted && transcriptionPhase === "transcribing") return;
+    const error = new Error("Litterointi peruttiin.");
+    error.name = "AbortError";
+    throw error;
+  }
+
+  async function transcribeAudioFile(file, sourceLabel) {
+    const projectId = getProjectId();
+    if (!projectId) {
+      failTranscription("Valitse ensin elämäkertaprojekti.");
+      return;
+    }
+    if (!file || !file.size) {
+      failTranscription("Äänitiedosto on tyhjä.");
+      return;
+    }
+    if (file.size > MAX_AUDIO_FILE_BYTES) {
+      failTranscription("Äänitiedosto on liian suuri. Valitse enintään 25 Mt:n tiedosto.");
       return;
     }
 
-    btn.addEventListener("click", () => {
-      if (dictationActive) { stopDictation(); return; }
-      dictation = new SpeechRecognition();
-      dictation.lang = "fi-FI";
-      dictation.continuous = true;
-      dictation.interimResults = false;
+    setTranscriptionError("");
+    setTranscriptionPhase("transcribing", `${sourceLabel || "Ääni"} lähetetään ja litteroidaan…`);
+    const controller = new AbortController();
+    transcriptionController = controller;
+    const formData = new FormData();
+    formData.append("file", file, file.name || "elamakerta-audio.wav");
+    formData.append("language_code", TRANSCRIPTION_LANGUAGE_CODE);
 
-      dictation.onresult = (event) => {
-        const textarea = $("m-text");
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            const chunk = event.results[i][0].transcript.trim();
-            textarea.value = (textarea.value ? textarea.value + " " : "") + chunk;
-          }
-        }
-      };
-      dictation.onerror = () => stopDictation("Sanelu keskeytyi.");
-      dictation.onend = () => { if (dictationActive) stopDictation(); };
-
-      dictation.start();
-      dictationActive = true;
-      btn.setAttribute("aria-pressed", "true");
-      $("dictate-label").textContent = "Lopeta sanelu";
-      $("dictate-hint").hidden = false;
-    });
+    try {
+      const response = await doFetch(
+        `${API_BASE}/projects/${encodeURIComponent(projectId)}/biography/transcribe`,
+        { method: "POST", body: formData, signal: controller.signal },
+      );
+      throwIfTranscriptionCancelled(controller);
+      if (!response.ok) {
+        const message = await transcriptionErrorMessage(response);
+        throwIfTranscriptionCancelled(controller);
+        throw new Error(message);
+      }
+      const payload = await response.json();
+      throwIfTranscriptionCancelled(controller);
+      const transcript = String(
+        payload.text || payload.transcript || payload.data?.text || payload.data?.transcript || "",
+      ).trim();
+      if (!transcript) throw new Error("Litterointipalvelu ei palauttanut tekstiä.");
+      appendTranscriptToEditor(transcript);
+      setTranscriptionPhase(
+        "success",
+        "Litterointi valmis. Tarkista Sisältö-kenttä ja paina vasta sitten Lisää aineistoon.",
+      );
+      toast("Litterointi lisättiin tarkistettavaksi.");
+    } catch (error) {
+      if (error && error.name === "AbortError") {
+        setTranscriptionPhase("idle", "Litterointi peruttiin. Ääntä tai tekstiä ei lisätty aineistoon.");
+      } else {
+        failTranscription(error?.message || "Litterointi epäonnistui. Yritä uudelleen.");
+      }
+    } finally {
+      if (transcriptionController === controller) transcriptionController = null;
+    }
   }
 
-  function stopDictation(message) {
-    if (dictation) { try { dictation.stop(); } catch (e) { /* ohitetaan */ } }
-    dictationActive = false;
-    const btn = $("btn-dictate");
-    btn.setAttribute("aria-pressed", "false");
-    $("dictate-label").textContent = "Sanele";
-    $("dictate-hint").hidden = true;
-    if (message) toast(message);
+  function microphoneErrorMessage(error) {
+    if (error?.name === "NotAllowedError" || error?.name === "SecurityError") {
+      return "Mikrofonin käyttöä ei sallittu. Salli mikrofoni selaimen asetuksista tai tuo äänitiedosto.";
+    }
+    if (error?.name === "NotFoundError") return "Laitteelta ei löytynyt mikrofonia.";
+    if (error?.name === "NotReadableError") return "Mikrofoni on toisen sovelluksen käytössä.";
+    return "Mikrofonin käynnistäminen epäonnistui. Voit yrittää uudelleen tai tuoda äänitiedoston.";
+  }
+
+  async function startAudioRecording() {
+    if (!getProjectId()) {
+      failTranscription("Valitse ensin elämäkertaprojekti ennen äänitystä.");
+      return;
+    }
+    if (!recordingSupported) {
+      failTranscription("Tämä selain ei tue mikrofonin PCM-äänitystä. Voit tuoda valmiin äänitiedoston.");
+      return;
+    }
+
+    setTranscriptionError("");
+    setTranscriptionPhase("requesting", "Pyydetään mikrofonin käyttöoikeutta…");
+    clearRecordingBuffer();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+      if (transcriptionPhase !== "requesting") {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      recordingStream = stream;
+      recordingContext = new AudioContextClass({ latencyHint: "interactive" });
+      if (recordingContext.state === "suspended") await recordingContext.resume();
+      if (transcriptionPhase !== "requesting" || !recordingContext) {
+        await closeRecordingResources();
+        return;
+      }
+      if (typeof recordingContext.createScriptProcessor !== "function") {
+        throw new Error("Selain ei tue PCM-äänityksessä tarvittavaa Web Audio -toimintoa.");
+      }
+      recordingSource = recordingContext.createMediaStreamSource(stream);
+      recordingProcessor = recordingContext.createScriptProcessor(4096, 1, 1);
+      recordingSilentGain = recordingContext.createGain();
+      recordingSilentGain.gain.value = 0;
+      recordingResampler = {
+        inputSampleRate: recordingContext.sampleRate,
+        inputSamplesSeen: 0,
+        nextOutputSourceIndex: 0,
+        previousSample: 0,
+        hasPreviousSample: false,
+      };
+      recordingProcessor.onaudioprocess = (event) => {
+        storeRecordingChunk(event.inputBuffer.getChannelData(0));
+      };
+      recordingSource.connect(recordingProcessor);
+      recordingProcessor.connect(recordingSilentGain);
+      recordingSilentGain.connect(recordingContext.destination);
+      setTranscriptionPhase("recording", "Äänitys käynnissä. Puhu rauhallisesti ja lopeta, kun olet valmis.");
+      updateRecordingProgress();
+      recordingTimer = window.setInterval(updateRecordingProgress, 250);
+    } catch (error) {
+      await closeRecordingResources();
+      clearRecordingBuffer();
+      if (["cancelling", "idle"].includes(transcriptionPhase)) return;
+      const permissionOrDeviceError = [
+        "NotAllowedError", "SecurityError", "NotFoundError", "NotReadableError",
+      ].includes(error?.name);
+      failTranscription(
+        permissionOrDeviceError
+          ? microphoneErrorMessage(error)
+          : (error?.message || microphoneErrorMessage(error)),
+      );
+    }
+  }
+
+  async function finishAudioRecording(limitReached = false) {
+    if (transcriptionPhase !== "recording") return;
+    setTranscriptionPhase(
+      "preparing",
+      limitReached
+        ? "10 minuutin enimmäisaika täyttyi. Valmistellaan ääntä litteroitavaksi…"
+        : "Äänitys valmis. Valmistellaan ääntä litteroitavaksi…",
+    );
+    await closeRecordingResources();
+    if (transcriptionPhase !== "preparing") return;
+    if (!recordingPcmLength) {
+      clearRecordingBuffer();
+      failTranscription("Äänityksestä ei saatu ääntä. Tarkista mikrofoni ja yritä uudelleen.");
+      return;
+    }
+
+    const wavFile = createRecordingWavFile(recordingPcmChunks, recordingPcmLength);
+    clearRecordingBuffer();
+    if (transcriptionPhase !== "preparing") return;
+    await transcribeAudioFile(wavFile, "Äänitys");
+  }
+
+  async function cancelActiveTranscription() {
+    const activePhase = transcriptionPhase;
+    if (!["requesting", "recording", "preparing", "transcribing"].includes(activePhase)) return;
+    transcriptionPhase = "cancelling";
+    if (transcriptionController) transcriptionController.abort();
+    await closeRecordingResources();
+    clearRecordingBuffer();
+    if (activePhase !== "transcribing") {
+      setTranscriptionPhase("idle", "Äänitys peruttiin. Ääntä tai tekstiä ei lisätty aineistoon.");
+    }
+    setTranscriptionError("");
+  }
+
+  function audioFileIsSupported(file) {
+    const extension = String(file?.name || "").split(".").pop().toLowerCase();
+    const mimeType = String(file?.type || "").split(";")[0].toLowerCase();
+    return SUPPORTED_AUDIO_EXTENSIONS.has(extension) || SUPPORTED_AUDIO_MIME_TYPES.has(mimeType);
+  }
+
+  async function handleAudioFileSelection(event) {
+    const input = event.currentTarget;
+    const file = input.files && input.files[0];
+    input.value = "";
+    if (!file) return;
+    if (!audioFileIsSupported(file)) {
+      failTranscription("Valitse WAV-, MP3-, AIFF-, AAC-, OGG- tai FLAC-äänitiedosto.");
+      return;
+    }
+    await transcribeAudioFile(file, `Tiedosto ${file.name}`);
+  }
+
+  function setupTranscription() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    recordingSupported = Boolean(navigator.mediaDevices?.getUserMedia && AudioContextClass);
+    const recordButton = $("btn-record-audio");
+    const uploadButton = $("btn-upload-audio");
+    const fileInput = $("audio-file-input");
+    const cancelButton = $("btn-cancel-transcription");
+
+    recordButton.addEventListener("click", () => {
+      if (transcriptionPhase === "recording") finishAudioRecording(false);
+      else if (!["requesting", "preparing", "transcribing"].includes(transcriptionPhase)) startAudioRecording();
+    });
+    uploadButton.addEventListener("click", () => {
+      if (!uploadButton.disabled) fileInput.click();
+    });
+    fileInput.addEventListener("change", handleAudioFileSelection);
+    cancelButton.addEventListener("click", cancelActiveTranscription);
+    setTranscriptionPhase(
+      "idle",
+      recordingSupported
+        ? "Valitse äänitys tai tuo WAV-, MP3-, AIFF-, AAC-, OGG- tai FLAC-tiedosto."
+        : "Mikrofoniäänitys ei ole tuettu tässä selaimessa. Voit tuoda äänitiedoston.",
+    );
+  }
+
+  function cancelRecordingForNavigation() {
+    if (["requesting", "recording", "preparing"].includes(transcriptionPhase)) {
+      cancelActiveTranscription();
+    }
+  }
+
+  function disposeTranscription() {
+    if (transcriptionController) transcriptionController.abort();
+    closeRecordingResources();
+    clearRecordingBuffer();
   }
 
   /* ------------------------------------------------------------ aineisto */
@@ -448,8 +883,7 @@
   function addMaterial() {
     const title = $("m-title").value.trim();
     const text = $("m-text").value.trim();
-    if (!text) { toast("Kirjoita tai sanele ensin sisältö."); $("m-text").focus(); return; }
-    stopDictation();
+    if (!text) { toast("Kirjoita tai litteroi ensin sisältö."); $("m-text").focus(); return; }
     biographyState.materials.push({
       title: title || "Nimetön aineisto",
       kind: $("m-kind").value,
@@ -516,10 +950,10 @@
 
     // Navigointi
     document.querySelectorAll("[data-back]").forEach((btn) =>
-      btn.addEventListener("click", () => { stopDictation(); showStep("home"); })
+      btn.addEventListener("click", () => { cancelRecordingForNavigation(); showStep("home"); })
     );
     document.querySelectorAll("[data-goto]").forEach((btn) =>
-      btn.addEventListener("click", () => { stopDictation(); showStep(btn.dataset.goto); })
+      btn.addEventListener("click", () => { cancelRecordingForNavigation(); showStep(btn.dataset.goto); })
     );
 
     // AI-toiminnot
@@ -527,7 +961,7 @@
       btn.addEventListener("click", () => runAction(btn.dataset.run))
     );
 
-    // Aineisto ja sanelu
+    // Aineisto
     $("btn-add-material").addEventListener("click", addMaterial);
     $("btn-answers-to-materials").addEventListener("click", answersToMaterials);
 
@@ -544,7 +978,8 @@
 
   document.addEventListener("DOMContentLoaded", () => {
     bindEvents();
-    setupDictation();
+    setupTranscription();
     loadState();
   });
+  window.addEventListener("pagehide", disposeTranscription);
 })();
