@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=109">
+    <link rel="stylesheet" href="styles.css?v=111">
     <link rel="stylesheet" href="workflow-studio.css?v=2">
     <link rel="stylesheet" href="correction-reprints.css?v=1">
 </head>
@@ -2333,8 +2333,8 @@
                         <article class="marketing-html-settings-card graphics-html-create-card">
                             <div class="marketing-html-card-heading">
                                 <span>AUTOMAATTISET LÄHTEET</span>
-                                <h3>HTML-luonnos ilman asetuksia</h3>
-                                <p>Luonnos tehdään kirjallisella oletustyylillä. Voit viimeistellä tyylin, linkit ja toimintakehotteet myöhemmin Markkinointi-moduulissa tai HTML-editorissa.</p>
+                                <h3>HTML-luonnos automaattisista lähteistä</h3>
+                                <p>Luonnos tehdään kirjallisella oletustyylillä. Voit ohjata sisältöä lisäohjeella ja viimeistellä tyylin, linkit sekä toimintakehotteet myöhemmin Markkinointi-moduulissa tai HTML-editorissa.</p>
                             </div>
 
                             <div class="graphics-html-cover-summary">
@@ -2352,6 +2352,18 @@
                                 <li><span aria-hidden="true">✓</span><div><strong>Kansikuva</strong><small>Uusin kelvollinen etu- tai koko kansi</small></div></li>
                                 <li><span aria-hidden="true">✓</span><div><strong>Henkilökartta</strong><small>Uusin tallennettu kartta, jos olet luonut sen</small></div></li>
                             </ul>
+
+                            <div class="marketing-html-form graphics-html-instructions">
+                                <label for="graphics-html-instructions">Lisäohje HTML-sivulle <span>(valinnainen)</span></label>
+                                <textarea
+                                    id="graphics-html-instructions"
+                                    maxlength="3000"
+                                    rows="4"
+                                    aria-describedby="graphics-html-instructions-help"
+                                    placeholder="Esim. painota teoksen goottilaista tunnelmaa, vältä juonipaljastuksia ja pidä toimintakehotus hillittynä."
+                                ></textarea>
+                                <small id="graphics-html-instructions-help">Ohje täydentää analyysiä, kontekstimuistia ja automaattisesti valittua kansikuvaa.</small>
+                            </div>
 
                             <p id="graphics-html-status" class="graphics-inline-status graphics-html-status" role="status" aria-live="polite">Valitse projekti ja luo tai tuo sille kansikuva.</p>
                             <div class="marketing-html-create-row graphics-html-create-row">
@@ -3891,12 +3903,23 @@
                                 <button id="finnish-translation-ai-check-run-all-btn" class="btn btn-secondary" type="button">Tarkasta kaikki AI:lla</button>
                                 <button id="finnish-translation-ai-check-batch-btn" class="btn btn-secondary" type="button">Edullinen eräajo · 24 h</button>
                                 <button id="finnish-translation-ai-check-cancel-btn" class="btn btn-secondary hidden" type="button">Pysäytä tarkastus</button>
-                                <button id="finnish-translation-ai-check-accept-btn" class="btn btn-primary" type="button">Korvaa tällä</button>
+                                <button id="finnish-translation-ai-check-accept-btn" class="btn btn-primary" type="button">Korvaa 1. ehdotuksella</button>
                                 <button id="finnish-translation-ai-check-accept-selected-btn" class="btn btn-secondary" type="button">Korvaa valitut</button>
                                 <button id="finnish-translation-ai-check-accept-all-btn" class="btn btn-secondary" type="button">Korvaa kaikki tarkastetut</button>
                                 <button id="finnish-translation-ai-check-download-btn" class="btn btn-secondary" type="button">Lataa tarkastettu kirja</button>
                                 <button id="finnish-translation-ai-check-bilingual-btn" class="btn btn-secondary" type="button">Lataa bilingual</button>
                             </div>
+                        </div>
+                        <div class="translation-review-instructions">
+                            <label for="finnish-translation-ai-check-instructions">Lisäohje tarkastukseen <span>(valinnainen)</span></label>
+                            <textarea
+                                id="finnish-translation-ai-check-instructions"
+                                maxlength="4000"
+                                rows="3"
+                                aria-describedby="finnish-translation-ai-check-instructions-help"
+                                placeholder="Esim. säilytä kertojan vanhahtava sävy ja tarkista erityisesti puhuttelumuodot."
+                            ></textarea>
+                            <p id="finnish-translation-ai-check-instructions-help">Samaa ohjetta käytetään tämän palan, koko käännöksen, eräajon ja tuplatarkastuksen yhteydessä.</p>
                         </div>
                         <section
                             id="finnish-translation-ai-check-summary"
@@ -3918,14 +3941,40 @@
                                 <textarea id="finnish-translation-ai-check-current" class="translation-review-text translation-ai-check-text">Valitse käännösosa.</textarea>
                             </div>
                             <div class="translation-review-column">
-                                <h4>Tarkastettu ja vertailtu käännös</h4>
+                                <h4>1. tarkastuksen ehdotus</h4>
                                 <textarea id="finnish-translation-ai-check-checked" class="translation-review-text translation-ai-check-text">Aja AI-tarkastus.</textarea>
                             </div>
                             <div class="translation-review-column">
-                                <h4>Huomiot</h4>
+                                <h4>1. tarkastuksen huomiot</h4>
                                 <textarea id="finnish-translation-ai-check-notes" class="translation-review-text translation-ai-check-text">Aja AI-tarkastus.</textarea>
                             </div>
                         </div>
+                        <section class="translation-double-check-panel" aria-labelledby="finnish-translation-ai-double-check-title">
+                            <div class="translation-double-check-head">
+                                <div>
+                                    <span class="translation-double-check-eyebrow">TOINEN TARKASTUSKIERROS</span>
+                                    <h4 id="finnish-translation-ai-double-check-title">Tuplatarkastus eri kielimallilla</h4>
+                                    <p id="finnish-translation-ai-double-check-status" aria-live="polite">Aja ensin ensimmäinen tarkastus. Toisen kierroksen mallin on oltava eri.</p>
+                                </div>
+                                <div class="translation-double-check-actions">
+                                    <label>Toinen tarkastusmalli
+                                        <select id="finnish-translation-ai-double-check-model"></select>
+                                    </label>
+                                    <button id="finnish-translation-ai-double-check-run-btn" class="btn btn-secondary" type="button">Tuplatarkasta tämä</button>
+                                    <button id="finnish-translation-ai-double-check-run-all-btn" class="btn btn-secondary" type="button">Tuplatarkasta kaikki</button>
+                                    <button id="finnish-translation-ai-double-check-batch-btn" class="btn btn-secondary" type="button">Tuplatarkastus eräajona · 24 h</button>
+                                    <button id="finnish-translation-ai-double-check-accept-btn" class="btn btn-primary" type="button">Korvaa tuplatarkastuksella</button>
+                                </div>
+                            </div>
+                            <div class="translation-double-check-columns">
+                                <label>2. tarkastuksen ehdotus
+                                    <textarea id="finnish-translation-ai-double-check-checked" placeholder="Aja tuplatarkastus ensimmäisen ehdotuksen jälkeen."></textarea>
+                                </label>
+                                <label>2. tarkastuksen huomiot
+                                    <textarea id="finnish-translation-ai-double-check-notes" readonly placeholder="Toisen mallin huomiot näkyvät tässä."></textarea>
+                                </label>
+                            </div>
+                        </section>
                     </div>
                 </div>
             </div>
@@ -4153,6 +4202,17 @@
                             <button id="translation-workspace-review-download-btn" class="btn btn-secondary" type="button">Lataa tarkastettu kirja</button>
                             <button id="translation-workspace-review-bilingual-btn" class="btn btn-secondary" type="button">Lataa bilingual</button>
                         </div>
+                        <div class="translation-review-instructions">
+                            <label for="translation-workspace-review-instructions">Lisäohje tarkastukseen <span>(valinnainen)</span></label>
+                            <textarea
+                                id="translation-workspace-review-instructions"
+                                maxlength="4000"
+                                rows="3"
+                                aria-describedby="translation-workspace-review-instructions-help"
+                                placeholder="Esim. säilytä kertojan vanhahtava sävy ja tarkista erityisesti puhuttelumuodot."
+                            ></textarea>
+                            <p id="translation-workspace-review-instructions-help">Samaa ohjetta käytetään tämän segmentin, koko käännöksen, eräajon ja tuplatarkastuksen yhteydessä.</p>
+                        </div>
                         <p id="translation-workspace-review-status" class="translation-workspace-message">Valitse käännös tai tuo rinnakkaiskäsikirjoitus.</p>
                         <section
                             id="translation-workspace-review-summary"
@@ -4172,7 +4232,7 @@
                                     <button id="translation-workspace-review-next-btn" class="btn btn-secondary" type="button">Seuraava</button>
                                     <button id="translation-workspace-review-current-btn" class="btn btn-secondary" type="button">Tarkasta tämä</button>
                                     <button id="translation-workspace-review-save-btn" class="btn btn-secondary" type="button">Tallenna käännös</button>
-                                    <button id="translation-workspace-review-accept-btn" class="btn btn-primary" type="button">Hyväksy tarkastettu</button>
+                                    <button id="translation-workspace-review-accept-btn" class="btn btn-primary" type="button">Hyväksy 1. tarkastus</button>
                                 </div>
                                 <div class="translation-workspace-review-columns">
                                     <label>Alkuteksti
@@ -4181,13 +4241,39 @@
                                     <label>Nykyinen käännös
                                         <textarea id="translation-workspace-review-current"></textarea>
                                     </label>
-                                    <label>Tarkastettu käännös
+                                    <label>1. tarkastuksen ehdotus
                                         <textarea id="translation-workspace-review-checked"></textarea>
                                     </label>
                                 </div>
-                                <label class="translation-workspace-notes">Tarkastuksen huomiot
+                                <label class="translation-workspace-notes">1. tarkastuksen huomiot
                                     <textarea id="translation-workspace-review-notes" readonly></textarea>
                                 </label>
+                                <section class="translation-double-check-panel" aria-labelledby="translation-workspace-review-double-check-title">
+                                    <div class="translation-double-check-head">
+                                        <div>
+                                            <span class="translation-double-check-eyebrow">TOINEN TARKASTUSKIERROS</span>
+                                            <h4 id="translation-workspace-review-double-check-title">Tuplatarkastus eri kielimallilla</h4>
+                                            <p id="translation-workspace-review-double-check-status" aria-live="polite">Aja ensin ensimmäinen tarkastus. Toisen kierroksen mallin on oltava eri.</p>
+                                        </div>
+                                        <div class="translation-double-check-actions">
+                                            <label>Toinen tarkastusmalli
+                                                <select id="translation-workspace-review-double-check-model"></select>
+                                            </label>
+                                            <button id="translation-workspace-review-double-check-current-btn" class="btn btn-secondary" type="button">Tuplatarkasta tämä</button>
+                                            <button id="translation-workspace-review-double-check-all-btn" class="btn btn-secondary" type="button">Tuplatarkasta kaikki</button>
+                                            <button id="translation-workspace-review-double-check-batch-btn" class="btn btn-secondary" type="button">Tuplatarkastus eräajona · 24 h</button>
+                                            <button id="translation-workspace-review-double-check-accept-btn" class="btn btn-primary" type="button">Hyväksy tuplatarkastus</button>
+                                        </div>
+                                    </div>
+                                    <div class="translation-double-check-columns">
+                                        <label>2. tarkastuksen ehdotus
+                                            <textarea id="translation-workspace-review-double-check-checked" placeholder="Aja tuplatarkastus ensimmäisen ehdotuksen jälkeen."></textarea>
+                                        </label>
+                                        <label>2. tarkastuksen huomiot
+                                            <textarea id="translation-workspace-review-double-check-notes" readonly placeholder="Toisen mallin huomiot näkyvät tässä."></textarea>
+                                        </label>
+                                    </div>
+                                </section>
                             </div>
                         </div>
                     </div>
@@ -4251,6 +4337,6 @@
     <script src="workflow-studio.js?v=5"></script>
     <script src="correction-reprints.js?v=1"></script>
     <script src="demo-terminology.js?v=1"></script>
-    <script src="app.js?v=196"></script>
+    <script src="app.js?v=198"></script>
 </body>
 </html>
