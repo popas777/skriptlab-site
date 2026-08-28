@@ -4886,6 +4886,31 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const navShowMoreButton = document.getElementById('nav-show-more');
     const sidebarNav = navShowMoreButton?.closest('.sidebar-nav');
     const views = document.querySelectorAll('.view-section');
+    const videoWorkspaceTabs = Array.from(document.querySelectorAll('[data-video-workspace-tab]'));
+    const savedVideoWorkspaceTab = localStorage.getItem('skriptlab_video_workspace_tab');
+    setVideoWorkspaceTab(savedVideoWorkspaceTab === 'shorts' ? 'shorts' : 'video', {
+        persist: false,
+        refresh: false
+    });
+    videoWorkspaceTabs.forEach((button, index) => {
+        button.addEventListener('click', () => setVideoWorkspaceTab(button.dataset.videoWorkspaceTab));
+        button.addEventListener('keydown', event => {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            let nextIndex = index;
+            if (event.key === 'ArrowLeft') nextIndex = (index - 1 + videoWorkspaceTabs.length) % videoWorkspaceTabs.length;
+            if (event.key === 'ArrowRight') nextIndex = (index + 1) % videoWorkspaceTabs.length;
+            if (event.key === 'Home') nextIndex = 0;
+            if (event.key === 'End') nextIndex = videoWorkspaceTabs.length - 1;
+            const nextButton = videoWorkspaceTabs[nextIndex];
+            setVideoWorkspaceTab(nextButton.dataset.videoWorkspaceTab);
+            nextButton.focus();
+        });
+    });
+    window.addEventListener('message', event => {
+        if (event.origin !== window.location.origin || event.data?.type !== 'skriptlab:video-workspace-tab') return;
+        setVideoWorkspaceTab(event.data.tab);
+    });
     const showcaseDemoNavOrder = [
         'view-kirjani',
         'view-analyysi',
@@ -26630,12 +26655,30 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         updateEmbeddedModuleFrame(frame, 'tuotanto.html', params);
     }
 
-    function refreshVideoFrame() {
-        const frame = document.getElementById('video-studio-frame');
+    function setVideoWorkspaceTab(tab, options = {}) {
+        const selectedTab = tab === 'shorts' ? 'shorts' : 'video';
+        const tabs = document.getElementById('video-workspace-tabs');
+        if (!tabs) return;
+        tabs.dataset.activeTab = selectedTab;
+        document.querySelectorAll('[data-video-workspace-tab]').forEach(button => {
+            const active = button.dataset.videoWorkspaceTab === selectedTab;
+            button.classList.toggle('active', active);
+            button.setAttribute('aria-selected', String(active));
+            button.tabIndex = active ? 0 : -1;
+        });
+        ['video', 'shorts'].forEach(name => {
+            const panel = document.getElementById(`video-workspace-${name}-panel`);
+            if (panel) panel.hidden = name !== selectedTab;
+        });
+        if (options.persist !== false) localStorage.setItem('skriptlab_video_workspace_tab', selectedTab);
+        if (options.refresh !== false && currentViewId === 'view-video') refreshVideoFrame();
+    }
+
+    function refreshEmbeddedVideoFrame(frame, page, datasetKey, version) {
         if (!frame) return;
         const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
         try {
-            if (frame.contentWindow && frame.dataset.videoProjectId === String(projectId)) {
+            if (frame.contentWindow && frame.dataset[datasetKey] === String(projectId)) {
                 frame.contentWindow.postMessage({
                     type: 'skriptlab:video-project-changed',
                     projectId: projectId || null
@@ -26648,9 +26691,24 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const params = new URLSearchParams();
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '17');
-        frame.dataset.videoProjectId = String(projectId);
-        updateEmbeddedModuleFrame(frame, 'video.html', params);
+        params.set('v', version);
+        frame.dataset[datasetKey] = String(projectId);
+        updateEmbeddedModuleFrame(frame, page, params);
+    }
+
+    function refreshVideoFrame() {
+        refreshEmbeddedVideoFrame(
+            document.getElementById('video-studio-frame'),
+            'video.html',
+            'videoProjectId',
+            '17'
+        );
+        refreshEmbeddedVideoFrame(
+            document.getElementById('shorts-studio-frame'),
+            'shorts.html',
+            'shortsProjectId',
+            '2'
+        );
     }
 
     function refreshSkillFrame() {
