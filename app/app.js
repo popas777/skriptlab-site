@@ -76,7 +76,16 @@ window.saveManuscriptToDB = function(data, options = {}) {
             if (currentChapters) data.chapters = currentChapters;
             if (currentTitle) data.title = currentTitle;
             if (currentAuthor) data.author = currentAuthor;
-            if (hasAnalysisPayload(currentAnalysis)) data.analysis = currentAnalysis;
+            if (hasAnalysisPayload(currentAnalysis)) {
+                const mergedAnalysis = { ...currentAnalysis };
+                const savedAnalysis = saved.analysis && typeof saved.analysis === 'object' ? saved.analysis : {};
+                if (Object.prototype.hasOwnProperty.call(savedAnalysis, 'publishing_timeline')) {
+                    mergedAnalysis.publishing_timeline = savedAnalysis.publishing_timeline;
+                } else {
+                    delete mergedAnalysis.publishing_timeline;
+                }
+                data.analysis = mergedAnalysis;
+            }
             delete data._needs_db_sync;
             delete data._pending_save_kind;
             delete data._pending_chapter_index;

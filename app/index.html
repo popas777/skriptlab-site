@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="styles.css?v=112">
     <link rel="stylesheet" href="workflow-studio.css?v=2">
     <link rel="stylesheet" href="correction-reprints.css?v=1">
+    <link rel="stylesheet" href="timeline.css?v=1">
 </head>
 <body class="access-pending">
     <div id="access-loading-screen" class="access-loading-screen" role="status" aria-live="polite">
@@ -1536,63 +1537,121 @@
 
             <!-- 3. VIEW: AIKAJANA -->
             <div id="view-aikajana" class="view-section hidden">
-                <div class="header">
-                    <div class="header-info">
-                        <h2>Projektin Aikajana</h2>
-                        <p>Käännekohdat ja tavoitteet julkaisuun saakka</p>
-                    </div>
-                </div>
-                <div class="timeline glass-panel">
-                    <div class="timeline-item completed">
-                        <div class="timeline-marker"></div>
-                        <div class="timeline-content">
-                            <h4>Sopimus valmis</h4>
-                            <p>15.05.2023 - Virallinen aloitus. Näkyy Sopimukset-välilehdellä.</p>
+                <section class="timeline-workspace" aria-labelledby="timeline-heading">
+                    <header class="timeline-workspace-hero glass-panel">
+                        <div class="timeline-workspace-hero-copy">
+                            <p class="timeline-workspace-eyebrow">KIRJAPROJEKTI · TUOTANTO · JULKAISU</p>
+                            <h2 id="timeline-heading">Kirjaprojektin aikajana</h2>
+                            <p id="timeline-project-context">Valitse käsikirjoitus, niin voit suunnitella työn julkaisusta jatkokampanjoihin.</p>
                         </div>
-                    </div>
-                    <div class="timeline-item active">
-                        <div class="timeline-marker"></div>
-                        <div class="timeline-content">
-                            <h4>Käsikirjoitus valmis</h4>
-                            <p>Editointi ja kielenhuolto yhdessä tekeillä. (Mene Editointi-välilehdelle)</p>
+                        <div class="timeline-workspace-hero-actions">
+                            <button class="btn btn-primary" id="timeline-add-task-btn" type="button">+ Lisää oma tehtävä</button>
+                            <p>Tehtävät tallentuvat valittuun projektiin.</p>
                         </div>
-                    </div>
-                    <div class="timeline-item">
-                        <div class="timeline-marker"></div>
-                        <div class="timeline-content">
-                            <h4>Kansi valmis</h4>
-                            <p>Odottaa käsikirjoituksen viimeisteltyä versiota.</p>
+                    </header>
+
+                    <section class="timeline-empty-state glass-panel" id="timeline-project-empty">
+                        <span aria-hidden="true">◷</span>
+                        <h3>Valitse ensin kirjaprojekti</h3>
+                        <p>Aikataulu, vastuuhenkilöt ja lisätiedot pidetään erillään jokaiselle käsikirjoitukselle.</p>
+                        <button class="btn btn-secondary" id="timeline-open-projects-btn" type="button">Siirry käsikirjoituksiin</button>
+                    </section>
+
+                    <div id="timeline-workspace-content" hidden>
+                        <section class="timeline-overview" aria-label="Aikajanan yhteenveto">
+                            <article class="timeline-overview-card glass-panel">
+                                <span>Valmiina</span>
+                                <strong id="timeline-completed-count">0 / 0</strong>
+                                <div class="timeline-progress-track" aria-hidden="true"><i id="timeline-progress-bar"></i></div>
+                            </article>
+                            <article class="timeline-overview-card glass-panel">
+                                <span>Seuraava deadline</span>
+                                <strong id="timeline-next-deadline">Ei asetettu</strong>
+                                <small id="timeline-next-deadline-task">Täydennä tehtävien päivämäärät</small>
+                            </article>
+                            <article class="timeline-overview-card glass-panel">
+                                <span>Myöhässä</span>
+                                <strong id="timeline-overdue-count">0</strong>
+                                <small>Keskeneräistä tehtävää</small>
+                            </article>
+                        </section>
+
+                        <div class="timeline-toolbar glass-panel">
+                            <div class="timeline-filters" role="group" aria-label="Suodata tehtäviä">
+                                <button class="timeline-filter is-active" type="button" data-timeline-filter="all" aria-pressed="true">Kaikki</button>
+                                <button class="timeline-filter" type="button" data-timeline-filter="open" aria-pressed="false">Avoimet</button>
+                                <button class="timeline-filter" type="button" data-timeline-filter="active" aria-pressed="false">Työn alla</button>
+                                <button class="timeline-filter" type="button" data-timeline-filter="done" aria-pressed="false">Valmiit</button>
+                            </div>
+                            <p id="timeline-save-status" role="status" aria-live="polite">Muutokset tallennetaan tehtäväeditorista.</p>
                         </div>
+
+                        <div class="project-timeline-list" id="timeline-task-list" aria-live="polite"></div>
                     </div>
-                    <div class="timeline-item">
-                        <div class="timeline-marker"></div>
-                        <div class="timeline-content">
-                            <h4>Tuotetiedot valmiit</h4>
-                            <p>Odottaa valmista runkoa ja analyysin ONIX-metadata-vientiä.</p>
-                        </div>
-                    </div>
-                    <div class="timeline-item">
-                        <div class="timeline-marker"></div>
-                        <div class="timeline-content">
-                            <h4>Taitto valmis</h4>
-                            <p>Yhdistää kuvituksen ja lukitun tekstin taitto-ohjelmistojen InDesign/vastaava -formaatissa.</p>
-                        </div>
-                    </div>
-                    <div class="timeline-item">
-                        <div class="timeline-marker"></div>
-                        <div class="timeline-content">
-                            <h4>Audio valmis</h4>
-                            <p>Äänikirjan automatisoitu tai studiossa tehty äänitys.</p>
-                        </div>
-                    </div>
-                    <div class="timeline-item">
-                        <div class="timeline-marker"></div>
-                        <div class="timeline-content">
-                            <h4>Ilmestyminen</h4>
-                            <p>Arvioitu: Syksy 2024</p>
-                        </div>
-                    </div>
-                </div>
+
+                    <dialog class="timeline-task-dialog" id="timeline-task-dialog" aria-labelledby="timeline-dialog-title">
+                        <form id="timeline-task-form" novalidate>
+                            <div class="timeline-dialog-header">
+                                <div>
+                                    <p class="timeline-workspace-eyebrow" id="timeline-dialog-kicker">TEHTÄVÄN TIEDOT</p>
+                                    <h3 id="timeline-dialog-title">Muokkaa tehtävää</h3>
+                                </div>
+                                <button class="timeline-dialog-close" id="timeline-dialog-close-btn" type="button" aria-label="Sulje tehtäväeditori">×</button>
+                            </div>
+
+                            <input id="timeline-task-id" type="hidden">
+                            <div class="timeline-form-grid">
+                                <label class="timeline-field timeline-field-wide">
+                                    <span>Tehtävä</span>
+                                    <input id="timeline-task-title" type="text" maxlength="160" required placeholder="Esimerkiksi Ennakkokappaleet medialle">
+                                </label>
+                                <label class="timeline-field">
+                                    <span>Vaihe</span>
+                                    <select id="timeline-task-phase">
+                                        <option value="book">Kirjaprojekti</option>
+                                        <option value="production">Julkaisutuotanto</option>
+                                        <option value="launch">Lanseeraus</option>
+                                        <option value="aftercare">Julkaisun jälkeen</option>
+                                    </select>
+                                </label>
+                                <label class="timeline-field">
+                                    <span>Tila</span>
+                                    <select id="timeline-task-status">
+                                        <option value="not_started">Ei aloitettu</option>
+                                        <option value="in_progress">Työn alla</option>
+                                        <option value="blocked">Estynyt</option>
+                                        <option value="done">Valmis</option>
+                                    </select>
+                                </label>
+                                <label class="timeline-field">
+                                    <span>Työ alkaa</span>
+                                    <input id="timeline-task-start" type="date">
+                                </label>
+                                <label class="timeline-field">
+                                    <span>DL</span>
+                                    <input id="timeline-task-deadline" type="date">
+                                </label>
+                                <label class="timeline-field timeline-field-wide">
+                                    <span>Tekijä</span>
+                                    <input id="timeline-task-assignee" type="text" maxlength="160" placeholder="Nimi, tiimi tai yhteistyökumppani">
+                                </label>
+                                <label class="timeline-field timeline-field-wide timeline-details-field">
+                                    <span>Lisätiedot</span>
+                                    <textarea id="timeline-task-details" maxlength="50000" placeholder="Kirjaa tähän brief, riippuvuudet, yhteystiedot, hyväksynnät, linkit ja muut työohjeet."></textarea>
+                                    <small><span id="timeline-details-count">0</span> / 50 000 merkkiä · pääaikajanalla näytetään vain tekstin alku</small>
+                                </label>
+                            </div>
+
+                            <p class="timeline-form-error" id="timeline-form-error" role="alert" hidden></p>
+                            <div class="timeline-dialog-actions">
+                                <button class="btn timeline-delete-task-btn" id="timeline-delete-task-btn" type="button" hidden>Poista oma tehtävä</button>
+                                <span></span>
+                                <button class="btn btn-secondary" id="timeline-dialog-cancel-btn" type="button">Peruuta</button>
+                                <button class="btn btn-primary" id="timeline-save-task-btn" type="submit">Tallenna tehtävä</button>
+                            </div>
+                        </form>
+                    </dialog>
+                </section>
             </div>
 
             <!-- 4. VIEW: ANALYYSI -->
@@ -4268,6 +4327,7 @@
     <script src="workflow-studio.js?v=5"></script>
     <script src="correction-reprints.js?v=1"></script>
     <script src="demo-terminology.js?v=1"></script>
-    <script src="app.js?v=201"></script>
+    <script src="app.js?v=202"></script>
+    <script src="timeline.js?v=1"></script>
 </body>
 </html>
