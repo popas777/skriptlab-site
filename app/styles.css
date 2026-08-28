@@ -518,6 +518,31 @@ body:not(.access-pending) .access-loading-screen {
     font-size: 8px;
     line-height: 1.4;
 }
+.graphics-html-instructions {
+    gap: 7px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+}
+.graphics-html-instructions label span {
+    color: var(--text-secondary);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+}
+.graphics-html-instructions textarea {
+    min-height: 112px;
+}
+.graphics-html-instructions small {
+    color: var(--text-secondary);
+    font-size: 9px;
+    line-height: 1.5;
+}
+.graphics-html-instructions textarea:disabled {
+    opacity: 0.65;
+    cursor: progress;
+}
 .graphics-html-status {
     min-height: 36px;
     margin-top: 17px;
@@ -3988,6 +4013,60 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     font-size: 13px;
     margin: 6px 0 0;
 }
+.translation-review-instructions {
+    display: grid;
+    gap: 7px;
+    margin: 14px 0 16px;
+    padding: 13px 14px;
+    border: 1px solid rgba(121, 192, 255, 0.18);
+    border-radius: 9px;
+    background: rgba(121, 192, 255, 0.045);
+}
+.translation-review-header + .translation-review-instructions {
+    margin-top: 0;
+}
+.translation-review-instructions label {
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 750;
+}
+.translation-review-instructions label span {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+.translation-review-instructions textarea {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 88px;
+    padding: 11px 12px;
+    resize: vertical;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.16);
+    color: var(--text-primary);
+    font: 400 13px/1.55 Inter, sans-serif;
+}
+.translation-review-instructions textarea:focus {
+    outline: none;
+    border-color: var(--ai-gradient-start);
+    box-shadow: 0 0 0 3px rgba(121, 192, 255, 0.1);
+}
+.translation-review-instructions textarea:disabled {
+    opacity: 0.65;
+    cursor: progress;
+}
+.translation-review-instructions p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.45;
+}
+[data-theme="light"] .translation-review-instructions {
+    background: rgba(9, 105, 218, 0.035);
+}
+[data-theme="light"] .translation-review-instructions textarea {
+    background: rgba(255, 255, 255, 0.72);
+}
 .translation-review-summary {
     display: grid;
     gap: 14px;
@@ -4030,9 +4109,9 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 }
 .translation-review-summary-stats {
     display: grid;
-    grid-template-columns: repeat(4, minmax(82px, 1fr));
+    grid-template-columns: repeat(5, minmax(76px, 1fr));
     gap: 7px;
-    min-width: min(100%, 430px);
+    min-width: min(100%, 520px);
 }
 .translation-review-summary-stats > span {
     display: grid;
@@ -4131,6 +4210,106 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 [data-theme="light"] .translation-review-summary-stats > span,
 [data-theme="light"] .translation-review-summary-item {
     background: rgba(255, 255, 255, 0.58);
+}
+.translation-double-check-panel {
+    display: grid;
+    gap: 14px;
+    margin-top: 16px;
+    padding: 16px;
+    border: 1px solid color-mix(in srgb, var(--ai-gradient-start) 34%, var(--border-color));
+    border-radius: 10px;
+    background: rgba(121, 192, 255, 0.055);
+}
+.translation-double-check-head {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 18px;
+}
+.translation-double-check-eyebrow {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--ai-gradient-start);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.13em;
+}
+.translation-double-check-panel h4 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 15px;
+}
+.translation-double-check-panel p {
+    max-width: 620px;
+    margin: 5px 0 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.5;
+}
+.translation-double-check-actions {
+    display: flex;
+    align-items: end;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.translation-double-check-actions > label {
+    display: grid;
+    gap: 5px;
+    min-width: min(100%, 230px);
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+}
+.translation-double-check-actions select {
+    width: 100%;
+    min-height: 38px;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+    font-family: inherit;
+}
+.translation-double-check-actions select option:disabled {
+    color: var(--text-secondary);
+}
+.translation-double-check-columns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+.translation-double-check-columns > label {
+    display: grid;
+    gap: 7px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 700;
+}
+.translation-double-check-columns textarea {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 220px;
+    resize: vertical;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.16);
+    color: var(--text-primary);
+    padding: 13px;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 15px;
+    line-height: 1.65;
+}
+.translation-double-check-columns textarea[readonly] {
+    font-family: Inter, sans-serif;
+    font-size: 13px;
+}
+[data-theme="light"] .translation-double-check-panel {
+    background: rgba(9, 105, 218, 0.035);
+}
+[data-theme="light"] .translation-double-check-actions select,
+[data-theme="light"] .translation-double-check-columns textarea {
+    background: rgba(255, 255, 255, 0.72);
 }
 .translation-review-actions {
     display: flex;
@@ -4535,6 +4714,12 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     .translation-review-summary-head {
         display: grid;
     }
+    .translation-double-check-head {
+        display: grid;
+    }
+    .translation-double-check-actions {
+        justify-content: flex-start;
+    }
     .translation-review-summary-stats {
         width: 100%;
         min-width: 0;
@@ -4581,6 +4766,13 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     }
 }
 @media (max-width: 560px) {
+    .translation-review-instructions {
+        padding: 12px;
+    }
+    .translation-review-instructions textarea {
+        min-height: 108px;
+        font-size: 16px;
+    }
     .translation-review-summary {
         padding: 13px;
     }
@@ -4589,6 +4781,16 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     }
     .translation-review-summary-list {
         grid-template-columns: 1fr;
+    }
+    .translation-double-check-panel {
+        padding: 13px;
+    }
+    .translation-double-check-columns {
+        grid-template-columns: 1fr;
+    }
+    .translation-double-check-actions .btn,
+    .translation-double-check-actions > label {
+        flex: 1 1 100%;
     }
 }
 .layout-offers button {
@@ -10822,6 +11024,13 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     color: var(--ai-gradient-start);
     font-size: 10px;
 }
+.translation-workspace-segment.double-checked::after {
+    content: "Tuplatarkastettu";
+    display: block;
+    margin-top: 3px;
+    color: var(--ai-gradient-start);
+    font-size: 10px;
+}
 .translation-workspace-review-content {
     min-width: 0;
 }
@@ -10961,6 +11170,10 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 .app-wrapper.mobile-simulate .translation-workspace-review-toolbar,
 .app-wrapper.mobile-simulate .translation-workspace-review-columns {
     grid-template-columns: 1fr;
+}
+.app-wrapper.mobile-simulate .translation-review-instructions textarea {
+    min-height: 108px;
+    font-size: 16px;
 }
 .app-wrapper.mobile-simulate .translation-workspace-version {
     grid-template-columns: 1fr;

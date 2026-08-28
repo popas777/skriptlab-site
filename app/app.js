@@ -346,6 +346,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     let translationReviewBatchJobId = null;
     let translationReviewBatchSource = null;
+    let translationReviewBatchDoubleCheck = false;
     let translationReviewBatchResumePromise = null;
     let translationReviewBatchResumeTranslationId = null;
     const activeTranslationJobIds = {
@@ -932,6 +933,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const graphicsHtmlCover = document.getElementById('graphics-html-cover');
     const graphicsHtmlCoverTitle = document.getElementById('graphics-html-cover-title');
     const graphicsHtmlCoverDetail = document.getElementById('graphics-html-cover-detail');
+    const graphicsHtmlInstructions = document.getElementById('graphics-html-instructions');
     const graphicsHtmlGenerateBtn = document.getElementById('graphics-html-generate-btn');
     const graphicsHtmlPreviewFrame = document.getElementById('graphics-html-preview-frame');
     const graphicsHtmlPreviewEmpty = document.getElementById('graphics-html-preview-empty');
@@ -7895,6 +7897,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             graphicsHtmlGenerateBtn.disabled = graphicsHtmlGenerating || !ready;
             graphicsHtmlGenerateBtn.textContent = graphicsHtmlGenerating ? 'Luodaan HTML-luonnosta…' : 'Luo HTML-luonnos';
         }
+        if (graphicsHtmlInstructions) graphicsHtmlInstructions.disabled = graphicsHtmlGenerating;
         if (graphicsHtmlPreviewEmpty) {
             graphicsHtmlPreviewEmpty.classList.toggle('is-working', graphicsHtmlGenerating);
         }
@@ -7955,7 +7958,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                     project_id: project.id,
-                    cover_asset_id: Number(cover.id)
+                    cover_asset_id: Number(cover.id),
+                    additional_instructions: String(graphicsHtmlInstructions?.value || '').trim()
                 })
             });
             const data = await response.json().catch(() => null);
@@ -11110,6 +11114,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     });
     graphicsHtmlGenerateBtn?.addEventListener('click', generateGraphicsHtmlDraft);
     graphicsHtmlDownloadBtn?.addEventListener('click', downloadGraphicsHtmlDraft);
+    graphicsHtmlInstructions?.addEventListener('input', () => {
+        if (latestGraphicsHtmlPage) clearGraphicsHtmlResult();
+        renderGraphicsHtmlWorkspace();
+    });
     visualAddRowBtn?.addEventListener('click', () => {
         const entry = nextUnusedVisualChapterEntry();
         if (!entry) {
@@ -22634,6 +22642,17 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         return chunk?.ai_check && typeof chunk.ai_check === 'object' ? chunk.ai_check : {};
     }
 
+    function workspaceChunkDoubleCheck(chunk) {
+        return chunk?.ai_double_check && typeof chunk.ai_double_check === 'object' ? chunk.ai_double_check : {};
+    }
+
+    function translationReviewInstructions(source = 'workspace') {
+        const id = source === 'workspace'
+            ? 'translation-workspace-review-instructions'
+            : 'finnish-translation-ai-check-instructions';
+        return String(document.getElementById(id)?.value || '').trim();
+    }
+
     function renderTranslationWorkspaceReview(options = {}) {
         const item = selectedFinnishTranslation;
         const chunks = translationChunkDetails(item);
@@ -22643,9 +22662,14 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const current = document.getElementById('translation-workspace-review-current');
         const checked = document.getElementById('translation-workspace-review-checked');
         const notes = document.getElementById('translation-workspace-review-notes');
+        const doubleChecked = document.getElementById('translation-workspace-review-double-check-checked');
+        const doubleNotes = document.getElementById('translation-workspace-review-double-check-notes');
+        const doubleStatus = document.getElementById('translation-workspace-review-double-check-status');
+        const doubleModelSelect = document.getElementById('translation-workspace-review-double-check-model');
         const status = document.getElementById('translation-workspace-review-status');
         const cancelButton = document.getElementById('translation-workspace-review-cancel-btn');
         const modelSelect = document.getElementById('translation-workspace-review-model');
+        const instructionsInput = document.getElementById('translation-workspace-review-instructions');
         const buttons = [
             'translation-workspace-review-prev-btn',
             'translation-workspace-review-next-btn',
@@ -22654,6 +22678,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             'translation-workspace-review-batch-btn',
             'translation-workspace-review-save-btn',
             'translation-workspace-review-accept-btn',
+            'translation-workspace-review-double-check-current-btn',
+            'translation-workspace-review-double-check-all-btn',
+            'translation-workspace-review-double-check-batch-btn',
+            'translation-workspace-review-double-check-accept-btn',
             'translation-workspace-review-download-btn',
             'translation-workspace-review-bilingual-btn'
         ].map(id => document.getElementById(id)).filter(Boolean);
@@ -22663,6 +22691,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             cancelButton.textContent = 'Pysäytä tarkastus';
         }
         if (modelSelect) modelSelect.disabled = translationWorkspaceReviewRunning;
+        if (doubleModelSelect) doubleModelSelect.disabled = translationWorkspaceReviewRunning;
+        if (instructionsInput) instructionsInput.disabled = translationWorkspaceReviewRunning;
         populateTranslationWorkspaceReviewSelect();
         if (!item || !chunks.length) {
             renderTranslationReviewSummary(
@@ -22676,7 +22706,13 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             if (current) current.value = '';
             if (checked) checked.value = '';
             if (notes) notes.value = '';
+            if (doubleChecked) doubleChecked.value = '';
+            if (doubleNotes) doubleNotes.value = '';
+            if (doubleStatus && !options.preserveDoubleCheckStatus) {
+                doubleStatus.textContent = 'Aja ensin ensimmäinen tarkastus. Toisen kierroksen mallin on oltava eri.';
+            }
             buttons.forEach(button => { button.disabled = true; });
+            if (doubleModelSelect) doubleModelSelect.disabled = true;
             if (status && !options.preserveStatus) status.textContent = 'Valitse käännös tai tuo rinnakkaiskäsikirjoitus.';
             return;
         }
@@ -22695,12 +22731,13 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         );
         const chunk = chunks[selectedFinnishTranslationPartIndex];
         const aiCheck = workspaceChunkCheck(chunk);
+        const aiDoubleCheck = workspaceChunkDoubleCheck(chunk);
         const reviewedCount = chunks.filter(part => finnishTranslationAiCheckedText(part)).length;
         if (list) {
             list.innerHTML = chunks.map((part, index) => `
                 <button
                     type="button"
-                    class="translation-workspace-segment ${index === selectedFinnishTranslationPartIndex ? 'active' : ''} ${finnishTranslationAiCheckedText(part) ? 'checked' : ''}"
+                    class="translation-workspace-segment ${index === selectedFinnishTranslationPartIndex ? 'active' : ''} ${finnishTranslationAiDoubleCheckedText(part) ? 'double-checked' : finnishTranslationAiCheckedText(part) ? 'checked' : ''}"
                     data-workspace-segment-index="${index}"
                     ${translationWorkspaceReviewRunning ? 'disabled' : ''}
                 >${escapeHtml(translationPartLabel(part, index).title)}</button>
@@ -22717,15 +22754,82 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (current) current.value = chunk.translation || '';
         if (checked) checked.value = aiCheck.checked_translation || '';
         if (notes) notes.value = aiCheck.notes || '';
+        if (doubleChecked) doubleChecked.value = aiDoubleCheck.checked_translation || '';
+        if (doubleNotes) doubleNotes.value = aiDoubleCheck.notes || '';
         buttons.forEach(button => { button.disabled = translationWorkspaceReviewRunning; });
         const prev = document.getElementById('translation-workspace-review-prev-btn');
         const next = document.getElementById('translation-workspace-review-next-btn');
         const accept = document.getElementById('translation-workspace-review-accept-btn');
+        const doubleCurrent = document.getElementById('translation-workspace-review-double-check-current-btn');
+        const doubleAll = document.getElementById('translation-workspace-review-double-check-all-btn');
+        const doubleBatch = document.getElementById('translation-workspace-review-double-check-batch-btn');
+        const doubleAccept = document.getElementById('translation-workspace-review-double-check-accept-btn');
         const download = document.getElementById('translation-workspace-review-download-btn');
         const bilingual = document.getElementById('translation-workspace-review-bilingual-btn');
         if (prev) prev.disabled = translationWorkspaceReviewRunning || selectedFinnishTranslationPartIndex === 0;
         if (next) next.disabled = translationWorkspaceReviewRunning || selectedFinnishTranslationPartIndex >= chunks.length - 1;
         if (accept) accept.disabled = translationWorkspaceReviewRunning || !String(aiCheck.checked_translation || '').trim();
+        const firstCheckReady = Boolean(finnishTranslationAiCheckedText(chunk));
+        const doubleCheckReady = Boolean(finnishTranslationAiDoubleCheckedText(chunk));
+        const doubleModelState = syncTranslationDoubleCheckModelSelect(doubleModelSelect, chunk);
+        const doubleCheckCandidateIndexes = translationDoubleCheckCandidateIndexes(chunks);
+        const pendingDoubleIndexes = translationDoubleCheckPendingIndexes(chunks);
+        const doubleModelConflicts = translationDoubleCheckModelConflicts(
+            chunks,
+            pendingDoubleIndexes,
+            doubleModelState.selectedModel
+        );
+        const missingDoubleModelIndexes = translationDoubleCheckMissingModelIndexes(
+            chunks,
+            doubleCheckCandidateIndexes
+        );
+        const doubleModelInvalid = !doubleModelState.available || doubleModelState.sameModel;
+        if (doubleModelSelect) {
+            doubleModelSelect.disabled = translationWorkspaceReviewRunning
+                || !firstCheckReady
+                || doubleModelState.missingFirstModel;
+        }
+        if (doubleCurrent) {
+            doubleCurrent.disabled = translationWorkspaceReviewRunning || !firstCheckReady || doubleModelInvalid;
+        }
+        if (doubleAll) {
+            doubleAll.disabled = translationWorkspaceReviewRunning
+                || !pendingDoubleIndexes.length
+                || doubleModelInvalid
+                || Boolean(doubleModelConflicts.length)
+                || Boolean(missingDoubleModelIndexes.length);
+        }
+        if (doubleBatch) {
+            doubleBatch.disabled = translationWorkspaceReviewRunning
+                || !pendingDoubleIndexes.length
+                || doubleModelInvalid
+                || Boolean(doubleModelConflicts.length)
+                || Boolean(missingDoubleModelIndexes.length)
+                || !translationBatchModelSupported(doubleModelState.selectedModel);
+            doubleBatch.title = !translationBatchModelSupported(doubleModelState.selectedModel)
+                ? 'Tuplatarkastuksen eräajo vaatii eri Gemini Flash -mallin.'
+                : 'Lähetä tuplatarkastus Gemini Batch APIin. Tavoiteaika on enintään 24 tuntia.';
+        }
+        if (doubleAccept) {
+            doubleAccept.disabled = translationWorkspaceReviewRunning || !doubleCheckReady;
+        }
+        if (doubleStatus && !options.preserveDoubleCheckStatus) {
+            doubleStatus.textContent = !firstCheckReady
+                ? 'Aja tälle segmentille ensin ensimmäinen tarkastus.'
+                : doubleModelState.missingFirstModel
+                    ? 'Ensimmäisen tarkastuksen mallitieto puuttuu. Aja ensimmäinen tarkastus uudelleen ennen tuplatarkastusta.'
+                    : missingDoubleModelIndexes.length
+                        ? `${missingDoubleModelIndexes.length} odottavalta segmentiltä puuttuu ensimmäisen tarkastuksen mallitieto. Tarkasta ne ensin uudelleen.`
+                        : !doubleModelState.available
+                            ? 'Tuplatarkastus vaatii toisen käytettävissä olevan kielimallin.'
+                            : doubleModelState.sameModel
+                                ? 'Valitse eri kielimalli kuin ensimmäisellä tarkastuskierroksella.'
+                                : doubleModelConflicts.length
+                                    ? `Valittu malli on sama kuin ${doubleModelConflicts.length} odottavan segmentin ensimmäinen malli. Valitse kaikille toinen malli.`
+                                    : doubleCheckReady
+                                        ? `Tuplatarkastus on valmis mallilla ${translationModelLabel(aiDoubleCheck.model || doubleModelState.selectedModel)}. Voit hyväksyä kumman tahansa ehdotuksen.`
+                                        : 'Ensimmäinen ehdotus on valmis. Aja tuplatarkastus eri mallilla.';
+        }
         if (download) download.disabled = translationWorkspaceReviewRunning || reviewedCount === 0;
         if (bilingual) bilingual.disabled = translationWorkspaceReviewRunning || reviewedCount === 0;
         const batchButton = document.getElementById('translation-workspace-review-batch-btn');
@@ -22753,9 +22857,12 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const chunks = translationChunkDetails(item);
         const chunk = chunks[selectedFinnishTranslationPartIndex];
         const status = document.getElementById('translation-workspace-review-status');
-        const value = useChecked
-            ? document.getElementById('translation-workspace-review-checked')?.value
-            : document.getElementById('translation-workspace-review-current')?.value;
+        const useDoubleCheck = useChecked === 'double';
+        const value = useDoubleCheck
+            ? document.getElementById('translation-workspace-review-double-check-checked')?.value
+            : useChecked
+                ? document.getElementById('translation-workspace-review-checked')?.value
+                : document.getElementById('translation-workspace-review-current')?.value;
         if (!item || !chunk || !String(value || '').trim()) return;
         if (status) status.textContent = 'Tallennetaan segmenttiä...';
         try {
@@ -22772,7 +22879,13 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             loadedTranslationWorkspaceTranslationId = null;
             renderTranslationWorkspaceReview();
             renderTranslationWorkspaceHistory();
-            if (status) status.textContent = useChecked ? 'Tarkastettu käännös hyväksyttiin.' : 'Segmentin käännös tallennettiin.';
+            if (status) {
+                status.textContent = useDoubleCheck
+                    ? 'Tuplatarkastettu käännös hyväksyttiin.'
+                    : useChecked
+                        ? 'Ensimmäisen tarkastuksen käännös hyväksyttiin.'
+                        : 'Segmentin käännös tallennettiin.';
+            }
         } catch (err) {
             if (status) status.textContent = err.message;
         }
@@ -22784,6 +22897,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const chunkIndex = selectedFinnishTranslationPartIndex;
         const chunk = chunks[chunkIndex];
         const status = document.getElementById('translation-workspace-review-status');
+        const selectedModel = document.getElementById('translation-workspace-review-model')?.value || null;
+        const instructions = translationReviewInstructions('workspace');
         if (!item || !chunk) return;
         translationWorkspaceReviewRunning = true;
         renderTranslationWorkspaceReview({ preserveStatus: true });
@@ -22793,14 +22908,15 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
-                    model: document.getElementById('translation-workspace-review-model')?.value || null,
+                    model: selectedModel,
                     current_translation: document.getElementById('translation-workspace-review-current')?.value || chunk.translation || '',
+                    instructions,
                     save: true
                 })
             });
             const data = await res.json().catch(() => null);
             if (!res.ok) throw new Error(data?.detail || 'Tarkastus epäonnistui.');
-            updateFinnishTranslationAiCheckChunk(chunkIndex, data, item);
+            updateFinnishTranslationAiCheckChunk(chunkIndex, data, item, selectedModel);
             if (status) status.textContent = 'Segmentin tarkastus valmis.';
         } catch (err) {
             if (status) status.textContent = networkFailureMessage(err);
@@ -22816,6 +22932,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const chunks = translationChunkDetails(item);
         const status = document.getElementById('translation-workspace-review-status');
         const selectedModel = document.getElementById('translation-workspace-review-model')?.value || null;
+        const instructions = translationReviewInstructions('workspace');
         const repeat = options?.force === true
             || document.getElementById('translation-workspace-review-repeat')?.checked === true;
         if (!item || !chunks.length) {
@@ -22855,12 +22972,13 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                         body: JSON.stringify({
                             model: selectedModel,
                             current_translation: chunks[index].translation || '',
+                            instructions,
                             save: true
                         })
                     });
                     const data = await res.json().catch(() => null);
                     if (!res.ok) throw new Error(data?.detail || 'Tarkastus epäonnistui.');
-                    updateFinnishTranslationAiCheckChunk(index, data, item);
+                    updateFinnishTranslationAiCheckChunk(index, data, item, selectedModel);
                     completed += 1;
                 } catch (err) {
                     if (translationWorkspaceReviewCancelRequested && err?.name === 'AbortError') {
@@ -22889,6 +23007,164 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         loadUsage();
     }
 
+    async function checkTranslationWorkspaceDoubleCurrent() {
+        const item = selectedFinnishTranslation;
+        const chunks = translationChunkDetails(item);
+        const chunkIndex = selectedFinnishTranslationPartIndex;
+        const chunk = chunks[chunkIndex];
+        const status = document.getElementById('translation-workspace-review-double-check-status');
+        const modelSelect = document.getElementById('translation-workspace-review-double-check-model');
+        const instructions = translationReviewInstructions('workspace');
+        if (!item || !chunk) return;
+        const firstCheckedTranslation = finnishTranslationAiCheckedText(chunk);
+        if (!firstCheckedTranslation) {
+            if (status) status.textContent = 'Aja tälle segmentille ensin ensimmäinen tarkastus.';
+            return;
+        }
+        const modelState = syncTranslationDoubleCheckModelSelect(modelSelect, chunk);
+        if (!modelState.available || modelState.sameModel) {
+            if (status) {
+                status.textContent = modelState.missingFirstModel
+                    ? 'Ensimmäisen tarkastuksen mallitieto puuttuu. Aja ensimmäinen tarkastus uudelleen ennen tuplatarkastusta.'
+                    : 'Valitse eri kielimalli kuin ensimmäisellä tarkastuskierroksella.';
+            }
+            return;
+        }
+
+        translationWorkspaceReviewRunning = true;
+        renderTranslationWorkspaceReview({ preserveStatus: true, preserveDoubleCheckStatus: true });
+        if (status) status.textContent = `Tuplatarkastetaan segmenttiä ${chunkIndex + 1}/${chunks.length}...`;
+        let finalMessage = '';
+        try {
+            const res = await apiFetch(`/api/translations/${item.id}/chunks/${chunkIndex}/check`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    model: modelState.selectedModel,
+                    current_translation: finnishTranslationAiCheckedText(chunk),
+                    instructions,
+                    save: true,
+                    double_check: true
+                })
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.detail || 'Tuplatarkastus epäonnistui.');
+            if (data?.double_check !== true) {
+                throw new Error('Palvelin ei vahvistanut vastausta tuplatarkastukseksi. Päivitä sovellus ja yritä uudelleen.');
+            }
+            updateFinnishTranslationAiDoubleCheckChunk(chunkIndex, data, item);
+            finalMessage = 'Segmentin tuplatarkastus valmis. Ensimmäistä ehdotusta ei hyväksytty automaattisesti.';
+        } catch (err) {
+            finalMessage = networkFailureMessage(err);
+        } finally {
+            translationWorkspaceReviewRunning = false;
+            renderTranslationWorkspaceReview({ preserveStatus: true, preserveDoubleCheckStatus: true });
+            if (status) status.textContent = finalMessage;
+            loadUsage();
+        }
+    }
+
+    async function checkAllTranslationWorkspaceDoubleSegments() {
+        const item = selectedFinnishTranslation;
+        const chunks = translationChunkDetails(item);
+        const status = document.getElementById('translation-workspace-review-double-check-status');
+        const modelSelect = document.getElementById('translation-workspace-review-double-check-model');
+        const instructions = translationReviewInstructions('workspace');
+        if (!item || !chunks.length) {
+            alert('Valitse ensin tarkastettava käännös.');
+            return;
+        }
+        const candidateIndexes = translationDoubleCheckCandidateIndexes(chunks);
+        const indexes = translationDoubleCheckPendingIndexes(chunks);
+        const missingModelIndexes = translationDoubleCheckMissingModelIndexes(chunks, candidateIndexes);
+        if (missingModelIndexes.length) {
+            if (status) {
+                status.textContent = `${missingModelIndexes.length} segmentiltä puuttuu ensimmäisen tarkastuksen mallitieto. Tarkasta ne uudelleen ennen kaikkien tuplatarkastusta.`;
+            }
+            return;
+        }
+        if (!indexes.length) {
+            if (status) status.textContent = 'Kaikki ensimmäisen kierroksen läpäisseet segmentit on jo tuplatarkastettu.';
+            return;
+        }
+        const selectedModel = String(modelSelect?.value || '').trim();
+        const conflicts = translationDoubleCheckModelConflicts(chunks, indexes, selectedModel);
+        if (!selectedModel || conflicts.length) {
+            if (status) {
+                status.textContent = !selectedModel
+                    ? 'Valitse tuplatarkastukselle toinen kielimalli.'
+                    : `Valittu malli on sama kuin ${conflicts.length} segmentin ensimmäinen malli. Valitse kaikille eri malli.`;
+            }
+            return;
+        }
+
+        translationWorkspaceReviewRunning = true;
+        translationWorkspaceReviewAllRunning = true;
+        translationWorkspaceReviewCancelRequested = false;
+        renderTranslationWorkspaceReview({ preserveStatus: true, preserveDoubleCheckStatus: true });
+        const failures = [];
+        let completed = 0;
+        let stopped = false;
+        try {
+            for (const index of indexes) {
+                if (translationWorkspaceReviewCancelRequested) {
+                    stopped = true;
+                    break;
+                }
+                selectedFinnishTranslationPartIndex = index;
+                renderTranslationWorkspaceReview({ preserveStatus: true, preserveDoubleCheckStatus: true });
+                if (status) {
+                    status.textContent = `Tuplatarkastetaan segmenttiä ${index + 1}/${chunks.length}. Valmiina ${completed}/${indexes.length}.`;
+                }
+                try {
+                    const controller = new AbortController();
+                    translationWorkspaceReviewController = controller;
+                    const res = await apiFetch(`/api/translations/${item.id}/chunks/${index}/check`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        signal: controller.signal,
+                        body: JSON.stringify({
+                            model: selectedModel,
+                            current_translation: finnishTranslationAiCheckedText(chunks[index]),
+                            instructions,
+                            save: true,
+                            double_check: true
+                        })
+                    });
+                    const data = await res.json().catch(() => null);
+                    if (!res.ok) throw new Error(data?.detail || 'Tuplatarkastus epäonnistui.');
+                    if (data?.double_check !== true) {
+                        throw new Error('Palvelin ei vahvistanut vastausta tuplatarkastukseksi. Päivitä sovellus ja yritä uudelleen.');
+                    }
+                    updateFinnishTranslationAiDoubleCheckChunk(index, data, item);
+                    completed += 1;
+                } catch (err) {
+                    if (translationWorkspaceReviewCancelRequested && err?.name === 'AbortError') {
+                        stopped = true;
+                        break;
+                    }
+                    failures.push(`Segmentti ${index + 1}: ${networkFailureMessage(err)}`);
+                } finally {
+                    translationWorkspaceReviewController = null;
+                }
+            }
+        } finally {
+            translationWorkspaceReviewRunning = false;
+            translationWorkspaceReviewAllRunning = false;
+            translationWorkspaceReviewCancelRequested = false;
+            translationWorkspaceReviewController = null;
+            renderTranslationWorkspaceReview({ preserveStatus: true, preserveDoubleCheckStatus: true });
+        }
+        if (status) {
+            status.textContent = stopped
+                ? `Tuplatarkastus pysäytettiin. Valmiina ${completed}/${indexes.length} segmenttiä.`
+                : failures.length
+                    ? `Tuplatarkastus valmistui osittain. Onnistui ${completed}/${indexes.length}. ${failures.slice(0, 3).join(' ')}`
+                    : `Tuplatarkastus valmis (${completed}/${indexes.length} segmenttiä). Ehdotuksia ei hyväksytty automaattisesti.`;
+        }
+        loadUsage();
+    }
+
     function applyTranslationReviewBatchResult(data) {
         if (!data?.id) return;
         selectedFinnishTranslation = data;
@@ -22902,37 +23178,86 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         renderFinnishTranslationAiCheck();
     }
 
-    async function startTranslationReviewBatch(source = 'workspace', existingJob = null) {
+    async function startTranslationReviewBatch(source = 'workspace', existingJob = null, options = {}) {
         const item = selectedFinnishTranslation;
         const workspace = source === 'workspace';
+        const doubleCheck = options?.doubleCheck === true || existingJob?.double_check === true;
         const status = document.getElementById(
-            workspace ? 'translation-workspace-review-status' : 'finnish-translation-ai-check-status'
+            doubleCheck
+                ? workspace
+                    ? 'translation-workspace-review-double-check-status'
+                    : 'finnish-translation-ai-double-check-status'
+                : workspace
+                    ? 'translation-workspace-review-status'
+                    : 'finnish-translation-ai-check-status'
         );
         const modelSelect = document.getElementById(
-            workspace ? 'translation-workspace-review-model' : 'finnish-translation-ai-check-model'
+            doubleCheck
+                ? workspace
+                    ? 'translation-workspace-review-double-check-model'
+                    : 'finnish-translation-ai-double-check-model'
+                : workspace
+                    ? 'translation-workspace-review-model'
+                    : 'finnish-translation-ai-check-model'
         );
         let model = String(modelSelect?.value || '').trim();
-        const repeatReviewed = document.getElementById(
+        const instructions = translationReviewInstructions(source);
+        const repeatReviewed = !doubleCheck && document.getElementById(
             workspace ? 'translation-workspace-review-repeat' : 'finnish-translation-ai-check-repeat'
         )?.checked === true;
-        if (!item?.id || !translationChunkDetails(item).length) {
+        const chunks = translationChunkDetails(item);
+        if (!item?.id || !chunks.length) {
             alert('Valitse ensin tarkastettava käännös.');
             return;
         }
         if (!existingJob) {
-            const batchModel = preferredTranslationBatchModelValue(modelSelect);
-            if (!batchModel) {
-                alert('Tarkastuksen eräajo vaatii käytettävissä olevan Gemini Flash -mallin.');
-                return;
-            }
-            if (batchModel !== model) {
-                model = batchModel;
-                modelSelect.value = batchModel;
+            if (doubleCheck) {
+                const candidateIndexes = translationDoubleCheckCandidateIndexes(chunks);
+                const indexes = translationDoubleCheckPendingIndexes(chunks);
+                const missingModelIndexes = translationDoubleCheckMissingModelIndexes(chunks, candidateIndexes);
+                const conflicts = translationDoubleCheckModelConflicts(chunks, indexes, model);
+                if (!indexes.length) {
+                    if (status) {
+                        status.textContent = missingModelIndexes.length
+                            ? `${missingModelIndexes.length} segmentiltä puuttuu ensimmäisen tarkastuksen mallitieto. Tarkasta ne ensin uudelleen.`
+                            : 'Kaikki ensimmäisen kierroksen läpäisseet segmentit on jo tuplatarkastettu.';
+                    }
+                    return;
+                }
+                if (missingModelIndexes.length) {
+                    if (status) {
+                        status.textContent = `${missingModelIndexes.length} segmentiltä puuttuu ensimmäisen tarkastuksen mallitieto. Tarkasta ne uudelleen ennen eräajoa.`;
+                    }
+                    return;
+                }
+                if (!model || conflicts.length) {
+                    if (status) {
+                        status.textContent = !model
+                            ? 'Valitse tuplatarkastukselle toinen kielimalli.'
+                            : `Valittu malli on sama kuin ${conflicts.length} segmentin ensimmäinen malli. Valitse kaikille eri malli.`;
+                    }
+                    return;
+                }
+                if (!translationBatchModelSupported(model)) {
+                    if (status) status.textContent = 'Tuplatarkastuksen eräajo vaatii eri Gemini Flash -mallin.';
+                    return;
+                }
+            } else {
+                const batchModel = preferredTranslationBatchModelValue(modelSelect);
+                if (!batchModel) {
+                    alert('Tarkastuksen eräajo vaatii käytettävissä olevan Gemini Flash -mallin.');
+                    return;
+                }
+                if (batchModel !== model) {
+                    model = batchModel;
+                    modelSelect.value = batchModel;
+                }
             }
         }
         if (translationReviewBatchJobId && !existingJob) return;
 
         translationReviewBatchSource = source;
+        translationReviewBatchDoubleCheck = doubleCheck;
         translationWorkspaceReviewRunning = true;
         finnishTranslationAiCheckAllRunning = true;
         if (workspace) {
@@ -22942,21 +23267,29 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             finnishTranslationReviewAllRunning = true;
             finnishTranslationReviewCancelRequested = false;
         }
-        renderTranslationWorkspaceReview({ preserveStatus: true });
-        renderFinnishTranslationAiCheck();
+        renderTranslationWorkspaceReview({ preserveStatus: true, preserveDoubleCheckStatus: doubleCheck });
+        renderFinnishTranslationAiCheck({ preserveDoubleCheckStatus: doubleCheck });
         let finalStatusMessage = '';
         try {
             let job = existingJob;
             if (!job) {
-                if (status) status.textContent = showcaseDemoMode
-                    ? 'Valmistellaan tarkastuksen eräajoa…'
-                    : 'Valmistellaan tarkastuksen edullista eräajoa…';
+                if (status) {
+                    status.textContent = doubleCheck
+                        ? showcaseDemoMode
+                            ? 'Valmistellaan tuplatarkastuksen eräajoa…'
+                            : 'Valmistellaan tuplatarkastuksen edullista eräajoa…'
+                        : showcaseDemoMode
+                            ? 'Valmistellaan tarkastuksen eräajoa…'
+                            : 'Valmistellaan tarkastuksen edullista eräajoa…';
+                }
                 const response = await apiFetch(`/api/translations/${item.id}/review-jobs`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         model,
-                        repeat_reviewed: repeatReviewed
+                        repeat_reviewed: repeatReviewed,
+                        instructions,
+                        double_check: doubleCheck
                     })
                 });
                 job = await response.json().catch(() => null);
@@ -22968,21 +23301,25 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 : finnishTranslationReviewCancelRequested;
             if (cancellationRequested) {
                 await requestTranslationJobCancellation(job.job_id);
-                throw translationStoppedError('cancelled', 'Käännöksen tarkastus');
+                throw translationStoppedError('cancelled', doubleCheck ? 'Käännöksen tuplatarkastus' : 'Käännöksen tarkastus');
             }
             if (status) {
-                status.textContent = `Tarkastuksen eräajo käynnissä. ${translationBatchCountdown(job.target_completion_at)}`;
+                status.textContent = `${doubleCheck ? 'Tuplatarkastuksen' : 'Tarkastuksen'} eräajo käynnissä. ${translationBatchCountdown(job.target_completion_at)}`;
             }
             const data = await pollTranslationJob(
                 job.job_id,
                 status,
-                'Käännöksen tarkastus'
+                doubleCheck ? 'Käännöksen tuplatarkastus' : 'Käännöksen tarkastus'
             );
             applyTranslationReviewBatchResult(data);
             if (status) {
-                const reviewed = translationChunkDetails(data).filter(chunk => finnishTranslationAiCheckedText(chunk)).length;
+                const reviewed = translationChunkDetails(data).filter(chunk => (
+                    doubleCheck
+                        ? finnishTranslationAiDoubleCheckedText(chunk)
+                        : finnishTranslationAiCheckedText(chunk)
+                )).length;
                 const partialError = demoPriceSafeText(data.batch_job_error, 'Kaikkia segmenttejä ei voitu tarkistaa.');
-                finalStatusMessage = `Käännöksen erätarkastus ${partialError ? 'valmistui osittain' : 'valmis'}. Tarkastettu ${reviewed}/${translationChunkDetails(data).length} segmenttiä.${partialError ? ` ${partialError}` : ''}`;
+                finalStatusMessage = `Käännöksen ${doubleCheck ? 'tuplatarkastuksen ' : ''}eräajo ${partialError ? 'valmistui osittain' : 'valmis'}. Tarkastettu ${reviewed}/${translationChunkDetails(data).length} segmenttiä.${partialError ? ` ${partialError}` : ''}${doubleCheck ? ' Ehdotuksia ei hyväksytty automaattisesti.' : ''}`;
                 status.textContent = finalStatusMessage;
             }
             loadUsage();
@@ -22990,11 +23327,12 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             finalStatusMessage = networkFailureMessage(err);
             if (status) status.textContent = finalStatusMessage;
             if (!existingJob && !err?.operationStopped) {
-                alert('Tarkastuksen eräajo epäonnistui: ' + networkFailureMessage(err));
+                alert(`${doubleCheck ? 'Tuplatarkastuksen' : 'Tarkastuksen'} eräajo epäonnistui: ` + networkFailureMessage(err));
             }
         } finally {
             translationReviewBatchJobId = null;
             translationReviewBatchSource = null;
+            translationReviewBatchDoubleCheck = false;
             translationWorkspaceReviewRunning = false;
             finnishTranslationAiCheckAllRunning = false;
             if (workspace) {
@@ -23004,8 +23342,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 finnishTranslationReviewAllRunning = false;
                 finnishTranslationReviewCancelRequested = false;
             }
-            renderTranslationWorkspaceReview({ preserveStatus: true });
-            renderFinnishTranslationAiCheck();
+            renderTranslationWorkspaceReview({ preserveStatus: true, preserveDoubleCheckStatus: doubleCheck });
+            renderFinnishTranslationAiCheck({ preserveDoubleCheckStatus: doubleCheck });
             if (status && finalStatusMessage) status.textContent = finalStatusMessage;
         }
     }
@@ -23021,7 +23359,13 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             workspace ? 'translation-workspace-review-cancel-btn' : 'finnish-translation-ai-check-cancel-btn'
         );
         const status = document.getElementById(
-            workspace ? 'translation-workspace-review-status' : 'finnish-translation-ai-check-status'
+            translationReviewBatchDoubleCheck
+                ? workspace
+                    ? 'translation-workspace-review-double-check-status'
+                    : 'finnish-translation-ai-double-check-status'
+                : workspace
+                    ? 'translation-workspace-review-status'
+                    : 'finnish-translation-ai-check-status'
         );
         if (button) {
             button.disabled = true;
@@ -23082,7 +23426,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 const job = await response.json().catch(() => null);
                 if (!response.ok || !job?.job_id) return;
                 if (String(selectedFinnishTranslation?.id || '') !== translationId) return;
-                await startTranslationReviewBatch(source, job);
+                await startTranslationReviewBatch(source, job, { doubleCheck: job.double_check === true });
             } catch (err) {
                 console.warn('Tarkastuksen eräajon palauttaminen epäonnistui.', err);
             }
@@ -23288,8 +23632,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             'translation-model-select',
             'finnish-translation-model-select',
             'finnish-translation-ai-check-model',
+            'finnish-translation-ai-double-check-model',
             'translation-workspace-model',
-            'translation-workspace-review-model'
+            'translation-workspace-review-model',
+            'translation-workspace-review-double-check-model'
         ]
             .map(id => document.getElementById(id))
             .filter(Boolean);
@@ -24702,10 +25048,37 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         return Array.isArray(item?.chunk_details) ? item.chunk_details : [];
     }
 
-    function updateFinnishTranslationAiCheckChunk(index, data, translation = selectedFinnishTranslation) {
+    function updateFinnishTranslationAiCheckChunk(
+        index,
+        data,
+        translation = selectedFinnishTranslation,
+        requestedModel = ''
+    ) {
         const chunks = translationChunkDetails(translation);
         if (!chunks[index]) return;
+        delete chunks[index].ai_double_check;
         chunks[index].ai_check = {
+            checked_translation: data.checked_translation || '',
+            notes: data.notes || '',
+            requested_model: data.requested_model || requestedModel || data.model || '',
+            model: data.model || '',
+            checked_at: new Date().toISOString()
+        };
+        translation.chunk_details = chunks;
+        if (String(selectedFinnishTranslation?.id) === String(translation.id)) {
+            selectedFinnishTranslation = translation;
+        }
+        loadedTranslationWorkspaceTranslationId = null;
+        const itemIndex = currentFinnishTranslationHistory.findIndex(
+            historyItem => String(historyItem.id) === String(translation.id)
+        );
+        if (itemIndex >= 0) currentFinnishTranslationHistory[itemIndex] = translation;
+    }
+
+    function updateFinnishTranslationAiDoubleCheckChunk(index, data, translation = selectedFinnishTranslation) {
+        const chunks = translationChunkDetails(translation);
+        if (!chunks[index]) return;
+        chunks[index].ai_double_check = {
             checked_translation: data.checked_translation || '',
             notes: data.notes || '',
             model: data.model || '',
@@ -24727,12 +25100,97 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         return String(aiCheck.checked_translation || '').trim();
     }
 
+    function finnishTranslationAiDoubleCheckedText(chunk) {
+        const doubleCheck = chunk?.ai_double_check && typeof chunk.ai_double_check === 'object'
+            ? chunk.ai_double_check
+            : {};
+        return String(doubleCheck.checked_translation || '').trim();
+    }
+
+    function finnishTranslationBestCheckedText(chunk) {
+        return finnishTranslationAiDoubleCheckedText(chunk) || finnishTranslationAiCheckedText(chunk);
+    }
+
+    function translationReviewFirstModels(chunk) {
+        const aiCheck = chunk?.ai_check && typeof chunk.ai_check === 'object' ? chunk.ai_check : {};
+        return Array.from(new Set(
+            [aiCheck.requested_model, aiCheck.model]
+                .map(value => String(value || '').trim())
+                .filter(Boolean)
+        ));
+    }
+
+    function translationReviewFirstModel(chunk) {
+        return translationReviewFirstModels(chunk)[0] || '';
+    }
+
+    function syncTranslationDoubleCheckModelSelect(select, chunk) {
+        const firstModels = translationReviewFirstModels(chunk);
+        const firstModel = firstModels[0] || '';
+        const missingFirstModel = Boolean(finnishTranslationAiCheckedText(chunk)) && !firstModels.length;
+        if (!select) {
+            return {
+                firstModel,
+                firstModels,
+                missingFirstModel,
+                selectedModel: '',
+                sameModel: false,
+                available: false
+            };
+        }
+        const options = Array.from(select.options || []);
+        options.forEach(option => {
+            option.disabled = firstModels.includes(option.value);
+            option.title = option.disabled ? 'Ensimmäisen tarkastuksen malli ei kelpaa tuplatarkastukseen.' : '';
+        });
+        let selected = options.find(option => option.value === select.value && !option.disabled);
+        if (!selected) {
+            selected = options.find(option => !option.disabled && option.value) || null;
+            select.value = selected?.value || '';
+        }
+        const selectedModel = String(select.value || '').trim();
+        return {
+            firstModel,
+            firstModels,
+            missingFirstModel,
+            selectedModel,
+            sameModel: Boolean(selectedModel && firstModels.includes(selectedModel)),
+            available: Boolean(selectedModel) && !missingFirstModel
+        };
+    }
+
+    function translationDoubleCheckCandidateIndexes(chunks) {
+        return (Array.isArray(chunks) ? chunks : [])
+            .map((chunk, index) => (
+                finnishTranslationAiCheckedText(chunk)
+                && !finnishTranslationAiDoubleCheckedText(chunk)
+                    ? index
+                    : null
+            ))
+            .filter(index => index !== null);
+    }
+
+    function translationDoubleCheckPendingIndexes(chunks) {
+        return translationDoubleCheckCandidateIndexes(chunks)
+            .filter(index => translationReviewFirstModels(chunks[index]).length);
+    }
+
+    function translationDoubleCheckModelConflicts(chunks, indexes, model) {
+        const selectedModel = String(model || '').trim();
+        if (!selectedModel) return [];
+        return indexes.filter(index => translationReviewFirstModels(chunks[index]).includes(selectedModel));
+    }
+
+    function translationDoubleCheckMissingModelIndexes(chunks, indexes = translationDoubleCheckCandidateIndexes(chunks)) {
+        return indexes.filter(index => !translationReviewFirstModels(chunks[index]).length);
+    }
+
     function normalizeTranslationReviewText(value) {
         return String(value || '').replace(/\r\n?/g, '\n').trim();
     }
 
     function translationReviewSuggestionState(chunk) {
-        const checked = normalizeTranslationReviewText(finnishTranslationAiCheckedText(chunk));
+        const checked = normalizeTranslationReviewText(finnishTranslationBestCheckedText(chunk));
         if (!checked) return 'unchecked';
         const current = normalizeTranslationReviewText(chunk?.translation);
         return checked === current ? 'unchanged' : 'pending';
@@ -24740,16 +25198,25 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
 
     function translationReviewSummaryModel(chunks) {
         const safeChunks = Array.isArray(chunks) ? chunks : [];
-        const entries = safeChunks.map((chunk, index) => ({
-            chunk,
-            index,
-            state: translationReviewSuggestionState(chunk)
-        }));
-        const checked = entries.filter(entry => entry.state !== 'unchecked').length;
+        const entries = safeChunks.map((chunk, index) => {
+            const firstChecked = Boolean(finnishTranslationAiCheckedText(chunk));
+            const doubleChecked = Boolean(finnishTranslationAiDoubleCheckedText(chunk));
+            return {
+                chunk,
+                index,
+                firstChecked,
+                doubleChecked,
+                reviewStage: doubleChecked ? 'double' : 'first',
+                state: translationReviewSuggestionState(chunk)
+            };
+        });
+        const checked = entries.filter(entry => entry.firstChecked).length;
+        const doubleChecked = entries.filter(entry => entry.doubleChecked).length;
         const suggestions = entries.filter(entry => entry.state === 'pending');
         return {
             total: entries.length,
             checked,
+            doubleChecked,
             unchecked: entries.length - checked,
             unchanged: checked - suggestions.length,
             suggestions
@@ -24779,7 +25246,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 <div class="translation-review-summary-list">
                     ${summary.suggestions.map(entry => {
                         const label = translationPartLabel(entry.chunk, entry.index);
-                        const aiCheck = workspaceChunkCheck(entry.chunk);
+                        const aiCheck = entry.reviewStage === 'double'
+                            ? (entry.chunk?.ai_double_check || {})
+                            : (entry.chunk?.ai_check || {});
                         const notes = String(aiCheck.notes || '').trim() || 'Tarkastettu teksti poikkeaa nykyisestä käännöksestä.';
                         return `
                             <button
@@ -24790,7 +25259,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                             >
                                 <span class="translation-review-summary-item-head">
                                     <strong>${escapeHtml(label.title)}</strong>
-                                    <span>Korjausehdotus</span>
+                                    <span>${entry.reviewStage === 'double' ? 'Tuplatarkastus' : '1. tarkastus'}</span>
                                 </span>
                                 <span class="translation-review-summary-item-meta">${escapeHtml(label.meta)}</span>
                                 <span class="translation-review-summary-item-notes">${escapeHtml(notes)}</span>
@@ -24815,8 +25284,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     <p>${escapeHtml(progressText)}</p>
                 </div>
                 <div class="translation-review-summary-stats" aria-label="Tarkastuksen tilanne">
-                    <span><strong>${summary.checked}/${summary.total}</strong>Tarkastettu</span>
-                    <span><strong>${summary.suggestions.length}</strong>Muutosta ehdottavia</span>
+                    <span><strong>${summary.checked}/${summary.total}</strong>1. tarkastus</span>
+                    <span><strong>${summary.doubleChecked}</strong>Tuplatarkastettu</span>
+                    <span><strong>${summary.suggestions.length}</strong>Avoin ehdotus</span>
                     <span><strong>${summary.unchanged}</strong>Ei muutosta</span>
                     <span><strong>${summary.unchecked}</strong>Tarkastamatta</span>
                 </div>
@@ -25215,6 +25685,12 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         element.value = value || '';
     }
 
+    function setTranslationAiDoubleCheckText(key, value) {
+        const element = document.getElementById(`finnish-translation-ai-double-check-${key}`);
+        if (!element) return;
+        element.value = value || '';
+    }
+
     function selectedFinnishTranslationChunk() {
         const chunks = translationChunkDetails(selectedFinnishTranslation);
         if (!chunks.length) return null;
@@ -25222,7 +25698,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         return chunks[selectedFinnishTranslationPartIndex] || null;
     }
 
-    function renderFinnishTranslationAiCheck() {
+    function renderFinnishTranslationAiCheck(options = {}) {
         const list = document.getElementById('finnish-translation-ai-check-list');
         const status = document.getElementById('finnish-translation-ai-check-status');
         const runBtn = document.getElementById('finnish-translation-ai-check-run-btn');
@@ -25235,8 +25711,17 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const downloadBtn = document.getElementById('finnish-translation-ai-check-download-btn');
         const bilingualBtn = document.getElementById('finnish-translation-ai-check-bilingual-btn');
         const modelSelect = document.getElementById('finnish-translation-ai-check-model');
+        const instructionsInput = document.getElementById('finnish-translation-ai-check-instructions');
         const checkedEl = document.getElementById('finnish-translation-ai-check-checked');
+        const doubleStatus = document.getElementById('finnish-translation-ai-double-check-status');
+        const doubleModelSelect = document.getElementById('finnish-translation-ai-double-check-model');
+        const doubleRunBtn = document.getElementById('finnish-translation-ai-double-check-run-btn');
+        const doubleRunAllBtn = document.getElementById('finnish-translation-ai-double-check-run-all-btn');
+        const doubleBatchBtn = document.getElementById('finnish-translation-ai-double-check-batch-btn');
+        const doubleAcceptBtn = document.getElementById('finnish-translation-ai-double-check-accept-btn');
         if (modelSelect) modelSelect.disabled = finnishTranslationAiCheckAllRunning;
+        if (doubleModelSelect) doubleModelSelect.disabled = finnishTranslationAiCheckAllRunning;
+        if (instructionsInput) instructionsInput.disabled = finnishTranslationAiCheckAllRunning;
         if (cancelBtn) {
             cancelBtn.classList.toggle('hidden', !finnishTranslationReviewAllRunning);
             cancelBtn.disabled = !finnishTranslationReviewAllRunning;
@@ -25246,11 +25731,21 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
 
         const chunks = translationChunkDetails(selectedFinnishTranslation);
         if (!selectedFinnishTranslation) {
+            renderTranslationReviewSummary(
+                'finnish-translation-ai-check-summary',
+                [],
+                selectedFinnishTranslationPartIndex
+            );
             list.innerHTML = '';
             setTranslationAiCheckText('source', 'Valitse käännös.');
             setTranslationAiCheckText('current', 'Valitse käännös.');
             setTranslationAiCheckText('checked', '');
             setTranslationAiCheckText('notes', '');
+            setTranslationAiDoubleCheckText('checked', '');
+            setTranslationAiDoubleCheckText('notes', '');
+            if (doubleStatus && !options.preserveDoubleCheckStatus) {
+                doubleStatus.textContent = 'Aja ensin ensimmäinen tarkastus. Toisen kierroksen mallin on oltava eri.';
+            }
             status.textContent = 'Valitse käännös ja sen jälkeen tarkistettava pala.';
             if (runBtn) runBtn.disabled = true;
             if (runAllBtn) runAllBtn.disabled = true;
@@ -25260,6 +25755,11 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             if (acceptAllBtn) acceptAllBtn.disabled = true;
             if (downloadBtn) downloadBtn.disabled = true;
             if (bilingualBtn) bilingualBtn.disabled = true;
+            if (doubleModelSelect) doubleModelSelect.disabled = true;
+            if (doubleRunBtn) doubleRunBtn.disabled = true;
+            if (doubleRunAllBtn) doubleRunAllBtn.disabled = true;
+            if (doubleBatchBtn) doubleBatchBtn.disabled = true;
+            if (doubleAcceptBtn) doubleAcceptBtn.disabled = true;
             return;
         }
         if (!chunks.length) {
@@ -25273,6 +25773,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             setTranslationAiCheckText('current', selectedFinnishTranslation.translated_text || '');
             setTranslationAiCheckText('checked', '');
             setTranslationAiCheckText('notes', 'Osaloki puuttuu.');
+            setTranslationAiDoubleCheckText('checked', '');
+            setTranslationAiDoubleCheckText('notes', '');
+            if (doubleStatus && !options.preserveDoubleCheckStatus) doubleStatus.textContent = 'Osaloki puuttuu.';
             status.textContent = 'Osaloki puuttuu tältä käännökseltä.';
             if (runBtn) runBtn.disabled = true;
             if (runAllBtn) runAllBtn.disabled = true;
@@ -25282,6 +25785,11 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             if (acceptAllBtn) acceptAllBtn.disabled = true;
             if (downloadBtn) downloadBtn.disabled = true;
             if (bilingualBtn) bilingualBtn.disabled = true;
+            if (doubleModelSelect) doubleModelSelect.disabled = true;
+            if (doubleRunBtn) doubleRunBtn.disabled = true;
+            if (doubleRunAllBtn) doubleRunAllBtn.disabled = true;
+            if (doubleBatchBtn) doubleBatchBtn.disabled = true;
+            if (doubleAcceptBtn) doubleAcceptBtn.disabled = true;
             return;
         }
 
@@ -25305,7 +25813,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         list.innerHTML = chunks.map((chunk, index) => {
             const label = translationPartLabel(chunk, index);
             const hasAiCheck = Boolean(finnishTranslationAiCheckedText(chunk));
-            const checked = hasAiCheck ? ' · AI-tarkastettu' : '';
+            const hasDoubleCheck = Boolean(finnishTranslationAiDoubleCheckedText(chunk));
+            const checked = hasDoubleCheck ? ' · Tuplatarkastettu' : hasAiCheck ? ' · AI-tarkastettu' : '';
             const selectedForReplace = selectedFinnishTranslationAiCheckIndexes.has(index);
             return `
                 <div class="translation-part-choice ${index === selectedFinnishTranslationPartIndex ? 'active' : ''}">
@@ -25341,10 +25850,15 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const selected = chunks[selectedFinnishTranslationPartIndex] || {};
         const sections = translationPartSections(selected);
         const aiCheck = selected.ai_check && typeof selected.ai_check === 'object' ? selected.ai_check : {};
+        const aiDoubleCheck = selected.ai_double_check && typeof selected.ai_double_check === 'object'
+            ? selected.ai_double_check
+            : {};
         setTranslationAiCheckText('source', sections.source || selected.source_text || '');
         setTranslationAiCheckText('current', selected.translation || '');
         setTranslationAiCheckText('checked', aiCheck.checked_translation || '');
         setTranslationAiCheckText('notes', aiCheck.notes || '');
+        setTranslationAiDoubleCheckText('checked', aiDoubleCheck.checked_translation || '');
+        setTranslationAiDoubleCheckText('notes', aiDoubleCheck.notes || '');
         const label = translationPartLabel(selected, selectedFinnishTranslationPartIndex);
         status.textContent = aiCheck.checked_translation
             ? `${label.title}: AI-tarkastus valmiina.`
@@ -25356,6 +25870,67 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (acceptAllBtn) acceptAllBtn.disabled = finnishTranslationAiCheckAllRunning || !checkedIndexes.length;
         if (downloadBtn) downloadBtn.disabled = finnishTranslationAiCheckAllRunning || !checkedIndexes.length;
         if (bilingualBtn) bilingualBtn.disabled = finnishTranslationAiCheckAllRunning || !checkedIndexes.length;
+        const firstCheckReady = Boolean(finnishTranslationAiCheckedText(selected));
+        const doubleCheckReady = Boolean(finnishTranslationAiDoubleCheckedText(selected));
+        const doubleModelState = syncTranslationDoubleCheckModelSelect(doubleModelSelect, selected);
+        const doubleCheckCandidateIndexes = translationDoubleCheckCandidateIndexes(chunks);
+        const pendingDoubleIndexes = translationDoubleCheckPendingIndexes(chunks);
+        const doubleModelConflicts = translationDoubleCheckModelConflicts(
+            chunks,
+            pendingDoubleIndexes,
+            doubleModelState.selectedModel
+        );
+        const missingDoubleModelIndexes = translationDoubleCheckMissingModelIndexes(
+            chunks,
+            doubleCheckCandidateIndexes
+        );
+        const doubleModelInvalid = !doubleModelState.available || doubleModelState.sameModel;
+        if (doubleModelSelect) {
+            doubleModelSelect.disabled = finnishTranslationAiCheckAllRunning
+                || !firstCheckReady
+                || doubleModelState.missingFirstModel;
+        }
+        if (doubleRunBtn) {
+            doubleRunBtn.disabled = finnishTranslationAiCheckAllRunning || !firstCheckReady || doubleModelInvalid;
+        }
+        if (doubleRunAllBtn) {
+            doubleRunAllBtn.disabled = finnishTranslationAiCheckAllRunning
+                || !pendingDoubleIndexes.length
+                || doubleModelInvalid
+                || Boolean(doubleModelConflicts.length)
+                || Boolean(missingDoubleModelIndexes.length);
+        }
+        if (doubleBatchBtn) {
+            doubleBatchBtn.disabled = finnishTranslationAiCheckAllRunning
+                || !pendingDoubleIndexes.length
+                || doubleModelInvalid
+                || Boolean(doubleModelConflicts.length)
+                || Boolean(missingDoubleModelIndexes.length)
+                || !translationBatchModelSupported(doubleModelState.selectedModel);
+            doubleBatchBtn.title = !translationBatchModelSupported(doubleModelState.selectedModel)
+                ? 'Tuplatarkastuksen eräajo vaatii eri Gemini Flash -mallin.'
+                : 'Lähetä tuplatarkastus Gemini Batch APIin. Tavoiteaika on enintään 24 tuntia.';
+        }
+        if (doubleAcceptBtn) {
+            doubleAcceptBtn.disabled = finnishTranslationAiCheckAllRunning || !doubleCheckReady;
+        }
+        if (doubleStatus && !options.preserveDoubleCheckStatus) {
+            doubleStatus.textContent = !firstCheckReady
+                ? 'Aja tälle segmentille ensin ensimmäinen tarkastus.'
+                : doubleModelState.missingFirstModel
+                    ? 'Ensimmäisen tarkastuksen mallitieto puuttuu. Aja ensimmäinen tarkastus uudelleen ennen tuplatarkastusta.'
+                    : missingDoubleModelIndexes.length
+                        ? `${missingDoubleModelIndexes.length} odottavalta osalta puuttuu ensimmäisen tarkastuksen mallitieto. Tarkasta ne ensin uudelleen.`
+                        : !doubleModelState.available
+                            ? 'Tuplatarkastus vaatii toisen käytettävissä olevan kielimallin.'
+                            : doubleModelState.sameModel
+                                ? 'Valitse eri kielimalli kuin ensimmäisellä tarkastuskierroksella.'
+                                : doubleModelConflicts.length
+                                    ? `Valittu malli on sama kuin ${doubleModelConflicts.length} odottavan segmentin ensimmäinen malli. Valitse kaikille toinen malli.`
+                                    : doubleCheckReady
+                                        ? `Tuplatarkastus on valmis mallilla ${translationModelLabel(aiDoubleCheck.model || doubleModelState.selectedModel)}. Voit hyväksyä kumman tahansa ehdotuksen.`
+                                        : 'Ensimmäinen ehdotus on valmis. Aja tuplatarkastus eri mallilla.';
+        }
         if (modelSelect && translationModels.length) {
             const currentValue = translationPartModelValue(selected, selectedFinnishTranslation);
             const selectedValueIsAvailable = translationModels.some(
@@ -25387,11 +25962,14 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const runBtn = document.getElementById('finnish-translation-ai-check-run-btn');
         const modelEl = document.getElementById('finnish-translation-ai-check-model');
         const currentEl = document.getElementById('finnish-translation-ai-check-current');
+        const instructionsInput = document.getElementById('finnish-translation-ai-check-instructions');
+        const instructions = translationReviewInstructions('finnish');
         if (!item || !chunk) {
             alert('Valitse ensin käännös ja käännöspala.');
             return;
         }
         if (runBtn) runBtn.disabled = true;
+        if (instructionsInput) instructionsInput.disabled = true;
         if (status) status.textContent = 'Tarkastetaan käännöspalaa AI:lla...';
         try {
             const res = await apiFetch(`/api/translations/${item.id}/chunks/${selectedFinnishTranslationPartIndex}/check`, {
@@ -25400,12 +25978,18 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 body: JSON.stringify({
                     model: modelEl?.value || null,
                     current_translation: currentEl?.value || chunk.translation || '',
+                    instructions,
                     save: true
                 })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || 'AI-tarkastus epäonnistui.');
-            updateFinnishTranslationAiCheckChunk(selectedFinnishTranslationPartIndex, data);
+            updateFinnishTranslationAiCheckChunk(
+                selectedFinnishTranslationPartIndex,
+                data,
+                selectedFinnishTranslation,
+                modelEl?.value || ''
+            );
             setTranslationAiCheckText('checked', data.checked_translation || '');
             setTranslationAiCheckText('notes', data.notes || '');
             if (status) status.textContent = 'AI-tarkastus valmis. Voit hyväksyä ehdotuksen tai poimia siitä osia käsin.';
@@ -25415,6 +25999,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             alert('AI-tarkastus epäonnistui: ' + networkFailureMessage(err));
         } finally {
             if (runBtn) runBtn.disabled = false;
+            if (instructionsInput) instructionsInput.disabled = false;
             loadUsage();
         }
     }
@@ -25428,6 +26013,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const acceptBtn = document.getElementById('finnish-translation-ai-check-accept-btn');
         const modelEl = document.getElementById('finnish-translation-ai-check-model');
         const selectedModel = modelEl?.value || null;
+        const instructions = translationReviewInstructions('finnish');
         const repeatReviewed = document.getElementById('finnish-translation-ai-check-repeat')?.checked === true;
         if (!item || !chunks.length) {
             alert('Valitse ensin käännös, jolla on palakohtainen loki.');
@@ -25477,12 +26063,13 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                         body: JSON.stringify({
                             model: selectedModel,
                             current_translation: chunk.translation || '',
+                            instructions,
                             save: true
                         })
                     });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.detail || 'AI-tarkastus epäonnistui.');
-                    updateFinnishTranslationAiCheckChunk(index, data);
+                    updateFinnishTranslationAiCheckChunk(index, data, selectedFinnishTranslation, selectedModel);
                     completed += 1;
                     setTranslationAiCheckText('checked', data.checked_translation || '');
                     setTranslationAiCheckText('notes', data.notes || '');
@@ -25519,11 +26106,194 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         loadUsage();
     }
 
+    async function runFinnishTranslationAiDoubleCheck() {
+        const item = selectedFinnishTranslation;
+        const chunk = selectedFinnishTranslationChunk();
+        const status = document.getElementById('finnish-translation-ai-double-check-status');
+        const modelSelect = document.getElementById('finnish-translation-ai-double-check-model');
+        const instructions = translationReviewInstructions('finnish');
+        if (!item || !chunk) {
+            alert('Valitse ensin käännös ja käännöspala.');
+            return;
+        }
+        const firstCheckedTranslation = finnishTranslationAiCheckedText(chunk);
+        if (!firstCheckedTranslation) {
+            if (status) status.textContent = 'Aja tälle segmentille ensin ensimmäinen tarkastus.';
+            return;
+        }
+        const modelState = syncTranslationDoubleCheckModelSelect(modelSelect, chunk);
+        if (!modelState.available || modelState.sameModel) {
+            if (status) {
+                status.textContent = modelState.missingFirstModel
+                    ? 'Ensimmäisen tarkastuksen mallitieto puuttuu. Aja ensimmäinen tarkastus uudelleen ennen tuplatarkastusta.'
+                    : 'Valitse eri kielimalli kuin ensimmäisellä tarkastuskierroksella.';
+            }
+            return;
+        }
+
+        finnishTranslationAiCheckAllRunning = true;
+        renderFinnishTranslationAiCheck({ preserveDoubleCheckStatus: true });
+        if (status) status.textContent = 'Tuplatarkastetaan ensimmäisen kierroksen ehdotusta...';
+        let finalMessage = '';
+        try {
+            const res = await apiFetch(`/api/translations/${item.id}/chunks/${selectedFinnishTranslationPartIndex}/check`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    model: modelState.selectedModel,
+                    current_translation: finnishTranslationAiCheckedText(chunk),
+                    instructions,
+                    save: true,
+                    double_check: true
+                })
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.detail || 'Tuplatarkastus epäonnistui.');
+            if (data?.double_check !== true) {
+                throw new Error('Palvelin ei vahvistanut vastausta tuplatarkastukseksi. Päivitä sovellus ja yritä uudelleen.');
+            }
+            updateFinnishTranslationAiDoubleCheckChunk(selectedFinnishTranslationPartIndex, data);
+            setTranslationAiDoubleCheckText('checked', data.checked_translation || '');
+            setTranslationAiDoubleCheckText('notes', data.notes || '');
+            finalMessage = 'Tuplatarkastus valmis. Voit hyväksyä ensimmäisen tai toisen ehdotuksen; mitään ei korvattu automaattisesti.';
+        } catch (err) {
+            finalMessage = networkFailureMessage(err);
+            alert('Tuplatarkastus epäonnistui: ' + finalMessage);
+        } finally {
+            finnishTranslationAiCheckAllRunning = false;
+            renderFinnishTranslationAiCheck({ preserveDoubleCheckStatus: true });
+            if (status) status.textContent = finalMessage;
+            loadUsage();
+        }
+    }
+
+    async function runAllFinnishTranslationAiDoubleChecks() {
+        const item = selectedFinnishTranslation;
+        const chunks = translationChunkDetails(item);
+        const status = document.getElementById('finnish-translation-ai-double-check-status');
+        const modelSelect = document.getElementById('finnish-translation-ai-double-check-model');
+        const instructions = translationReviewInstructions('finnish');
+        if (!item || !chunks.length) {
+            alert('Valitse ensin käännös, jolla on palakohtainen loki.');
+            return;
+        }
+        const candidateIndexes = translationDoubleCheckCandidateIndexes(chunks);
+        const indexes = translationDoubleCheckPendingIndexes(chunks);
+        const missingModelIndexes = translationDoubleCheckMissingModelIndexes(chunks, candidateIndexes);
+        if (missingModelIndexes.length) {
+            if (status) {
+                status.textContent = `${missingModelIndexes.length} osalta puuttuu ensimmäisen tarkastuksen mallitieto. Tarkasta ne uudelleen ennen kaikkien tuplatarkastusta.`;
+            }
+            return;
+        }
+        if (!indexes.length) {
+            if (status) status.textContent = 'Kaikki ensimmäisen kierroksen läpäisseet segmentit on jo tuplatarkastettu.';
+            return;
+        }
+        const selectedModel = String(modelSelect?.value || '').trim();
+        const conflicts = translationDoubleCheckModelConflicts(chunks, indexes, selectedModel);
+        if (!selectedModel || conflicts.length) {
+            if (status) {
+                status.textContent = !selectedModel
+                    ? 'Valitse tuplatarkastukselle toinen kielimalli.'
+                    : `Valittu malli on sama kuin ${conflicts.length} segmentin ensimmäinen malli. Valitse kaikille eri malli.`;
+            }
+            return;
+        }
+
+        finnishTranslationAiCheckAllRunning = true;
+        finnishTranslationReviewAllRunning = true;
+        finnishTranslationReviewCancelRequested = false;
+        renderFinnishTranslationAiCheck({ preserveDoubleCheckStatus: true });
+        let completed = 0;
+        const failures = [];
+        let stopped = false;
+        try {
+            for (const index of indexes) {
+                if (finnishTranslationReviewCancelRequested) {
+                    stopped = true;
+                    break;
+                }
+                selectedFinnishTranslationPartIndex = index;
+                renderFinnishTranslationAiCheck({ preserveDoubleCheckStatus: true });
+                if (status) {
+                    status.textContent = `Tuplatarkastetaan osaa ${index + 1}/${chunks.length}. Valmiina ${completed}/${indexes.length}.`;
+                }
+                try {
+                    const controller = new AbortController();
+                    finnishTranslationReviewController = controller;
+                    const res = await apiFetch(`/api/translations/${item.id}/chunks/${index}/check`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        signal: controller.signal,
+                        body: JSON.stringify({
+                            model: selectedModel,
+                            current_translation: finnishTranslationAiCheckedText(chunks[index]),
+                            instructions,
+                            save: true,
+                            double_check: true
+                        })
+                    });
+                    const data = await res.json().catch(() => null);
+                    if (!res.ok) throw new Error(data?.detail || 'Tuplatarkastus epäonnistui.');
+                    if (data?.double_check !== true) {
+                        throw new Error('Palvelin ei vahvistanut vastausta tuplatarkastukseksi. Päivitä sovellus ja yritä uudelleen.');
+                    }
+                    updateFinnishTranslationAiDoubleCheckChunk(index, data);
+                    completed += 1;
+                    setTranslationAiDoubleCheckText('checked', data.checked_translation || '');
+                    setTranslationAiDoubleCheckText('notes', data.notes || '');
+                } catch (err) {
+                    if (finnishTranslationReviewCancelRequested && err?.name === 'AbortError') {
+                        stopped = true;
+                        break;
+                    }
+                    failures.push(`Osa ${index + 1}: ${networkFailureMessage(err)}`);
+                } finally {
+                    finnishTranslationReviewController = null;
+                }
+            }
+        } finally {
+            finnishTranslationAiCheckAllRunning = false;
+            finnishTranslationReviewAllRunning = false;
+            finnishTranslationReviewCancelRequested = false;
+            finnishTranslationReviewController = null;
+            renderFinnishTranslationAiCheck({ preserveDoubleCheckStatus: true });
+        }
+
+        if (status) {
+            status.textContent = stopped
+                ? `Tuplatarkastus pysäytettiin. Valmiina ${completed}/${indexes.length} osaa.`
+                : failures.length
+                    ? `Tuplatarkastus valmis osittain. Onnistui ${completed}/${indexes.length}. Epäonnistui: ${failures.slice(0, 4).join(' ')}${failures.length > 4 ? ' ...' : ''}`
+                    : `Tuplatarkastus valmis (${completed}/${indexes.length} osaa). Ehdotuksia ei hyväksytty automaattisesti.`;
+        }
+        if (failures.length && !stopped) {
+            alert(`Tuplatarkastus valmistui osittain. Onnistui ${completed}/${indexes.length}.\n\n${failures.slice(0, 8).join('\n')}${failures.length > 8 ? '\n...' : ''}`);
+        }
+        loadUsage();
+    }
+
     async function acceptFinnishTranslationAiCheck() {
         const checkedEl = document.getElementById('finnish-translation-ai-check-checked');
         const value = String(checkedEl?.value || '').trim();
         if (!value) {
             alert('Tarkastettua käännöstä ei ole.');
+            return;
+        }
+        const responseEl = document.getElementById('finnish-translation-part-response');
+        if (responseEl) responseEl.value = value;
+        await saveTranslationPartCorrection('finnish-translation');
+        const currentEl = document.getElementById('finnish-translation-ai-check-current');
+        if (currentEl) currentEl.value = value;
+        renderFinnishTranslationAiCheck();
+    }
+
+    async function acceptFinnishTranslationAiDoubleCheck() {
+        const checkedEl = document.getElementById('finnish-translation-ai-double-check-checked');
+        const value = String(checkedEl?.value || '').trim();
+        if (!value) {
+            alert('Tuplatarkastettua käännöstä ei ole.');
             return;
         }
         const responseEl = document.getElementById('finnish-translation-part-response');
@@ -25549,10 +26319,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
 
         const candidateIndexes = mode === 'all'
-            ? chunks.map((chunk, index) => finnishTranslationAiCheckedText(chunk) ? index : null).filter(index => index !== null)
+            ? chunks.map((chunk, index) => finnishTranslationBestCheckedText(chunk) ? index : null).filter(index => index !== null)
             : Array.from(selectedFinnishTranslationAiCheckIndexes);
         const indexes = Array.from(new Set(candidateIndexes))
-            .filter(index => finnishTranslationAiCheckedText(chunks[index]))
+            .filter(index => finnishTranslationBestCheckedText(chunks[index]))
             .sort((a, b) => a - b);
 
         if (!indexes.length) {
@@ -25572,7 +26342,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         try {
             for (const index of indexes) {
                 const currentChunks = translationChunkDetails(selectedFinnishTranslation);
-                const checkedText = finnishTranslationAiCheckedText(currentChunks[index]);
+                const checkedText = finnishTranslationBestCheckedText(currentChunks[index]);
                 if (!checkedText) {
                     failures.push(`Osa ${index + 1}: tarkastettu teksti puuttuu`);
                     continue;
@@ -27647,10 +28417,15 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     document.getElementById('translation-workspace-review-current-btn')?.addEventListener('click', checkTranslationWorkspaceCurrent);
     document.getElementById('translation-workspace-review-all-btn')?.addEventListener('click', () => checkAllTranslationWorkspaceSegments());
     document.getElementById('translation-workspace-review-batch-btn')?.addEventListener('click', () => startTranslationReviewBatch('workspace'));
+    document.getElementById('translation-workspace-review-double-check-current-btn')?.addEventListener('click', checkTranslationWorkspaceDoubleCurrent);
+    document.getElementById('translation-workspace-review-double-check-all-btn')?.addEventListener('click', checkAllTranslationWorkspaceDoubleSegments);
+    document.getElementById('translation-workspace-review-double-check-batch-btn')?.addEventListener('click', () => startTranslationReviewBatch('workspace', null, { doubleCheck: true }));
     document.getElementById('translation-workspace-review-cancel-btn')?.addEventListener('click', () => cancelTranslationReview('workspace'));
     document.getElementById('translation-workspace-review-model')?.addEventListener('change', () => renderTranslationWorkspaceReview());
+    document.getElementById('translation-workspace-review-double-check-model')?.addEventListener('change', () => renderTranslationWorkspaceReview());
     document.getElementById('translation-workspace-review-save-btn')?.addEventListener('click', () => saveTranslationWorkspaceCurrent(false));
     document.getElementById('translation-workspace-review-accept-btn')?.addEventListener('click', () => saveTranslationWorkspaceCurrent(true));
+    document.getElementById('translation-workspace-review-double-check-accept-btn')?.addEventListener('click', () => saveTranslationWorkspaceCurrent('double'));
     document.getElementById('translation-workspace-review-download-btn')?.addEventListener('click', () => downloadReviewedTranslationExport('reviewed', true));
     document.getElementById('translation-workspace-review-bilingual-btn')?.addEventListener('click', () => downloadReviewedTranslationExport('bilingual', true));
     document.getElementById('finnish-translation-part-rerun-btn')?.addEventListener('click', () => rerunTranslationPart('finnish-translation'));
@@ -27658,15 +28433,28 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     document.getElementById('finnish-translation-ai-check-run-btn')?.addEventListener('click', runFinnishTranslationAiCheck);
     document.getElementById('finnish-translation-ai-check-run-all-btn')?.addEventListener('click', runAllFinnishTranslationAiChecks);
     document.getElementById('finnish-translation-ai-check-batch-btn')?.addEventListener('click', () => startTranslationReviewBatch('finnish'));
+    document.getElementById('finnish-translation-ai-double-check-run-btn')?.addEventListener('click', runFinnishTranslationAiDoubleCheck);
+    document.getElementById('finnish-translation-ai-double-check-run-all-btn')?.addEventListener('click', runAllFinnishTranslationAiDoubleChecks);
+    document.getElementById('finnish-translation-ai-double-check-batch-btn')?.addEventListener('click', () => startTranslationReviewBatch('finnish', null, { doubleCheck: true }));
     document.getElementById('finnish-translation-ai-check-cancel-btn')?.addEventListener('click', () => cancelTranslationReview('finnish'));
     document.getElementById('finnish-translation-ai-check-model')?.addEventListener('change', renderFinnishTranslationAiCheck);
+    document.getElementById('finnish-translation-ai-double-check-model')?.addEventListener('change', renderFinnishTranslationAiCheck);
     document.getElementById('finnish-translation-ai-check-accept-btn')?.addEventListener('click', acceptFinnishTranslationAiCheck);
+    document.getElementById('finnish-translation-ai-double-check-accept-btn')?.addEventListener('click', acceptFinnishTranslationAiDoubleCheck);
     document.getElementById('finnish-translation-ai-check-accept-selected-btn')?.addEventListener('click', () => replaceFinnishTranslationAiCheckChunks('selected'));
     document.getElementById('finnish-translation-ai-check-accept-all-btn')?.addEventListener('click', () => replaceFinnishTranslationAiCheckChunks('all'));
     document.getElementById('finnish-translation-ai-check-download-btn')?.addEventListener('click', () => downloadReviewedTranslationExport('reviewed'));
     document.getElementById('finnish-translation-ai-check-bilingual-btn')?.addEventListener('click', () => downloadReviewedTranslationExport('bilingual'));
     document.getElementById('finnish-translation-ai-check-checked')?.addEventListener('input', event => {
         const acceptBtn = document.getElementById('finnish-translation-ai-check-accept-btn');
+        if (acceptBtn) acceptBtn.disabled = !String(event.target.value || '').trim();
+    });
+    document.getElementById('finnish-translation-ai-double-check-checked')?.addEventListener('input', event => {
+        const acceptBtn = document.getElementById('finnish-translation-ai-double-check-accept-btn');
+        if (acceptBtn) acceptBtn.disabled = !String(event.target.value || '').trim();
+    });
+    document.getElementById('translation-workspace-review-double-check-checked')?.addEventListener('input', event => {
+        const acceptBtn = document.getElementById('translation-workspace-review-double-check-accept-btn');
         if (acceptBtn) acceptBtn.disabled = !String(event.target.value || '').trim();
     });
     if (finnishTranslationReviewText) {
