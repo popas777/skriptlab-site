@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="shorts.css?v=2">
+  <link rel="stylesheet" href="shorts.css?v=3">
 </head>
 <body>
   <main class="shorts-app" aria-labelledby="shorts-title">
@@ -141,36 +141,8 @@
         </fieldset>
       </div>
 
-      <aside class="compose-preview" aria-labelledby="compose-preview-title">
-        <h2 class="sr-only" id="compose-preview-title">Shortsin esikatselu ja ääniasetukset</h2>
-        <div class="preview-frame profile-story" id="shorts-preview-frame">
-          <div class="preview-media" id="shorts-preview-media">
-            <img id="shorts-preview-image" alt="Kirjan kannen esikatselu" hidden>
-            <span class="preview-fallback" id="shorts-preview-fallback" aria-hidden="true">S</span>
-            <div class="preview-overlay" id="shorts-preview-overlay">
-              <strong id="shorts-preview-title">Kirjan nimi</strong>
-              <small id="shorts-preview-author">Tekijä</small>
-            </div>
-          </div>
-          <span class="duration-chip">8 s</span>
-          <span class="safe-area-label">Tekstiturva-alue</span>
-        </div>
-
-        <div class="quick-controls">
-          <label class="quick-toggle">
-            <span class="quick-icon" aria-hidden="true">T</span>
-            <span><strong>Tekstit videolle</strong><small>Kirjan nimi ja toimintakehotus</small></span>
-            <input id="shorts-text-enabled" type="checkbox" checked>
-            <i aria-hidden="true"></i>
-          </label>
-          <label class="quick-toggle" id="shorts-voiceover-control">
-            <span class="quick-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0m-6 6v4m-4 0h8"/></svg></span>
-            <span><strong>Voiceover</strong><small id="shorts-voiceover-help">Ei valmista lyhyttä voiceoveria</small></span>
-            <input id="shorts-voiceover" type="checkbox" disabled>
-            <i aria-hidden="true"></i>
-          </label>
-        </div>
-
+      <aside class="compose-settings" aria-labelledby="compose-settings-title">
+        <h2 id="compose-settings-title">Videon asetukset</h2>
         <label class="model-control" for="shorts-video-model">
           <span class="quick-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M4 7h16v10H4zM8 4v3m8-3v3M8 17v3m8-3v3M1 10h3m16 0h3M1 14h3m16 0h3"/><path d="m9 14 2-4 2 4 2-4"/></svg>
@@ -181,13 +153,61 @@
           </select>
         </label>
 
+        <section class="prompt-control" aria-labelledby="shorts-prompt-title">
+          <div class="prompt-heading">
+            <div>
+              <h3 id="shorts-prompt-title">Luova videoprompti</h3>
+              <p id="shorts-prompt-help">Tämä englanninkielinen ohje lähetetään valitulle AI-videomallille. Paikallinen animaatio ei käytä promptia.</p>
+            </div>
+            <button id="shorts-prompt-reset" type="button">Palauta ehdotus</button>
+          </div>
+          <textarea id="shorts-motion-prompt" rows="10" maxlength="2000" lang="en" spellcheck="false" aria-labelledby="shorts-prompt-title" aria-describedby="shorts-prompt-help shorts-prompt-count" placeholder="Describe the camera movement and visual action in English."></textarea>
+          <div class="prompt-meta">
+            <small>Älä pyydä mallia luomaan luettavaa tekstiä. Lisää tekstit alla paikallisesti.</small>
+            <output id="shorts-prompt-count" for="shorts-motion-prompt" aria-live="polite">0 / 2000</output>
+          </div>
+        </section>
+
+        <div class="quick-controls">
+          <label class="quick-toggle">
+            <span class="quick-icon" aria-hidden="true">T</span>
+            <span><strong>Tekstit videolle</strong><small>Oletuksena video tehdään ilman lisättyä tekstiä.</small></span>
+            <input id="shorts-text-enabled" type="checkbox" aria-controls="shorts-overlay-fields" aria-expanded="false">
+            <i aria-hidden="true"></i>
+          </label>
+
+          <fieldset class="overlay-fields" id="shorts-overlay-fields" aria-describedby="shorts-overlay-help" hidden>
+            <legend>Videolle lisättävät tekstit</legend>
+            <label for="shorts-overlay-title">
+              <span>Pääteksti</span>
+              <input id="shorts-overlay-title" type="text" maxlength="180" autocomplete="off" placeholder="Esimerkiksi kirjan nimi">
+            </label>
+            <label for="shorts-overlay-subtitle">
+              <span>Lisärivi</span>
+              <input id="shorts-overlay-subtitle" type="text" maxlength="240" autocomplete="off" placeholder="Esimerkiksi tekijä tai lyhyt kuvaus">
+            </label>
+            <label for="shorts-overlay-cta">
+              <span>Toimintakehotus</span>
+              <input id="shorts-overlay-cta" type="text" maxlength="240" autocomplete="off" placeholder="Esimerkiksi Tutustu kirjaan">
+            </label>
+            <p id="shorts-overlay-help">Tekstit lisätään videolle paikallisesti, eikä videomallia pyydetä kirjoittamaan niitä kuvaan.</p>
+          </fieldset>
+
+          <label class="quick-toggle" id="shorts-voiceover-control">
+            <span class="quick-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0m-6 6v4m-4 0h8"/></svg></span>
+            <span><strong>Voiceover</strong><small id="shorts-voiceover-help">Ei valmista lyhyttä voiceoveria</small></span>
+            <input id="shorts-voiceover" type="checkbox" disabled>
+            <i aria-hidden="true"></i>
+          </label>
+        </div>
+
         <p class="provider-note" id="shorts-provider-note">Videotapa tarkistetaan, kun projekti on ladattu.</p>
       </aside>
 
       <footer class="compose-footer">
         <p><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Voit tarkistaa hinnan ennen videon luontia.</p>
         <button class="primary-action" id="shorts-review" type="submit" disabled>
-          Jatka esikatseluun
+          Tarkista valinnat
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
         </button>
       </footer>
@@ -195,24 +215,12 @@
 
     <section class="shorts-review" id="shorts-review-panel" aria-labelledby="shorts-review-title" hidden>
       <div class="review-content">
-        <h2 id="shorts-review-title">Tarkista shortsi</h2>
+        <h2 id="shorts-review-title">Tarkista valinnat</h2>
         <div class="review-layout">
-          <div class="review-preview-column">
-            <div class="review-preview profile-story" id="shorts-review-preview">
-              <img id="shorts-review-image" alt="Shortsin kuvalähde" hidden>
-              <span class="review-fallback" id="shorts-review-fallback" aria-hidden="true">S</span>
-              <div class="review-copy" id="shorts-review-copy">
-                <strong id="shorts-review-cover-title">Kirjan nimi</strong>
-                <small id="shorts-review-cover-author">Tekijä</small>
-              </div>
-              <button class="review-play" id="shorts-preview-play" type="button" aria-label="Näytä suunniteltu liike">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 8 5-8 5Z"/></svg>
-              </button>
-              <span class="duration-chip">8 s</span>
-              <span class="review-safe-area">Tekstiturva-alue</span>
-            </div>
+          <section class="player-wrap" id="shorts-player-wrap" aria-labelledby="shorts-player-title" hidden>
+            <h3 id="shorts-player-title">Valmis video</h3>
             <video id="shorts-player" controls playsinline preload="metadata" hidden></video>
-          </div>
+          </section>
 
           <div class="review-details">
             <dl class="review-summary">
@@ -220,8 +228,16 @@
               <div><dt>Tunnelma</dt><dd id="shorts-summary-tone">Elokuvallinen</dd></div>
               <div><dt>Videomalli</dt><dd id="shorts-summary-model">Automaattinen</dd></div>
               <div><dt>Julkaisu</dt><dd id="shorts-summary-profile">Pystyvideo · TikTok, Reels, Shorts</dd></div>
-              <div><dt>Tekstit</dt><dd id="shorts-summary-text">Päällä</dd></div>
+              <div><dt>Tekstit</dt><dd id="shorts-summary-text">Ei tekstejä</dd></div>
             </dl>
+            <section class="review-prompt" aria-labelledby="shorts-summary-prompt-title">
+              <div class="review-prompt-heading">
+                <h3 id="shorts-summary-prompt-title">Luova videoprompti</h3>
+                <span lang="en">English</span>
+              </div>
+              <pre id="shorts-summary-prompt" lang="en">Prompti valmistellaan valintojen perusteella.</pre>
+              <p>Palvelin lisää luovaan ohjeeseen kiinteät kesto-, kuvasuhde-, ääni-, teksti- ja turvallisuusrajat ennen mallikutsua.</p>
+            </section>
             <p class="source-ready" id="shorts-source-ready">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4C10 4 5 9 5 18c6 1 12-4 15-14ZM4 21c3-7 8-11 14-15"/></svg>
               Kansikuva ja markkinointitekstit valmiina
@@ -266,6 +282,6 @@
     const apiUrl = (path) => `${API_BASE_URL}${path}`;
   </script>
   <script src="auth.js?v=2"></script>
-  <script src="shorts.js?v=3"></script>
+  <script src="shorts.js?v=4"></script>
 </body>
 </html>

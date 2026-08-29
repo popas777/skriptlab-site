@@ -50,6 +50,7 @@
     cancelled: 'Videon luonti keskeytettiin',
   });
   const SESSION_PREFIX = 'skriptlab_shorts_session_v2_';
+  const SESSION_SCHEMA = 3;
 
   const elements = {};
   const state = {
@@ -68,7 +69,9 @@
     pollController: null,
     pollFailures: 0,
     timingTimer: null,
-    previewTimer: null,
+    generatedPrompt: '',
+    promptCustom: false,
+    pendingJobRequest: null,
   };
 
   function byId(id) {
@@ -81,16 +84,16 @@
       'shorts-notice', 'shorts-notice-text', 'shorts-notice-action', 'shorts-compose',
       'presenter-source', 'presenter-source-file', 'presenter-source-drop',
       'presenter-source-preview', 'presenter-source-label', 'presenter-source-help',
-      'presenter-consent', 'shorts-preview-frame', 'shorts-preview-media',
-      'shorts-preview-image', 'shorts-preview-fallback', 'shorts-preview-overlay',
-      'shorts-preview-title', 'shorts-preview-author', 'shorts-text-enabled',
+      'presenter-consent', 'shorts-motion-prompt', 'shorts-prompt-reset',
+      'shorts-prompt-count', 'shorts-prompt-help', 'shorts-text-enabled',
+      'shorts-overlay-fields', 'shorts-overlay-title', 'shorts-overlay-subtitle',
+      'shorts-overlay-cta',
       'shorts-voiceover-control', 'shorts-voiceover', 'shorts-voiceover-help',
       'shorts-video-model', 'shorts-video-model-help',
       'shorts-provider-note', 'shorts-review', 'shorts-review-panel', 'shorts-review-title',
-      'shorts-review-preview', 'shorts-review-image', 'shorts-review-fallback',
-      'shorts-review-copy', 'shorts-review-cover-title', 'shorts-review-cover-author',
-      'shorts-preview-play', 'shorts-player', 'shorts-summary-concept',
+      'shorts-player-wrap', 'shorts-player', 'shorts-summary-concept',
       'shorts-summary-tone', 'shorts-summary-model', 'shorts-summary-profile', 'shorts-summary-text',
+      'shorts-summary-prompt',
       'shorts-source-ready', 'shorts-cost', 'shorts-cost-note', 'shorts-job-progress',
       'shorts-job-label', 'shorts-job-elapsed', 'shorts-progress-track',
       'shorts-progress-value', 'shorts-progress-note', 'shorts-result-actions',
@@ -116,7 +119,22 @@
   }
 
   async function api(path, options = {}) {
-    const response = await window.SkriptLabAuth.fetch(path, options);
+    let response;
+    try {
+      response = await window.SkriptLabAuth.fetch(path, options);
+    } catch (cause) {
+      if (cause?.name === 'AbortError') throw cause;
+      const local = ['localhost', '127.0.0.1', ''].includes(window.location.hostname);
+      const apiBase = String(window.SKRIPTLAB_CONFIG?.API_BASE_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
+      const message = local
+        ? `Paikallinen videopalvelu ei vastaa osoitteessa ${apiBase || '127.0.0.1:8000'}. Käynnistä paikallinen backend ja avaa sivu uudelleen.`
+        : 'Yhteys SkriptLabin videopalveluun katkesi ennen vastausta. Tarkista verkkoyhteys ja yritä uudelleen.';
+      const error = new Error(message);
+      error.isNetworkError = true;
+      error.path = path;
+      error.cause = cause;
+      throw error;
+    }
     const payload = await response.json().catch(() => null);
     if (!response.ok) {
       const detail = payload?.detail;
@@ -164,14 +182,73 @@
       tone: selectedValue('shorts-tone', 'cinematic'),
       profile: selectedValue('shorts-profile', 'story'),
       videoModel: String(elements['shorts-video-model']?.value || ''),
-      textEnabled: Boolean(elements['shorts-text-enabled'].checked),
-      voiceover: Boolean(elements['shorts-voiceover'].checked && !elements['shorts-voiceover'].disabled),
+      motionPrompt: String(elements['shorts-motion-prompt']?.value || '').trim().slice(0, 2000),
+      textEnabled: Boolean(elements['shorts-text-enabled']?.checked),
+      overlayTitle: String(elements['shorts-overlay-title']?.value || '').trim().slice(0, 180),
+      overlaySubtitle: String(elements['shorts-overlay-subtitle']?.value || '').trim().slice(0, 240),
+      overlayCta: String(elements['shorts-overlay-cta']?.value || '').trim().slice(0, 240),
+      voiceover: Boolean(elements['shorts-voiceover']?.checked && !elements['shorts-voiceover']?.disabled),
     };
   }
 
   function applyRadioValue(name, value) {
     const input = document.querySelector(`input[name="${name}"][value="${String(value || '').replace(/"/g, '\\"')}"]`);
     if (input) input.checked = true;
+  }
+
+  function createClientRequestId() {
+    if (typeof window.crypto?.randomUUID === 'function') return window.crypto.randomUUID();
+    const bytes = new Uint8Array(16);
+    if (typeof window.crypto?.getRandomValues === 'function') {
+      window.crypto.getRandomValues(bytes);
+    } else {
+      for (let index = 0; index < bytes.length; index += 1) {
+        bytes[index] = Math.floor(Math.random() * 256);
+      }
+    }
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = [...bytes].map((value) => value.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+
+  function normalizePendingJobRequest(raw) {
+    if (!raw || typeof raw !== 'object' || !raw.body || typeof raw.body !== 'object') return null;
+    const endpoint = String(raw.endpoint || '');
+    const shotlistId = String(raw.shotlistId || '');
+    const clientRequestId = String(raw.body.client_request_id || '').toLowerCase();
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+    const retryMatch = endpoint.match(/^\/api\/video\/jobs\/([0-9a-f-]{36})\/retry$/i);
+    const createRequest = endpoint === '/api/video/jobs';
+    const amount = Number(raw.body.confirmed_cost_eur);
+    if (!shotlistId || !uuidPattern.test(clientRequestId) || (!createRequest && !retryMatch)) return null;
+    if (!Number.isFinite(amount) || amount < 0) return null;
+    if (createRequest) {
+      const profile = String(Array.isArray(raw.body.profiles) ? raw.body.profiles[0] || '' : '');
+      if (!PROFILE_META[profile] || String(raw.body.shotlist_id || '') !== shotlistId) return null;
+      return {
+        endpoint,
+        shotlistId,
+        body: {
+          shotlist_id: shotlistId,
+          tier: 'final',
+          profiles: [profile],
+          no_ai: Boolean(raw.body.no_ai),
+          confirmed_cost: true,
+          confirmed_cost_eur: amount,
+          client_request_id: clientRequestId,
+        },
+      };
+    }
+    return {
+      endpoint: `/api/video/jobs/${retryMatch[1]}/retry`,
+      shotlistId,
+      body: {
+        confirmed_cost: true,
+        confirmed_cost_eur: amount,
+        client_request_id: clientRequestId,
+      },
+    };
   }
 
   function sessionKey() {
@@ -184,6 +261,9 @@
     if (!key) return null;
     try {
       const parsed = JSON.parse(localStorage.getItem(key) || 'null');
+      if (parsed && typeof parsed === 'object') {
+        parsed.isLegacySession = Number(parsed.sessionSchema) !== SESSION_SCHEMA;
+      }
       return parsed && typeof parsed === 'object' ? parsed : null;
     } catch (_error) {
       return null;
@@ -195,10 +275,13 @@
     if (!key) return;
     const selected = selection();
     localStorage.setItem(key, JSON.stringify({
+      sessionSchema: SESSION_SCHEMA,
       ...selected,
+      promptCustom: state.promptCustom,
       presenterReference: state.presenterAsset?.reference || null,
       shotlistId: state.shotlist?.id || null,
       jobId: state.job?.id || null,
+      pendingJobRequest: state.pendingJobRequest,
       savedAt: new Date().toISOString(),
     }));
   }
@@ -210,8 +293,6 @@
     state.pollController = null;
     window.clearInterval(state.timingTimer);
     state.timingTimer = null;
-    window.clearTimeout(state.previewTimer);
-    state.previewTimer = null;
   }
 
   function normalizeSourceImage(raw) {
@@ -472,22 +553,11 @@
     if (!selected.textEnabled) {
       return { title: null, subtitle: null, quote: null, cta: null, logo: null, position: 'bottom' };
     }
-    const copy = projectCopy();
-    if (selected.concept === 'plot') {
-      return {
-        title: truncate(copy.title, 80) || null,
-        subtitle: truncate(copy.tagline || copy.author, 120) || null,
-        quote: null,
-        cta: 'Tutustu kirjaan',
-        logo: null,
-        position: 'bottom',
-      };
-    }
     return {
-      title: truncate(copy.title, 80) || null,
-      subtitle: truncate(copy.author, 100) || null,
+      title: selected.overlayTitle || null,
+      subtitle: selected.overlaySubtitle || null,
       quote: null,
-      cta: truncate(copy.tagline || 'Tutustu kirjaan', 120) || null,
+      cta: selected.overlayCta || null,
       logo: null,
       position: selected.concept === 'presenter' ? 'bottom' : 'center',
     };
@@ -506,6 +576,64 @@
     return `${common}Single continuous cinematic book-trailer shot with no cuts. Start from the supplied unchanged cover and make a slow, confident push into its illustrated atmosphere using subtle parallax, light, weather, or environmental motion that is already implied by the artwork. Preserve the physical cover, composition, illustration, and every existing letter exactly. Do not invent plot events, people, faces, objects, logos, captions, watermarks, or readable text. End on a compelling steady detail that feels like a brief spoiler-free teaser.`;
   }
 
+  function updatePromptCounter() {
+    const prompt = String(elements['shorts-motion-prompt']?.value || '');
+    if (elements['shorts-prompt-count']) {
+      elements['shorts-prompt-count'].textContent = `${prompt.length} / 2000`;
+    }
+  }
+
+  function refreshPromptSuggestion({ force = false } = {}) {
+    const input = elements['shorts-motion-prompt'];
+    if (!input) return;
+    const previousSuggestion = state.generatedPrompt;
+    const suggestion = motionPromptForSelection();
+    const current = String(input.value || '');
+    const canReplace = force || !state.promptCustom || !current.trim() || current === previousSuggestion;
+    state.generatedPrompt = suggestion;
+    if (canReplace) {
+      input.value = suggestion;
+      state.promptCustom = false;
+    }
+    updatePromptCounter();
+  }
+
+  function ensureOverlayDrafts() {
+    const copy = projectCopy();
+    if (!elements['shorts-overlay-title'].value.trim()) {
+      elements['shorts-overlay-title'].value = truncate(copy.title, 180);
+    }
+    if (!elements['shorts-overlay-subtitle'].value.trim()) {
+      elements['shorts-overlay-subtitle'].value = truncate(copy.tagline || copy.author, 240);
+    }
+    if (!elements['shorts-overlay-cta'].value.trim()) {
+      elements['shorts-overlay-cta'].value = 'Tutustu kirjaan';
+    }
+  }
+
+  function hydrateFromShotlist(shotlist) {
+    const shot = shotlist?.shots?.[0];
+    if (!shot) return;
+    const prompt = String(shot.motion_prompt || '');
+    state.generatedPrompt = motionPromptForSelection();
+    elements['shorts-motion-prompt'].value = prompt || state.generatedPrompt;
+    state.promptCustom = Boolean(prompt && prompt !== state.generatedPrompt);
+    const overlay = shot.overlay || {};
+    const overlayValues = {
+      title: String(overlay.title || ''),
+      subtitle: String(overlay.subtitle || ''),
+      cta: String(overlay.cta || ''),
+    };
+    const hasOverlay = Object.values(overlayValues).some((value) => value.trim());
+    elements['shorts-text-enabled'].checked = hasOverlay;
+    if (hasOverlay) {
+      elements['shorts-overlay-title'].value = overlayValues.title;
+      elements['shorts-overlay-subtitle'].value = overlayValues.subtitle;
+      elements['shorts-overlay-cta'].value = overlayValues.cta;
+    }
+    updatePromptCounter();
+  }
+
   function styleHintForSelection(selected = selection()) {
     const concept = CONCEPT_META[selected.concept]?.label || CONCEPT_META.plot.label;
     const tone = TONE_META[selected.tone]?.label || TONE_META.cinematic.label;
@@ -516,31 +644,6 @@
   function selectedVoiceoverAsset() {
     if (!selection().voiceover) return 'none';
     return String(state.context?.voiceovers?.[0]?.id || 'none');
-  }
-
-  function currentPreviewSource() {
-    const selected = selection();
-    const source = sourceForSelection(selected);
-    return state.presenterPreviewUrl && selected.concept === 'presenter'
-      ? state.presenterPreviewUrl
-      : mediaUrl(source?.url);
-  }
-
-  function setImage(element, fallback, source, alt) {
-    if (source) {
-      if (element.dataset.src !== source) {
-        element.src = source;
-        element.dataset.src = source;
-      }
-      element.alt = alt;
-      element.hidden = false;
-      fallback.hidden = true;
-    } else {
-      element.removeAttribute('src');
-      element.removeAttribute('data-src');
-      element.hidden = true;
-      fallback.hidden = false;
-    }
   }
 
   function updateStepState(activeStep) {
@@ -555,44 +658,28 @@
   }
 
   function renderSelection() {
+    refreshPromptSuggestion();
     const selected = selection();
     const profile = PROFILE_META[selected.profile] || PROFILE_META.story;
-    const copy = projectCopy();
-    const previewSource = currentPreviewSource();
     const presenter = selected.concept === 'presenter';
 
     elements['presenter-source'].hidden = !presenter;
-    ['shorts-preview-frame', 'shorts-review-preview'].forEach((id) => {
-      const target = elements[id];
-      target.classList.remove('profile-story', 'profile-square', 'profile-landscape');
-      target.classList.add(`profile-${selected.profile}`);
-    });
-
-    setImage(
-      elements['shorts-preview-image'],
-      elements['shorts-preview-fallback'],
-      previewSource,
-      presenter ? 'Esittelijän kuvan esikatselu' : `Kirjan ${copy.title} kannen esikatselu`,
-    );
-    setImage(
-      elements['shorts-review-image'],
-      elements['shorts-review-fallback'],
-      previewSource,
-      presenter ? 'Esittelijän kuvan esikatselu' : `Kirjan ${copy.title} kannen esikatselu`,
-    );
-
-    elements['shorts-preview-title'].textContent = copy.title;
-    elements['shorts-preview-author'].textContent = copy.author || 'Tekijä';
-    elements['shorts-review-cover-title'].textContent = copy.title;
-    elements['shorts-review-cover-author'].textContent = copy.author || 'Tekijä';
-    elements['shorts-preview-overlay'].hidden = !selected.textEnabled;
-    elements['shorts-review-copy'].hidden = !selected.textEnabled;
+    elements['shorts-overlay-fields'].hidden = !selected.textEnabled;
+    elements['shorts-text-enabled'].setAttribute('aria-expanded', String(selected.textEnabled));
     elements['shorts-summary-concept'].textContent = CONCEPT_META[selected.concept]?.label || CONCEPT_META.plot.label;
     elements['shorts-summary-tone'].textContent = TONE_META[selected.tone]?.label || TONE_META.cinematic.label;
     elements['shorts-summary-model'].textContent = videoModelLabel(selected);
     elements['shorts-summary-profile'].textContent = `${profile.label} · ${profile.channels}`;
-    elements['shorts-summary-text'].textContent = selected.textEnabled ? 'Päällä' : 'Pois';
+    const overlaySummary = [selected.overlayTitle, selected.overlaySubtitle, selected.overlayCta].filter(Boolean).join(' · ');
+    elements['shorts-summary-text'].textContent = selected.textEnabled ? (overlaySummary || 'Teksti puuttuu') : 'Pois';
+    elements['shorts-summary-prompt'].textContent = String(
+      (state.stage === 'review' ? state.shotlist?.shots?.[0]?.motion_prompt : selected.motionPrompt) || '',
+    ).trim() || 'Ei promptia';
+    elements['shorts-prompt-help'].textContent = selectionUsesAiVideo(selected)
+      ? 'Tämä englanninkielinen luova ohje tallennetaan videolle. Palvelin lisää lisäksi kiinteät kesto-, kuvasuhde-, ääni-, teksti- ja turvallisuusohjeet.'
+      : 'Paikallinen animaatio ei kutsu videomallia, joten tätä ohjetta ei lähetetä ulkoiseen palveluun.';
     elements['shorts-source-ready'].lastChild.textContent = ` ${CONCEPT_META[selected.concept]?.source || CONCEPT_META.plot.source}`;
+    updatePromptCounter();
     renderVideoModelChoice();
     syncControls();
   }
@@ -636,22 +723,32 @@
 
   function syncControls() {
     const jobActive = ACTIVE_STATES.has(state.job?.state);
+    const jobStartPending = Boolean(state.pendingJobRequest);
     const retryable = ['failed', 'cancelled'].includes(state.job?.state);
     const completedWithOutput = state.job?.state === 'succeeded' && Boolean(jobOutput(state.job)?.url);
     const projectReady = Boolean(state.projectId && state.context && state.presets);
+    const selected = selection();
+    const promptReady = !selectionUsesAiVideo(selected) || Boolean(selected.motionPrompt);
+    const overlayReady = !selected.textEnabled
+      || Boolean(selected.overlayTitle || selected.overlaySubtitle || selected.overlayCta);
     elements['shorts-review'].disabled = !projectReady
       || !presenterIsReady()
       || !selectedModelIsValid()
+      || !promptReady
+      || !overlayReady
       || state.busy
+      || jobStartPending
       || jobActive;
     elements['shorts-render'].disabled = !state.shotlist?.id
       || (!state.estimate && !retryable)
       || state.busy
+      || jobStartPending
       || jobActive
       || completedWithOutput;
-    elements['shorts-edit'].disabled = state.busy || jobActive;
+    elements['shorts-edit'].disabled = state.busy || jobStartPending || jobActive;
     elements['shorts-cancel'].hidden = !jobActive;
     elements['shorts-retry'].hidden = !['failed', 'cancelled'].includes(state.job?.state);
+    elements['shorts-retry'].disabled = state.busy || jobStartPending;
     renderVideoModelChoice();
   }
 
@@ -717,9 +814,7 @@
         kind,
         source_asset: kind === 'card' ? null : source.reference,
         duration_s: 8,
-        motion_prompt: kind === 'card'
-          ? 'Hold one clean, restrained literary title card for eight seconds with no generated imagery.'
-          : motionPromptForSelection(selected),
+        motion_prompt: selected.motionPrompt,
         motion_preset: kind === 'ai_motion'
           ? (selected.tone === 'bold' ? 'dolly_in' : selected.tone === 'minimal' ? 'slow_pan_right' : 'dolly_in')
           : kind === 'kenburns' ? 'zoom_in' : null,
@@ -735,7 +830,7 @@
         voiceover_asset: voiceoverAsset,
         music: raw?.audio?.music || { asset: null, gain_db: -18, duck_under_voice: true },
         subtitles: {
-          enabled: selected.voiceover && selected.textEnabled,
+          enabled: false,
           language: 'fi',
           source: 'voiceover_transcript',
         },
@@ -799,6 +894,16 @@
       elements['shorts-video-model'].focus();
       return;
     }
+    if (selectionUsesAiVideo(selected) && !selected.motionPrompt) {
+      setNotice('Kirjoita videomallille englanninkielinen luova prompti.', 'error');
+      elements['shorts-motion-prompt'].focus();
+      return;
+    }
+    if (selected.textEnabled && !selected.overlayTitle && !selected.overlaySubtitle && !selected.overlayCta) {
+      setNotice('Kirjoita vähintään yksi videolle lisättävä teksti tai poista tekstivalinta käytöstä.', 'error');
+      elements['shorts-overlay-title'].focus();
+      return;
+    }
 
     setBusy(true, 'Valmistellaan 8 sekunnin shortsia…');
     try {
@@ -806,12 +911,13 @@
         method: 'POST',
         ...jsonBody({
           project_id: state.projectId,
+          draft_mode: 'template',
           target_duration_s: 8,
           aspect_ratios: [PROFILE_META[selected.profile].ratio],
           language: 'fi',
           style_hint: styleHintForSelection(selected),
           ai_clip_count: selectionUsesAiVideo(selected) ? 1 : 0,
-          subtitles_enabled: selected.voiceover && selected.textEnabled,
+          subtitles_enabled: false,
           voiceover_mode: selectedVoiceoverAsset(),
         }),
       });
@@ -833,7 +939,7 @@
   }
 
   function showCompose() {
-    if (ACTIVE_STATES.has(state.job?.state)) return;
+    if (ACTIVE_STATES.has(state.job?.state) || state.pendingJobRequest) return;
     state.stage = 'compose';
     elements['shorts-compose'].hidden = false;
     elements['shorts-review-panel'].hidden = true;
@@ -870,11 +976,113 @@
     return 0;
   }
 
-  function jobStartedAtMs(job) {
-    const raw = job?.started_at || job?.created_at;
+  function utcTimestampMs(raw, fallback = NaN) {
     const normalized = raw && !/(?:Z|[+-]\d{2}:?\d{2})$/i.test(String(raw)) ? `${raw}Z` : raw;
     const parsed = normalized ? Date.parse(normalized) : NaN;
-    return Number.isFinite(parsed) ? parsed : Date.now();
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  function jobStartedAtMs(job) {
+    return utcTimestampMs(job?.started_at || job?.created_at, Date.now());
+  }
+
+  function jobRequestMayHaveCommitted(error) {
+    const status = Number(error?.status || 0);
+    return Boolean(
+      error?.name === 'AbortError'
+      || error?.isNetworkError
+      || error?.isAmbiguousJobResponse
+      || status === 408
+      || status === 429
+      || status >= 500
+    );
+  }
+
+  async function submitPendingJobRequest() {
+    const pending = normalizePendingJobRequest(state.pendingJobRequest);
+    if (!pending || String(pending.shotlistId) !== String(state.shotlist?.id || '')) {
+      throw new Error('Videotyön turvallinen uusintatunniste puuttuu. Pyyntöä ei lähetetty.');
+    }
+    state.pendingJobRequest = pending;
+    const job = await api(pending.endpoint, { method: 'POST', ...jsonBody(pending.body) });
+    const retryMatch = pending.endpoint.match(/^\/api\/video\/jobs\/([0-9a-f-]{36})\/retry$/i);
+    const expectedParent = retryMatch ? String(retryMatch[1]).toLowerCase() : '';
+    const valid = job
+      && String(job.id || '').toLowerCase() === String(pending.body.client_request_id)
+      && String(job.shotlist_id || '') === String(pending.shotlistId)
+      && Number(job.project_id || 0) === Number(state.projectId || 0)
+      && String(job.promoted_from_job_id || '').toLowerCase() === expectedParent;
+    if (!valid) {
+      const error = new Error(
+        'Videopalvelu palautti puutteellisen tai eri työhön kuuluvan vastauksen. Turvallinen pyyntötunniste säilytettiin.',
+      );
+      error.isAmbiguousJobResponse = true;
+      throw error;
+    }
+    return job;
+  }
+
+  function adoptSubmittedJob(job, message = '') {
+    state.job = job;
+    state.pendingJobRequest = null;
+    state.pollFailures = 0;
+    persistSession();
+    renderJob();
+    if (message) {
+      setNotice(message, job?.state === 'failed' ? 'error' : ACTIVE_STATES.has(job?.state) ? 'loading' : 'ready');
+    }
+    if (!TERMINAL_STATES.has(job?.state)) startPolling();
+  }
+
+  async function runPendingJobRequest(recoveryMessage) {
+    let firstError = null;
+    try {
+      adoptSubmittedJob(await submitPendingJobRequest());
+      return true;
+    } catch (error) {
+      if (!jobRequestMayHaveCommitted(error)) {
+        state.pendingJobRequest = null;
+        persistSession();
+        setNotice(error.message, 'error', 'Yritä uudelleen');
+        return false;
+      }
+      firstError = error;
+    }
+
+    // Replaying the exact request is safe because client_request_id is the
+    // persistent VideoJob id. The backend returns the existing job if the
+    // first response was lost and creates at most one job otherwise.
+    try {
+      adoptSubmittedJob(await submitPendingJobRequest(), recoveryMessage);
+      return true;
+    } catch (error) {
+      if (!jobRequestMayHaveCommitted(error)) {
+        state.pendingJobRequest = null;
+        persistSession();
+        setNotice(error.message, 'error', 'Yritä uudelleen');
+        return false;
+      }
+      persistSession();
+      setNotice(
+        `${error.message || firstError?.message || 'Yhteys videopalveluun katkesi.'} Sama turvallinen pyyntötunniste säilytettiin. Tarkista työ uudelleen; uutta maksullista työtä ei luoda.`,
+        'error',
+        'Tarkista työ',
+      );
+      syncControls();
+      return false;
+    }
+  }
+
+  async function checkPendingJobRequest() {
+    if (!state.pendingJobRequest || state.busy) return;
+    setBusy(true, 'Tarkistetaan videotyön käynnistymistä turvallisella tunnisteella…');
+    try {
+      await runPendingJobRequest(
+        'Videotyö löytyi samalla turvallisella pyyntötunnisteella. Toista maksullista työtä ei luotu.',
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
   function formatElapsed(ms) {
@@ -946,7 +1154,7 @@
         elements['shorts-player'].dataset.src = url;
       }
       elements['shorts-player'].hidden = false;
-      elements['shorts-review-preview'].hidden = true;
+      elements['shorts-player-wrap'].hidden = false;
       elements['shorts-download'].href = mediaUrl(output.download_url || output.url);
       elements['shorts-download'].download = output.filename || `skriptlab-shortsi-${selection().profile}.mp4`;
       setNotice(
@@ -957,7 +1165,7 @@
       );
     } else {
       elements['shorts-player'].hidden = true;
-      elements['shorts-review-preview'].hidden = false;
+      elements['shorts-player-wrap'].hidden = true;
       if (failed) {
         setNotice(details, 'error');
       } else if (missingOutput) {
@@ -973,7 +1181,7 @@
   }
 
   async function startJob() {
-    if (!state.shotlist?.id || !state.estimate || state.busy || ACTIVE_STATES.has(state.job?.state)) return;
+    if (!state.shotlist?.id || !state.estimate || state.busy || state.pendingJobRequest || ACTIVE_STATES.has(state.job?.state)) return;
     const amount = Number(state.estimate?.estimated_cost_eur ?? state.estimate?.cost_eur ?? 0);
     const external = shotlistUsesAiVideo();
     const actualModel = modelDescription(null, state.estimate) || videoModelLabel();
@@ -982,25 +1190,25 @@
       `Videomalli: ${actualModel}. Arvioitu hinta: ${price}. ${external ? String(state.presets?.provider_data_notice || '') : 'Kuvalähdettä ei lähetetä ulkoiseen videopalveluun.'} Aloitetaanko luonti?`,
     );
     if (!confirmed) return;
+    state.pendingJobRequest = normalizePendingJobRequest({
+      endpoint: '/api/video/jobs',
+      shotlistId: state.shotlist.id,
+      body: {
+        shotlist_id: state.shotlist.id,
+        tier: 'final',
+        profiles: [selection().profile],
+        no_ai: !shotlistUsesAiVideo(),
+        confirmed_cost: true,
+        confirmed_cost_eur: Number(amount.toFixed(2)),
+        client_request_id: createClientRequestId(),
+      },
+    });
+    persistSession();
     setBusy(true, 'Käynnistetään videon luontia…');
     try {
-      state.job = await api('/api/video/jobs', {
-        method: 'POST',
-        ...jsonBody({
-          shotlist_id: state.shotlist.id,
-          tier: 'final',
-          profiles: [selection().profile],
-          no_ai: !shotlistUsesAiVideo(),
-          confirmed_cost: true,
-          confirmed_cost_eur: Number(amount.toFixed(2)),
-        }),
-      });
-      state.pollFailures = 0;
-      persistSession();
-      renderJob();
-      startPolling();
-    } catch (error) {
-      setNotice(error.message, 'error', 'Yritä uudelleen');
+      await runPendingJobRequest(
+        'Luontipyynnön ensimmäinen vastaus katkesi, mutta sama videotyö palautettiin turvallisella tunnisteella. Toista maksullista työtä ei luotu.',
+      );
     } finally {
       setBusy(false);
     }
@@ -1067,36 +1275,34 @@
   }
 
   async function retryJob() {
-    if (!state.job?.id || !['failed', 'cancelled'].includes(state.job.state) || state.busy) return;
+    if (!state.job?.id || !['failed', 'cancelled'].includes(state.job.state) || state.busy || state.pendingJobRequest) return;
     setBusy(true, 'Tarkistetaan uudelleenyrityksen hinta…');
     try {
-      const estimate = await api(`/api/video/jobs/${encodeURIComponent(state.job.id)}/retry/estimate`, { method: 'POST' });
+      const sourceJobId = String(state.job.id);
+      const estimate = await api(`/api/video/jobs/${encodeURIComponent(sourceJobId)}/retry/estimate`, { method: 'POST' });
       const amount = Number(estimate?.estimated_cost_eur ?? 0);
       const confirmed = amount <= 0 || window.confirm(
         `Uudelleenyrityksen arvioitu hinta on ${amount.toLocaleString('fi-FI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €. Aloitetaanko uudelleen?`,
       );
       if (!confirmed) return;
-      state.job = await api(`/api/video/jobs/${encodeURIComponent(state.job.id)}/retry`, {
-        method: 'POST',
-        ...jsonBody({ confirmed_cost: true, confirmed_cost_eur: Number(amount.toFixed(2)) }),
+      state.pendingJobRequest = normalizePendingJobRequest({
+        endpoint: `/api/video/jobs/${sourceJobId}/retry`,
+        shotlistId: state.shotlist.id,
+        body: {
+          confirmed_cost: true,
+          confirmed_cost_eur: Number(amount.toFixed(2)),
+          client_request_id: createClientRequestId(),
+        },
       });
       persistSession();
-      renderJob();
-      startPolling();
+      await runPendingJobRequest(
+        'Uudelleenyrityksen ensimmäinen vastaus katkesi, mutta sama videotyö palautettiin turvallisella tunnisteella. Toista maksullista työtä ei luotu.',
+      );
     } catch (error) {
-      setNotice(error.message, 'error');
+      if (!state.pendingJobRequest) setNotice(error.message, 'error');
     } finally {
       setBusy(false);
     }
-  }
-
-  function animateStaticPreview() {
-    const preview = elements['shorts-review-preview'];
-    window.clearTimeout(state.previewTimer);
-    preview.classList.remove('is-animating');
-    void preview.offsetWidth;
-    preview.classList.add('is-animating');
-    state.previewTimer = window.setTimeout(() => preview.classList.remove('is-animating'), 8100);
   }
 
   async function restoreSession() {
@@ -1108,8 +1314,17 @@
     populateVideoModelSelect(
       Object.prototype.hasOwnProperty.call(saved, 'videoModel') ? saved.videoModel : null,
     );
-    elements['shorts-text-enabled'].checked = saved.textEnabled !== false;
+    state.generatedPrompt = motionPromptForSelection();
+    elements['shorts-motion-prompt'].value = String(saved.motionPrompt || state.generatedPrompt);
+    state.promptCustom = saved.promptCustom === true
+      || Boolean(saved.motionPrompt && saved.motionPrompt !== state.generatedPrompt);
+    elements['shorts-text-enabled'].checked = !saved.isLegacySession && saved.textEnabled === true;
+    elements['shorts-overlay-title'].value = String(saved.overlayTitle || '');
+    elements['shorts-overlay-subtitle'].value = String(saved.overlaySubtitle || '');
+    elements['shorts-overlay-cta'].value = String(saved.overlayCta || '');
+    if (elements['shorts-text-enabled'].checked) ensureOverlayDrafts();
     if (!elements['shorts-voiceover'].disabled) elements['shorts-voiceover'].checked = Boolean(saved.voiceover);
+    state.pendingJobRequest = normalizePendingJobRequest(saved.pendingJobRequest);
     if (saved.presenterReference) {
       state.presenterAsset = state.sourceImages.find((asset) => asset.reference === saved.presenterReference) || null;
     }
@@ -1121,11 +1336,38 @@
         // The persisted server plan is authoritative. It may have been edited
         // in the classic studio after this tab saved its local UI state.
         populateVideoModelSelect(shotlistVideoModelValue(state.shotlist));
+        hydrateFromShotlist(state.shotlist);
       }
-      if (saved.jobId) {
+      if (state.pendingJobRequest && state.shotlist?.id) {
+        if (String(state.pendingJobRequest.shotlistId) !== String(state.shotlist.id)) {
+          state.pendingJobRequest = null;
+          persistSession();
+          throw new Error('Tallennettu videopyyntö ei kuulu tähän suunnitelmaan. Pyyntöä ei lähetetty.');
+        }
+        const recovered = await runPendingJobRequest(
+          'Aiemmin epäselvä luontipyyntö palautettiin samalla turvallisella tunnisteella. Uutta videotyötä ei luotu.',
+        );
+        if (!recovered) {
+          if (!state.pendingJobRequest && saved.jobId) {
+            state.job = await api(`/api/video/jobs/${encodeURIComponent(saved.jobId)}`);
+          }
+          showReview();
+          return true;
+        }
+      }
+      if (!state.job && saved.jobId) {
         state.job = await api(`/api/video/jobs/${encodeURIComponent(saved.jobId)}`);
       }
     } catch (error) {
+      if (state.shotlist && state.pendingJobRequest) {
+        showReview();
+        setNotice(
+          `Työn käynnistymistä ei voitu vielä tarkistaa: ${error.message} Älä lähetä uutta maksullista pyyntöä ennen tarkistusta.`,
+          'error',
+          'Tarkista työ',
+        );
+        return true;
+      }
       if (error.status === 404) localStorage.removeItem(sessionKey());
       else setNotice(`Aiemman shortsin palautus epäonnistui: ${error.message}`, 'error');
       state.shotlist = null;
@@ -1139,6 +1381,7 @@
         provider: String(state.job.provider || ''),
         model: String(state.job.model || ''),
       };
+      persistSession();
     } else {
       try {
         await estimateShotlist();
@@ -1171,7 +1414,17 @@
     state.estimate = null;
     state.job = null;
     state.pollFailures = 0;
+    state.pendingJobRequest = null;
+    state.generatedPrompt = '';
+    state.promptCustom = false;
     state.stage = 'compose';
+    elements['shorts-motion-prompt'].value = '';
+    elements['shorts-text-enabled'].checked = false;
+    elements['shorts-overlay-title'].value = '';
+    elements['shorts-overlay-subtitle'].value = '';
+    elements['shorts-overlay-cta'].value = '';
+    elements['shorts-overlay-fields'].hidden = true;
+    elements['shorts-player-wrap'].hidden = true;
     if (!state.projectId) {
       elements['shorts-project-name'].textContent = 'Valitse projekti SkriptLabin työtilasta';
       setNotice('Shorts-studio tarvitsee aktiivisen projektin. Valitse projekti sivuvalikosta ja palaa Videostudioon.', 'error');
@@ -1198,6 +1451,8 @@
         setNotice(`${sourceNote} Valitse idea, tunnelma ja julkaisumuoto.`, 'ready');
       } else if (state.job?.state === 'succeeded') {
         setNotice('Aiempi shortsi palautettiin ja on valmis ladattavaksi.', 'ready');
+      } else if (state.pendingJobRequest) {
+        // runPendingJobRequest already left the exact recovery guidance visible.
       } else if (!state.job && state.shotlist) {
         setNotice('Aiempi shortsin suunnitelma palautettiin tarkistettavaksi.', 'ready');
       }
@@ -1209,6 +1464,14 @@
   }
 
   function openClassicVideoStudio() {
+    if (state.pendingJobRequest) {
+      setNotice(
+        'Videotyön käynnistymistä tarkistetaan. Muokkaus avautuu vasta, kun mahdollinen maksullinen pyyntö on varmistettu.',
+        'loading',
+        'Tarkista työ',
+      );
+      return;
+    }
     if (state.stage === 'review' && !ACTIVE_STATES.has(state.job?.state)) {
       showCompose();
       return;
@@ -1223,7 +1486,7 @@
   }
 
   function invalidatePreparedShort() {
-    if (ACTIVE_STATES.has(state.job?.state)) return;
+    if (ACTIVE_STATES.has(state.job?.state) || state.pendingJobRequest) return;
     clearTimers();
     state.shotlist = null;
     state.estimate = null;
@@ -1237,12 +1500,19 @@
       player.load();
       player.hidden = true;
     }
+    elements['shorts-player-wrap'].hidden = true;
     renderEstimate();
   }
 
   function selectionChanged(event) {
     invalidatePreparedShort();
     const name = event?.target?.name;
+    if (name === 'shorts-text-enabled' && elements['shorts-text-enabled'].checked) {
+      ensureOverlayDrafts();
+    }
+    if (['shorts-concept', 'shorts-tone', 'shorts-profile'].includes(name)) {
+      refreshPromptSuggestion();
+    }
     if (name === 'shorts-concept') updateStepState('style');
     else if (name === 'shorts-tone') updateStepState('publish');
     else if (name === 'shorts-profile') updateStepState('publish');
@@ -1250,9 +1520,34 @@
     persistSession();
   }
 
+  function editableContentChanged(event) {
+    invalidatePreparedShort();
+    if (event?.target === elements['shorts-motion-prompt']) {
+      if (String(elements['shorts-motion-prompt'].value || '') === state.generatedPrompt) {
+        state.promptCustom = false;
+      } else {
+        state.promptCustom = true;
+      }
+      updatePromptCounter();
+    }
+    renderSelection();
+    persistSession();
+  }
+
+  function resetPrompt() {
+    invalidatePreparedShort();
+    refreshPromptSuggestion({ force: true });
+    renderSelection();
+    persistSession();
+    elements['shorts-motion-prompt'].focus();
+  }
+
   function bindEvents() {
     elements['shorts-open-video'].addEventListener('click', openClassicVideoStudio);
-    elements['shorts-notice-action'].addEventListener('click', loadWorkspace);
+    elements['shorts-notice-action'].addEventListener('click', () => {
+      if (state.pendingJobRequest) checkPendingJobRequest();
+      else loadWorkspace();
+    });
     elements['shorts-compose'].addEventListener('submit', prepareReview);
     elements['presenter-source-file'].addEventListener('change', (event) => uploadPresenterSource(event.target.files?.[0]));
     elements['presenter-consent'].addEventListener('change', () => {
@@ -1264,6 +1559,10 @@
     elements['shorts-video-model'].addEventListener('change', selectionChanged);
     elements['shorts-text-enabled'].addEventListener('change', selectionChanged);
     elements['shorts-voiceover'].addEventListener('change', selectionChanged);
+    elements['shorts-motion-prompt'].addEventListener('input', editableContentChanged);
+    elements['shorts-prompt-reset'].addEventListener('click', resetPrompt);
+    ['shorts-overlay-title', 'shorts-overlay-subtitle', 'shorts-overlay-cta']
+      .forEach((id) => elements[id].addEventListener('input', editableContentChanged));
     elements['shorts-edit'].addEventListener('click', showCompose);
     elements['shorts-render'].addEventListener('click', () => {
       if (['failed', 'cancelled'].includes(state.job?.state)) retryJob();
@@ -1271,7 +1570,6 @@
     });
     elements['shorts-cancel'].addEventListener('click', cancelJob);
     elements['shorts-retry'].addEventListener('click', retryJob);
-    elements['shorts-preview-play'].addEventListener('click', animateStaticPreview);
     window.addEventListener('beforeunload', clearTimers);
     window.addEventListener('message', (event) => {
       if (event.origin !== window.location.origin || event.data?.type !== 'skriptlab:video-project-changed') return;
