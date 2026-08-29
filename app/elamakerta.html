@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0d0b08">
+<meta name="theme-color" content="#0d1117">
 <title>Elämäkerta – SkriptLab</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Libre+Caslon+Text:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
-<link rel="stylesheet" href="elamakerta.css?v=4">
+<link rel="stylesheet" href="elamakerta.css?v=5">
 </head>
 <body>
 <div class="app-shell">
@@ -47,8 +47,7 @@
   <main class="workspace" id="workspace">
     <section class="step-view is-active" id="view-start" data-step="start" aria-labelledby="start-heading">
       <div class="mode-switch" role="group" aria-label="Projektin muoto">
-        <button type="button" class="mode-option" data-mode="biography"><i class="ph ph-book-open" aria-hidden="true"></i><span>Elämäkerta</span></button>
-        <button type="button" class="mode-option" data-mode="autobiography"><i class="ph ph-user" aria-hidden="true"></i><span>Omaelämäkerta</span></button>
+        <button type="button" class="mode-option" data-mode="life_story"><i class="ph ph-book-open" aria-hidden="true"></i><span>Elämäkerta</span></button>
         <button type="button" class="mode-option" data-mode="first_person_guide"><i class="ph ph-compass" aria-hidden="true"></i><span>Minämuotoinen opas</span></button>
       </div>
 
@@ -64,7 +63,9 @@
           <div class="answer-methods"><p class="section-label">Tai valitse tapa vastata:</p><div class="method-grid">
             <button type="button" class="method-card is-primary" id="start-writing"><i class="ph ph-pencil-simple-line" aria-hidden="true"></i><span><strong>Kirjoita vastaus</strong><small>Kirjoita vapaasti – muotoilen tarinan.</small></span></button>
             <button type="button" class="method-card" id="start-speaking"><i class="ph ph-microphone" aria-hidden="true"></i><span><strong>Kerro puhumalla</strong><small>Puhu luonnollisesti – minä kirjoitan.</small></span></button>
+            <button type="button" class="method-card" id="start-importing" aria-controls="material-import-panel"><i class="ph ph-upload-simple" aria-hidden="true"></i><span><strong>Tuo tiedostoja</strong><small>Lisää tekstejä, asiakirjoja tai kuvia.</small></span></button>
           </div></div>
+          <input class="visually-hidden" id="material-file-input" type="file" multiple aria-label="Valitse elämäkerran aineistotiedostot" accept=".txt,.md,.html,.htm,.pdf,.docx,.rtf,.odt,.png,.jpg,.jpeg,.webp,text/plain,text/markdown,text/html,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/rtf,text/rtf,application/vnd.oasis.opendocument.text,image/png,image/jpeg,image/webp">
           <p class="reassurance"><i class="ph ph-lightbulb" aria-hidden="true"></i> Vastausta ei tarvitse hioa. Pitkätkin vastaukset ovat tervetulleita.</p>
         </article>
 
@@ -106,7 +107,7 @@
 
     <section class="step-view" id="view-materials" data-step="materials" aria-labelledby="materials-heading" hidden>
       <div class="content-grid">
-        <article class="story-panel"><header class="panel-heading-row"><div><p class="panel-kicker">Aineisto</p><h1 id="materials-heading">Muistot samassa paikassa</h1><p>Haastatteluvastaukset ja omat muistiinpanot muodostavat tarinasi lähdeaineiston.</p></div></header>
+        <article class="story-panel"><header class="panel-heading-row"><div><p class="panel-kicker">Aineisto</p><h1 id="materials-heading">Muistot samassa paikassa</h1><p>Haastatteluvastaukset, tiedostot ja omat muistiinpanot muodostavat tarinasi lähdeaineiston.</p></div><button class="secondary-button compact-text" type="button" id="materials-import-files" aria-controls="material-import-panel"><i class="ph ph-upload-simple" aria-hidden="true"></i> Tuo tiedostoja</button></header>
           <form class="material-form" id="material-form"><div class="form-row two-columns"><label><span>Otsikko</span><input type="text" id="material-title" placeholder="Esim. Kesät mummolassa" required></label><label><span>Tyyppi</span><select id="material-kind"><option value="free_text">Vapaa teksti</option><option value="document_note">Dokumenttimuistiinpano</option><option value="photo_note">Valokuvamuistiinpano</option><option value="timeline_note">Aikajanamerkintä</option><option value="interview_answer">Haastatteluvastaus</option></select></label></div><label><span>Sisältö</span><textarea id="material-text" rows="5" placeholder="Kirjoita muisto tai muistiinpano" required></textarea></label><div class="material-form-actions"><button type="submit" class="primary-button" id="btn-save-material"><i class="ph ph-plus" aria-hidden="true"></i><span id="save-material-label">Lisää muisto</span></button><button type="button" class="secondary-button" id="btn-cancel-material-edit" hidden>Peruuta muokkaus</button></div></form>
           <div class="list-heading"><h2>Kerätty aineisto</h2><span class="count-badge" id="material-count">0</span></div><ul class="material-list" id="material-list"></ul>
         </article>
@@ -145,6 +146,15 @@
   </main>
 </div>
 
+<div class="material-import-backdrop" id="material-import-backdrop" hidden></div>
+<section class="material-import-panel" id="material-import-panel" role="dialog" aria-modal="true" aria-labelledby="material-import-title" tabindex="-1" hidden>
+  <header class="import-panel-heading"><div><p class="panel-kicker">Tiedostot</p><h2 id="material-import-title">Tarkista tuotava aineisto</h2></div><button class="icon-button" type="button" id="close-material-import" aria-label="Sulje tiedostojen tuonti" title="Sulje"><i class="ph ph-x" aria-hidden="true"></i></button></header>
+  <p class="import-help">Teksti puretaan muokattavaksi ennen tallennusta. Kuvat säilytetään projektin lähdeaineistona.</p>
+  <div class="import-feedback" id="material-import-feedback" aria-busy="false"><p id="material-import-status" role="status" aria-live="polite">Valitse yksi tai useampi tiedosto.</p><progress id="material-import-progress" max="1" value="0" aria-label="Tiedostojen tuonnin eteneminen" hidden></progress><p class="import-error" id="material-import-error" role="alert" hidden></p></div>
+  <div class="import-review-list" id="material-import-review"></div>
+  <div class="material-form-actions"><button type="button" class="primary-button" id="confirm-material-import" disabled><i class="ph ph-check" aria-hidden="true"></i> Lisää aineistoon</button><button type="button" class="secondary-button" id="choose-more-material-files"><i class="ph ph-plus" aria-hidden="true"></i> Valitse lisää</button><button type="button" class="text-button danger" id="cancel-material-import">Peruuta tuonti</button></div>
+</section>
+
 <div class="modal-backdrop" id="modal-backdrop" hidden></div>
 <section class="modal" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden><header class="modal-header"><h2 id="settings-title">Projektin asetukset</h2><button class="icon-button" type="button" data-close-modal aria-label="Sulje asetukset" title="Sulje"><i class="ph ph-x" aria-hidden="true"></i></button></header><div class="modal-body"><label><span>Tarkoitus</span><textarea id="f-purpose" data-state-field="purpose" rows="3" placeholder="Kenelle ja miksi teos tehdään?"></textarea></label><label><span>Kerronnan näkökulma</span><select id="narrative-perspective" data-state-field="narrative_perspective"><option value="first_person">Minämuoto</option><option value="third_person">Hän-muoto</option></select></label><label><span>Tyyli</span><input type="text" id="f-style" data-state-field="style" placeholder="Esim. lämmin ja kerronnallinen"></label><label><span>Tavoitepituus</span><input type="text" id="f-target-length" data-state-field="target_length" placeholder="Esim. noin 100 sivua"></label><label><span>Arkaluontoisten aiheiden käsittely</span><input type="text" id="f-sensitive" data-state-field="sensitive_handling" placeholder="Esim. kysy aina ennen käsittelyä"></label><label><span>Tulkintataso</span><input type="text" id="f-interpretation" data-state-field="interpretation_level" placeholder="Esim. vain aineiston faktat"></label></div><footer class="modal-actions"><button class="secondary-button" type="button" data-close-modal>Peruuta</button><button class="primary-button" type="button" id="save-settings">Tallenna asetukset</button></footer></section>
 
@@ -166,6 +176,6 @@
   window.SkriptLabAuth.requireLogin();
   window.ELAMAKERTA_CONFIG = { apiBase: "/api", projectId: activeBiographyProjectId, fetchImpl: (path, options) => window.SkriptLabAuth.fetch(path, options), projectTitle: () => "Minun tarinani" };
 </script>
-<script src="elamakerta.js?v=4"></script>
+<script src="elamakerta.js?v=5"></script>
 </body>
 </html>

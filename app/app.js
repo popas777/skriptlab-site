@@ -4851,6 +4851,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         'view-kuvitus',
         'view-kaannokset',
     ]);
+    let elamakertaSidebarRestoreState = null;
 
     function autoHideSidebarForView(viewId) {
         if (!sidebar || !SIDEBAR_AUTO_HIDE_VIEWS.has(navViewFor(viewId))) return;
@@ -4862,8 +4863,51 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         syncSidebarMode();
     }
 
+    function collapseSidebarForElamakerta() {
+        if (!sidebar) return;
+        appWrapper.classList.add('elamakerta-workspace-active');
+        if (isMobileShell()) {
+            setSidebarDrawer(false);
+            return;
+        }
+        sidebar.classList.add('hidden');
+        syncSidebarMode();
+    }
+
+    function syncElamakertaWorkspace(nextViewId) {
+        if (!sidebar) return;
+        const currentIsElamakerta = navViewFor(currentViewId) === 'view-elamakerta';
+        const nextIsElamakerta = navViewFor(nextViewId) === 'view-elamakerta';
+        if (!currentIsElamakerta && nextIsElamakerta) {
+            elamakertaSidebarRestoreState = {
+                expanded: isMobileShell()
+                    ? appWrapper.classList.contains('sidebar-open')
+                    : !sidebar.classList.contains('hidden')
+            };
+            collapseSidebarForElamakerta();
+            return;
+        }
+        if (currentIsElamakerta && !nextIsElamakerta) {
+            appWrapper.classList.remove('elamakerta-workspace-active');
+            const restoreExpanded = Boolean(elamakertaSidebarRestoreState?.expanded);
+            elamakertaSidebarRestoreState = null;
+            if (isMobileShell()) {
+                setSidebarDrawer(restoreExpanded);
+            } else {
+                sidebar.classList.toggle('hidden', !restoreExpanded);
+                syncSidebarMode();
+            }
+            return;
+        }
+        if (nextIsElamakerta) collapseSidebarForElamakerta();
+    }
+
     function syncSidebarAfterLayoutChange() {
         syncSidebarMode();
+        if (navViewFor(currentViewId) === 'view-elamakerta') {
+            collapseSidebarForElamakerta();
+            return;
+        }
         if (!isMobileShell()) autoHideSidebarForView(currentViewId);
     }
 
@@ -4882,6 +4926,61 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         sidebarBackdrop.addEventListener('click', () => setSidebarDrawer(false));
     }
 
+    const ELAMAKERTA_THEME_TOKENS = [
+        '--bg-color',
+        '--sidebar-bg',
+        '--panel-bg',
+        '--text-primary',
+        '--text-secondary',
+        '--accent-color',
+        '--border-color'
+    ];
+
+    function currentElamakertaThemeContext() {
+        const styles = window.getComputedStyle(document.documentElement);
+        return {
+            type: 'skriptlab:theme-changed',
+            version: 1,
+            theme: document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light',
+            tokens: Object.fromEntries(ELAMAKERTA_THEME_TOKENS.map(token => [token, styles.getPropertyValue(token).trim()]))
+        };
+    }
+
+    function syncElamakertaTheme() {
+        const frame = document.getElementById('elamakerta-frame');
+        if (!frame?.contentWindow) return false;
+        const context = currentElamakertaThemeContext();
+        try {
+            frame.contentWindow.ElamakertaModule?.setTheme?.(context.theme, context.tokens);
+        } catch (error) {
+            // The postMessage contract below remains available while the frame initializes.
+        }
+        frame.contentWindow.postMessage(context, window.location.origin);
+        return true;
+    }
+
+    function bindElamakertaThemeBridge() {
+        const frame = document.getElementById('elamakerta-frame');
+        if (!frame || frame.dataset.themeBridgeBound === 'true') return;
+        frame.dataset.themeBridgeBound = 'true';
+        frame.addEventListener('load', syncElamakertaTheme);
+        syncElamakertaTheme();
+    }
+
+    window.SkriptLabElamakertaShell = Object.freeze({
+        getContext: currentElamakertaThemeContext,
+        sync: syncElamakertaTheme
+    });
+    window.addEventListener('message', event => {
+        const frame = document.getElementById('elamakerta-frame');
+        if (
+            event.origin === window.location.origin
+            && event.source === frame?.contentWindow
+            && event.data?.type === 'skriptlab:elamakerta-ready'
+        ) syncElamakertaTheme();
+    });
+    bindElamakertaThemeBridge();
+
     const toggleThemeBtn = document.getElementById('toggle-theme');
     toggleThemeBtn.addEventListener('click', () => {
         const currentTheme = document.documentElement.getAttribute('data-theme');
@@ -4892,6 +4991,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             document.documentElement.setAttribute('data-theme', 'dark');
             toggleThemeBtn.textContent = '🌓';
         }
+        syncElamakertaTheme();
         refreshLibraryFrame();
     });
 
@@ -5120,6 +5220,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             activeNavViewId = viewId;
         }
         deactivateElamakertaFrame(activeNavViewId);
+        syncElamakertaWorkspace(activeNavViewId);
         currentViewId = activeNavViewId;
         autoHideSidebarForView(currentViewId);
         syncLongOperationTimersForView(currentViewId);
@@ -5152,6 +5253,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         if (viewId === 'view-notebooklm') {
             refreshNotebookLMFrame();
+        }
+        if (viewId === 'view-elamakerta') {
+            syncElamakertaTheme();
         }
         if (['view-kirjani', 'view-analyysi', 'view-rakenne'].includes(viewId)) {
             refreshManuskriptiFrame(viewId);
@@ -27580,6 +27684,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
         try {
             if (frame.contentWindow?.ElamakertaModule) {
+                syncElamakertaTheme();
                 frame.contentWindow.ElamakertaModule.loadState();
                 return;
             }

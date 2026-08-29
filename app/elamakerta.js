@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Elämäkerta – itsenäinen elämäkerta-, omaelämäkerta- ja opastyötila
+   Elämäkerta – itsenäinen elämäkerta- ja opastyötila
    ========================================================================== */
 
 (function () {
@@ -12,6 +12,8 @@
   const LEGACY_ANSWERS_SESSION_ID = "legacy_answers_session_v1";
   const LEGACY_ANSWERS_MATERIAL_ID = "legacy_answers_material_v1";
   const LEGACY_ANSWERS_QUESTION = "Aiemmat haastatteluvastaukset";
+  const SHELL_THEME_EVENT = "skriptlab:theme-changed";
+  const SHELL_READY_EVENT = "skriptlab:elamakerta-ready";
 
   const MATERIAL_KINDS = {
     free_text: "Vapaa teksti",
@@ -57,16 +59,18 @@
     ],
   };
   const MODE_STARTERS = {
-    biography: [
-      { label: "Ratkaiseva hetki", question: "Mikä hetki kuvaa päähenkilöä kaikkein parhaiten?", icon: "star" },
-      { label: "Kasvuympäristö", question: "Millainen oli paikka, jossa päähenkilö kasvoi?", icon: "map-pin" },
-      { label: "Tärkeä ihminen", question: "Kuka vaikutti hänen elämäänsä ratkaisevasti?", icon: "user" },
-    ],
-    autobiography: [
-      { label: "Hetki, jota en unohda", question: "Kerro hetkestä, jota et koskaan unohda.", icon: "star" },
-      { label: "Paikka, jossa kasvoin", question: "Millainen oli paikka, jossa kasvoit?", icon: "map-pin" },
-      { label: "Ihminen, joka muutti minua", question: "Kuka ihminen muutti sinua ja miten?", icon: "user" },
-    ],
+    life_story: {
+      third_person: [
+        { label: "Ratkaiseva hetki", question: "Mikä hetki kuvaa päähenkilöä kaikkein parhaiten?", icon: "star" },
+        { label: "Paikka, jossa hän kasvoi", question: "Millainen oli paikka, jossa päähenkilö kasvoi?", icon: "map-pin" },
+        { label: "Hänelle tärkeä ihminen", question: "Kuka vaikutti hänen elämäänsä ratkaisevasti?", icon: "user" },
+      ],
+      first_person: [
+        { label: "Hetki, jota en unohda", question: "Kerro hetkestä, jota et koskaan unohda.", icon: "star" },
+        { label: "Paikka, jossa kasvoin", question: "Millainen oli paikka, jossa kasvoit?", icon: "map-pin" },
+        { label: "Ihminen, joka muutti minua", question: "Kuka ihminen muutti sinua ja miten?", icon: "user" },
+      ],
+    },
     first_person_guide: [
       { label: "Miksi opetan tätä", question: "Mikä oma kokemuksesi sai sinut kirjoittamaan tämän oppaan?", icon: "compass" },
       { label: "Mitä olisin halunnut tietää", question: "Mitä olisit itse halunnut tietää aloittaessasi?", icon: "lightbulb" },
@@ -84,6 +88,10 @@
     "audio/wav", "audio/x-wav", "audio/mpeg", "audio/mp3", "audio/aiff",
     "audio/x-aiff", "audio/aac", "audio/ogg", "audio/flac", "audio/x-flac",
   ]);
+  const SUPPORTED_MATERIAL_EXTENSIONS = new Set([
+    "txt", "md", "html", "htm", "pdf", "docx", "rtf", "odt", "png", "jpg", "jpeg", "webp",
+  ]);
+  const IMAGE_MATERIAL_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp"]);
 
   const $ = (id) => document.getElementById(id);
   let biographyState = defaultBiographyState();
@@ -115,6 +123,76 @@
   let recordingResampler = null;
   let recordingLimitStopRequested = false;
   let transcriptionController = null;
+  let pendingMaterialImports = [];
+  let materialImportController = null;
+  let activeMaterialImportConfirmation = null;
+  let activeMaterialImportCleanup = null;
+  let materialImportRevision = 0;
+  let materialPreviewController = null;
+  const materialAssetPreviewUrls = new Map();
+  const materialAssetPreviewPromises = new Map();
+  const discardedMaterialAssetPreviewKeys = new Set();
+
+  function normalizeTheme(value) {
+    return value === "light" ? "light" : "dark";
+  }
+
+  function usableThemeColor(value) {
+    const color = String(value || "").trim();
+    if (!color || color.length > 80) return "";
+    if (window.CSS?.supports && !window.CSS.supports("color", color)) return "";
+    return color;
+  }
+
+  function setTheme(theme, tokens) {
+    const nextTheme = normalizeTheme(theme);
+    const canvas = usableThemeColor(tokens?.["--bg-color"]);
+    const root = document.documentElement;
+    if (!root) return nextTheme;
+    root.setAttribute("data-theme", nextTheme);
+    if (canvas) {
+      root.style.setProperty("--canvas", canvas);
+      root.style.setProperty("--chrome", canvas);
+    } else {
+      root.style.removeProperty("--canvas");
+      root.style.removeProperty("--chrome");
+    }
+    const themeColor = document.querySelector('meta[name="theme-color"]');
+    if (themeColor) themeColor.setAttribute("content", canvas || (nextTheme === "light" ? "#ffffff" : "#0d1117"));
+    return nextTheme;
+  }
+
+  function initialTheme() {
+    const queryTheme = new URL(window.location.href).searchParams.get("theme");
+    if (["dark", "light"].includes(queryTheme)) return queryTheme;
+    for (const key of ["skriptlab_theme", "skriptlab-theme", "theme"]) {
+      const saved = window.localStorage?.getItem(key);
+      if (["dark", "light"].includes(saved)) return saved;
+    }
+    return window.matchMedia?.("(prefers-color-scheme: light)")?.matches ? "light" : "dark";
+  }
+
+  function handleShellThemeMessage(event) {
+    if (event.origin !== window.location.origin || event.source !== window.parent) return;
+    if (event.data?.type !== SHELL_THEME_EVENT) return;
+    setTheme(event.data.theme, event.data.tokens);
+  }
+
+  function initializeThemeBridge() {
+    let context = null;
+    try {
+      context = window.parent !== window
+        ? window.parent?.SkriptLabElamakertaShell?.getContext?.()
+        : null;
+    } catch (error) {
+      context = null;
+    }
+    setTheme(context?.theme || initialTheme(), context?.tokens);
+    window.addEventListener("message", handleShellThemeMessage);
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: SHELL_READY_EVENT, version: 1 }, window.location.origin);
+    }
+  }
 
   function defaultBiographyState() {
     return {
@@ -179,11 +257,46 @@
     };
   }
 
+  function visibleProjectMode(state) {
+    return state.project_mode === "first_person_guide" ? "first_person_guide" : "life_story";
+  }
+
+  function internalLifeStoryMode(perspective) {
+    return perspective === "third_person" ? "biography" : "autobiography";
+  }
+
+  function starterQuestionsForState(state) {
+    if (state.project_mode === "first_person_guide") return MODE_STARTERS.first_person_guide;
+    return MODE_STARTERS.life_story[state.narrative_perspective] || MODE_STARTERS.life_story.first_person;
+  }
+
+  function applyNarrativePerspective(state, perspective) {
+    if (state.project_mode === "first_person_guide") {
+      state.narrative_perspective = "first_person";
+      return state;
+    }
+    const previousPresets = MODE_PRESETS[state.project_mode] || MODE_PRESETS.autobiography;
+    const questionIndex = previousPresets.indexOf(state.current_question);
+    state.narrative_perspective = perspective === "third_person" ? "third_person" : "first_person";
+    state.project_mode = internalLifeStoryMode(state.narrative_perspective);
+    if (questionIndex >= 0) state.current_question = MODE_PRESETS[state.project_mode][questionIndex] || MODE_PRESETS[state.project_mode][0];
+    return state;
+  }
+
   function applyProjectMode(state, mode) {
-    if (!MODE_PRESETS[mode]) return state;
-    state.project_mode = mode;
-    state.narrative_perspective = mode === "biography" ? "third_person" : "first_person";
-    state.current_question = MODE_PRESETS[mode][0];
+    if (mode === "life_story") {
+      state.narrative_perspective = state.narrative_perspective === "third_person" ? "third_person" : "first_person";
+      state.project_mode = internalLifeStoryMode(state.narrative_perspective);
+    } else if (["biography", "autobiography"].includes(mode)) {
+      state.project_mode = mode;
+      state.narrative_perspective = mode === "biography" ? "third_person" : "first_person";
+    } else if (mode === "first_person_guide") {
+      state.project_mode = mode;
+      state.narrative_perspective = "first_person";
+    } else {
+      return state;
+    }
+    state.current_question = MODE_PRESETS[state.project_mode][0];
     return state;
   }
 
@@ -257,7 +370,9 @@
       : null;
     material.title = String(updates.title || material.title);
     material.text = String(updates.text || "");
-    material.kind = linkedSession ? "interview_answer" : (MATERIAL_KINDS[updates.kind] ? updates.kind : material.kind);
+    material.kind = linkedSession
+      ? "interview_answer"
+      : (material.asset_id ? "photo_note" : (MATERIAL_KINDS[updates.kind] ? updates.kind : material.kind));
     if (linkedSession) {
       const answer = linkedSession.answers.find((item) => item.question === material.question && item.text === oldText);
       if (answer) answer.text = material.text;
@@ -379,28 +494,50 @@
     };
   }
 
+  function normalizeMaterial(value, index) {
+    const item = value && typeof value === "object" ? value : {};
+    const numericMetadata = (field, fallback) => {
+      const parsed = Number(item[field] ?? fallback ?? 0);
+      return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 0;
+    };
+    return {
+      id: String(item.id || `material_${index + 1}`),
+      title: String(item.title || item.source_filename || item.filename || "Nimetön muisto"),
+      kind: MATERIAL_KINDS[item.kind] ? item.kind : "free_text",
+      text: String(item.text || ""),
+      created_at: String(item.created_at || new Date().toISOString()),
+      session_id: String(item.session_id || ""),
+      question: String(item.question || ""),
+      asset_id: numericMetadata("asset_id"),
+      source_filename: String(item.source_filename || item.filename || ""),
+      mime_type: String(item.mime_type || ""),
+      size_bytes: numericMetadata("size_bytes", item.byte_size),
+      image_width: numericMetadata("image_width"),
+      image_height: numericMetadata("image_height"),
+    };
+  }
+
   function normalizeBiographyState(raw) {
     const source = raw && typeof raw === "object" ? raw : {};
     const state = Object.assign(defaultBiographyState(), source);
-    state.project_mode = ["biography", "autobiography", "first_person_guide"].includes(source.project_mode)
+    const sourceMode = ["biography", "autobiography", "first_person_guide"].includes(source.project_mode)
       ? source.project_mode
       : "autobiography";
-    state.narrative_perspective = state.project_mode === "biography"
-      ? (["first_person", "third_person"].includes(source.narrative_perspective) ? source.narrative_perspective : "third_person")
-      : "first_person";
+    if (sourceMode === "first_person_guide") {
+      state.project_mode = sourceMode;
+      state.narrative_perspective = "first_person";
+    } else {
+      const defaultPerspective = sourceMode === "biography" ? "third_person" : "first_person";
+      state.narrative_perspective = ["first_person", "third_person"].includes(source.narrative_perspective)
+        ? source.narrative_perspective
+        : defaultPerspective;
+      state.project_mode = internalLifeStoryMode(state.narrative_perspective);
+    }
     state.active_step = normalizeStep(source.active_step);
     state.current_question = String(source.current_question || MODE_PRESETS[state.project_mode][0]);
     state.materials = (Array.isArray(source.materials) ? source.materials : [])
       .filter((item) => item && (item.text || item.title))
-      .map((item, index) => ({
-        id: String(item.id || `material_${index + 1}`),
-        title: String(item.title || "Nimetön muisto"),
-        kind: MATERIAL_KINDS[item.kind] ? item.kind : "free_text",
-        text: String(item.text || ""),
-        created_at: String(item.created_at || new Date().toISOString()),
-        session_id: String(item.session_id || ""),
-        question: String(item.question || ""),
-      }));
+      .map(normalizeMaterial);
     state.interview_sessions = (Array.isArray(source.interview_sessions) ? source.interview_sessions : [])
       .map(normalizeSession);
     state.chapters = (Array.isArray(source.chapters) ? source.chapters : [])
@@ -471,7 +608,10 @@
   async function apiGetState(projectId) {
     const targetProjectId = projectId || getProjectId();
     if (!targetProjectId) return { data: biographyState };
-    const response = await doFetch(`${API_BASE}/projects/${encodeURIComponent(targetProjectId)}/biography`);
+    const response = await doFetch(
+      `${API_BASE}/projects/${encodeURIComponent(targetProjectId)}/biography`,
+      { cache: "no-store" },
+    );
     if (!response.ok) throw new Error(`Projektin lataus epäonnistui (${response.status}).`);
     return response.json();
   }
@@ -500,6 +640,54 @@
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result.detail || `Toiminto epäonnistui (${response.status}).`);
     return result;
+  }
+
+  async function apiImportMaterial(file, projectId, signal) {
+    const formData = new FormData();
+    formData.append("file", file, file.name);
+    const response = await doFetch(
+      `${API_BASE}/projects/${encodeURIComponent(projectId)}/biography/materials/import`,
+      { method: "POST", body: formData, signal },
+    );
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.detail || `Tiedoston tuonti epäonnistui (${response.status}).`);
+    return payload;
+  }
+
+  function biographyAssetUrl(projectId, assetId) {
+    return `${API_BASE}/projects/${encodeURIComponent(projectId)}/biography/assets/${encodeURIComponent(assetId)}`;
+  }
+
+  async function apiFetchBiographyAsset(projectId, assetId, signal, contentUrl) {
+    const response = await doFetch(contentUrl || biographyAssetUrl(projectId, assetId), { signal });
+    if (!response.ok) throw new Error(`Kuvan esikatselua ei voitu ladata (${response.status}).`);
+    return response.blob();
+  }
+
+  async function apiDeleteBiographyAsset(projectId, assetId, options) {
+    if (!projectId || !assetId) return;
+    const response = await doFetch(biographyAssetUrl(projectId, assetId), {
+      method: "DELETE",
+      keepalive: Boolean(options?.keepalive),
+    });
+    if (!response.ok && response.status !== 404) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.detail || `Lähdekuvaa ei voitu poistaa (${response.status}).`);
+    }
+  }
+
+  async function deleteBiographyAssetWithRetry(projectId, assetId) {
+    let lastError = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        await apiDeleteBiographyAsset(projectId, assetId);
+        return;
+      } catch (error) {
+        lastError = error;
+        if (attempt === 0) await new Promise((resolve) => window.setTimeout(resolve, 800));
+      }
+    }
+    throw lastError;
   }
 
   function uniqueProjectTitle(requested) {
@@ -550,6 +738,8 @@
     if (!project?.id) return;
     const selectionRevision = ++projectSelectionRevision;
     await cancelActiveTranscription();
+    await waitForActiveMaterialImportConfirmation();
+    await abandonPendingMaterialImports();
     await flushPendingSave();
     if (selectionRevision !== projectSelectionRevision) return null;
     setSaveStatus("Ladataan projektia…", "saving");
@@ -563,6 +753,7 @@
     }
     if (selectionRevision !== projectSelectionRevision) return null;
     const loaded = normalizeLoadedBiographyState(response.data);
+    clearMaterialAssetPreviews();
     rememberProject(project, Boolean(options?.keepExplicitQuery));
     biographyState = loaded.state;
     selectedSessionId = null;
@@ -589,6 +780,8 @@
     submit.disabled = true;
     try {
       await cancelActiveTranscription();
+      await waitForActiveMaterialImportConfirmation();
+      await abandonPendingMaterialImports();
       await flushPendingSave();
       const project = await apiCreateProject(title);
       const initialState = defaultBiographyState();
@@ -645,6 +838,533 @@
   function setControlValue(id, value) {
     const element = $(id);
     if (element && document.activeElement !== element) element.value = value == null ? "" : String(value);
+  }
+
+  function materialFileExtension(file) {
+    return String(file?.name || "").split(".").pop().toLowerCase();
+  }
+
+  function validateMaterialFile(file) {
+    if (!file?.name || !file.size) return "Tyhjiä tiedostoja ei voi tuoda.";
+    if (!SUPPORTED_MATERIAL_EXTENSIONS.has(materialFileExtension(file))) {
+      return `Tiedostomuotoa ei tueta: ${file.name}`;
+    }
+    return "";
+  }
+
+  function formatFileSize(value) {
+    const bytes = Math.max(0, Number(value) || 0);
+    if (bytes < 1024) return `${bytes} t`;
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} kt`;
+    return `${(bytes / (1024 * 1024)).toFixed(1).replace(".0", "")} Mt`;
+  }
+
+  function revokePreviewUrl(url) {
+    if (url) window.URL?.revokeObjectURL?.(url);
+  }
+
+  function clearMaterialAssetPreviews() {
+    materialPreviewController?.abort();
+    materialPreviewController = null;
+    materialAssetPreviewUrls.forEach(revokePreviewUrl);
+    materialAssetPreviewUrls.clear();
+    materialAssetPreviewPromises.clear();
+    discardedMaterialAssetPreviewKeys.clear();
+  }
+
+  function forgetMaterialAssetPreview(projectId, assetId) {
+    const key = `${projectId}:${assetId}`;
+    discardedMaterialAssetPreviewKeys.add(key);
+    revokePreviewUrl(materialAssetPreviewUrls.get(key));
+    materialAssetPreviewUrls.delete(key);
+    materialAssetPreviewPromises.delete(key);
+  }
+
+  async function loadMaterialAssetPreview(projectId, assetId, contentUrl) {
+    const key = `${projectId}:${assetId}`;
+    if (discardedMaterialAssetPreviewKeys.has(key)) return "";
+    if (materialAssetPreviewUrls.has(key)) return materialAssetPreviewUrls.get(key);
+    if (materialAssetPreviewPromises.has(key)) return materialAssetPreviewPromises.get(key);
+    if (!materialPreviewController) materialPreviewController = new AbortController();
+    const request = (async () => {
+      const blob = await apiFetchBiographyAsset(projectId, assetId, materialPreviewController.signal, contentUrl);
+      if (String(projectId) !== String(getProjectId() || "") || discardedMaterialAssetPreviewKeys.has(key)) return "";
+      const url = window.URL.createObjectURL(blob);
+      materialAssetPreviewUrls.set(key, url);
+      return url;
+    })().finally(() => materialAssetPreviewPromises.delete(key));
+    materialAssetPreviewPromises.set(key, request);
+    return request;
+  }
+
+  function hydrateMaterialAssetPreviews() {
+    const projectId = String(getProjectId() || "");
+    if (!projectId) return;
+    document.querySelectorAll("[data-material-asset-preview]").forEach((image) => {
+      const assetId = image.dataset.materialAssetPreview;
+      loadMaterialAssetPreview(projectId, assetId).then((url) => {
+        if (url && image.isConnected && String(projectId) === String(getProjectId() || "")) image.src = url;
+      }).catch(() => {
+        image.closest(".material-image-preview")?.classList.add("is-unavailable");
+      });
+    });
+  }
+
+  function setMaterialImportFeedback(message, options) {
+    const feedback = $("material-import-feedback");
+    const progress = $("material-import-progress");
+    const error = $("material-import-error");
+    feedback.setAttribute("aria-busy", String(Boolean(options?.busy)));
+    $("material-import-status").textContent = message;
+    if (options?.total) {
+      progress.hidden = false;
+      progress.max = options.total;
+      progress.value = options.completed || 0;
+    } else {
+      progress.hidden = true;
+      progress.max = 1;
+      progress.value = 0;
+    }
+    error.hidden = !options?.error;
+    error.textContent = options?.error || "";
+  }
+
+  function openMaterialImport(trigger, chooseFiles) {
+    if (!getProjectId()) {
+      toast("Valitse tai luo ensin elämäkertaprojekti.");
+      return;
+    }
+    modalReturnFocus = trigger || document.activeElement;
+    $("material-import-panel").hidden = false;
+    $("material-import-backdrop").hidden = false;
+    renderPendingMaterialImports();
+    $("close-material-import").focus({ preventScroll: true });
+    if (chooseFiles) $("material-file-input").click();
+  }
+
+  function focusMaterialImportDialog(preferReview) {
+    window.setTimeout(() => {
+      const panel = $("material-import-panel");
+      if (!panel || panel.hidden) return;
+      const abortControl = materialImportController && !$("cancel-material-import").disabled
+        ? $("cancel-material-import")
+        : null;
+      const reviewControl = preferReview
+        ? $("material-import-review").querySelector("input:not([disabled]), textarea:not([disabled]), button:not([disabled])")
+        : null;
+      (abortControl || reviewControl || $("close-material-import")).focus({ preventScroll: true });
+    }, 0);
+  }
+
+  function closeMaterialImport() {
+    $("material-import-panel").hidden = true;
+    $("material-import-backdrop").hidden = true;
+    const returnFocus = modalReturnFocus;
+    modalReturnFocus = null;
+    returnFocus?.focus?.();
+  }
+
+  function renderPendingMaterialImports() {
+    const review = $("material-import-review");
+    const uploadActive = Boolean(materialImportController);
+    const confirmationLocked = Boolean(activeMaterialImportConfirmation);
+    const cleanupLocked = Boolean(activeMaterialImportCleanup);
+    const importLocked = uploadActive || confirmationLocked || cleanupLocked;
+    review.replaceChildren();
+    $("confirm-material-import").disabled = !pendingMaterialImports.length || importLocked;
+    $("choose-more-material-files").disabled = importLocked;
+    $("cancel-material-import").disabled = confirmationLocked || cleanupLocked;
+    $("close-material-import").disabled = importLocked;
+    const panel = $("material-import-panel");
+    const activeElement = document.activeElement;
+    if (importLocked && !panel.hidden && (
+      !panel.contains(activeElement) || activeElement?.disabled
+    )) {
+      panel.focus({ preventScroll: true });
+    }
+    if (!pendingMaterialImports.length) {
+      const empty = document.createElement("p");
+      empty.className = "empty-note";
+      empty.textContent = "Valitut tiedostot näkyvät tässä ennen aineistoon lisäämistä.";
+      review.appendChild(empty);
+      return;
+    }
+    pendingMaterialImports.forEach((entry) => {
+      const card = document.createElement("article");
+      card.className = "import-review-item";
+      const heading = document.createElement("div");
+      heading.className = "import-review-heading";
+      const identity = document.createElement("div");
+      const icon = document.createElement("i");
+      icon.className = entry.material.kind === "photo_note" ? "ph ph-image" : "ph ph-file-text";
+      icon.setAttribute("aria-hidden", "true");
+      const meta = document.createElement("span");
+      const filename = document.createElement("strong");
+      filename.textContent = entry.material.source_filename || entry.material.title;
+      const details = document.createElement("small");
+      details.textContent = [entry.material.mime_type, formatFileSize(entry.material.size_bytes)].filter(Boolean).join(" · ");
+      meta.append(filename, details);
+      identity.append(icon, meta);
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "icon-button danger-outline";
+      remove.setAttribute("aria-label", `Poista ${filename.textContent} tuontijonosta`);
+      remove.title = "Poista tuontijonosta";
+      remove.disabled = importLocked;
+      const removeIcon = document.createElement("i");
+      removeIcon.className = "ph ph-trash";
+      removeIcon.setAttribute("aria-hidden", "true");
+      remove.appendChild(removeIcon);
+      remove.addEventListener("click", () => discardPendingMaterialImport(entry.id, remove));
+      heading.append(identity, remove);
+
+      const titleLabel = document.createElement("label");
+      const titleCaption = document.createElement("span");
+      titleCaption.textContent = "Otsikko";
+      const title = document.createElement("input");
+      title.type = "text";
+      title.value = entry.material.title;
+      title.maxLength = 200;
+      title.required = true;
+      title.disabled = importLocked;
+      title.addEventListener("input", () => { entry.material.title = title.value; });
+      titleLabel.append(titleCaption, title);
+      card.append(heading);
+
+      if (entry.material.kind === "photo_note") {
+        const figure = document.createElement("figure");
+        figure.className = "import-image-preview";
+        const image = document.createElement("img");
+        image.alt = `Esikatselu: ${entry.material.source_filename || entry.material.title}`;
+        if (entry.previewUrl) image.src = entry.previewUrl;
+        figure.appendChild(image);
+        card.appendChild(figure);
+      }
+      card.appendChild(titleLabel);
+
+      const textLabel = document.createElement("label");
+      const textCaption = document.createElement("span");
+      textCaption.textContent = entry.material.kind === "photo_note" ? "Kuvaan liittyvä muisto tai kuvateksti" : "Purettu teksti";
+      const text = document.createElement("textarea");
+      text.rows = entry.material.kind === "photo_note" ? 3 : 8;
+      text.disabled = importLocked;
+      text.value = entry.material.text;
+      text.placeholder = entry.material.kind === "photo_note" ? "Kirjoita, mitä kuvassa tapahtuu tai miksi se on tärkeä." : "Tarkista ja muokkaa tiedostosta purettua tekstiä.";
+      text.addEventListener("input", () => { entry.material.text = text.value; });
+      textLabel.append(textCaption, text);
+      card.appendChild(textLabel);
+      review.appendChild(card);
+    });
+  }
+
+  async function addPendingImportPreview(entry, projectId, contentUrl) {
+    if (!entry.material.asset_id) return;
+    try {
+      const blob = await apiFetchBiographyAsset(projectId, entry.material.asset_id, undefined, contentUrl);
+      if (!pendingMaterialImports.some((item) => item.id === entry.id)) return;
+      entry.previewUrl = window.URL.createObjectURL(blob);
+      renderPendingMaterialImports();
+    } catch (error) {
+      entry.previewError = error.message || "Esikatselua ei voitu ladata.";
+      renderPendingMaterialImports();
+    }
+  }
+
+  async function handleMaterialFileSelection(event) {
+    const files = Array.from(event.currentTarget.files || []);
+    event.currentTarget.value = "";
+    focusMaterialImportDialog(false);
+    if (!files.length || materialImportController) return;
+    const projectId = String(getProjectId() || "");
+    if (!projectId) return;
+    const invalid = files.map(validateMaterialFile).filter(Boolean);
+    if (invalid.length) {
+      setMaterialImportFeedback("Kaikkia tiedostoja ei voitu tuoda.", { error: invalid.join(" ") });
+      focusMaterialImportDialog(false);
+      return;
+    }
+    const revision = ++materialImportRevision;
+    const controller = new AbortController();
+    materialImportController = controller;
+    renderPendingMaterialImports();
+    const errors = [];
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index];
+      setMaterialImportFeedback(`Tuodaan ${file.name} (${index + 1}/${files.length})`, {
+        busy: true, total: files.length, completed: index,
+      });
+      try {
+        const payload = await apiImportMaterial(file, projectId, controller.signal);
+        const material = normalizeMaterial(payload.material, pendingMaterialImports.length);
+        const rawAssetId = Number(material.asset_id || payload.asset?.asset_id || payload.asset?.id || 0);
+        const assetId = Number.isSafeInteger(rawAssetId) && rawAssetId > 0 ? rawAssetId : 0;
+        material.asset_id = assetId;
+        material.source_filename = material.source_filename || file.name;
+        material.mime_type = material.mime_type || file.type;
+        material.size_bytes = material.size_bytes || file.size;
+        material.image_width = material.image_width || Number(payload.asset?.width) || 0;
+        material.image_height = material.image_height || Number(payload.asset?.height) || 0;
+        const isImage = IMAGE_MATERIAL_EXTENSIONS.has(materialFileExtension(file));
+        if (isImage && (!assetId || material.kind !== "photo_note")) {
+          throw new Error(`Kuvan ${file.name} pysyvää lähdeviitettä ei saatu.`);
+        }
+        if (revision !== materialImportRevision || projectId !== String(getProjectId() || "")) {
+          if (assetId) await apiDeleteBiographyAsset(projectId, assetId).catch(() => null);
+          continue;
+        }
+        const entry = { id: stableId("pending_import"), projectId, material, previewUrl: "", previewError: "" };
+        pendingMaterialImports.push(entry);
+        renderPendingMaterialImports();
+        if (assetId) addPendingImportPreview(entry, projectId, payload.asset?.content_url);
+      } catch (error) {
+        if (error.name !== "AbortError") errors.push(`${file.name}: ${error.message || "tuonti epäonnistui"}`);
+      }
+      setMaterialImportFeedback(`Käsitelty ${index + 1}/${files.length} tiedostoa`, {
+        busy: true, total: files.length, completed: index + 1,
+      });
+    }
+    if (materialImportController === controller) materialImportController = null;
+    if (revision !== materialImportRevision || projectId !== String(getProjectId() || "")) return;
+    renderPendingMaterialImports();
+    setMaterialImportFeedback(
+      pendingMaterialImports.length ? `${pendingMaterialImports.length} tiedostoa valmiina tarkistettavaksi.` : "Tiedostoja ei tuotu.",
+      { error: errors.join(" ") },
+    );
+    focusMaterialImportDialog(Boolean(pendingMaterialImports.length));
+  }
+
+  async function waitForMaterialImportOperation(operation) {
+    if (!operation) return;
+    try {
+      await operation;
+    } catch (error) {
+      // Toiminnon oma polku näyttää virheen ennen jonossa olevan toiminnon jatkumista.
+    }
+  }
+
+  function queueMaterialImportCleanup(task) {
+    const previousCleanup = activeMaterialImportCleanup;
+    const confirmationToWaitFor = activeMaterialImportConfirmation;
+    const cleanup = Promise.resolve().then(async () => {
+      await waitForMaterialImportOperation(previousCleanup);
+      await waitForMaterialImportOperation(confirmationToWaitFor);
+      return task();
+    });
+    activeMaterialImportCleanup = cleanup;
+    renderPendingMaterialImports();
+    cleanup.finally(() => {
+      if (activeMaterialImportCleanup !== cleanup) return;
+      activeMaterialImportCleanup = null;
+      renderPendingMaterialImports();
+    }).catch(() => null);
+    return cleanup;
+  }
+
+  function discardPendingMaterialImport(id, trigger) {
+    return queueMaterialImportCleanup(() => performPendingMaterialDiscard(id, trigger));
+  }
+
+  async function performPendingMaterialDiscard(id, trigger) {
+    const entry = pendingMaterialImports.find((item) => item.id === id);
+    if (!entry) return;
+    trigger.disabled = true;
+    if (entry.material.asset_id) {
+      try {
+        await apiDeleteBiographyAsset(entry.projectId, entry.material.asset_id);
+      } catch (error) {
+        setMaterialImportFeedback("Lähdekuvan poistaminen epäonnistui.", { error: error.message });
+        trigger.disabled = false;
+        return;
+      }
+    }
+    revokePreviewUrl(entry.previewUrl);
+    pendingMaterialImports = pendingMaterialImports.filter((item) => item.id !== id);
+    renderPendingMaterialImports();
+    setMaterialImportFeedback(pendingMaterialImports.length ? `${pendingMaterialImports.length} tiedostoa valmiina tarkistettavaksi.` : "Tuontijono on tyhjä.");
+    $("choose-more-material-files").focus();
+  }
+
+  function abandonPendingMaterialImports(options) {
+    return queueMaterialImportCleanup(() => performPendingMaterialAbandon(options));
+  }
+
+  async function performPendingMaterialAbandon(options) {
+    materialImportRevision += 1;
+    materialImportController?.abort();
+    materialImportController = null;
+    const entries = pendingMaterialImports.slice();
+    const failed = [];
+    for (const entry of entries) {
+      if (entry.material.asset_id) {
+        try {
+          await apiDeleteBiographyAsset(entry.projectId, entry.material.asset_id);
+        } catch (error) {
+          failed.push({ entry, error });
+          continue;
+        }
+      }
+      revokePreviewUrl(entry.previewUrl);
+    }
+    pendingMaterialImports = options?.silent ? [] : failed.map((item) => item.entry);
+    if (options?.silent) failed.forEach((item) => revokePreviewUrl(item.entry.previewUrl));
+    renderPendingMaterialImports();
+    if (failed.length && !options?.silent) {
+      setMaterialImportFeedback("Tuontia ei voitu perua kokonaan.", {
+        error: "Yhden tai useamman lähdekuvan poistaminen epäonnistui. Yritä uudelleen.",
+      });
+      throw failed[0].error;
+    }
+    if (!options?.keepOpen) closeMaterialImport();
+  }
+
+  function disposeMaterialImports() {
+    return queueMaterialImportCleanup(performMaterialImportDisposal);
+  }
+
+  async function performMaterialImportDisposal() {
+    materialImportRevision += 1;
+    materialImportController?.abort();
+    materialImportController = null;
+    const entries = pendingMaterialImports.slice();
+    pendingMaterialImports = [];
+    await Promise.all(entries.map(async (entry) => {
+      if (entry.material.asset_id) {
+        await apiDeleteBiographyAsset(entry.projectId, entry.material.asset_id, { keepalive: true }).catch(() => null);
+      }
+      revokePreviewUrl(entry.previewUrl);
+    }));
+    clearMaterialAssetPreviews();
+  }
+
+  async function waitForActiveMaterialImportConfirmation() {
+    await waitForMaterialImportOperation(activeMaterialImportConfirmation);
+  }
+
+  function confirmPendingMaterialImports() {
+    if (activeMaterialImportConfirmation) return activeMaterialImportConfirmation;
+    if (!pendingMaterialImports.length || materialImportController) return Promise.resolve();
+    const cleanupToWaitFor = activeMaterialImportCleanup;
+    const confirmation = Promise.resolve().then(() => performMaterialImportConfirmation(cleanupToWaitFor));
+    activeMaterialImportConfirmation = confirmation;
+    renderPendingMaterialImports();
+    confirmation.finally(() => {
+      if (activeMaterialImportConfirmation !== confirmation) return;
+      activeMaterialImportConfirmation = null;
+      renderPendingMaterialImports();
+    }).catch(() => null);
+    return confirmation;
+  }
+
+  function unreferencedPendingAssetEntries(entries, reconciledState) {
+    if (!reconciledState) return [];
+    const referencedAssetIds = new Set(
+      reconciledState.materials
+        .map((material) => Number(material.asset_id || 0))
+        .filter((assetId) => Number.isSafeInteger(assetId) && assetId > 0),
+    );
+    return entries.filter((entry) => (
+      entry.material.asset_id && !referencedAssetIds.has(entry.material.asset_id)
+    ));
+  }
+
+  async function performMaterialImportConfirmation(cleanupToWaitFor) {
+    await waitForMaterialImportOperation(cleanupToWaitFor);
+    if (!pendingMaterialImports.length || materialImportController) return;
+    await flushPendingSave();
+    const projectId = String(getProjectId() || "");
+    const entries = pendingMaterialImports.slice();
+    const invalidTitle = entries.find((entry) => !entry.material.title.trim());
+    if (invalidTitle) {
+      setMaterialImportFeedback("Täydennä jokaiselle aineistolle otsikko.", { error: "Otsikko ei voi olla tyhjä." });
+      return;
+    }
+    const previousState = JSON.parse(JSON.stringify(biographyState));
+    const existingIds = new Set(biographyState.materials.map((material) => material.id));
+    entries.forEach((entry) => {
+      const material = normalizeMaterial(entry.material, biographyState.materials.length);
+      if (!material.id || existingIds.has(material.id)) material.id = stableId("material");
+      existingIds.add(material.id);
+      entry.persistedMaterialId = material.id;
+      biographyState.materials.push(material);
+    });
+    biographyState.active_step = "materials";
+    render();
+    scheduleSave();
+    let recoveredAfterSaveError = false;
+    try {
+      await saveNow();
+    } catch (error) {
+      let serverState = null;
+      try {
+        const response = await apiGetState(projectId);
+        if (!response?.data || typeof response.data !== "object") throw new Error("Palvelimen tila puuttuu.");
+        serverState = normalizeBiographyState(response.data);
+      } catch (reconciliationError) {
+        serverState = null;
+      }
+      recoveredAfterSaveError = Boolean(serverState) && entries.every((entry) => (
+        serverState.materials.some((material) => (
+          material.id === entry.persistedMaterialId
+          && (!entry.material.asset_id || material.asset_id === entry.material.asset_id)
+        ))
+      ));
+      if (recoveredAfterSaveError) {
+        biographyState = serverState;
+        dirtyState = false;
+        setSaveStatus("Tallennettu automaattisesti", "saved");
+        render();
+      } else {
+        biographyState = serverState || previousState;
+      }
+      stateRevision += 1;
+      dirtyState = false;
+      window.clearTimeout(saveTimer);
+      saveTimer = null;
+      if (!recoveredAfterSaveError) {
+        const cleanupEntries = unreferencedPendingAssetEntries(entries, serverState);
+        const cleanupResults = await Promise.all(cleanupEntries.map((entry) => (
+          deleteBiographyAssetWithRetry(projectId, entry.material.asset_id)
+            .then(() => null)
+            .catch((cleanupError) => cleanupError)
+        )));
+        entries.forEach((entry) => revokePreviewUrl(entry.previewUrl));
+        pendingMaterialImports = [];
+        render();
+        renderPendingMaterialImports();
+        const cleanupFailed = cleanupResults.some(Boolean);
+        cleanupEntries.forEach((entry) => {
+          forgetMaterialAssetPreview(projectId, entry.material.asset_id);
+        });
+        const reconciliationUnknown = !serverState;
+        const deferredAssetCleanup = reconciliationUnknown && entries.some((entry) => entry.material.asset_id);
+        setSaveStatus(reconciliationUnknown ? "Tallennuksen tila epäselvä" : "Tallennus epäonnistui", "error");
+        const failure = error.message || "Tallennus epäonnistui. Valitse tiedostot uudelleen.";
+        let failureDetail = failure;
+        if (reconciliationUnknown) {
+          failureDetail += " Tallennuksen tilaa ei voitu varmistaa. Lataa projekti uudelleen ennen uutta yritystä.";
+        }
+        if (deferredAssetCleanup) {
+          failureDetail += " Lähdekuvia ei poistettu varmuuden vuoksi; palvelin siivoaa käyttämättömät tuontikuvat 24 tunnin jälkeen.";
+        } else if (cleanupFailed) {
+          failureDetail += " Myös yhden tai useamman lähdekuvan siivous epäonnistui.";
+        }
+        setMaterialImportFeedback("Aineistoa ei tallennettu.", {
+          error: failureDetail,
+        });
+        return;
+      }
+    }
+    entries.forEach((entry) => revokePreviewUrl(entry.previewUrl));
+    pendingMaterialImports = [];
+    closeMaterialImport();
+    showStep("materials", { save: false });
+    renderMaterials();
+    toast(recoveredAfterSaveError
+      ? `${entries.length} tiedostoa tallentui yhteyskatkosta huolimatta.`
+      : `${entries.length} tiedostoa lisättiin aineistoon.`);
+    const list = $("material-list");
+    list.tabIndex = -1;
+    list.focus({ preventScroll: true });
   }
 
   function render() {
@@ -720,12 +1440,13 @@
   }
 
   function renderMode() {
+    const visibleMode = visibleProjectMode(biographyState);
     document.querySelectorAll("[data-mode]").forEach((button) => {
-      const active = button.dataset.mode === biographyState.project_mode;
+      const active = button.dataset.mode === visibleMode;
       button.classList.toggle("is-active", active);
       button.setAttribute("aria-pressed", String(active));
     });
-    const starters = MODE_STARTERS[biographyState.project_mode] || MODE_STARTERS.autobiography;
+    const starters = starterQuestionsForState(biographyState);
     document.querySelectorAll("[data-prompt]").forEach((button, index) => {
       const starter = starters[index];
       if (!starter) return;
@@ -834,8 +1555,18 @@
       const title = document.createElement("h3");
       title.textContent = material.title;
       const text = document.createElement("p");
-      text.textContent = truncate(material.text, 260);
-      content.append(kind, title, text);
+      text.textContent = truncate(material.text, 260) || material.source_filename || "Ei kuvausta vielä.";
+      content.append(kind, title);
+      if (material.kind === "photo_note" && material.asset_id) {
+        const figure = document.createElement("figure");
+        figure.className = "material-image-preview";
+        const image = document.createElement("img");
+        image.alt = material.title ? `Lähdekuva: ${material.title}` : "Lähdekuva";
+        image.dataset.materialAssetPreview = String(material.asset_id);
+        figure.appendChild(image);
+        content.appendChild(figure);
+      }
+      content.appendChild(text);
       const actions = document.createElement("div");
       actions.className = "material-actions";
       const edit = document.createElement("button");
@@ -862,6 +1593,7 @@
       item.append(content, actions);
       list.appendChild(item);
     });
+    hydrateMaterialAssetPreviews();
   }
 
   function renderOutline() {
@@ -934,17 +1666,21 @@
     setControlValue("f-sensitive", biographyState.sensitive_handling);
     setControlValue("f-interpretation", biographyState.interpretation_level);
     const perspective = $("narrative-perspective");
-    perspective.disabled = biographyState.project_mode !== "biography";
+    perspective.disabled = visibleProjectMode(biographyState) !== "life_story";
     if (perspective.disabled) perspective.value = "first_person";
   }
 
   function saveSettings() {
+    const selectedPerspective = $("narrative-perspective").value;
     document.querySelectorAll("[data-state-field]").forEach((input) => {
+      if (input.dataset.stateField === "narrative_perspective") return;
       biographyState[input.dataset.stateField] = input.value;
     });
-    if (biographyState.project_mode !== "biography") biographyState.narrative_perspective = "first_person";
+    if (visibleProjectMode(biographyState) === "life_story") applyNarrativePerspective(biographyState, selectedPerspective);
+    else biographyState.narrative_perspective = "first_person";
     closeModals();
     renderMode();
+    renderInterview();
     scheduleSave();
     toast("Asetukset tallennettiin.");
   }
@@ -1091,7 +1827,7 @@
   }
 
   function setMode(mode) {
-    if (!MODE_PRESETS[mode]) return;
+    if (!["life_story", "biography", "autobiography", "first_person_guide"].includes(mode)) return;
     applyProjectMode(biographyState, mode);
     renderMode();
     renderInterview();
@@ -1177,8 +1913,8 @@
     scheduleSave();
   }
 
-  function removeMaterial(id, trigger) {
-    const material = biographyState.materials.find((item) => item.id === id);
+  async function removeMaterial(id, trigger) {
+    let material = biographyState.materials.find((item) => item.id === id);
     if (!material) return false;
     const visibleIndex = biographyState.materials.slice().reverse().findIndex((item) => item.id === id);
     const linkedWarning = material.kind === "interview_answer" && material.session_id
@@ -1191,13 +1927,59 @@
       trigger?.focus();
       return false;
     }
+    if (trigger) trigger.disabled = true;
+    try {
+      await flushPendingSave();
+    } catch (error) {
+      if (trigger) trigger.disabled = false;
+      trigger?.focus();
+      return false;
+    }
+    material = biographyState.materials.find((item) => item.id === id);
+    if (!material) return false;
+    const projectId = String(getProjectId() || "");
+    const assetId = material.asset_id;
+    const previousState = JSON.parse(JSON.stringify(biographyState));
     removeMaterialFromState(biographyState, id);
     if (editingMaterialId === id) resetMaterialForm();
     renderMaterials();
     renderInterview();
     renderProgress();
     scheduleSave();
-    toast("Muisto poistettiin.");
+    let removalPersisted = false;
+    try {
+      await saveNow();
+      removalPersisted = true;
+    } catch (error) {
+      let serverState = null;
+      try {
+        const response = await apiGetState(projectId);
+        serverState = normalizeBiographyState(response.data);
+      } catch (reconciliationError) {
+        serverState = null;
+      }
+      removalPersisted = Boolean(serverState) && !serverState.materials.some((item) => item.id === id);
+      biographyState = serverState || previousState;
+      stateRevision += 1;
+      dirtyState = false;
+      render();
+      setSaveStatus("Tallennettu automaattisesti", "saved");
+      if (!removalPersisted) {
+        toast("Muistoa ei poistettu, koska tallennus epäonnistui.");
+        trigger?.focus();
+        return false;
+      }
+    }
+    if (removalPersisted && assetId) {
+      try {
+        await deleteBiographyAssetWithRetry(projectId, assetId);
+        forgetMaterialAssetPreview(projectId, assetId);
+      } catch (error) {
+        toast("Muisto poistettiin, mutta lähdekuvan siivous epäonnistui. Poistoa yritettiin uudelleen.");
+      }
+    } else {
+      toast("Muisto poistettiin.");
+    }
     const remainingItems = document.querySelectorAll("#material-list .material-item");
     const nextItem = remainingItems[Math.min(visibleIndex, remainingItems.length - 1)];
     const nextAction = nextItem?.querySelector(".icon-button");
@@ -1211,7 +1993,7 @@
     editingMaterialId = id;
     $("material-title").value = material.title;
     $("material-kind").value = material.kind;
-    $("material-kind").disabled = Boolean(material.session_id);
+    $("material-kind").disabled = Boolean(material.session_id || material.asset_id);
     $("material-text").value = material.text;
     $("save-material-label").textContent = "Tallenna muutokset";
     $("btn-save-material").querySelector("i").className = "ph ph-check";
@@ -2009,15 +2791,25 @@
 
   function trapModalFocus(event) {
     if (event.key !== "Tab") return;
-    const dialog = Array.from(document.querySelectorAll(".modal, .result-sheet")).find((item) => !item.hidden);
+    const dialog = Array.from(document.querySelectorAll(".modal, .result-sheet, .material-import-panel")).find((item) => !item.hidden);
     if (!dialog) return;
     const focusable = Array.from(dialog.querySelectorAll(
       "button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [href], [tabindex]:not([tabindex='-1'])",
     )).filter((item) => !item.hidden);
-    if (!focusable.length) return;
+    if (!focusable.length) {
+      event.preventDefault();
+      dialog.focus({ preventScroll: true });
+      return;
+    }
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
+    if (document.activeElement === dialog) {
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus();
+    } else if (!dialog.contains(document.activeElement)) {
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus();
+    } else if (event.shiftKey && document.activeElement === first) {
       event.preventDefault();
       last.focus();
     } else if (!event.shiftKey && document.activeElement === last) {
@@ -2049,6 +2841,17 @@
       selectPrompt(biographyState.current_question);
       window.setTimeout(startAudioRecording, 60);
     });
+    $("start-importing").addEventListener("click", (event) => openMaterialImport(event.currentTarget, true));
+    $("materials-import-files").addEventListener("click", (event) => openMaterialImport(event.currentTarget, true));
+    $("choose-more-material-files").addEventListener("click", () => $("material-file-input").click());
+    $("material-file-input").addEventListener("change", handleMaterialFileSelection);
+    $("material-file-input").addEventListener("cancel", () => focusMaterialImportDialog(false));
+    $("confirm-material-import").addEventListener("click", () => confirmPendingMaterialImports().catch((error) => {
+      setMaterialImportFeedback("Aineistoa ei voitu lisätä.", { error: error.message || "Tallennus epäonnistui." });
+    }));
+    $("cancel-material-import").addEventListener("click", () => abandonPendingMaterialImports().catch(() => null));
+    $("close-material-import").addEventListener("click", () => abandonPendingMaterialImports().catch(() => null));
+    $("material-import-backdrop").addEventListener("click", () => abandonPendingMaterialImports().catch(() => null));
     $("new-session").addEventListener("click", addSession);
     $("refresh-question").addEventListener("click", refreshQuestion);
     $("btn-add-material").addEventListener("click", submitInterviewAnswer);
@@ -2078,7 +2881,11 @@
     $("copy-manuscript").addEventListener("click", copyManuscript);
     $("download-manuscript").addEventListener("click", downloadManuscript);
     document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") { closeProjectMenu(); closeModals(); }
+      if (event.key === "Escape") {
+        closeProjectMenu();
+        closeModals();
+        if (!$("material-import-panel").hidden) abandonPendingMaterialImports().catch(() => null);
+      }
       trapModalFocus(event);
     });
     document.addEventListener("visibilitychange", () => {
@@ -2089,7 +2896,13 @@
   window.ElamakertaModule = {
     loadState,
     render,
-    deactivate: cancelActiveTranscription,
+    deactivate: async () => {
+      await cancelActiveTranscription();
+      await waitForActiveMaterialImportConfirmation();
+      await abandonPendingMaterialImports({ silent: true });
+      clearMaterialAssetPreviews();
+    },
+    setTheme,
     getState: () => biographyState,
     selectProject: (projectId) => {
       const project = projectById(projectId);
@@ -2101,6 +2914,12 @@
       normalizeLoadedBiographyState,
       resolveInitialProject,
       applyProjectMode,
+      applyNarrativePerspective,
+      visibleProjectMode,
+      starterQuestionsForState,
+      normalizeMaterial,
+      unreferencedPendingAssetEntries,
+      validateMaterialFile,
       migrateLegacyAnswersToInterview,
       appendInterviewAnswerToState,
       updateMaterialInState,
@@ -2114,6 +2933,8 @@
       shouldWarnBeforeUnload,
     },
   };
+
+  initializeThemeBridge();
 
   document.addEventListener("DOMContentLoaded", async () => {
     bindEvents();
@@ -2131,4 +2952,5 @@
   window.addEventListener("beforeunload", handleBeforeUnload);
   window.addEventListener("pagehide", () => { flushPendingSave({ bestEffort: true, keepalive: true }); });
   window.addEventListener("pagehide", disposeTranscription);
+  window.addEventListener("pagehide", () => { disposeMaterialImports().catch(() => null); });
 })();
