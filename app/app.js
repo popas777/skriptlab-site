@@ -456,6 +456,11 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function defaultViewForUser() {
         if (Array.isArray(currentUser?.allowed_modules)) {
             const allowedModules = new Set(currentUser.allowed_modules);
+            const biographyWorkspaceOnly = allowedModules.has('biography')
+                && Array.from(allowedModules).every(moduleKey => moduleKey === 'manuscripts' || moduleKey === 'biography');
+            if (biographyWorkspaceOnly) {
+                return 'view-elamakerta';
+            }
             if (!allowedModules.has('manuscripts') && allowedModules.has('published_library')) {
                 return 'view-kirjasto';
             }
@@ -4878,7 +4883,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (!sidebar) return;
         const currentIsElamakerta = navViewFor(currentViewId) === 'view-elamakerta';
         const nextIsElamakerta = navViewFor(nextViewId) === 'view-elamakerta';
-        if (!currentIsElamakerta && nextIsElamakerta) {
+        if (nextIsElamakerta && elamakertaSidebarRestoreState === null) {
             elamakertaSidebarRestoreState = {
                 expanded: isMobileShell()
                     ? appWrapper.classList.contains('sidebar-open')
