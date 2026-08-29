@@ -3,358 +3,169 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#FBF9F4">
+<meta name="theme-color" content="#0d0b08">
 <title>Elämäkerta – SkriptLab</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="elamakerta.css?v=3">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Libre+Caslon+Text:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="elamakerta.css?v=4">
 </head>
 <body>
-
-<!-- ======================= KOTI: Tarinan polku ======================= -->
-<main id="view-home" class="screen is-active" aria-label="Tarinan polku">
-  <header class="home-header">
-    <p class="eyebrow" id="home-project-name">Elämäkerta</p>
-    <h1 class="home-title">Tarinan polku</h1>
-    <p class="home-lead" id="home-lead">Etene vaihe kerrallaan. Kaikki tallentuu automaattisesti.</p>
-  </header>
-
-  <nav class="path" id="path-list" aria-label="Työvaiheet">
-    <!-- Vaiheet renderöidään JS:llä -->
-  </nav>
-
-  <p class="home-footnote" id="save-status" role="status" aria-live="polite"></p>
-</main>
-
-<!-- ======================= VAIHENÄKYMÄT ======================= -->
-
-<section id="view-tavoite" class="screen" data-step="tavoite" aria-label="Tavoite">
-  <header class="step-header">
-    <button class="back-btn" data-back aria-label="Takaisin polkuun">←</button>
-    <div>
-      <p class="eyebrow">Vaihe 1</p>
-      <h2>Tavoite</h2>
-    </div>
-  </header>
-  <div class="step-body">
-    <p class="step-intro">Kerro, millainen elämäkerta tehdään. Tämä ohjaa kaikkia seuraavia vaiheita.</p>
-
-    <label class="field">
-      <span class="field-label">Elämäkerran tarkoitus</span>
-      <textarea id="f-purpose" rows="3" placeholder="Esim. Isoäidin elämäntarina lastenlapsille"></textarea>
-    </label>
-
-    <label class="field">
-      <span class="field-label">Tyyli</span>
-      <div class="chip-row" id="chips-style" data-target="f-style">
-        <button type="button" class="chip" data-value="Lämmin ja kerronnallinen">Lämmin</button>
-        <button type="button" class="chip" data-value="Asiallinen ja dokumentoiva">Asiallinen</button>
-        <button type="button" class="chip" data-value="Humoristinen ja kepeä">Humoristinen</button>
-      </div>
-      <input type="text" id="f-style" placeholder="Tai kirjoita oma tyylikuvaus">
-    </label>
-
-    <label class="field">
-      <span class="field-label">Tavoitepituus</span>
-      <div class="chip-row" id="chips-length" data-target="f-target-length">
-        <button type="button" class="chip" data-value="Lyhyt, noin 30 sivua">Lyhyt</button>
-        <button type="button" class="chip" data-value="Keskipitkä, noin 100 sivua">Keskipitkä</button>
-        <button type="button" class="chip" data-value="Laaja, yli 200 sivua">Laaja</button>
-      </div>
-      <input type="text" id="f-target-length" placeholder="Tai oma arvio">
-    </label>
-
-    <label class="field">
-      <span class="field-label">Tulkintataso</span>
-      <div class="chip-row" id="chips-interpretation" data-target="f-interpretation">
-        <button type="button" class="chip" data-value="Vain aineiston faktat, ei tulkintaa">Vain faktat</button>
-        <button type="button" class="chip" data-value="Varovainen tulkinta, selvästi merkittynä">Varovainen tulkinta</button>
-      </div>
-      <input type="text" id="f-interpretation" placeholder="Tai oma ohje">
-    </label>
-
-    <label class="field">
-      <span class="field-label">Arkaluontoiset aiheet</span>
-      <div class="chip-row" id="chips-sensitive" data-target="f-sensitive">
-        <button type="button" class="chip" data-value="Kysy aina ennen käsittelyä">Kysy aina</button>
-        <button type="button" class="chip" data-value="Käsittele hienotunteisesti">Hienotunteisesti</button>
-        <button type="button" class="chip" data-value="Jätä kokonaan pois">Jätä pois</button>
-      </div>
-      <input type="text" id="f-sensitive" placeholder="Tai oma ohje">
-    </label>
-  </div>
-  <footer class="step-actions">
-    <button class="btn btn-primary" data-goto="aineisto">Jatka aineistoon</button>
-  </footer>
-</section>
-
-<section id="view-aineisto" class="screen" data-step="aineisto" aria-label="Aineisto">
-  <header class="step-header">
-    <button class="back-btn" data-back aria-label="Takaisin polkuun">←</button>
-    <div>
-      <p class="eyebrow">Vaihe 2</p>
-      <h2>Aineisto</h2>
-    </div>
-  </header>
-  <div class="step-body">
-    <p class="step-intro">Kerää muistot, haastatteluvastaukset ja muistiinpanot. Voit kirjoittaa, nauhoittaa puhetta tai tuoda valmiin äänitiedoston.</p>
-
-    <div class="card">
-      <label class="field">
-        <span class="field-label">Otsikko</span>
-        <input type="text" id="m-title" placeholder="Esim. Lapsuudenkoti Kiuruvedellä">
-      </label>
-      <label class="field">
-        <span class="field-label">Tyyppi</span>
-        <select id="m-kind">
-          <option value="free_text">Vapaa teksti</option>
-          <option value="interview_answer">Haastatteluvastaus</option>
-          <option value="document_note">Dokumenttimuistiinpano</option>
-          <option value="photo_note">Valokuvamuistiinpano</option>
-          <option value="timeline_note">Aikajanamerkintä</option>
-        </select>
-      </label>
-      <label class="field">
-        <span class="field-label">Sisältö</span>
-        <textarea id="m-text" rows="7" aria-describedby="transcription-review-note" placeholder="Kirjoita tai litteroi puhe tähän"></textarea>
-      </label>
-      <p class="hint transcription-review-note" id="transcription-review-note">Litterointi täyttää tämän kentän tarkistettavaksi. Teksti ei tallennu aineistoon ennen kuin painat Lisää aineistoon.</p>
-
-      <fieldset class="transcription-panel" id="transcription-panel" aria-describedby="transcription-privacy transcription-formats">
-        <legend>Puheesta tekstiksi <span class="pilot-badge">Kokeilu</span></legend>
-        <p class="transcription-privacy" id="transcription-privacy"><strong>SkriptLab ei tallenna äänitiedostoa.</strong> Ääni lähetetään Google Gemini -palveluun väliaikaista litterointia varten. Geminiin ladattu tiedosto poistetaan heti litteroinnin jälkeen; jos välitön poisto epäonnistuu, Gemini poistaa sen automaattisesti viimeistään 48 tunnin kuluttua. Projektiin tallentuu vasta teksti, jonka olet tarkistanut ja lisännyt aineistoon. Litteroinnin kieli on suomi.</p>
-        <div class="row transcription-actions">
-          <button type="button" class="btn btn-ghost mic-btn" id="btn-record-audio" aria-pressed="false" aria-describedby="transcription-status">
-            <span class="mic-dot" aria-hidden="true"></span><span id="record-audio-label">Aloita äänitys</span>
-          </button>
-          <button type="button" class="btn btn-ghost audio-file-button" id="btn-upload-audio">
-            <span aria-hidden="true">↑</span><span>Tuo äänitiedosto</span>
-          </button>
-          <input
-            class="visually-hidden"
-            id="audio-file-input"
-            type="file"
-            accept=".wav,.mp3,.aiff,.aif,.aac,.ogg,.flac,audio/wav,audio/x-wav,audio/mpeg,audio/mp3,audio/aiff,audio/x-aiff,audio/aac,audio/ogg,audio/flac"
-          >
-        </div>
-        <div class="transcription-feedback" id="transcription-feedback" aria-busy="false">
-          <div class="transcription-status-line">
-            <p class="transcription-status" id="transcription-status" role="status" aria-live="polite">Valitse äänitys tai tuo WAV-, MP3-, AIFF-, AAC-, OGG- tai FLAC-tiedosto.</p>
-            <span class="recording-timer" id="recording-timer" hidden>0:00 / 10:00</span>
+<div class="app-shell">
+  <header class="topbar">
+    <div class="brand-group">
+      <a class="brand" href="#start" data-step-link="start">Elämäkerta</a>
+      <span class="brand-divider" aria-hidden="true"></span>
+      <div class="project-switcher">
+        <button class="project-trigger" id="project-trigger" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="project-menu">
+          <span id="current-project-title">Minun tarinani</span>
+          <i class="ph ph-caret-down" aria-hidden="true"></i>
+        </button>
+        <div class="project-menu" id="project-menu" role="dialog" aria-label="Valitse projekti" hidden>
+          <div class="project-menu-head">
+            <strong>Projektit</strong>
+            <button class="icon-button compact" type="button" id="close-project-menu" aria-label="Sulje projektivalikko" title="Sulje"><i class="ph ph-x" aria-hidden="true"></i></button>
           </div>
-          <progress class="transcription-progress" id="transcription-progress" max="600" value="0" aria-label="Äänityksen tai litteroinnin eteneminen" hidden></progress>
-          <p class="hint transcription-formats" id="transcription-formats">Tuetut muodot: WAV, MP3, AIFF, AAC, OGG ja FLAC, enintään 25 Mt. Äänitys pysähtyy viimeistään 10 minuutin kohdalla.</p>
-          <p class="transcription-error" id="transcription-error" role="alert" hidden></p>
-          <button type="button" class="btn btn-ghost transcription-cancel" id="btn-cancel-transcription" hidden>Peruuta äänitys</button>
+          <div class="project-list" id="project-list" role="listbox" aria-label="Elämäkertaprojektit"></div>
+          <form class="new-project-form" id="new-project-form">
+            <label for="new-project-title">Uusi projekti</label>
+            <div class="inline-form">
+              <input id="new-project-title" name="title" type="text" maxlength="160" placeholder="Projektin nimi" required>
+              <button class="icon-button amber" type="submit" aria-label="Luo projekti" title="Luo projekti"><i class="ph ph-plus" aria-hidden="true"></i></button>
+            </div>
+          </form>
         </div>
-      </fieldset>
-
-      <button type="button" class="btn btn-primary add-material-btn" id="btn-add-material">Lisää aineistoon</button>
+      </div>
     </div>
-
-    <h3 class="list-title">Kerätty aineisto <span class="count" id="material-count">0</span></h3>
-    <ul class="material-list" id="material-list"></ul>
-  </div>
-  <footer class="step-actions">
-    <button class="btn btn-primary" data-goto="analyysi">Jatka analyysiin</button>
-  </footer>
-</section>
-
-<section id="view-analyysi" class="screen" data-step="analyysi" aria-label="Analyysi">
-  <header class="step-header">
-    <button class="back-btn" data-back aria-label="Takaisin polkuun">←</button>
-    <div>
-      <p class="eyebrow">Vaihe 3</p>
-      <h2>Analyysi</h2>
-    </div>
+    <p class="autosave" id="save-status" role="status" aria-live="polite"><i class="ph ph-check-circle" aria-hidden="true"></i><span>Tallennetaan automaattisesti</span></p>
+    <button class="settings-button" id="open-settings" type="button" aria-label="Asetukset" title="Asetukset"><i class="ph ph-gear" aria-hidden="true"></i><span>Asetukset</span></button>
   </header>
-  <div class="step-body">
-    <p class="step-intro">Tekoäly jäsentää aineiston aikajanaksi, henkilökartaksi ja teemoiksi. Se ei keksi mitään – epävarmat kohdat merkitään.</p>
-    <div class="result-block" id="analysis-result" hidden>
-      <div class="result-item"><h4>Aikajana</h4><div id="r-timeline" class="result-text"></div></div>
-      <div class="result-item"><h4>Henkilökartta</h4><div id="r-people" class="result-text"></div></div>
-      <div class="result-item"><h4>Teemat</h4><div id="r-themes" class="result-text"></div></div>
-      <div class="result-item"><h4>Puuttuvat kohdat</h4><div id="r-gaps" class="result-text"></div></div>
-      <div class="result-item result-sensitive"><h4>Arkaluontoiset kohdat</h4><div id="r-sensitive" class="result-text"></div></div>
-      <div class="result-item"><h4>Laadun tila</h4><div id="r-quality" class="result-text"></div></div>
-    </div>
-    <div class="empty" id="analysis-empty">Analyysiä ei ole vielä ajettu.</div>
-  </div>
-  <footer class="step-actions">
-    <button class="btn btn-ai" data-run="analyze">✦ Aja analyysi</button>
-    <button class="btn btn-primary" data-goto="kysymykset">Jatka kysymyksiin</button>
-  </footer>
-</section>
 
-<section id="view-kysymykset" class="screen" data-step="kysymykset" aria-label="Kysymykset">
-  <header class="step-header">
-    <button class="back-btn" data-back aria-label="Takaisin polkuun">←</button>
-    <div>
-      <p class="eyebrow">Vaihe 4</p>
-      <h2>Kysymykset</h2>
-    </div>
-  </header>
-  <div class="step-body">
-    <p class="step-intro">Tekoäly laatii tarkentavat kysymykset aineiston aukkoihin. Vastaa alle – vastaukset voi siirtää aineistoksi.</p>
-    <div class="result-item" id="questions-block" hidden>
-      <h4>Kysymykset</h4>
-      <div id="r-questions" class="result-text"></div>
-    </div>
-    <div class="empty" id="questions-empty">Kysymyksiä ei ole vielä laadittu.</div>
-    <label class="field">
-      <span class="field-label">Vastauksesi</span>
-      <textarea id="f-answers" rows="7" placeholder="Vastaa kysymyksiin vapaasti, numeroituna tai ilman"></textarea>
-    </label>
-    <button type="button" class="btn btn-ghost" id="btn-answers-to-materials">Siirrä vastaukset aineistoksi</button>
-  </div>
-  <footer class="step-actions">
-    <button class="btn btn-ai" data-run="questions">✦ Laadi kysymykset</button>
-    <button class="btn btn-primary" data-goto="rakenne">Jatka rakenteeseen</button>
-  </footer>
-</section>
+  <nav class="journey" id="path-list" aria-label="Elämäkerran työvaiheet"></nav>
 
-<section id="view-rakenne" class="screen" data-step="rakenne" aria-label="Rakenne">
-  <header class="step-header">
-    <button class="back-btn" data-back aria-label="Takaisin polkuun">←</button>
-    <div>
-      <p class="eyebrow">Vaihe 5</p>
-      <h2>Rakenne</h2>
-    </div>
-  </header>
-  <div class="step-body">
-    <p class="step-intro">Tekoäly ehdottaa kaksi rakennevaihtoehtoa. Muokkaa lopullinen rakenne suoraan kenttään.</p>
-    <label class="field">
-      <span class="field-label">Rakennesuunnitelma</span>
-      <textarea id="f-outline" rows="12" placeholder="Rakenne ilmestyy tähän – voit muokata sitä vapaasti"></textarea>
-    </label>
-  </div>
-  <footer class="step-actions">
-    <button class="btn btn-ai" data-run="outline">✦ Ehdota rakenne</button>
-    <button class="btn btn-primary" data-goto="kirjoitus">Jatka kirjoittamiseen</button>
-  </footer>
-</section>
+  <main class="workspace" id="workspace">
+    <section class="step-view is-active" id="view-start" data-step="start" aria-labelledby="start-heading">
+      <div class="mode-switch" role="group" aria-label="Projektin muoto">
+        <button type="button" class="mode-option" data-mode="biography"><i class="ph ph-book-open" aria-hidden="true"></i><span>Elämäkerta</span></button>
+        <button type="button" class="mode-option" data-mode="autobiography"><i class="ph ph-user" aria-hidden="true"></i><span>Omaelämäkerta</span></button>
+        <button type="button" class="mode-option" data-mode="first_person_guide"><i class="ph ph-compass" aria-hidden="true"></i><span>Minämuotoinen opas</span></button>
+      </div>
 
-<section id="view-kirjoitus" class="screen" data-step="kirjoitus" aria-label="Kirjoittaminen">
-  <header class="step-header">
-    <button class="back-btn" data-back aria-label="Takaisin polkuun">←</button>
-    <div>
-      <p class="eyebrow">Vaihe 6</p>
-      <h2>Kirjoittaminen</h2>
-    </div>
-  </header>
-  <div class="step-body">
-    <p class="step-intro">Etene luku kerrallaan: ensin suunnitelma, sitten luonnos. Aukot merkitään [TÄYDENNETTÄVÄ]-tunnisteella.</p>
-    <label class="field">
-      <span class="field-label">Luvun otsikko</span>
-      <input type="text" id="f-chapter-title" placeholder="Esim. Lapsuus Kiuruvedellä">
-    </label>
-    <label class="field">
-      <span class="field-label">Luvun painopiste</span>
-      <input type="text" id="f-chapter-focus" placeholder="Esim. Kodin arki ja sisarussuhteet">
-    </label>
-    <div class="result-item" id="plan-block" hidden>
-      <h4>Lukusuunnitelma</h4>
-      <div id="r-chapter-plan" class="result-text"></div>
-    </div>
-    <label class="field">
-      <span class="field-label">Lukuluonnos</span>
-      <textarea id="f-draft" rows="14" placeholder="Luonnos ilmestyy tähän – muokkaa vapaasti"></textarea>
-    </label>
-  </div>
-  <footer class="step-actions">
-    <button class="btn btn-ai" data-run="chapter_plan">✦ Suunnittele luku</button>
-    <button class="btn btn-ai" data-run="draft">✦ Kirjoita luonnos</button>
-  </footer>
-</section>
+      <div class="content-grid">
+        <article class="story-panel start-panel">
+          <header class="panel-intro"><h1 id="start-heading">Mistä haluaisit aloittaa tarinasi?</h1><p>Valitse kysymys, joka kutsuu sinut kirjoittamaan tai puhumaan. Voit vastata omin sanoin – minä huolehdin lopusta.</p></header>
+          <p class="section-label">Aloita esimerkiksi:</p>
+          <div class="prompt-grid" id="prompt-grid">
+            <button type="button" class="prompt-card" data-prompt="Kerro hetkestä, jota et koskaan unohda."><i class="ph ph-star" aria-hidden="true"></i><span>Hetki, jota en unohda</span></button>
+            <button type="button" class="prompt-card" data-prompt="Millainen oli paikka, jossa kasvoit?"><i class="ph ph-map-pin" aria-hidden="true"></i><span>Paikka, jossa kasvoin</span></button>
+            <button type="button" class="prompt-card" data-prompt="Kuka ihminen muutti sinua ja miten?"><i class="ph ph-user" aria-hidden="true"></i><span>Ihminen, joka muutti minua</span></button>
+          </div>
+          <div class="answer-methods"><p class="section-label">Tai valitse tapa vastata:</p><div class="method-grid">
+            <button type="button" class="method-card is-primary" id="start-writing"><i class="ph ph-pencil-simple-line" aria-hidden="true"></i><span><strong>Kirjoita vastaus</strong><small>Kirjoita vapaasti – muotoilen tarinan.</small></span></button>
+            <button type="button" class="method-card" id="start-speaking"><i class="ph ph-microphone" aria-hidden="true"></i><span><strong>Kerro puhumalla</strong><small>Puhu luonnollisesti – minä kirjoitan.</small></span></button>
+          </div></div>
+          <p class="reassurance"><i class="ph ph-lightbulb" aria-hidden="true"></i> Vastausta ei tarvitse hioa. Pitkätkin vastaukset ovat tervetulleita.</p>
+        </article>
 
-<section id="view-hyvaksynnat" class="screen" data-step="hyvaksynnat" aria-label="Hyväksynnät">
-  <header class="step-header">
-    <button class="back-btn" data-back aria-label="Takaisin polkuun">←</button>
-    <div>
-      <p class="eyebrow">Vaihe 7</p>
-      <h2>Hyväksynnät</h2>
-    </div>
-  </header>
-  <div class="step-body">
-    <p class="step-intro">Kuittaa vaiheet, kun ne ovat mielestäsi valmiit. Tämä pitää työn hallinnassa.</p>
-    <ul class="approval-list">
-      <li><label class="approval"><input type="checkbox" id="a-goal"><span>Tavoite ja tyyli on hyväksytty</span></label></li>
-      <li><label class="approval"><input type="checkbox" id="a-timeline"><span>Aikajana pitää paikkansa</span></label></li>
-      <li><label class="approval"><input type="checkbox" id="a-people"><span>Henkilökartta on oikein</span></label></li>
-      <li><label class="approval"><input type="checkbox" id="a-outline"><span>Rakenne on hyväksytty</span></label></li>
-      <li><label class="approval"><input type="checkbox" id="a-sensitive"><span>Arkaluontoisten aiheiden käsittely on sovittu</span></label></li>
-      <li><label class="approval approval-final"><input type="checkbox" id="a-final"><span>Kokonaisuus on hyväksytty</span></label></li>
-    </ul>
-    <label class="field">
-      <span class="field-label">Muistiinpanot</span>
-      <textarea id="f-approval-notes" rows="4" placeholder="Esim. mitä pitää vielä tarkistaa"></textarea>
-    </label>
-  </div>
-  <footer class="step-actions">
-    <button class="btn btn-primary" data-back>Takaisin polkuun</button>
-  </footer>
-</section>
+        <aside class="side-rail" aria-label="Työn eteneminen">
+          <section class="rail-panel progress-panel"><h2>Edistymisesi</h2><dl class="progress-stats">
+            <div><dt><i class="ph ph-chat-centered" aria-hidden="true"></i> Vastattuja kysymyksiä</dt><dd id="answered-count">0</dd></div>
+            <div><dt><i class="ph ph-file-text" aria-hidden="true"></i> Kerättyjä muistoja</dt><dd id="memory-count">0</dd></div>
+            <div><dt><i class="ph ph-book-open" aria-hidden="true"></i> Lukudrafti</dt><dd id="chapter-count">0</dd></div>
+          </dl></section>
+          <section class="rail-panel next-panel"><h2>Seuraava askel</h2><div class="rail-callout"><i class="ph ph-flag" aria-hidden="true"></i><div><strong>Aloita haastattelu</strong><p>Vastaa muutamaan kysymykseen, jotta ymmärrän tarinaasi paremmin.</p></div></div><button type="button" class="rail-action" data-step-link="interview"><span>Aloita haastattelu</span><i class="ph ph-arrow-right" aria-hidden="true"></i></button></section>
+          <section class="rail-panel latest-panel" id="latest-session-panel"><h2>Viimeisin istunto</h2><p class="latest-date"><i class="ph ph-calendar-blank" aria-hidden="true"></i><span id="latest-session-date">Ei istuntoja vielä</span></p><p class="latest-meta" id="latest-session-meta">Aloita ensimmäinen haastattelu</p><button type="button" class="rail-action" data-step-link="interview"><span>Jatka siitä, mihin jäin</span><i class="ph ph-arrow-right" aria-hidden="true"></i></button></section>
+        </aside>
+      </div>
+    </section>
 
-<!-- ======================= TULOSARKKI (bottom sheet) ======================= -->
-<div class="sheet-backdrop" id="sheet-backdrop" hidden></div>
-<div class="sheet" id="result-sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" hidden>
-  <div class="sheet-handle" aria-hidden="true"></div>
-  <h3 id="sheet-title">Tulos</h3>
-  <p class="sheet-warning" id="sheet-warning" hidden></p>
-  <div class="sheet-content result-text" id="sheet-content"></div>
-  <button class="btn btn-primary sheet-close" id="sheet-close">Valmis</button>
+    <section class="step-view" id="view-interview" data-step="interview" aria-labelledby="interview-heading" hidden>
+      <div class="content-grid">
+        <article class="story-panel interview-panel">
+          <header class="panel-heading-row"><div><p class="panel-kicker">Haastattelu</p><h1 id="interview-heading">Kerro omin sanoin</h1></div><button class="secondary-button compact-text" type="button" id="new-session"><i class="ph ph-plus" aria-hidden="true"></i> Uusi istunto</button></header>
+          <div class="question-card"><span class="question-label">Tämänhetkinen kysymys</span><p id="current-question">Kerro hetkestä, jota et koskaan unohda.</p><button class="icon-button" type="button" id="refresh-question" aria-label="Vaihda kysymys" title="Vaihda kysymys"><i class="ph ph-arrows-clockwise" aria-hidden="true"></i></button></div>
+          <label class="editor-label" for="m-text">Vastauksesi</label>
+          <textarea class="answer-editor" id="m-text" rows="9" aria-describedby="transcription-review-note" placeholder="Kirjoita muistosi tähän. Saat edetä juuri siinä järjestyksessä kuin asiat tulevat mieleen."></textarea>
+          <p class="form-hint" id="transcription-review-note">Teksti ei tallennu aineistoon ennen kuin painat Lisää aineistoon.</p>
+          <fieldset class="transcription-panel" id="transcription-panel" aria-describedby="transcription-privacy transcription-formats">
+            <legend>Puheesta tekstiksi <span class="pilot-badge">Kokeilu</span></legend>
+            <p class="transcription-privacy" id="transcription-privacy"><strong>SkriptLab ei tallenna äänitiedostoa.</strong> Ääni lähetetään Google Gemini -palveluun väliaikaista litterointia varten. Geminiin ladattu tiedosto poistetaan heti litteroinnin jälkeen; jos välitön poisto epäonnistuu, Gemini poistaa sen automaattisesti viimeistään 48 tunnin kuluttua. Projektiin tallentuu vasta teksti, jonka olet tarkistanut ja lisännyt aineistoon. Litteroinnin kieli on suomi.</p>
+            <div class="transcription-actions">
+              <button type="button" class="secondary-button" id="btn-record-audio" aria-pressed="false" aria-describedby="transcription-status"><i class="ph ph-microphone" aria-hidden="true"></i><span id="record-audio-label">Aloita äänitys</span></button>
+              <button type="button" class="secondary-button" id="btn-upload-audio"><i class="ph ph-upload-simple" aria-hidden="true"></i><span>Tuo äänitiedosto</span></button>
+              <input class="visually-hidden" id="audio-file-input" type="file" accept=".wav,.mp3,.aiff,.aif,.aac,.ogg,.flac,audio/wav,audio/x-wav,audio/mpeg,audio/mp3,audio/aiff,audio/x-aiff,audio/aac,audio/ogg,audio/flac">
+            </div>
+            <div class="transcription-feedback" id="transcription-feedback" aria-busy="false"><div class="transcription-status-line"><p id="transcription-status" role="status" aria-live="polite">Valitse äänitys tai tuo WAV-, MP3-, AIFF-, AAC-, OGG- tai FLAC-tiedosto.</p><span class="recording-timer" id="recording-timer" hidden>0:00 / 10:00</span></div><progress class="transcription-progress" id="transcription-progress" max="600" value="0" aria-label="Äänityksen tai litteroinnin eteneminen" hidden></progress><p class="form-hint" id="transcription-formats">Tuetut muodot: WAV, MP3, AIFF, AAC, OGG ja FLAC, enintään 25 Mt. Äänitys pysähtyy viimeistään 10 minuutin kohdalla.</p><p class="transcription-error" id="transcription-error" role="alert" hidden></p><button type="button" class="text-button danger" id="btn-cancel-transcription" hidden>Peruuta äänitys</button></div>
+          </fieldset>
+          <div class="panel-actions"><button type="button" class="primary-button" id="btn-add-material"><i class="ph ph-arrow-right" aria-hidden="true"></i> Lisää aineistoon ja jatka</button><button type="button" class="secondary-button" data-step-link="materials">Siirry aineistoon</button></div>
+        </article>
+        <aside class="side-rail"><section class="rail-panel"><div class="rail-heading-row"><h2>Istunnot</h2><span class="count-badge" id="session-count">0</span></div><div class="session-list" id="session-list"></div></section><section class="rail-panel quiet-panel"><h2>Rauha vastata</h2><p>Sinä päätät, mitä kerrot. Voit muokata tai poistaa jokaisen muiston myöhemmin.</p></section></aside>
+      </div>
+    </section>
+
+    <section class="step-view" id="view-materials" data-step="materials" aria-labelledby="materials-heading" hidden>
+      <div class="content-grid">
+        <article class="story-panel"><header class="panel-heading-row"><div><p class="panel-kicker">Aineisto</p><h1 id="materials-heading">Muistot samassa paikassa</h1><p>Haastatteluvastaukset ja omat muistiinpanot muodostavat tarinasi lähdeaineiston.</p></div></header>
+          <form class="material-form" id="material-form"><div class="form-row two-columns"><label><span>Otsikko</span><input type="text" id="material-title" placeholder="Esim. Kesät mummolassa" required></label><label><span>Tyyppi</span><select id="material-kind"><option value="free_text">Vapaa teksti</option><option value="document_note">Dokumenttimuistiinpano</option><option value="photo_note">Valokuvamuistiinpano</option><option value="timeline_note">Aikajanamerkintä</option><option value="interview_answer">Haastatteluvastaus</option></select></label></div><label><span>Sisältö</span><textarea id="material-text" rows="5" placeholder="Kirjoita muisto tai muistiinpano" required></textarea></label><div class="material-form-actions"><button type="submit" class="primary-button" id="btn-save-material"><i class="ph ph-plus" aria-hidden="true"></i><span id="save-material-label">Lisää muisto</span></button><button type="button" class="secondary-button" id="btn-cancel-material-edit" hidden>Peruuta muokkaus</button></div></form>
+          <div class="list-heading"><h2>Kerätty aineisto</h2><span class="count-badge" id="material-count">0</span></div><ul class="material-list" id="material-list"></ul>
+        </article>
+        <aside class="side-rail"><section class="rail-panel next-panel"><h2>Kun aineistoa on kertynyt</h2><div class="rail-callout"><i class="ph ph-sparkle" aria-hidden="true"></i><div><strong>Jäsennä tarinasi</strong><p>Tunnistan aineistosta aikajanan, ihmiset ja kantavat teemat.</p></div></div><button type="button" class="rail-action" data-step-link="outline"><span>Siirry rakenteeseen</span><i class="ph ph-arrow-right" aria-hidden="true"></i></button></section><section class="rail-panel quiet-panel"><h2>Aineiston omistajuus</h2><p>Muistosi kuuluvat vain tähän projektiin. Voit poistaa niitä milloin tahansa.</p></section></aside>
+      </div>
+    </section>
+
+    <section class="step-view" id="view-outline" data-step="outline" aria-labelledby="outline-heading" hidden>
+      <div class="content-grid">
+        <article class="story-panel"><header class="panel-heading-row"><div><p class="panel-kicker">Rakenne</p><h1 id="outline-heading">Löydä tarinasi punainen lanka</h1><p>Analyysi auttaa näkemään elämäsi vaiheet ja ehdottaa niistä selkeää kokonaisuutta.</p></div><button class="secondary-button compact-text" type="button" data-run="analyze"><i class="ph ph-sparkle" aria-hidden="true"></i> Analysoi aineisto</button></header>
+          <div class="analysis-grid" id="analysis-result"><section><h2>Aikajana</h2><div class="result-text" id="r-timeline">Analyysiä ei ole vielä ajettu.</div></section><section><h2>Ihmiset</h2><div class="result-text" id="r-people">Analyysiä ei ole vielä ajettu.</div></section><section><h2>Teemat</h2><div class="result-text" id="r-themes">Analyysiä ei ole vielä ajettu.</div></section><section><h2>Täydennettävää</h2><div class="result-text" id="r-gaps">Analyysiä ei ole vielä ajettu.</div></section></div>
+          <label class="editor-label" for="f-outline">Rakennesuunnitelma</label><textarea class="outline-editor" id="f-outline" rows="12" placeholder="Rakenne ilmestyy tähän. Voit muokata sitä vapaasti."></textarea>
+          <div class="panel-actions"><button type="button" class="primary-button" data-run="outline"><i class="ph ph-sparkle" aria-hidden="true"></i> Ehdota rakennetta</button><button type="button" class="secondary-button" data-step-link="chapters">Jatka lukuihin</button></div>
+        </article>
+        <aside class="side-rail"><section class="rail-panel"><h2>Analyysin tila</h2><dl class="compact-stats"><div><dt>Aineistoja</dt><dd id="outline-material-count">0</dd></div><div><dt>Laatu</dt><dd id="analysis-quality">Ei analysoitu</dd></div></dl></section><section class="rail-panel quiet-panel"><h2>Sinä päätät rakenteen</h2><p>Ehdotus on luonnos. Voit nimetä, järjestää ja poistaa lukuja ennen kirjoittamista.</p></section></aside>
+      </div>
+    </section>
+
+    <section class="step-view" id="view-chapters" data-step="chapters" aria-labelledby="chapters-heading" hidden>
+      <div class="chapters-layout">
+        <aside class="chapter-sidebar"><div class="chapter-list-heading"><div><p class="panel-kicker">Luvut</p><h2>Kirjan rakenne</h2></div><button class="icon-button amber" id="add-chapter" type="button" aria-label="Lisää luku" title="Lisää luku"><i class="ph ph-plus" aria-hidden="true"></i></button></div><div class="chapter-list" id="chapter-list"></div></aside>
+        <article class="story-panel chapter-editor-panel"><header class="panel-heading-row"><div><p class="panel-kicker">Valittu luku</p><h1 id="chapters-heading">Suunnittele ja kirjoita luku</h1></div><div class="chapter-header-actions"><button class="icon-button" id="move-chapter-up" type="button" aria-label="Siirrä valittua lukua ylöspäin" title="Siirrä ylöspäin"><i class="ph ph-arrow-up" aria-hidden="true"></i></button><button class="icon-button" id="move-chapter-down" type="button" aria-label="Siirrä valittua lukua alaspäin" title="Siirrä alaspäin"><i class="ph ph-arrow-down" aria-hidden="true"></i></button><button class="icon-button danger-outline" id="delete-chapter" type="button" aria-label="Poista valittu luku" title="Poista luku"><i class="ph ph-trash" aria-hidden="true"></i></button></div></header>
+          <div class="form-row two-columns"><label><span>Luvun otsikko</span><input type="text" id="f-chapter-title" data-chapter-field="title" placeholder="Esim. Lapsuus Kiuruvedellä"></label><label><span>Painopiste</span><input type="text" id="f-chapter-focus" data-chapter-field="focus" placeholder="Mistä tässä luvussa kerrotaan?"></label></div>
+          <label class="editor-label" for="f-chapter-plan">Lukusuunnitelma</label><textarea id="f-chapter-plan" data-chapter-field="plan" rows="6" placeholder="Luvun kohtaukset, tapahtumat ja tärkeät muistot"></textarea><div class="inline-action-row"><button type="button" class="secondary-button" data-run="chapter_plan"><i class="ph ph-sparkle" aria-hidden="true"></i> Suunnittele luku</button></div>
+          <label class="editor-label" for="f-draft">Lukuluonnos</label><textarea class="draft-editor" id="f-draft" data-chapter-field="draft" rows="14" placeholder="Kirjoita tai luo luvun ensimmäinen luonnos"></textarea><div class="panel-actions"><button type="button" class="primary-button" data-run="draft"><i class="ph ph-sparkle" aria-hidden="true"></i> Kirjoita luonnos</button><button type="button" class="secondary-button" data-step-link="manuscript">Koosta käsikirjoitus</button></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="step-view" id="view-manuscript" data-step="manuscript" aria-labelledby="manuscript-heading" hidden>
+      <div class="content-grid manuscript-grid">
+        <article class="story-panel"><header class="panel-heading-row"><div><p class="panel-kicker">Käsikirjoitus</p><h1 id="manuscript-heading">Kokoa valmis kokonaisuus</h1><p>Yhdistä lukuluonnokset yhdeksi muokattavaksi käsikirjoitukseksi.</p></div><button type="button" class="primary-button compact-text" id="compile-manuscript" data-run="compile_manuscript"><i class="ph ph-sparkle" aria-hidden="true"></i> Koosta</button></header><label class="editor-label" for="manuscript-title">Teoksen nimi</label><input class="title-input" type="text" id="manuscript-title" placeholder="Minun tarinani"><label class="editor-label" for="manuscript-text">Käsikirjoitus</label><textarea class="manuscript-editor" id="manuscript-text" rows="24" placeholder="Koostettu käsikirjoitus ilmestyy tähän."></textarea></article>
+        <aside class="side-rail manuscript-tools"><section class="rail-panel"><h2>Vie käsikirjoitus</h2><div class="stack-actions"><button type="button" class="rail-action" id="preview-manuscript"><span><i class="ph ph-eye" aria-hidden="true"></i> Esikatsele</span><i class="ph ph-arrow-right" aria-hidden="true"></i></button><button type="button" class="rail-action" id="copy-manuscript"><span><i class="ph ph-copy" aria-hidden="true"></i> Kopioi teksti</span><i class="ph ph-arrow-right" aria-hidden="true"></i></button><button type="button" class="rail-action" id="download-manuscript"><span><i class="ph ph-download-simple" aria-hidden="true"></i> Lataa TXT</span><i class="ph ph-arrow-right" aria-hidden="true"></i></button></div></section><section class="rail-panel"><h2>Valmius</h2><dl class="compact-stats"><div><dt>Lukuja</dt><dd id="manuscript-chapter-count">0</dd></div><div><dt>Sanoja</dt><dd id="manuscript-word-count">0</dd></div></dl></section></aside>
+      </div>
+    </section>
+  </main>
 </div>
 
-<!-- ======================= AI-latausindikaattori ======================= -->
-<div class="working" id="working" hidden aria-live="polite">
-  <div class="working-thread" aria-hidden="true"></div>
-  <p id="working-label">Tekoäly työskentelee…</p>
-</div>
+<div class="modal-backdrop" id="modal-backdrop" hidden></div>
+<section class="modal" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden><header class="modal-header"><h2 id="settings-title">Projektin asetukset</h2><button class="icon-button" type="button" data-close-modal aria-label="Sulje asetukset" title="Sulje"><i class="ph ph-x" aria-hidden="true"></i></button></header><div class="modal-body"><label><span>Tarkoitus</span><textarea id="f-purpose" data-state-field="purpose" rows="3" placeholder="Kenelle ja miksi teos tehdään?"></textarea></label><label><span>Kerronnan näkökulma</span><select id="narrative-perspective" data-state-field="narrative_perspective"><option value="first_person">Minämuoto</option><option value="third_person">Hän-muoto</option></select></label><label><span>Tyyli</span><input type="text" id="f-style" data-state-field="style" placeholder="Esim. lämmin ja kerronnallinen"></label><label><span>Tavoitepituus</span><input type="text" id="f-target-length" data-state-field="target_length" placeholder="Esim. noin 100 sivua"></label><label><span>Arkaluontoisten aiheiden käsittely</span><input type="text" id="f-sensitive" data-state-field="sensitive_handling" placeholder="Esim. kysy aina ennen käsittelyä"></label><label><span>Tulkintataso</span><input type="text" id="f-interpretation" data-state-field="interpretation_level" placeholder="Esim. vain aineiston faktat"></label></div><footer class="modal-actions"><button class="secondary-button" type="button" data-close-modal>Peruuta</button><button class="primary-button" type="button" id="save-settings">Tallenna asetukset</button></footer></section>
 
+<section class="modal preview-modal" id="preview-modal" role="dialog" aria-modal="true" aria-labelledby="preview-title" hidden><header class="modal-header"><h2 id="preview-title">Käsikirjoituksen esikatselu</h2><button class="icon-button" type="button" data-close-modal aria-label="Sulje esikatselu" title="Sulje"><i class="ph ph-x" aria-hidden="true"></i></button></header><article class="manuscript-preview" id="manuscript-preview"></article></section>
+
+<section class="result-sheet" id="result-sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" hidden><header><h2 id="sheet-title">Tulos</h2><button class="icon-button" id="sheet-close" type="button" aria-label="Sulje tulos" title="Sulje"><i class="ph ph-x" aria-hidden="true"></i></button></header><p class="sheet-warning" id="sheet-warning" hidden></p><div class="sheet-content result-text" id="sheet-content"></div></section>
+<div class="working" id="working" hidden aria-live="polite" aria-busy="true"><i class="ph ph-circle-notch" aria-hidden="true"></i><p id="working-label">Jäsennän tarinaasi…</p></div>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <script src="config.js"></script>
-<script>
-  const API_BASE_URL = (window.SKRIPTLAB_CONFIG && window.SKRIPTLAB_CONFIG.API_BASE_URL) || "http://127.0.0.1:8000";
-  function apiUrl(path) {
-    return `${API_BASE_URL}${path}`;
-  }
-</script>
+<script>const API_BASE_URL = (window.SKRIPTLAB_CONFIG && window.SKRIPTLAB_CONFIG.API_BASE_URL) || "http://127.0.0.1:8000"; function apiUrl(path) { return `${API_BASE_URL}${path}`; }</script>
 <script src="auth.js"></script>
 <script>
   function activeBiographyProjectId() {
-    const raw = localStorage.getItem("skriptlab_manuscript");
-    if (raw) {
-      try {
-        const manuscript = JSON.parse(raw);
-        if (manuscript && manuscript.id) return manuscript.id;
-      } catch (error) {
-        // Fall back to the explicit active project key below.
-      }
-    }
-    return localStorage.getItem("skriptlab_active_project_id")
-      || new URLSearchParams(window.location.search).get("project")
-      || null;
+    const queryId = new URLSearchParams(window.location.search).get("project");
+    if (queryId) return queryId;
+    return localStorage.getItem("skriptlab_biography_project_id") || localStorage.getItem("skriptlab_active_project_id") || null;
   }
-
   window.SkriptLabAuth.requireLogin();
-  window.ELAMAKERTA_CONFIG = {
-    apiBase: "/api",
-    projectId: activeBiographyProjectId,
-    fetchImpl: (path, options) => window.SkriptLabAuth.fetch(path, options),
-    projectTitle: () => {
-      const raw = localStorage.getItem("skriptlab_manuscript");
-      if (!raw) return "Elämäkerta";
-      try {
-        const manuscript = JSON.parse(raw);
-        return manuscript.title || "Elämäkerta";
-      } catch (error) {
-        return "Elämäkerta";
-      }
-    }
-  };
+  window.ELAMAKERTA_CONFIG = { apiBase: "/api", projectId: activeBiographyProjectId, fetchImpl: (path, options) => window.SkriptLabAuth.fetch(path, options), projectTitle: () => "Minun tarinani" };
 </script>
-<script src="elamakerta.js?v=3"></script>
+<script src="elamakerta.js?v=4"></script>
 </body>
 </html>

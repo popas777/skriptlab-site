@@ -5095,6 +5095,19 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         renderTopVersionBadge();
     }
 
+    function deactivateElamakertaFrame(nextViewId) {
+        if (currentViewId !== 'view-elamakerta' || nextViewId === 'view-elamakerta') return;
+        const frame = document.getElementById('elamakerta-frame');
+        try {
+            const deactivation = frame?.contentWindow?.ElamakertaModule?.deactivate?.();
+            if (deactivation?.catch) {
+                deactivation.catch(error => console.warn('Elämäkerran äänen käsittelyä ei voitu pysäyttää.', error));
+            }
+        } catch (error) {
+            console.warn('Elämäkerran äänen käsittelyä ei voitu pysäyttää.', error);
+        }
+    }
+
     function openModule(viewId) {
         viewId = canonicalViewId(viewId);
         let activeNavViewId = viewId;
@@ -5106,6 +5119,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             viewId = defaultViewForUser();
             activeNavViewId = viewId;
         }
+        deactivateElamakertaFrame(activeNavViewId);
         currentViewId = activeNavViewId;
         autoHideSidebarForView(currentViewId);
         syncLongOperationTimersForView(currentViewId);
