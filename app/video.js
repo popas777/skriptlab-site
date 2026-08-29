@@ -58,7 +58,7 @@
     Object.freeze({ id: 'veo-3.1-fast-generate-preview', label: 'Gemini Veo 3.1 Fast', provider: 'veo', expected_wait_min_s: 11, expected_wait_max_s: 360, expected_wait_label: 'Google arvioi 11 s–6 min' }),
     Object.freeze({ id: 'veo-3.1-generate-preview', label: 'Gemini Veo 3.1', provider: 'veo', expected_wait_min_s: 11, expected_wait_max_s: 360, expected_wait_label: 'Google arvioi 11 s–6 min' }),
     Object.freeze({ id: 'veo-3.1-lite-generate-preview', label: 'Gemini Veo 3.1 Lite', provider: 'veo', expected_wait_min_s: 11, expected_wait_max_s: 360, expected_wait_label: 'Google arvioi 11 s–6 min' }),
-    Object.freeze({ id: 'gemini-omni-flash-preview', label: 'Gemini Omni Flash (Preview)', provider: 'omni', expected_wait_label: 'Kesto vaihtelee kuorman mukaan' }),
+    Object.freeze({ id: 'gemini-omni-1.1-flash', label: 'Gemini Omni 1.1 Flash', provider: 'omni', expected_wait_label: 'Kesto vaihtelee kuorman mukaan' }),
     Object.freeze({ id: 'dop-turbo', label: 'Higgsfield DoP Turbo', provider: 'higgsfield', expected_wait_label: 'Kesto vaihtelee palvelun kuorman mukaan' }),
   ]);
   const PROVIDER_LABELS = Object.freeze({
