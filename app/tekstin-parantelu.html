@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tekstin parantelu · SkriptLab</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="tekstin-parantelu.css?v=1">
+</head>
+<body>
+    <main class="ti-app" aria-labelledby="ti-title">
+        <header id="ti-header" class="ti-header">
+            <div class="ti-title-row">
+                <div>
+                    <h1 id="ti-title">Tekstin parantelu</h1>
+                    <p id="ti-project-name">Valitse käsikirjoitus tai tuo tiedosto.</p>
+                </div>
+                <p id="ti-status" class="ti-status" role="status" aria-live="polite">Valmis</p>
+            </div>
+
+            <div class="ti-tabs" role="tablist" aria-label="Parantelun tyyppi">
+                <button
+                    id="ti-tab-normal"
+                    class="ti-tab is-active"
+                    type="button"
+                    role="tab"
+                    aria-selected="true"
+                    aria-controls="ti-normal-docs"
+                    data-ti-mode="normal"
+                >Tekstin parantelu</button>
+                <button
+                    id="ti-tab-translation"
+                    class="ti-tab"
+                    type="button"
+                    role="tab"
+                    aria-selected="false"
+                    aria-controls="ti-translation-docs"
+                    tabindex="-1"
+                    data-ti-mode="translation"
+                >Käännöksen parantelu</button>
+            </div>
+
+            <section id="ti-normal-toolbar" class="ti-toolbar" aria-label="Käsikirjoituksen valinta">
+                <label class="ti-select-control" for="ti-project-select">
+                    <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 3.75h9l3 3V20.25H6z"></path><path d="M15 3.75v3h3"></path></svg>
+                    <span class="ti-sr-only">Vaihda tekstiä</span>
+                    <select id="ti-project-select" aria-label="Vaihda tekstiä">
+                        <option value="">Vaihda tekstiä</option>
+                    </select>
+                </label>
+                <button id="ti-import-button" class="ti-button ti-button-secondary" type="button">
+                    <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 15V3"></path><path d="m7.5 7.5 4.5-4.5 4.5 4.5"></path><path d="M4 14.5v5.75h16V14.5"></path></svg>
+                    Tuo tiedosto
+                </button>
+                <input id="ti-import-file" type="file" accept=".txt,.md,.markdown,.docx,.pdf,.rtf,.odt,.html,.htm" hidden>
+                <p class="ti-toolbar-note">DOCX, TXT, MD, PDF, RTF, ODT tai HTML</p>
+            </section>
+
+            <section id="ti-translation-toolbar" class="ti-toolbar" aria-label="Käännöksen valinta" hidden>
+                <span id="ti-language-direction" class="ti-language-direction">Alkukieli → kohdekieli</span>
+                <label class="ti-select-control" for="ti-translation-project-select">
+                    <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 3.75h9l3 3V20.25H6z"></path><path d="M15 3.75v3h3"></path></svg>
+                    <span class="ti-sr-only">Vaihda bilingual-projektia</span>
+                    <select id="ti-translation-project-select" aria-label="Vaihda bilingual-projektia">
+                        <option value="">Vaihda tekstiä</option>
+                    </select>
+                </label>
+                <label class="ti-select-control" for="ti-translation-select">
+                    <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7 7h11"></path><path d="m15 4 3 3-3 3"></path><path d="M17 17H6"></path><path d="m9 14-3 3 3 3"></path></svg>
+                    <span class="ti-sr-only">Vaihda käännöstä</span>
+                    <select id="ti-translation-select" aria-label="Vaihda käännöstä">
+                        <option value="">Vaihda käännöstä</option>
+                    </select>
+                </label>
+                <button id="ti-bilingual-button" class="ti-button ti-button-secondary" type="button">
+                    <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12"></path><path d="m7.5 10.5 4.5 4.5 4.5-4.5"></path><path d="M4 19.5h16"></path></svg>
+                    Lataa bilingual
+                </button>
+                <input id="ti-bilingual-file" type="file" accept=".md,.markdown,.txt" hidden>
+                <p class="ti-toolbar-note">Alkuteksti ja käännös pysyvät kohdakkain</p>
+            </section>
+
+            <nav class="ti-navigator" aria-label="Tekstin selaus">
+                <button id="ti-previous" class="ti-button ti-button-secondary" type="button">
+                    <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"></path></svg>
+                    Edellinen
+                </button>
+                <div class="ti-position">
+                    <strong id="ti-unit-title">Ei valittua tekstiä</strong>
+                    <span id="ti-unit-position">0 / 0</span>
+                </div>
+                <button id="ti-next" class="ti-button ti-button-secondary" type="button">
+                    Seuraava
+                    <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"></path></svg>
+                </button>
+            </nav>
+        </header>
+
+        <div id="ti-editor-grid" class="ti-editor-grid" data-mode="normal">
+            <section id="ti-normal-docs" class="ti-document-region" role="tabpanel" aria-labelledby="ti-tab-normal">
+                <header class="ti-region-header">
+                    <h2>Käsikirjoitus</h2>
+                    <span id="ti-word-count">0 sanaa</span>
+                </header>
+                <div
+                    id="ti-normal-reader"
+                    class="ti-prose ti-normal-reader"
+                    tabindex="0"
+                    aria-label="Käsikirjoituksen teksti. Maalaa parannettava kohta tai valitse kappale napsauttamalla tai nuolinäppäimillä."
+                    aria-describedby="ti-selection-help"
+                ></div>
+                <footer class="ti-document-footer">
+                    <span id="ti-save-state">Muutokset tallennetaan hyväksyttäessä</span>
+                    <span>Valitse tekstikohta maalaamalla</span>
+                </footer>
+            </section>
+
+            <section id="ti-translation-docs" class="ti-translation-region" role="tabpanel" aria-labelledby="ti-tab-translation" hidden>
+                <article class="ti-aligned-column">
+                    <header class="ti-region-header">
+                        <h2>Alkuteksti</h2>
+                        <span id="ti-source-label">Lähde</span>
+                    </header>
+                    <div id="ti-source-reader" class="ti-prose ti-aligned-prose" tabindex="0" aria-label="Alkuteksti"></div>
+                </article>
+                <article class="ti-aligned-column ti-target-column">
+                    <header class="ti-region-header">
+                        <h2>Käännös</h2>
+                        <span id="ti-target-label">Kohdeteksti</span>
+                    </header>
+                    <div
+                        id="ti-target-reader"
+                        class="ti-prose ti-aligned-prose"
+                        tabindex="0"
+                        aria-label="Käännös. Maalaa parannettava kohta tai valitse kappale nuolinäppäimillä."
+                        aria-describedby="ti-selection-help"
+                    ></div>
+                </article>
+                <div id="ti-translation-empty" class="ti-empty-state" hidden>
+                    <svg aria-hidden="true" viewBox="0 0 48 48"><path d="M8 9h14v28H8z"></path><path d="M26 9h14v28H26z"></path><path d="M22 15h4M22 24h4M22 33h4"></path></svg>
+                    <h2>Käännöksen parantelu tarvitsee bilingual-aineiston</h2>
+                    <p>Valitse tallennettu käännös tai lataa <strong>bilingual_manuscript.md</strong>, jotta alkuteksti ja käännös voidaan näyttää rinnakkain.</p>
+                    <button id="ti-empty-bilingual-button" class="ti-button ti-button-primary" type="button">Lataa bilingual</button>
+                </div>
+            </section>
+
+            <aside id="ti-inspector" class="ti-inspector" aria-labelledby="ti-inspector-title">
+                <div class="ti-inspector-scroll">
+                    <header class="ti-inspector-header">
+                        <div>
+                            <h2 id="ti-inspector-title">Paranna valittua kohtaa</h2>
+                            <p id="ti-selection-help" role="status" aria-live="polite" aria-atomic="true">Valitse tekstistä sana, virke tai kappale.</p>
+                        </div>
+                    </header>
+
+                    <section id="ti-keyboard-selection" class="ti-keyboard-selection" aria-labelledby="ti-keyboard-selection-label">
+                        <label for="ti-keyboard-selection-text">
+                            <span id="ti-keyboard-selection-label">Tarkka näppäimistövalinta</span>
+                            <small id="ti-keyboard-selection-instructions">Valitse sana tai virke tekstikentässä Vaihto + nuolinäppäimillä. Ctrl/Cmd + Enter ottaa valinnan käyttöön.</small>
+                        </label>
+                        <textarea
+                            id="ti-keyboard-selection-text"
+                            rows="4"
+                            readonly
+                            spellcheck="false"
+                            aria-describedby="ti-keyboard-selection-instructions ti-keyboard-selection-status"
+                        ></textarea>
+                        <div class="ti-keyboard-selection-actions">
+                            <p id="ti-keyboard-selection-status" role="status" aria-live="polite" aria-atomic="true">Valitse ensin kappale tekstistä.</p>
+                            <button id="ti-use-keyboard-selection" class="ti-button ti-button-secondary" type="button" disabled>Käytä valintaa</button>
+                        </div>
+                    </section>
+
+                    <label class="ti-field" for="ti-instructions">
+                        <span>Lisäohje</span>
+                        <textarea
+                            id="ti-instructions"
+                            rows="3"
+                            maxlength="4000"
+                            placeholder="Esim. tiivistä, kirkasta rytmiä tai säilytä puhekielinen ääni"
+                        ></textarea>
+                        <small><span id="ti-instructions-count">0</span> / 4000</small>
+                    </label>
+
+                    <button id="ti-generate" class="ti-button ti-button-primary ti-generate-button" type="button" disabled>
+                        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m12 3 1.35 4.15L17.5 8.5l-4.15 1.35L12 14l-1.35-4.15L6.5 8.5l4.15-1.35z"></path><path d="m18.5 14 .75 2.25 2.25.75-2.25.75L18.5 20l-.75-2.25L15.5 17l2.25-.75z"></path></svg>
+                        Luo ehdotus
+                    </button>
+
+                    <div class="ti-inspector-divider"></div>
+
+                    <section id="ti-suggestion-empty" class="ti-suggestion-empty">
+                        <div class="ti-selection-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M5 5h14v14H5z"></path><path d="M8 9h8M8 12h6M8 15h7"></path></svg>
+                        </div>
+                        <h3>Valitse ensin parannettava kohta</h3>
+                        <p>Ehdotus ei muuta tekstiäsi ennen kuin hyväksyt sen.</p>
+                    </section>
+
+                    <section id="ti-suggestion" class="ti-suggestion" hidden>
+                        <div class="ti-comparison-block">
+                            <h3 id="ti-original-label">Alkuperäinen</h3>
+                            <div id="ti-original" class="ti-original-text"></div>
+                        </div>
+                        <label class="ti-field" for="ti-suggestion-text">
+                            <span>Ehdotus</span>
+                            <textarea id="ti-suggestion-text" rows="7"></textarea>
+                        </label>
+                        <div class="ti-reason-block">
+                            <h3 id="ti-reason-label">Miksi tämä toimii</h3>
+                            <p id="ti-reason"></p>
+                        </div>
+                    </section>
+                </div>
+
+                <footer id="ti-inspector-actions" class="ti-inspector-actions" hidden>
+                    <button id="ti-reject" class="ti-button ti-button-secondary" type="button">
+                        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 7h14"></path><path d="m9 7 .75-3h4.5L15 7"></path><path d="m7.5 7 .75 13h7.5l.75-13"></path></svg>
+                        Hylkää
+                    </button>
+                    <button id="ti-accept" class="ti-button ti-button-primary" type="button">
+                        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"></path></svg>
+                        Hyväksy muutos
+                    </button>
+                    <p>Muutokset tallennetaan vasta hyväksymisen jälkeen.</p>
+                </footer>
+            </aside>
+        </div>
+
+        <div id="ti-working" class="ti-working" role="status" aria-live="polite" hidden>
+            <div class="ti-spinner" aria-hidden="true"></div>
+            <strong id="ti-working-label">Valmistellaan ehdotusta…</strong>
+        </div>
+        <div id="ti-toast" class="ti-toast" role="status" aria-live="polite" hidden></div>
+    </main>
+
+    <script src="config.js?v=1"></script>
+    <script src="auth.js?v=4"></script>
+    <script src="tekstin-parantelu.js?v=1"></script>
+</body>
+</html>

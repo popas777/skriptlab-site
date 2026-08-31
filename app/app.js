@@ -751,9 +751,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         publication_package: ['view-julkaisupaketti', 'view-korjaukset'],
         publish: ['view-julkaise'],
         ai_workflow: ['view-ai-tyonkulku'],
-        translations: ['view-kaannokset'],
+        translations: ['view-kaannokset', 'view-oikoluku'],
         multilingual_publication: ['view-monikielinen-julkaisu'],
-        translation_workspace: ['view-kaannostyotila'],
+        translation_workspace: ['view-kaannostyotila', 'view-oikoluku'],
         biography: ['view-elamakerta'],
         product_info: ['view-tuotetiedot'],
         marketing: ['view-markkinointi'],
@@ -4825,6 +4825,20 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         return mobileLayoutQuery.matches || appWrapper.classList.contains('mobile-simulate');
     }
 
+    function setSidebarAccessibility(hidden) {
+        if (!sidebar) return;
+        const inaccessible = Boolean(hidden);
+        sidebar.inert = inaccessible;
+        if (inaccessible) {
+            sidebar.setAttribute('aria-hidden', 'true');
+            if (sidebar.contains(document.activeElement)) {
+                toggleSidebarBtn?.focus({ preventScroll: true });
+            }
+        } else {
+            sidebar.removeAttribute('aria-hidden');
+        }
+    }
+
     function setSidebarDrawer(open) {
         if (!sidebar) return;
         sidebar.classList.remove('hidden');
@@ -4835,6 +4849,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             toggleSidebarBtn.setAttribute('aria-expanded', String(Boolean(open)));
             toggleSidebarBtn.title = open ? 'Sulje valikko' : 'Avaa valikko';
         }
+        setSidebarAccessibility(!open);
     }
 
     function syncSidebarMode() {
@@ -4848,11 +4863,13 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 toggleSidebarBtn.setAttribute('aria-expanded', String(!sidebar.classList.contains('hidden')));
                 toggleSidebarBtn.title = sidebar.classList.contains('hidden') ? 'Avaa sivuvalikko' : 'Piilota sivuvalikko';
             }
+            setSidebarAccessibility(sidebar.classList.contains('hidden'));
         }
     }
 
     const SIDEBAR_AUTO_HIDE_VIEWS = new Set([
         'view-kirjoita-editoi',
+        'view-oikoluku',
         'view-kuvitus',
         'view-kaannokset',
     ]);
@@ -5270,6 +5287,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         if (viewId === 'view-kirjoita-editoi') {
             refreshWriteEditorFrame();
+        }
+        if (viewId === 'view-oikoluku') {
+            refreshTextImprovementFrame();
         }
         if (viewId === 'view-viimeistely') {
             renderVersionsView();
@@ -12155,6 +12175,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     function renderProofreadView() {
+        if (document.getElementById('text-improvement-frame')) {
+            refreshTextImprovementFrame();
+            return;
+        }
         renderProofreadChapterBar();
         renderProofreadSuggestions();
         renderProofreadScopeChips();
@@ -21482,6 +21506,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (!options.skipWriteEditorFrameRefresh && currentViewId === 'view-kirjoita-editoi') {
             refreshWriteEditorFrame();
         }
+        if (!options.skipTextImprovementFrameRefresh && currentViewId === 'view-oikoluku') {
+            refreshTextImprovementFrame();
+        }
         if (!options.skipTuotantoFrameRefresh && ['view-oheisaineistot', 'view-taitto'].includes(currentViewId)) {
             refreshTuotantoFrame(currentViewId);
         }
@@ -21894,7 +21921,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 await activateProject(target, {
                     skipManuskriptiFrameRefresh: true,
                     skipTyostoFrameRefresh: true,
-                    skipWriteEditorFrameRefresh: true
+                    skipWriteEditorFrameRefresh: true,
+                    skipTextImprovementFrameRefresh: true
                 });
             } catch (err) {
                 console.warn('Käsikirjoituksen aktivointi epäonnistui:', err);
@@ -27554,6 +27582,23 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             frame.contentWindow.postMessage({ type: 'skriptlab:write-editor-opened' }, window.location.origin);
         }
         pendingWriteEditorChapterId = null;
+    }
+
+    function refreshTextImprovementFrame() {
+        const frame = document.getElementById('text-improvement-frame');
+        if (!frame) return;
+        const params = new URLSearchParams();
+        const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
+        if (projectId) params.set('project', projectId);
+        params.set('r', embeddedProjectRevision());
+        params.set('v', '1');
+        const reloaded = updateEmbeddedModuleFrame(frame, 'tekstin-parantelu.html', params);
+        if (!reloaded && frame.contentWindow) {
+            frame.contentWindow.postMessage({
+                type: 'skriptlab:text-improvement-opened',
+                projectId: projectId ? String(projectId) : null,
+            }, window.location.origin);
+        }
     }
 
     function tuotantoFrameTab(viewId) {
