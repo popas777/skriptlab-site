@@ -733,7 +733,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const fullWorkspaceRoles = new Set(['admin', 'test_user']);
     const writerViews = new Set(['view-kirjani', 'view-analyysi', 'view-skill', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-oikoluku', 'view-kuvitus', 'view-notebooklm', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-julkaisupaketti', 'view-audio', 'view-video', 'view-viimeistely', 'view-korjaukset']);
     const betaCoreViews = new Set([...writerViews, 'view-monikielinen-julkaisu', 'view-markkinointi']);
-    const translatorViews = new Set([...betaCoreViews, 'view-kaannokset', 'view-kaannostyotila']);
+    const translatorViews = new Set([
+        ...betaCoreViews,
+        'view-kaannokset',
+        'view-kaannostyotila',
+        'view-kaannoksen-viimeistely'
+    ]);
     const biographyViews = new Set(['view-kirjani', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-ai-tyonkulku', 'view-viimeistely', 'view-korjaukset', 'view-elamakerta', 'view-oikoluku', 'view-kuvitus', 'view-notebooklm', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-markkinointi', 'view-audio', 'view-video', 'view-julkaisupaketti', 'view-julkaise']);
     const accessModuleViews = {
         manuscripts: ['view-kirjani'],
@@ -751,9 +756,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         publication_package: ['view-julkaisupaketti', 'view-korjaukset'],
         publish: ['view-julkaise'],
         ai_workflow: ['view-ai-tyonkulku'],
-        translations: ['view-kaannokset', 'view-oikoluku'],
+        translations: ['view-kaannokset'],
         multilingual_publication: ['view-monikielinen-julkaisu'],
-        translation_workspace: ['view-kaannostyotila', 'view-oikoluku'],
+        translation_workspace: ['view-kaannostyotila'],
+        translation_finishing: ['view-kaannoksen-viimeistely'],
         biography: ['view-elamakerta'],
         product_info: ['view-tuotetiedot'],
         marketing: ['view-markkinointi'],
@@ -4870,6 +4876,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const SIDEBAR_AUTO_HIDE_VIEWS = new Set([
         'view-kirjoita-editoi',
         'view-oikoluku',
+        'view-kaannoksen-viimeistely',
         'view-kuvitus',
         'view-kaannokset',
     ]);
@@ -5290,6 +5297,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         if (viewId === 'view-oikoluku') {
             refreshTextImprovementFrame();
+        }
+        if (viewId === 'view-kaannoksen-viimeistely') {
+            refreshTranslationFinishingFrame();
         }
         if (viewId === 'view-viimeistely') {
             renderVersionsView();
@@ -21509,6 +21519,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (!options.skipTextImprovementFrameRefresh && currentViewId === 'view-oikoluku') {
             refreshTextImprovementFrame();
         }
+        if (!options.skipTranslationFinishingFrameRefresh && currentViewId === 'view-kaannoksen-viimeistely') {
+            refreshTranslationFinishingFrame();
+        }
         if (!options.skipTuotantoFrameRefresh && ['view-oheisaineistot', 'view-taitto'].includes(currentViewId)) {
             refreshTuotantoFrame(currentViewId);
         }
@@ -21922,7 +21935,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     skipManuskriptiFrameRefresh: true,
                     skipTyostoFrameRefresh: true,
                     skipWriteEditorFrameRefresh: true,
-                    skipTextImprovementFrameRefresh: true
+                    skipTextImprovementFrameRefresh: true,
+                    skipTranslationFinishingFrameRefresh: true
                 });
             } catch (err) {
                 console.warn('Käsikirjoituksen aktivointi epäonnistui:', err);
@@ -22396,7 +22410,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             ['suomentaja-ai-check-panel', 'AI-tarkastus']
         ];
 
-        if (title) title.textContent = 'Käännökset';
+        if (title) title.textContent = 'Räätälöidyt käännökset';
         if (createTitle) createTitle.textContent = 'Käännettävä teos';
         if (currentProjectText && !window.manuscriptData?.id) {
             currentProjectText.textContent = 'Valitse käsikirjoitus ja käännösasetukset.';
@@ -27591,11 +27605,28 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '1');
+        params.set('v', '2');
         const reloaded = updateEmbeddedModuleFrame(frame, 'tekstin-parantelu.html', params);
         if (!reloaded && frame.contentWindow) {
             frame.contentWindow.postMessage({
                 type: 'skriptlab:text-improvement-opened',
+                projectId: projectId ? String(projectId) : null,
+            }, window.location.origin);
+        }
+    }
+
+    function refreshTranslationFinishingFrame() {
+        const frame = document.getElementById('translation-finishing-frame');
+        if (!frame) return;
+        const params = new URLSearchParams();
+        const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
+        if (projectId) params.set('project', projectId);
+        params.set('r', embeddedProjectRevision());
+        params.set('v', '4');
+        const reloaded = updateEmbeddedModuleFrame(frame, 'kaannoksen-viimeistely.html', params);
+        if (!reloaded && frame.contentWindow) {
+            frame.contentWindow.postMessage({
+                type: 'skriptlab:translation-finishing-opened',
                 projectId: projectId ? String(projectId) : null,
             }, window.location.origin);
         }

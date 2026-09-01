@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=116">
+    <link rel="stylesheet" href="styles.css?v=117">
     <link rel="stylesheet" href="workflow-studio.css?v=2">
     <link rel="stylesheet" href="correction-reprints.css?v=1">
     <link rel="stylesheet" href="timeline.css?v=1">
@@ -224,7 +224,7 @@
             <div class="app-brand">
                 <h1 class="logo">SkriptLab<span class="accent">.</span></h1>
                 <!-- Increase 0.xxx by 0.001 and replace the suffix with the latest SkriptLab Main update hash on each release. -->
-                <span class="app-version" aria-label="Sovellusversio 0.113, päivitys 4093f29" title="Sovellusversio 0.113 · päivitys 4093f29">0.1134093f29</span>
+                <span class="app-version" aria-label="Sovellusversio 0.114, päivitys 8782669" title="Sovellusversio 0.114 · päivitys 8782669">0.1148782669</span>
             </div>
             <nav class="sidebar-nav">
                 <ul id="nav-menu">
@@ -234,7 +234,10 @@
                     <li data-view="view-kehityseditointi">Kehityspalaute</li>
                     <li data-view="view-kirjoita-editoi">Kirjoita ja editoi</li>
                     <li data-view="view-mobiilieditori">Mobiili-editori</li>
-                    <li data-view="view-oikoluku">Tekstin parantelu</li>
+                    <li data-view="view-kaannokset">Räätälöidyt käännökset</li>
+                    <li data-view="view-kaannostyotila">Automaattikäännökset</li>
+                    <li data-view="view-oikoluku">Tekstin/käännöksen parantelu</li>
+                    <li data-view="view-kaannoksen-viimeistely">Käännöksen viimeistely ja oikoluku</li>
                     <li data-view="view-kuvitus">Kansi ja grafiikka</li>
                     <li data-view="view-notebooklm">NotebookLM</li>
                     <li data-view="view-oheisaineistot">Oheisaineistot</li>
@@ -243,8 +246,6 @@
                     <li data-view="view-julkaisupaketti">Tiedostopaketti</li>
                     <li data-view="view-monikielinen-julkaisu">Kieliversiot</li>
                     <li data-view="view-ai-tyonkulku">Työnkulkustudio</li>
-                    <li data-view="view-kaannokset">Käännökset</li>
-                    <li data-view="view-kaannostyotila">Käännöstyötila</li>
                     <li data-view="view-elamakerta">Elämäkerta</li>
                     <li data-view="view-markkinointi">Markkinointi</li>
                     <li data-view="view-audio">Audiotuotanto</li>
@@ -1886,8 +1887,8 @@
                 <iframe
                     id="text-improvement-frame"
                     class="tyosto-frame text-improvement-frame"
-                    title="Tekstin parantelu"
-                    src="tekstin-parantelu.html?v=1"
+                    title="Tekstin/käännöksen parantelu"
+                    src="tekstin-parantelu.html?v=2"
                     loading="lazy"
                 ></iframe>
                 <div class="proofread-modern editorial-paper-workspace hidden" aria-hidden="true">
@@ -2014,6 +2015,17 @@
                     </div>
                     <div class="proofread-toast hidden" id="proofread-toast" role="status" aria-live="polite"></div>
                 </div>
+            </div>
+
+            <!-- 5.3 VIEW: KÄÄNNÖKSEN VIIMEISTELY JA OIKOLUKU -->
+            <div id="view-kaannoksen-viimeistely" class="view-section hidden">
+                <iframe
+                    id="translation-finishing-frame"
+                    class="tyosto-frame text-improvement-frame translation-finishing-frame"
+                    title="Käännöksen viimeistely ja oikoluku"
+                    src="kaannoksen-viimeistely.html?v=4"
+                    loading="lazy"
+                ></iframe>
             </div>
 
             <!-- 6. VIEW: KANSI JA GRAFIIKKA -->
@@ -3594,11 +3606,11 @@
                 </section>
             </div>
 
-            <!-- 11. VIEW: KÄÄNNÖKSET -->
+            <!-- 11. VIEW: RÄÄTÄLÖIDYT KÄÄNNÖKSET -->
             <div id="view-kaannokset" class="view-section hidden">
                 <div class="header">
                     <div class="header-info">
-                        <h2>Käännökset</h2>
+                        <h2>Räätälöidyt käännökset</h2>
                         <p id="translation-current-project">Valitse käsikirjoitus ja käännösasetukset.</p>
                     </div>
                 </div>
@@ -3758,11 +3770,11 @@
                 </div>
             </div>
 
-            <!-- 11.2 VIEW: KÄÄNNÖKSET -->
+            <!-- 11.2 VIEW: RÄÄTÄLÖIDYT KÄÄNNÖKSET -->
             <div id="view-suomentaja" class="view-section hidden">
                 <div class="header">
                     <div class="header-info">
-                        <h2 id="finnish-translation-view-title">Käännökset</h2>
+                        <h2 id="finnish-translation-view-title">Räätälöidyt käännökset</h2>
                         <p id="finnish-translation-current-project">Valitse käsikirjoitus ja käännösasetukset.</p>
                     </div>
                 </div>
@@ -4062,11 +4074,11 @@
                 </div>
             </div>
 
-            <!-- 11.3 VIEW: KÄÄNNÖSTYÖTILA -->
+            <!-- 11.3 VIEW: AUTOMAATTIKÄÄNNÖKSET -->
             <div id="view-kaannostyotila" class="view-section hidden">
                 <div class="header translation-workspace-header">
                     <div class="header-info">
-                        <h2>Käännöstyötila</h2>
+                        <h2>Automaattikäännökset</h2>
                         <p>Käännä ja tarkasta kokonainen teos hallittuna projektina.</p>
                     </div>
                     <div class="translation-workspace-project-picker">
@@ -4075,7 +4087,7 @@
                     </div>
                 </div>
 
-                <nav class="translation-workspace-stages" aria-label="Käännöstyötilan vaiheet">
+                <nav class="translation-workspace-stages" aria-label="Automaattikäännösten vaiheet">
                     <button class="translation-workspace-stage active" data-workspace-panel="translation-workspace-translate-panel" type="button">
                         <span>1</span>
                         <strong>Käännös</strong>
@@ -4389,7 +4401,7 @@
                             <button id="translation-workspace-file-download-btn" class="btn btn-secondary" type="button" disabled>Lataa tiedosto</button>
                         </div>
                         <div class="translation-workspace-file-grid">
-                            <aside id="translation-workspace-file-list" class="translation-workspace-file-list" aria-label="Käännöstyötilan tiedostot">
+                            <aside id="translation-workspace-file-list" class="translation-workspace-file-list" aria-label="Automaattikäännösten tiedostot">
                                 <p class="card-meta">Ei tiedostoja.</p>
                             </aside>
                             <div class="translation-workspace-file-editor">
@@ -4420,7 +4432,7 @@
     <script src="workflow-studio.js?v=5"></script>
     <script src="correction-reprints.js?v=1"></script>
     <script src="demo-terminology.js?v=1"></script>
-    <script src="app.js?v=207"></script>
+    <script src="app.js?v=211"></script>
     <script src="timeline.js?v=1"></script>
 </body>
 </html>
