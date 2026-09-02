@@ -646,6 +646,21 @@ button:focus-visible {
 
 .library-actions { margin: 18px 0 6px; }
 
+.library-new-author {
+  max-width: 420px;
+  margin: 14px 0 2px;
+}
+
+.library-new-author .field-label span {
+  color: var(--muste-45);
+  font-weight: 500;
+}
+
+.library-new-author .hint {
+  display: block;
+  margin-top: 6px;
+}
+
 .project-list {
   position: relative;
   list-style: none;

@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="manuskripti.css?v=12">
+<link rel="stylesheet" href="manuskripti.css?v=13">
 </head>
 <body>
 
@@ -19,6 +19,12 @@
     <h1 class="home-title">Tekstini</h1>
     <p class="home-lead">Tuo tekstisi ja aja toimituksellinen analyysi.</p>
   </header>
+
+  <label class="field library-new-author">
+    <span class="field-label">Tekijä <span>(valinnainen)</span></span>
+    <input type="text" id="new-project-author" placeholder="Kirjailijan nimi" autocomplete="name">
+    <span class="hint">Nimi liitetään seuraavaksi tuotavaan tiedostoon tai uuteen tekstiin.</span>
+  </label>
 
   <div class="row library-actions">
     <input type="file" id="file-input" accept=".txt,.md,.docx,.pdf,.rtf,.odt,.html,.htm" hidden>
@@ -209,6 +215,6 @@
   })();
 </script>
   <script src="demo-terminology.js?v=1"></script>
-  <script src="manuskripti.js?v=34"></script>
+  <script src="manuskripti.js?v=35"></script>
 </body>
 </html>

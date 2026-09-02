@@ -141,11 +141,69 @@
   /* ------------------------------------------------------------ apurit */
 
   const $ = (id) => document.getElementById(id);
+  const missingProjectAuthors = new Set([
+    "",
+    "tuntematon",
+    "tuntematon tekijä",
+    "tuntematon kirjailija",
+    "[tekijä]",
+    "[kirjailija]",
+    "[author]",
+    "ei tiedossa",
+    "unknown",
+    "unknown author",
+    "ei mainittu",
+    "ei ilmoitettu",
+    "ei ilmene",
+    "ei löydy",
+    "ei saatavilla",
+    "n/a",
+    "not mentioned",
+    "not specified",
+    "not found",
+    "not available",
+    "not applicable",
+  ]);
+  const uncertainProjectAuthorPrefixes = new Set([
+    "ei mainittu",
+    "ei ilmoitettu",
+    "ei ilmene",
+    "ei löydy",
+    "ei saatavilla",
+    "not mentioned",
+    "not specified",
+    "not found",
+    "not available",
+    "not applicable",
+  ]);
+
+  function projectAuthorIsMissing(value) {
+    const normalized = String(value || "").replace(/\s+/g, " ").trim().toLocaleLowerCase("fi-FI");
+    const comparisonKey = normalized.replace(
+      /^[\s.,:;!?\-–—()\[\]]+|[\s.,:;!?\-–—()\[\]]+$/g,
+      "",
+    );
+    return !comparisonKey
+      || missingProjectAuthors.has(normalized)
+      || missingProjectAuthors.has(comparisonKey)
+      || Array.from(uncertainProjectAuthorPrefixes).some(
+        (prefix) => comparisonKey.startsWith(`${prefix} `),
+      );
+  }
+
+  function projectAuthorValue(value) {
+    const cleaned = String(value || "").replace(/\s+/g, " ").trim();
+    return projectAuthorIsMissing(cleaned) ? "" : cleaned;
+  }
 
   function escapeHtml(text) {
     const div = document.createElement("div");
     div.textContent = text == null ? "" : String(text);
     return div.innerHTML;
+  }
+
+  function escapeAttribute(text) {
+    return escapeHtml(text).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
   let toastTimer = null;
@@ -534,7 +592,7 @@
     return api("/projects", jsonOptions("POST", data));
   }
 
-  async function apiImportFile(file) {
+  async function apiImportFile(file, author = "") {
     if (demoMode) {
       const name = file.name.toLowerCase();
       if (!name.endsWith(".txt") && !name.endsWith(".md")) {
@@ -543,6 +601,7 @@
       const text = await file.text();
       const created = await apiSaveProject({
         title: file.name.replace(/\.[^.]+$/, ""),
+        author: author.trim() || "Tuntematon",
         source_filename: file.name,
         chapters: demo.splitChapters(text),
       });
@@ -550,6 +609,7 @@
     }
     const form = new FormData();
     form.append("file", file);
+    form.append("author", author.trim());
     return api("/projects/import", { method: "POST", body: form });
   }
 
@@ -583,19 +643,20 @@
     return api("/projects/" + projectId + "/structure", jsonOptions("PATCH", { chapters: structure }));
   }
 
-  async function apiPatchMetadata(projectId, analysis) {
-    if (demoMode) return apiSaveProject({ id: projectId, analysis });
-    return api("/projects/" + projectId + "/metadata", jsonOptions("PATCH", { analysis }));
-  }
-
-  async function apiRenameProject(projectId, title) {
+  async function apiUpdateProjectMetadata(projectId, metadata) {
     if (demoMode) {
       const target = demo.projects.find((p) => String(p.id) === String(projectId));
       if (!target) throw new Error("Projektia ei löydy.");
-      target.title = title;
+      if ("title" in metadata) target.title = metadata.title;
+      if ("author" in metadata) target.author = metadata.author || "Tuntematon";
+      if (metadata.analysis) target.analysis = Object.assign({}, target.analysis || {}, metadata.analysis);
       return JSON.parse(JSON.stringify(target));
     }
-    return api("/projects/" + projectId + "/metadata", jsonOptions("PATCH", { title }));
+    return api("/projects/" + projectId + "/metadata", jsonOptions("PATCH", metadata));
+  }
+
+  async function apiPatchMetadata(projectId, analysis) {
+    return apiUpdateProjectMetadata(projectId, { analysis });
   }
 
   async function apiDeleteProject(projectId) {
@@ -754,22 +815,32 @@
   }
 
   async function renameProjectFromLibrary(item, form) {
-    const input = form.querySelector(".project-title-edit");
+    const titleInput = form.querySelector(".project-title-edit");
+    const authorInput = form.querySelector(".project-author-edit");
     const status = form.querySelector(".project-rename-status");
     const saveBtn = form.querySelector(".project-rename-save");
-    const title = String(input?.value || "").trim();
+    const title = String(titleInput?.value || "").trim();
+    const author = String(authorInput?.value || "").trim();
     if (!title) {
       if (status) status.textContent = "Nimi ei voi olla tyhjä.";
-      input?.focus();
+      titleInput?.focus();
       return;
     }
 
     try {
       if (saveBtn) saveBtn.disabled = true;
-      if (status) status.textContent = "Tallennetaan nimeä…";
-      const updated = await apiRenameProject(item.id, title);
+      if (status) status.textContent = "Tallennetaan tietoja…";
+      const metadata = {};
+      if (title !== String(item.title || "").trim()) metadata.title = title;
+      if (author !== projectAuthorValue(item.author)) metadata.author = author;
+      if (!Object.keys(metadata).length) {
+        if (status) status.textContent = "Ei muutoksia.";
+        form.hidden = true;
+        return;
+      }
+      const updated = await apiUpdateProjectMetadata(item.id, metadata);
       item.title = updated.title || title;
-      item.author = updated.author || item.author;
+      item.author = updated.author || "Tuntematon";
       const listItem = projects.find((projectItem) => String(projectItem.id) === String(item.id));
       if (listItem) Object.assign(listItem, item);
       if (project && String(project.id) === String(item.id)) {
@@ -781,13 +852,14 @@
       notifyParent("skriptlab:project-renamed", {
         projectId: String(item.id),
         title: item.title,
+        author: item.author,
         project: updated,
       });
-      if (status) status.textContent = "Nimi tallennettu.";
+      if (status) status.textContent = "Tiedot tallennettu.";
       form.hidden = true;
       renderLibrary();
     } catch (error) {
-      if (status) status.textContent = error.message || "Nimen tallennus epäonnistui.";
+      if (status) status.textContent = error.message || "Tietojen tallennus epäonnistui.";
     } finally {
       if (saveBtn) saveBtn.disabled = false;
     }
@@ -902,7 +974,7 @@
       result[step.status] = (result[step.status] || 0) + 1;
       return result;
     }, { done: 0, progress: 0, todo: 0, unavailable: 0 });
-    const author = String(previewProject.author || item.author || "").trim();
+    const author = projectAuthorValue(previewProject.author || item.author);
     preview.innerHTML =
       '<header class="project-progress-preview-header">' +
         '<p class="eyebrow">Eteneminen</p>' +
@@ -1000,7 +1072,7 @@
       openBtn.innerHTML =
         '<span class="project-open-copy">' +
           '<span class="project-title">' + escapeHtml(item.title) + '</span>' +
-          '<span class="project-card-detail"><span class="meta">' + escapeHtml(item.author || "Tekijä puuttuu") + " · " +
+          '<span class="project-card-detail"><span class="meta">' + escapeHtml(projectAuthorValue(item.author) || "Tekijä puuttuu") + " · " +
           item.chapter_count + " lukua</span> " + current + status + '</span>' +
         '</span>';
       openBtn.setAttribute("aria-label", "Avaa " + (item.title || "nimetön käsikirjoitus"));
@@ -1074,7 +1146,7 @@
           const renameBtn = document.createElement("button");
           renameBtn.type = "button";
           renameBtn.className = "project-rename-toggle";
-          renameBtn.textContent = "Nimeä";
+          renameBtn.textContent = "Muokkaa tietoja";
           renameBtn.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -1107,8 +1179,10 @@
           renameForm.className = "project-rename-form";
           renameForm.hidden = true;
           renameForm.innerHTML =
-            '<label class="field-label" for="rename-project-' + escapeHtml(item.id) + '">Uusi nimi</label>' +
-            '<input id="rename-project-' + escapeHtml(item.id) + '" class="project-title-edit" type="text" value="' + escapeHtml(item.title || "") + '">' +
+            '<label class="field-label" for="rename-project-' + escapeHtml(item.id) + '">Teoksen nimi</label>' +
+            '<input id="rename-project-' + escapeHtml(item.id) + '" class="project-title-edit" type="text" value="' + escapeAttribute(item.title || "") + '">' +
+            '<label class="field-label" for="author-project-' + escapeHtml(item.id) + '">Tekijä</label>' +
+            '<input id="author-project-' + escapeHtml(item.id) + '" class="project-author-edit" type="text" value="' + escapeAttribute(projectAuthorValue(item.author)) + '" placeholder="Kirjailijan nimi">' +
             '<div class="project-rename-actions">' +
               '<button class="project-rename-cancel" type="button">Peruuta</button>' +
               '<button class="project-rename-save" type="submit">Tallenna</button>' +
@@ -1123,8 +1197,10 @@
             event.preventDefault();
             event.stopPropagation();
             renameForm.hidden = true;
-            const input = renameForm.querySelector(".project-title-edit");
-            if (input) input.value = item.title || "";
+            const titleInput = renameForm.querySelector(".project-title-edit");
+            const authorInput = renameForm.querySelector(".project-author-edit");
+            if (titleInput) titleInput.value = item.title || "";
+            if (authorInput) authorInput.value = projectAuthorValue(item.author);
           });
           li.appendChild(renameForm);
         }
@@ -1417,7 +1493,7 @@
 
   function renderChapters() {
     $("f-title").value = project.title || "";
-    $("f-author").value = project.author || "";
+    $("f-author").value = projectAuthorValue(project.author);
     const list = $("chapter-list");
     list.innerHTML = "";
     $("chapter-count").textContent = String((project.chapters || []).length);
@@ -1464,13 +1540,25 @@
     $("save-status").textContent = "Tallennetaan…";
     saveTimer = setTimeout(async () => {
       try {
-        project = await apiSaveProject({
-          id: project.id,
-          title: $("f-title").value.trim() || demoUiText("Nimetön käsikirjoitus"),
-          author: $("f-author").value.trim(),
-        });
+        const title = $("f-title").value.trim() || demoUiText("Nimetön käsikirjoitus");
+        const author = $("f-author").value.trim();
+        const metadata = {};
+        if (title !== String(project.title || "").trim()) metadata.title = title;
+        if (author !== projectAuthorValue(project.author)) metadata.author = author;
+        if (!Object.keys(metadata).length) {
+          $("save-status").textContent = "Tallennettu ✓";
+          return;
+        }
+        project = await apiUpdateProjectMetadata(project.id, metadata);
+        rememberActiveProject(project);
         $("save-status").textContent = demoMode ? "Demotila – tila vain muistissa." : "Tallennettu ✓";
         $("project-title").textContent = project.title;
+        notifyParent("skriptlab:project-renamed", {
+          projectId: String(project.id),
+          title: project.title,
+          author: project.author,
+          project,
+        });
       } catch (error) {
         $("save-status").textContent = "Tallennus epäonnistui.";
       }
@@ -1914,7 +2002,8 @@
       if (!file) return;
       try {
         working(true, "Tuodaan käsikirjoitusta…");
-        const result = await apiImportFile(file);
+        const result = await apiImportFile(file, $("new-project-author")?.value || "");
+        if ($("new-project-author")) $("new-project-author").value = "";
         (result.warnings || []).forEach(toast);
         await renderLibrary();
         await openProject(result.project.id);
@@ -1932,8 +2021,10 @@
       try {
         const created = await apiSaveProject({
           title: showcaseDemoMode ? "Uusi teksti" : "Uusi käsikirjoitus",
+          author: $("new-project-author")?.value.trim() || "Tuntematon",
           chapters: [{ id: "luku_1", title: "Luku 1", toc_title: "Luku 1", kind: "main", paragraphs: [] }],
         });
+        if ($("new-project-author")) $("new-project-author").value = "";
         await renderLibrary();
         await openProject(created.id);
         if (hasModule("write_edit") && String(project?.id || "") === String(created.id)) {

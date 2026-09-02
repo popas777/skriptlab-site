@@ -6,6 +6,62 @@ const WRITER_DESK_STRUCTURE_VISIBLE_KEY = "skriptlab_writer_desk_structure_visib
 let manuscriptSaveQueue = Promise.resolve();
 let manuscriptSaveRequestId = 0;
 
+const MISSING_PROJECT_AUTHORS = new Set([
+    '',
+    'tuntematon',
+    'tuntematon tekijä',
+    'tuntematon kirjailija',
+    '[tekijä]',
+    '[kirjailija]',
+    '[author]',
+    'ei tiedossa',
+    'unknown',
+    'unknown author',
+    'ei mainittu',
+    'ei ilmoitettu',
+    'ei ilmene',
+    'ei löydy',
+    'ei saatavilla',
+    'n/a',
+    'not mentioned',
+    'not specified',
+    'not found',
+    'not available',
+    'not applicable'
+]);
+
+const UNCERTAIN_PROJECT_AUTHOR_PREFIXES = new Set([
+    'ei mainittu',
+    'ei ilmoitettu',
+    'ei ilmene',
+    'ei löydy',
+    'ei saatavilla',
+    'not mentioned',
+    'not specified',
+    'not found',
+    'not available',
+    'not applicable'
+]);
+
+function isMissingProjectAuthor(value) {
+    const normalized = String(value || '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('fi-FI');
+    const comparisonKey = normalized.replace(
+        /^[\s.,:;!?\-–—()\[\]]+|[\s.,:;!?\-–—()\[\]]+$/g,
+        ''
+    );
+    return !comparisonKey
+        || MISSING_PROJECT_AUTHORS.has(normalized)
+        || MISSING_PROJECT_AUTHORS.has(comparisonKey)
+        || Array.from(UNCERTAIN_PROJECT_AUTHOR_PREFIXES).some(
+            (prefix) => comparisonKey.startsWith(`${prefix} `)
+        );
+}
+
+function meaningfulProjectAuthor(value) {
+    const cleaned = String(value || '').replace(/\s+/g, ' ').trim();
+    return isMissingProjectAuthor(cleaned) ? '' : cleaned;
+}
+
 function markLocalManuscriptDraft(data, pendingSync = true) {
     if (!data) return;
     data._local_saved_at = Date.now();
@@ -75,7 +131,7 @@ window.saveManuscriptToDB = function(data, options = {}) {
             Object.assign(data, saved);
             if (currentChapters) data.chapters = currentChapters;
             if (currentTitle) data.title = currentTitle;
-            if (currentAuthor) data.author = currentAuthor;
+            if (meaningfulProjectAuthor(currentAuthor)) data.author = currentAuthor;
             if (hasAnalysisPayload(currentAnalysis)) {
                 const mergedAnalysis = { ...currentAnalysis };
                 const savedAnalysis = saved.analysis && typeof saved.analysis === 'object' ? saved.analysis : {};
@@ -131,7 +187,7 @@ window.saveProjectChapterToDB = function(data, chapterIndex) {
             Object.assign(data, saved);
             data.chapters = currentChapters;
             if (currentTitle) data.title = currentTitle;
-            if (currentAuthor) data.author = currentAuthor;
+            if (meaningfulProjectAuthor(currentAuthor)) data.author = currentAuthor;
             if (hasAnalysisPayload(currentAnalysis)) data.analysis = currentAnalysis;
             delete data._needs_db_sync;
             delete data._pending_save_kind;
@@ -171,7 +227,7 @@ window.saveProjectStructureToDB = function(data) {
             Object.assign(data, saved);
             data.chapters = currentChapters;
             if (currentTitle) data.title = currentTitle;
-            if (currentAuthor) data.author = currentAuthor;
+            if (meaningfulProjectAuthor(currentAuthor)) data.author = currentAuthor;
             if (hasAnalysisPayload(currentAnalysis)) data.analysis = currentAnalysis;
             delete data._needs_db_sync;
             delete data._pending_save_kind;
@@ -9514,7 +9570,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     function coverAuthorFromProject() {
-        return String(window.manuscriptData?.analysis?.product_info?.author || window.manuscriptData?.author || '').trim();
+        return meaningfulProjectAuthor(window.manuscriptData?.author)
+            || meaningfulProjectAuthor(window.manuscriptData?.analysis?.product_info?.author);
     }
 
     function refreshCoverTextFields(force = false) {
@@ -9958,13 +10015,19 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         return info;
     }
 
+    function productFieldHasValue(key, value) {
+        return key === 'author'
+            ? Boolean(meaningfulProjectAuthor(value))
+            : Boolean(String(value || '').trim());
+    }
+
     function productMissingFieldKeys(info = collectProductFields()) {
         const existing = new Set(Array.isArray(info?.missing_fields) ? info.missing_fields : []);
         Object.keys(productFieldMap).forEach(key => {
-            if (String(info?.[key] || '').trim()) existing.delete(key);
+            if (productFieldHasValue(key, info?.[key])) existing.delete(key);
         });
         productRequiredFieldKeys.forEach(key => {
-            if (!String(info?.[key] || '').trim()) existing.add(key);
+            if (!productFieldHasValue(key, info?.[key])) existing.add(key);
             else existing.delete(key);
         });
         return Array.from(existing).sort();
@@ -9986,7 +10049,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 if (isMissing) field.setAttribute('aria-invalid', 'true');
                 else field.removeAttribute('aria-invalid');
             }
-            if (key && String(info?.[key] || '').trim()) completed += 1;
+            if (key && productFieldHasValue(key, info?.[key])) completed += 1;
         });
         const completedCount = document.getElementById('product-completed-count');
         const missingCount = document.getElementById('product-missing-count');
@@ -10040,7 +10103,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             info[key] = String(saved[key] || '').trim();
         });
         info.title = info.title || window.manuscriptData?.title || '';
-        info.author = info.author || window.manuscriptData?.author || '';
+        info.author = meaningfulProjectAuthor(window.manuscriptData?.author)
+            || meaningfulProjectAuthor(info.author);
         info.author_role = info.author_role || (info.author ? 'Tekijä, kirjoittaja' : '');
         info.contributors = info.contributors || (info.author ? `Kirjailija: ${info.author}` : '');
         info.product_format = info.product_format || 'Painettu kirja / e-kirja';
@@ -10120,18 +10184,52 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             setProductStatus('Valitse käsikirjoitus ensin.', true);
             return null;
         }
-        const info = collectProductFields();
-        applyProductInfoToAnalysis(info);
-        const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
-        if (savedProject?.id) window.manuscriptData = savedProject;
-        setProductFields(info, true);
-        renderAnalysisSummary(window.manuscriptData.analysis);
-        renderMarketingMaterialsFromAnalysis(false);
-        const missingCount = markProductMissingFields(info);
-        const syncPending = Boolean(window.manuscriptData?._db_sync_pending);
-        const suffix = missingCount ? `${missingCount} tärkeää kenttää odottaa täydennystä.` : 'Tärkeät kentät ovat täytettynä.';
-        setProductStatus(syncPending ? `Tuotetiedot tallennettu paikallisesti, tietokantasynkronointi odottaa. ${suffix}` : `Tuotetiedot tallennettu. ${suffix}`, syncPending);
-        return info;
+        const button = document.getElementById('product-save-btn');
+        if (button?.disabled) return null;
+        if (button) button.disabled = true;
+        setProductStatus('Tallennetaan tuotetietoja...');
+        try {
+            if (!window.manuscriptData.id) {
+                const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
+                if (savedProject?.id) window.manuscriptData = savedProject;
+            }
+            if (!window.manuscriptData?.id) {
+                throw new Error('Käsikirjoitusta ei saatu tallennettua ennen tuotetietojen tallennusta.');
+            }
+            const info = collectProductFields();
+            const canonicalAuthor = meaningfulProjectAuthor(info.author);
+            info.author = canonicalAuthor;
+            info.missing_fields = productMissingFieldKeys(info);
+            const currentAuthor = meaningfulProjectAuthor(window.manuscriptData.author);
+            if (canonicalAuthor !== currentAuthor) {
+                const authorResponse = await apiFetch(`/api/projects/${window.manuscriptData.id}/metadata`, {
+                    method: 'PATCH',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ author: canonicalAuthor })
+                });
+                const authorProject = await authorResponse.json().catch(() => null);
+                if (!authorResponse.ok) {
+                    throw new Error(authorProject?.detail || 'Tekijätiedon tallennus epäonnistui.');
+                }
+                window.manuscriptData.author = authorProject?.author || 'Tuntematon';
+            }
+            applyProductInfoToAnalysis(info);
+            const savedProject = await window.saveManuscriptToDB(window.manuscriptData);
+            if (savedProject?.id) window.manuscriptData = savedProject;
+            setProductFields(info, true);
+            renderAnalysisSummary(window.manuscriptData.analysis);
+            renderMarketingMaterialsFromAnalysis(false);
+            const missingCount = markProductMissingFields(info);
+            const syncPending = Boolean(window.manuscriptData?._db_sync_pending);
+            const suffix = missingCount ? `${missingCount} tärkeää kenttää odottaa täydennystä.` : 'Tärkeät kentät ovat täytettynä.';
+            setProductStatus(syncPending ? `Tuotetiedot tallennettu paikallisesti, tietokantasynkronointi odottaa. ${suffix}` : `Tuotetiedot tallennettu. ${suffix}`, syncPending);
+            return info;
+        } catch (error) {
+            setProductStatus(error?.message || 'Tuotetietojen tallennus epäonnistui.', true);
+            return null;
+        } finally {
+            if (button) button.disabled = false;
+        }
     }
 
     function renderProductInfo(force = false) {
@@ -21956,9 +22054,10 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (message.type === 'skriptlab:project-renamed') {
             const renamedId = message.projectId ? String(message.projectId) : '';
             const title = String(message.title || message.project?.title || '').trim();
+            const author = String(message.author ?? message.project?.author ?? '').trim() || 'Tuntematon';
             if (!renamedId || !title) return;
             availableProjects = availableProjects.map(project => (
-                String(project.id) === renamedId ? Object.assign({}, project, { title }) : project
+                String(project.id) === renamedId ? Object.assign({}, project, { title, author }) : project
             ));
             renderProjectCards(availableProjects);
             updateTranslationProjectSelect();
@@ -21966,6 +22065,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             updateMiscProjectSelect();
             if (window.manuscriptData?.id && String(window.manuscriptData.id) === renamedId) {
                 window.manuscriptData.title = title;
+                window.manuscriptData.author = author;
                 localStorage.setItem('skriptlab_manuscript', JSON.stringify(window.manuscriptData));
                 window.updateDynamicTexts();
                 renderBookOverview();
@@ -27563,7 +27663,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (step) params.set('step', step);
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '29');
+        params.set('v', '30');
         const reloaded = updateEmbeddedModuleFrame(frame, 'manuskripti.html', params);
         if (!reloaded && frame.contentWindow) {
             frame.contentWindow.postMessage({ type: 'skriptlab:refresh-workflow-status' }, window.location.origin);
