@@ -4,15 +4,20 @@
     const rootConfig = window.SKRIPTLAB_CONFIG || {};
     const API_BASE = String(rootConfig.API_BASE_URL || "").replace(/\/$/, "") + "/api";
     const ACTIVE_PROJECT_KEY = "skriptlab_active_project_id";
+    const MODE_KEY = "skriptlab_text_translation_finishing_mode";
+    const CHAPTER_KEY_PREFIX = "skriptlab_text_finishing_chapter_";
     const $ = (id) => document.getElementById(id);
 
     const state = {
+        mode: localStorage.getItem(MODE_KEY) === "translation" ? "translation" : "text",
         projects: [],
         project: null,
+        chapterIndex: 0,
         translations: [],
         translation: null,
         segmentIndex: 0,
-        reviews: new Map(),
+        textReviews: new Map(),
+        translationReviews: new Map(),
         busy: false,
         projectLoadRevision: 0,
         translationLoadRevision: 0,
@@ -89,7 +94,7 @@
             return response.json();
         } catch (error) {
             if (error?.name === "AbortError") {
-                throw new Error("Pyyntö kesti liian kauan. Käännöstä ei muutettu.");
+                throw new Error("Pyyntö kesti liian kauan. Tekstiä ei muutettu.");
             }
             throw error;
         } finally {
@@ -192,13 +197,56 @@
             .filter((chunk) => translationTextForChunk(chunk).trim());
     }
 
+    function currentChapter() {
+        return state.project?.chapters?.[state.chapterIndex] || null;
+    }
+
+    function chapterParagraphs(chapter) {
+        return (Array.isArray(chapter?.paragraphs) ? chapter.paragraphs : [])
+            .map((paragraph) => String(paragraph || ""));
+    }
+
+    function chapterTitle(chapter, index) {
+        return String(chapter?.toc_title || chapter?.title || "Luku " + (index + 1));
+    }
+
     function currentChunk() {
         return translationChunks(state.translation)[state.segmentIndex] || null;
     }
 
     function currentReview() {
+        if (state.mode === "text") {
+            return currentChapter() ? state.textReviews.get(state.chapterIndex) || null : null;
+        }
         const chunk = currentChunk();
-        return chunk ? state.reviews.get(chunk._kfRawIndex) || null : null;
+        return chunk ? state.translationReviews.get(chunk._kfRawIndex) || null : null;
+    }
+
+    function replaceTextSuggestion(paragraphs, suggestion, replacement) {
+        const nextParagraphs = paragraphs.map((paragraph) => String(paragraph || ""));
+        const paragraphIndex = Number(suggestion?.paragraph_index);
+        if (!Number.isInteger(paragraphIndex) || paragraphIndex < 0 || paragraphIndex >= nextParagraphs.length) {
+            return { paragraphs: nextParagraphs, error: "Ehdotuksen kappaletta ei enää löytynyt." };
+        }
+        const original = String(suggestion?.original || "");
+        if (!original) {
+            return { paragraphs: nextParagraphs, error: "Ehdotuksen alkuperäinen tekstikohta puuttuu." };
+        }
+        const paragraph = nextParagraphs[paragraphIndex];
+        const start = paragraph.indexOf(original);
+        if (start < 0) {
+            return { paragraphs: nextParagraphs, error: "Tekstikohta on muuttunut tarkistuksen jälkeen." };
+        }
+        if (paragraph.indexOf(original, start + Math.max(1, original.length)) >= 0) {
+            return {
+                paragraphs: nextParagraphs,
+                error: "Sama tekstikohta esiintyy kappaleessa useasti eikä korjausta voi kohdistaa varmasti.",
+            };
+        }
+        nextParagraphs[paragraphIndex] = paragraph.slice(0, start)
+            + String(replacement ?? "")
+            + paragraph.slice(start + original.length);
+        return { paragraphs: nextParagraphs };
     }
 
     function chunkTitle(chunk, index) {
@@ -263,11 +311,46 @@
         });
     }
 
-    function renderDocument() {
+    function renderTextDocument() {
+        const chapters = Array.isArray(state.project?.chapters) ? state.project.chapters : [];
+        state.chapterIndex = Math.max(0, Math.min(state.chapterIndex, Math.max(0, chapters.length - 1)));
+        const chapter = currentChapter();
+        const paragraphs = chapterParagraphs(chapter);
+        const hasChapter = Boolean(chapter);
+        $("kf-text-empty").hidden = hasChapter;
+        $("kf-text-reader").inert = !hasChapter;
+        $("kf-text-reader").tabIndex = hasChapter ? 0 : -1;
+        $("kf-text-reader").replaceChildren();
+        if (!hasChapter) {
+            $("kf-segment-title").textContent = "Ei valittua teosta";
+            $("kf-segment-position").textContent = "0 / 0";
+            $("kf-text-word-count").textContent = "0 sanaa";
+            return;
+        }
+        if (!paragraphs.some((paragraph) => paragraph.trim())) {
+            renderReader($("kf-text-reader"), "", "Luku on tyhjä");
+        } else {
+            paragraphs.forEach((paragraph, index) => {
+                const element = document.createElement("p");
+                element.dataset.lineNumber = String(index + 1);
+                element.textContent = paragraph || " ";
+                $("kf-text-reader").appendChild(element);
+            });
+        }
+        $("kf-segment-title").textContent = chapterTitle(chapter, state.chapterIndex);
+        $("kf-segment-position").textContent = "Luku " + (state.chapterIndex + 1) + " / " + chapters.length;
+        $("kf-text-word-count").textContent = wordCount(paragraphs.join(" ")) + " sanaa";
+    }
+
+    function renderTranslationDocument() {
         const chunks = translationChunks(state.translation);
         const chunk = currentChunk();
         const hasTranslation = Boolean(chunk);
         $("kf-translation-empty").hidden = hasTranslation;
+        [$("kf-source-reader"), $("kf-target-reader")].forEach((reader) => {
+            reader.inert = !hasTranslation;
+            reader.tabIndex = hasTranslation ? 0 : -1;
+        });
         if (!hasTranslation) {
             $("kf-source-reader").replaceChildren();
             $("kf-target-reader").replaceChildren();
@@ -365,6 +448,7 @@
     }
 
     function renderSuggestions() {
+        const isTranslation = state.mode === "translation";
         const review = currentReview();
         const suggestions = Array.isArray(review?.suggestions) ? review.suggestions : [];
         const counts = suggestions.reduce((result, item) => {
@@ -386,11 +470,13 @@
         const emptyText = empty.querySelector("p");
         empty.hidden = suggestions.length > 0;
         if (!review) {
-            emptyTitle.textContent = "Tarkista valittu segmentti";
+            emptyTitle.textContent = isTranslation ? "Tarkista valittu segmentti" : "Tarkista valittu luku";
             emptyText.textContent = "Saat yksittäisen listan korjauksista, jotka voit hyväksyä tai hylätä.";
         } else if (!suggestions.length) {
             emptyTitle.textContent = "Ei korjausehdotuksia";
-            emptyText.textContent = "Tarkistus ei löytänyt tästä segmentistä selvää kieli- tai ulkoasukorjausta.";
+            emptyText.textContent = isTranslation
+                ? "Tarkistus ei löytänyt tästä segmentistä selvää kieli- tai ulkoasukorjausta."
+                : "Tarkistus ei löytänyt tästä luvusta selvää kieli- tai ulkoasukorjausta.";
         }
 
         const list = $("kf-suggestion-list");
@@ -402,49 +488,87 @@
     function renderHeader() {
         $("kf-project-name").textContent = state.project
             ? (state.project.title || "Nimetön teos") + " · " + (state.project.author || "Tuntematon")
-            : "Valitse teos ja valmis käännös.";
+            : (state.mode === "translation" ? "Valitse teos ja valmis käännös." : "Valitse viimeisteltävä teos.");
+        $("kf-text-project-select").value = state.project?.id ? String(state.project.id) : "";
         $("kf-project-select").value = state.project?.id ? String(state.project.id) : "";
         $("kf-translation-select").value = state.translation?.id ? String(state.translation.id) : "";
     }
 
-    function renderAll() {
-        renderHeader();
-        renderDocument();
+    function renderMode() {
+        const isTranslation = state.mode === "translation";
+        $("kf-text-toolbar").hidden = isTranslation;
+        $("kf-translation-toolbar").hidden = !isTranslation;
+        $("kf-text-panel").hidden = isTranslation;
+        $("kf-translation-panel").hidden = !isTranslation;
+        $("kf-navigator").setAttribute("aria-label", isTranslation ? "Käännössegmenttien selaus" : "Lukujen selaus");
+        document.querySelectorAll("[data-kf-mode]").forEach((button) => {
+            const active = button.dataset.kfMode === state.mode;
+            button.classList.toggle("is-active", active);
+            button.setAttribute("aria-selected", String(active));
+            button.tabIndex = active ? 0 : -1;
+        });
+        $("kf-review-title").textContent = isTranslation
+            ? "Käännöksen kieli- ja ulkoasuehdotukset"
+            : "Tekstin kieli- ja ulkoasuehdotukset";
+        $("kf-review-description").textContent = isTranslation
+            ? "Oikoluku etsii käännöksestä selvät kieli-, typografia- ja tekstin ulkoasun korjaukset. Teksti muuttuu vain hyväksynnällä."
+            : "Oikoluku etsii käsikirjoituksesta selvät kieli-, typografia- ja tekstin ulkoasun korjaukset. Teksti muuttuu vain hyväksynnällä.";
+        $("kf-run-label").textContent = isTranslation ? "Tarkista tämä segmentti" : "Tarkista tämä luku";
+        $("kf-review-footer-note").textContent = isTranslation
+            ? "Hylätyt ja avoimet ehdotukset eivät päädy ladattavaan teokseen."
+            : "Hylätyt ja avoimet ehdotukset eivät muuta käsikirjoitusta.";
+        if (isTranslation) renderTranslationDocument();
+        else renderTextDocument();
         renderSuggestions();
     }
 
+    function renderAll() {
+        renderHeader();
+        renderMode();
+    }
+
     function updateActionStates() {
+        const isTranslation = state.mode === "translation";
         const chunks = translationChunks(state.translation);
+        const chapterCount = state.project?.chapters?.length || 0;
+        const chapterHasText = chapterParagraphs(currentChapter()).some((paragraph) => paragraph.trim());
         const review = currentReview();
         const openCount = (review?.suggestions || []).filter((item) => (item.status || "open") === "open").length;
+        $("kf-text-project-select").disabled = state.busy;
         $("kf-project-select").disabled = state.busy;
         $("kf-translation-select").disabled = state.busy || !state.translations.length;
-        $("kf-previous").disabled = state.busy || state.segmentIndex <= 0;
-        $("kf-next").disabled = state.busy || state.segmentIndex >= chunks.length - 1;
-        $("kf-run").disabled = state.busy || !currentChunk();
+        document.querySelectorAll("[data-kf-mode]").forEach((button) => {
+            button.disabled = state.busy;
+        });
+        $("kf-previous").disabled = state.busy || (isTranslation ? state.segmentIndex <= 0 : state.chapterIndex <= 0);
+        $("kf-next").disabled = state.busy || (isTranslation
+            ? state.segmentIndex >= chunks.length - 1
+            : state.chapterIndex >= chapterCount - 1);
+        $("kf-run").disabled = state.busy || (isTranslation ? !currentChunk() : !chapterHasText);
         $("kf-accept-all").disabled = state.busy || !openCount;
-        $("kf-download-final").disabled = state.busy || !state.translation?.id || !chunks.length;
-        $("kf-download-bilingual").disabled = state.busy || !state.translation?.id || !chunks.length;
-        $("kf-download-bilingual-docx").disabled = state.busy || !state.translation?.id || !chunks.length;
+        $("kf-download-final").disabled = state.busy || !isTranslation || !state.translation?.id || !chunks.length;
+        $("kf-download-bilingual").disabled = state.busy || !isTranslation || !state.translation?.id || !chunks.length;
+        $("kf-download-bilingual-docx").disabled = state.busy || !isTranslation || !state.translation?.id || !chunks.length;
     }
 
     function populateProjectSelect() {
-        const select = $("kf-project-select");
-        const previous = state.project?.id ? String(state.project.id) : select.value;
-        select.replaceChildren();
-        const placeholder = document.createElement("option");
-        placeholder.value = "";
-        placeholder.textContent = "Valitse teos";
-        select.appendChild(placeholder);
-        state.projects.forEach((project) => {
-            const option = document.createElement("option");
-            option.value = String(project.id);
-            option.textContent = project.title || "Nimetön teos";
-            select.appendChild(option);
+        [$("kf-text-project-select"), $("kf-project-select")].forEach((select) => {
+            const previous = state.project?.id ? String(state.project.id) : select.value;
+            select.replaceChildren();
+            const placeholder = document.createElement("option");
+            placeholder.value = "";
+            placeholder.textContent = "Valitse teos";
+            select.appendChild(placeholder);
+            state.projects.forEach((project) => {
+                const option = document.createElement("option");
+                option.value = String(project.id);
+                option.textContent = project.title || "Nimetön teos";
+                select.appendChild(option);
+            });
+            if (previous && state.projects.some((project) => String(project.id) === previous)) {
+                select.value = previous;
+            }
         });
-        if (previous && state.projects.some((project) => String(project.id) === previous)) {
-            select.value = previous;
-        }
     }
 
     function populateTranslationSelect() {
@@ -515,7 +639,7 @@
         state.translations = [];
         state.translation = null;
         state.segmentIndex = 0;
-        state.reviews = new Map();
+        state.translationReviews = new Map();
         populateTranslationSelect();
         if (!projectId) {
             renderAll();
@@ -551,27 +675,46 @@
         if (!projectId) {
             state.translationLoadRevision += 1;
             state.project = null;
+            state.chapterIndex = 0;
             state.translations = [];
             state.translation = null;
             state.segmentIndex = 0;
-            state.reviews = new Map();
+            state.textReviews = new Map();
+            state.translationReviews = new Map();
             populateTranslationSelect();
             renderAll();
             return;
         }
-        setBusy(true, "Avataan käännösprojektia…");
+        setBusy(true, state.mode === "translation" ? "Avataan käännösprojektia…" : "Avataan käsikirjoitusta…");
         try {
             const project = await api("/projects/" + encodeURIComponent(projectId));
             if (requestRevision !== state.projectLoadRevision) return;
             rememberProject(project, Boolean(settings.notifyParent));
+            const savedChapter = Number(localStorage.getItem(CHAPTER_KEY_PREFIX + projectId));
+            state.chapterIndex = Number.isInteger(savedChapter)
+                && savedChapter >= 0
+                && savedChapter < (project?.chapters?.length || 0)
+                ? savedChapter
+                : 0;
             state.segmentIndex = 0;
-            state.reviews = new Map();
-            await loadTranslations(settings.translationId);
+            state.textReviews = new Map();
+            state.translationReviews = new Map();
+            state.translationLoadRevision += 1;
+            state.translations = [];
+            state.translation = null;
+            populateTranslationSelect();
+            if (state.mode === "translation") await loadTranslations(settings.translationId);
+            else renderAll();
             if (requestRevision !== state.projectLoadRevision) return;
-            setStatus(state.translation ? "Valmis viimeistelyyn" : "Projektilla ei ole valmista käännöstä");
+            setStatus(state.mode === "translation"
+                ? (state.translation ? "Valmis viimeistelyyn" : "Projektilla ei ole valmista käännöstä")
+                : (currentChapter() ? "Valmis viimeistelyyn" : "Projektilla ei ole tarkistettavia lukuja"));
         } catch (error) {
             if (requestRevision !== state.projectLoadRevision) return;
-            setStatus("Käännösprojektin avaaminen epäonnistui");
+            renderAll();
+            setStatus(state.mode === "translation"
+                ? "Käännösprojektin avaaminen epäonnistui"
+                : "Käsikirjoituksen avaaminen epäonnistui");
             toast(error.message);
         } finally {
             if (requestRevision === state.projectLoadRevision) setBusy(false);
@@ -583,7 +726,7 @@
         if (!translationId) {
             state.translation = null;
             state.segmentIndex = 0;
-            state.reviews = new Map();
+            state.translationReviews = new Map();
             renderAll();
             return;
         }
@@ -596,12 +739,13 @@
             if (requestRevision !== state.translationLoadRevision) return;
             rememberTranslation(translation);
             state.segmentIndex = 0;
-            state.reviews = new Map();
+            state.translationReviews = new Map();
             populateTranslationSelect();
             renderAll();
             setStatus("Valmis viimeistelyyn");
         } catch (error) {
             if (requestRevision !== state.translationLoadRevision) return;
+            renderAll();
             setStatus("Käännöksen avaaminen epäonnistui");
             toast(error.message);
         } finally {
@@ -609,13 +753,55 @@
         }
     }
 
-    function moveSegment(direction) {
-        const chunks = translationChunks(state.translation);
-        const next = state.segmentIndex + direction;
-        if (next < 0 || next >= chunks.length) return;
-        state.segmentIndex = next;
+    async function setMode(mode, focusTab) {
+        const next = mode === "translation" ? "translation" : "text";
+        state.mode = next;
+        localStorage.setItem(MODE_KEY, next);
         renderAll();
-        $("kf-target-reader").focus({ preventScroll: true });
+        if (next === "translation" && state.project && !state.translations.length) {
+            const projectRevision = state.projectLoadRevision;
+            setBusy(true, "Avataan käännöksiä…");
+            try {
+                await loadTranslations();
+                if (projectRevision === state.projectLoadRevision) {
+                    setStatus(state.translation ? "Valmis viimeistelyyn" : "Projektilla ei ole valmista käännöstä");
+                }
+            } catch (error) {
+                if (projectRevision === state.projectLoadRevision) {
+                    setStatus("Käännösten avaaminen epäonnistui");
+                    toast(error.message);
+                }
+            } finally {
+                if (projectRevision === state.projectLoadRevision) setBusy(false);
+            }
+        } else {
+            setStatus(next === "translation"
+                ? (state.translation ? "Valmis viimeistelyyn" : "Valitse teos ja käännös")
+                : (currentChapter() ? "Valmis viimeistelyyn" : "Valitse teos"));
+        }
+        if (focusTab) $(next === "translation" ? "kf-tab-translation" : "kf-tab-text").focus();
+    }
+
+    function canMove(direction) {
+        const count = state.mode === "translation"
+            ? translationChunks(state.translation).length
+            : state.project?.chapters?.length || 0;
+        const index = state.mode === "translation" ? state.segmentIndex : state.chapterIndex;
+        return direction < 0 ? index > 0 : index < count - 1;
+    }
+
+    function moveUnit(direction) {
+        if (!canMove(direction)) return;
+        if (state.mode === "translation") {
+            state.segmentIndex += direction;
+        } else {
+            state.chapterIndex += direction;
+            if (state.project?.id) {
+                localStorage.setItem(CHAPTER_KEY_PREFIX + state.project.id, String(state.chapterIndex));
+            }
+        }
+        renderAll();
+        $(state.mode === "translation" ? "kf-target-reader" : "kf-text-reader").focus({ preventScroll: true });
     }
 
     function setCanonicalChunkText(rawIndex, text) {
@@ -625,7 +811,58 @@
         if (chunks[rawIndex]) chunks[rawIndex].translation = String(text || "");
     }
 
-    async function runFinishingSuggestions() {
+    function reviewSuggestions(result) {
+        return (Array.isArray(result?.suggestions) ? result.suggestions : []).map((item) => ({
+            ...item,
+            status: "open",
+            edited_replacement: String(item.replacement ?? ""),
+        }));
+    }
+
+    async function runTextFinishingSuggestions() {
+        const chapter = currentChapter();
+        if (!state.project?.id || !chapter) {
+            toast("Valitse ensin tarkistettava käsikirjoituksen luku.");
+            return;
+        }
+        const projectId = state.project.id;
+        const chapterIndex = state.chapterIndex;
+        const expectedParagraphs = chapterParagraphs(chapter);
+        setBusy(true, "Etsitään kieli- ja ulkoasukorjauksia…");
+        setStatus("Oikoluku tarkistaa lukua");
+        try {
+            const result = await api(
+                "/projects/" + encodeURIComponent(projectId) + "/chapters/" + chapterIndex + "/finishing-suggestions",
+                jsonOptions("POST", { model: null })
+            );
+            if (
+                state.mode !== "text"
+                || String(state.project?.id || "") !== String(projectId)
+                || state.chapterIndex !== chapterIndex
+            ) throw new Error("Käsikirjoitus vaihtui tarkistuksen aikana. Aja tarkistus uudelleen.");
+            const suggestions = reviewSuggestions(result);
+            state.textReviews.set(chapterIndex, {
+                expectedParagraphs,
+                suggestions,
+                warnings: Array.isArray(result?.warnings) ? result.warnings : [],
+                generatedBy: String(result?.generated_by || ""),
+            });
+            renderAll();
+            setStatus(suggestions.length
+                ? (suggestions.length === 1
+                    ? "1 korjausehdotus · hyväksy tai hylkää"
+                    : suggestions.length + " korjausehdotusta · hyväksy tai hylkää")
+                : "Luku tarkistettu · ei korjausehdotuksia");
+            if (!suggestions.length) toast("Luvusta ei löytynyt selvää korjattavaa.");
+        } catch (error) {
+            setStatus("Viimeistelytarkistus epäonnistui");
+            toast(error.message);
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    async function runTranslationFinishingSuggestions() {
         const chunk = currentChunk();
         if (!state.translation?.id || !chunk) {
             toast("Valitse ensin tarkistettava käännössegmentti.");
@@ -646,12 +883,8 @@
             ) throw new Error("Käännös vaihtui tarkistuksen aikana. Aja tarkistus uudelleen.");
             const canonical = String(result?.expected_translation ?? translationTextForChunk(chunk));
             setCanonicalChunkText(rawIndex, canonical);
-            const suggestions = (Array.isArray(result?.suggestions) ? result.suggestions : []).map((item) => ({
-                ...item,
-                status: "open",
-                edited_replacement: String(item.replacement ?? ""),
-            }));
-            state.reviews.set(rawIndex, {
+            const suggestions = reviewSuggestions(result);
+            state.translationReviews.set(rawIndex, {
                 expectedTranslation: canonical,
                 suggestions,
                 warnings: Array.isArray(result?.warnings) ? result.warnings : [],
@@ -672,6 +905,12 @@
         }
     }
 
+    function runFinishingSuggestions() {
+        return state.mode === "translation"
+            ? runTranslationFinishingSuggestions()
+            : runTextFinishingSuggestions();
+    }
+
     function validateOpenSuggestions(review, text) {
         (review?.suggestions || []).forEach((item) => {
             if ((item.status || "open") !== "open") return;
@@ -683,7 +922,89 @@
         });
     }
 
-    async function applySuggestionIndexes(indexes) {
+    function validateOpenTextSuggestions(review, paragraphs) {
+        (review?.suggestions || []).forEach((item) => {
+            if ((item.status || "open") !== "open") return;
+            const validation = replaceTextSuggestion(paragraphs, item, item.replacement);
+            if (validation.error) {
+                item.status = "stale";
+                item.stale_reason = validation.error;
+            }
+        });
+    }
+
+    async function applyTextSuggestionIndexes(indexes) {
+        const chapter = currentChapter();
+        const review = currentReview();
+        if (!state.project?.id || !chapter || !review) return;
+        const projectId = state.project.id;
+        const chapterIndex = state.chapterIndex;
+        const expectedParagraphs = chapterParagraphs(chapter);
+        let nextParagraphs = expectedParagraphs.slice();
+        const applied = [];
+
+        indexes.forEach((index) => {
+            const item = review.suggestions[index];
+            if (!item || (item.status || "open") !== "open") return;
+            const replacement = String(item.edited_replacement ?? item.replacement ?? "");
+            const result = replaceTextSuggestion(nextParagraphs, item, replacement);
+            if (result.error) {
+                item.status = "stale";
+                item.stale_reason = result.error;
+                return;
+            }
+            nextParagraphs = result.paragraphs;
+            applied.push(index);
+        });
+
+        if (!applied.length) {
+            renderSuggestions();
+            toast("Yhtään ehdotusta ei voitu kohdistaa turvallisesti nykyiseen tekstiin.");
+            return;
+        }
+
+        setBusy(true, applied.length > 1 ? "Tallennetaan hyväksyttyjä korjauksia…" : "Tallennetaan hyväksytty korjaus…");
+        setStatus("Tallennetaan hyväksyntää");
+        try {
+            const nextChapter = Object.assign({}, chapter, { paragraphs: nextParagraphs });
+            const saved = await api(
+                "/projects/" + encodeURIComponent(projectId) + "/chapters/" + chapterIndex,
+                jsonOptions("PATCH", {
+                    chapter: nextChapter,
+                    expected_paragraphs: expectedParagraphs,
+                })
+            );
+            if (
+                state.mode !== "text"
+                || String(state.project?.id || "") !== String(projectId)
+                || state.chapterIndex !== chapterIndex
+            ) throw new Error("Käsikirjoitus vaihtui tallennuksen aikana.");
+            rememberProject(saved, true);
+            const canonical = chapterParagraphs(saved?.chapters?.[chapterIndex]);
+            applied.forEach((index) => {
+                review.suggestions[index].status = "accepted";
+                review.suggestions[index].stale_reason = "";
+            });
+            review.expectedParagraphs = canonical;
+            validateOpenTextSuggestions(review, canonical);
+            state.textReviews.set(chapterIndex, review);
+            populateProjectSelect();
+            renderAll();
+            setStatus(applied.length === 1
+                ? "1 korjaus hyväksytty ja tallennettu"
+                : applied.length + " korjausta hyväksytty ja tallennettu");
+            toast(applied.length === 1
+                ? "Korjaus hyväksyttiin."
+                : applied.length + " korjausta hyväksyttiin.");
+        } catch (error) {
+            setStatus("Korjausten tallennus epäonnistui");
+            toast(error.message);
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    async function applyTranslationSuggestionIndexes(indexes) {
         const chunk = currentChunk();
         const review = currentReview();
         if (!state.translation?.id || !chunk || !review) return;
@@ -735,7 +1056,7 @@
             });
             review.expectedTranslation = canonical;
             validateOpenSuggestions(review, canonical);
-            state.reviews.set(rawIndex, review);
+            state.translationReviews.set(rawIndex, review);
             populateTranslationSelect();
             renderAll();
             setStatus(applied.length === 1
@@ -752,13 +1073,21 @@
         }
     }
 
+    function applySuggestionIndexes(indexes) {
+        return state.mode === "translation"
+            ? applyTranslationSuggestionIndexes(indexes)
+            : applyTextSuggestionIndexes(indexes);
+    }
+
     function rejectSuggestion(index) {
         const review = currentReview();
         const item = review?.suggestions?.[index];
         if (!item || (item.status || "open") !== "open") return;
         item.status = "rejected";
         renderSuggestions();
-        setStatus("Ehdotus hylätty · käännös säilyi ennallaan");
+        setStatus(state.mode === "translation"
+            ? "Ehdotus hylätty · käännös säilyi ennallaan"
+            : "Ehdotus hylätty · käsikirjoitus säilyi ennallaan");
         toast("Ehdotus hylättiin. Tekstiä ei muutettu.");
     }
 
@@ -851,14 +1180,30 @@
     }
 
     function bindEvents() {
+        document.querySelectorAll("[data-kf-mode]").forEach((button, index, buttons) => {
+            button.addEventListener("click", () => setMode(button.dataset.kfMode, true));
+            button.addEventListener("keydown", (event) => {
+                if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+                event.preventDefault();
+                let nextIndex = index;
+                if (event.key === "ArrowLeft") nextIndex = (index - 1 + buttons.length) % buttons.length;
+                if (event.key === "ArrowRight") nextIndex = (index + 1) % buttons.length;
+                if (event.key === "Home") nextIndex = 0;
+                if (event.key === "End") nextIndex = buttons.length - 1;
+                setMode(buttons[nextIndex].dataset.kfMode, true);
+            });
+        });
+        $("kf-text-project-select").addEventListener("change", (event) => {
+            loadProject(event.target.value, { notifyParent: true });
+        });
         $("kf-project-select").addEventListener("change", (event) => {
             loadProject(event.target.value, { notifyParent: true });
         });
         $("kf-translation-select").addEventListener("change", (event) => {
             chooseTranslation(event.target.value);
         });
-        $("kf-previous").addEventListener("click", () => moveSegment(-1));
-        $("kf-next").addEventListener("click", () => moveSegment(1));
+        $("kf-previous").addEventListener("click", () => moveUnit(-1));
+        $("kf-next").addEventListener("click", () => moveUnit(1));
         $("kf-run").addEventListener("click", runFinishingSuggestions);
         $("kf-accept-all").addEventListener("click", () => {
             const review = currentReview();
@@ -901,7 +1246,9 @@
             const projectId = params.get("project") || standaloneProjectId || "";
             if (projectId) await loadProject(projectId, { notifyParent: false });
             else renderAll();
-            setStatus(state.translation ? "Valmis viimeistelyyn" : "Valitse teos ja käännös");
+            setStatus(state.mode === "translation"
+                ? (state.translation ? "Valmis viimeistelyyn" : "Valitse teos ja käännös")
+                : (currentChapter() ? "Valmis viimeistelyyn" : "Valitse teos"));
         } catch (error) {
             setStatus("Viimeistelytyötilan lataus epäonnistui");
             toast(error.message);
@@ -914,6 +1261,7 @@
         paragraphModel,
         findSuggestionRange,
         replaceSuggestionRange,
+        replaceTextSuggestion,
         translationChunks,
         contentDispositionFilename,
     };

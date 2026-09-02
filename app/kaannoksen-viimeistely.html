@@ -3,23 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Käännöksen viimeistely ja oikoluku · SkriptLab</title>
+    <title>Tekstin/Käännöksen viimeistely ja oikoluku · SkriptLab</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="tekstin-parantelu.css?v=1">
-    <link rel="stylesheet" href="kaannoksen-viimeistely.css?v=5">
+    <link rel="stylesheet" href="kaannoksen-viimeistely.css?v=6">
 </head>
 <body>
     <main class="ti-app kf-app" aria-labelledby="kf-title">
         <header id="kf-header" class="ti-header">
             <div class="ti-title-row">
                 <div>
-                    <h1 id="kf-title">Käännöksen viimeistely ja oikoluku</h1>
-                    <p id="kf-project-name">Valitse teos ja valmis käännös.</p>
+                    <h1 id="kf-title">Tekstin/Käännöksen viimeistely ja oikoluku</h1>
+                    <p id="kf-project-name">Valitse viimeisteltävä teos.</p>
                 </div>
                 <p id="kf-status" class="ti-status" role="status" aria-live="polite">Valmis</p>
             </div>
 
-            <section class="ti-toolbar kf-toolbar" aria-label="Viimeisteltävän käännöksen valinta ja vienti">
+            <div class="ti-tabs" role="tablist" aria-label="Viimeistelyn ja oikoluvun tyyppi">
+                <button
+                    id="kf-tab-text"
+                    class="ti-tab is-active"
+                    type="button"
+                    role="tab"
+                    aria-selected="true"
+                    aria-controls="kf-text-panel"
+                    data-kf-mode="text"
+                >Tekstin viimeistely ja oikoluku</button>
+                <button
+                    id="kf-tab-translation"
+                    class="ti-tab"
+                    type="button"
+                    role="tab"
+                    aria-selected="false"
+                    aria-controls="kf-translation-panel"
+                    tabindex="-1"
+                    data-kf-mode="translation"
+                >Käännöksen viimeistely ja oikoluku</button>
+            </div>
+
+            <section id="kf-text-toolbar" class="ti-toolbar kf-toolbar" aria-label="Viimeisteltävän tekstin valinta">
+                <label class="ti-select-control" for="kf-text-project-select">
+                    <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 3.75h9l3 3V20.25H6z"></path><path d="M15 3.75v3h3"></path></svg>
+                    <span class="ti-sr-only">Valitse teos</span>
+                    <select id="kf-text-project-select" aria-label="Valitse teos">
+                        <option value="">Valitse teos</option>
+                    </select>
+                </label>
+                <p class="ti-toolbar-note">Tarkista käsikirjoitus luku kerrallaan</p>
+            </section>
+
+            <section id="kf-translation-toolbar" class="ti-toolbar kf-toolbar" aria-label="Viimeisteltävän käännöksen valinta ja vienti" hidden>
                 <label class="ti-select-control" for="kf-project-select">
                     <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 3.75h9l3 3V20.25H6z"></path><path d="M15 3.75v3h3"></path></svg>
                     <span class="ti-sr-only">Valitse teos</span>
@@ -51,13 +84,13 @@
                 </div>
             </section>
 
-            <nav class="ti-navigator" aria-label="Käännössegmenttien selaus">
+            <nav id="kf-navigator" class="ti-navigator" aria-label="Lukujen selaus">
                 <button id="kf-previous" class="ti-button ti-button-secondary" type="button" disabled>
                     <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"></path></svg>
                     Edellinen
                 </button>
                 <div class="ti-position">
-                    <strong id="kf-segment-title">Ei valittua käännöstä</strong>
+                    <strong id="kf-segment-title">Ei valittua teosta</strong>
                     <span id="kf-segment-position">0 / 0</span>
                 </div>
                 <button id="kf-next" class="ti-button ti-button-secondary" type="button" disabled>
@@ -68,44 +101,59 @@
         </header>
 
         <div id="kf-workspace" class="kf-workspace">
-            <section class="kf-document-region" aria-labelledby="kf-document-title">
-                <header class="ti-region-header">
-                    <h2 id="kf-document-title">Rinnakkainen tarkistusnäkymä</h2>
-                    <span id="kf-word-count">0 sanaa</span>
-                </header>
-                <div class="kf-columns">
-                    <article class="kf-column">
-                        <header class="kf-column-header">
-                            <h3>Alkuteksti</h3>
-                            <span id="kf-source-label">Lähde</span>
-                        </header>
-                        <div id="kf-source-reader" class="ti-prose ti-aligned-prose kf-reader" tabindex="0" aria-label="Alkuteksti"></div>
-                    </article>
-                    <article class="kf-column kf-target-column">
-                        <header class="kf-column-header">
-                            <h3>Käännös</h3>
-                            <span id="kf-target-label">Kohdeteksti</span>
-                        </header>
-                        <div id="kf-target-reader" class="ti-prose ti-aligned-prose kf-reader" tabindex="0" aria-label="Viimeisteltävä käännös"></div>
-                    </article>
+            <section class="kf-document-region">
+                <div id="kf-text-panel" class="kf-mode-panel" role="tabpanel" aria-labelledby="kf-tab-text">
+                    <header class="ti-region-header">
+                        <h2 id="kf-text-document-title">Käsikirjoituksen tarkistusnäkymä</h2>
+                        <span id="kf-text-word-count">0 sanaa</span>
+                    </header>
+                    <div id="kf-text-reader" class="ti-prose kf-reader" tabindex="0" aria-label="Viimeisteltävä teksti"></div>
+                    <div id="kf-text-empty" class="ti-empty-state">
+                        <svg aria-hidden="true" viewBox="0 0 48 48"><path d="M12 7h19l5 5v29H12z"></path><path d="M31 7v6h5M17 21h14M17 27h14M17 33h10"></path></svg>
+                        <h2>Valitse viimeisteltävä teos</h2>
+                        <p>Valitse teos. Kieli-, typografia- ja ulkoasukorjaukset tarkistetaan luku kerrallaan.</p>
+                    </div>
                 </div>
-                <div id="kf-translation-empty" class="ti-empty-state">
-                    <svg aria-hidden="true" viewBox="0 0 48 48"><path d="M8 9h14v28H8z"></path><path d="M26 9h14v28H26z"></path><path d="M22 15h4M22 24h4M22 33h4"></path></svg>
-                    <h2>Valitse viimeisteltävä käännös</h2>
-                    <p>Valitse ensin teos ja tallennettu käännös. Alkuteksti ja hyväksytty käännös näytetään rinnakkain segmentti kerrallaan.</p>
+
+                <div id="kf-translation-panel" class="kf-mode-panel" role="tabpanel" aria-labelledby="kf-tab-translation" hidden>
+                    <header class="ti-region-header">
+                        <h2 id="kf-document-title">Rinnakkainen tarkistusnäkymä</h2>
+                        <span id="kf-word-count">0 sanaa</span>
+                    </header>
+                    <div class="kf-columns">
+                        <article class="kf-column">
+                            <header class="kf-column-header">
+                                <h3>Alkuteksti</h3>
+                                <span id="kf-source-label">Lähde</span>
+                            </header>
+                            <div id="kf-source-reader" class="ti-prose ti-aligned-prose kf-reader" tabindex="0" aria-label="Alkuteksti"></div>
+                        </article>
+                        <article class="kf-column kf-target-column">
+                            <header class="kf-column-header">
+                                <h3>Käännös</h3>
+                                <span id="kf-target-label">Kohdeteksti</span>
+                            </header>
+                            <div id="kf-target-reader" class="ti-prose ti-aligned-prose kf-reader" tabindex="0" aria-label="Viimeisteltävä käännös"></div>
+                        </article>
+                    </div>
+                    <div id="kf-translation-empty" class="ti-empty-state">
+                        <svg aria-hidden="true" viewBox="0 0 48 48"><path d="M8 9h14v28H8z"></path><path d="M26 9h14v28H26z"></path><path d="M22 15h4M22 24h4M22 33h4"></path></svg>
+                        <h2>Valitse viimeisteltävä käännös</h2>
+                        <p>Valitse ensin teos ja tallennettu käännös. Alkuteksti ja hyväksytty käännös näytetään rinnakkain segmentti kerrallaan.</p>
+                    </div>
                 </div>
             </section>
 
             <aside class="kf-review" aria-labelledby="kf-review-title">
                 <div class="kf-review-scroll">
                     <header class="ti-inspector-header">
-                        <h2 id="kf-review-title">Kieli- ja ulkoasuehdotukset</h2>
-                        <p>Oikoluku etsii selvät kieli-, typografia- ja tekstin ulkoasun korjaukset. Teksti muuttuu vain hyväksynnällä.</p>
+                        <h2 id="kf-review-title">Tekstin kieli- ja ulkoasuehdotukset</h2>
+                        <p id="kf-review-description">Oikoluku etsii käsikirjoituksesta selvät kieli-, typografia- ja tekstin ulkoasun korjaukset. Teksti muuttuu vain hyväksynnällä.</p>
                     </header>
 
                     <button id="kf-run" class="ti-button ti-button-primary kf-run-button" type="button" disabled>
                         <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m12 3 1.35 4.15L17.5 8.5l-4.15 1.35L12 14l-1.35-4.15L6.5 8.5l4.15-1.35z"></path><path d="m18.5 14 .75 2.25 2.25.75-2.25.75L18.5 20l-.75-2.25L15.5 17l2.25-.75z"></path></svg>
-                        Tarkista tämä segmentti
+                        <span id="kf-run-label">Tarkista tämä luku</span>
                     </button>
 
                     <div id="kf-summary" class="kf-summary" aria-live="polite">
@@ -119,7 +167,7 @@
                         <div class="ti-selection-icon" aria-hidden="true">
                             <svg viewBox="0 0 24 24"><path d="M5 5h14v14H5z"></path><path d="M8 9h8M8 12h6M8 15h7"></path></svg>
                         </div>
-                        <h3>Tarkista valittu segmentti</h3>
+                        <h3>Tarkista valittu luku</h3>
                         <p>Saat yksittäisen listan korjauksista, jotka voit hyväksyä tai hylätä.</p>
                     </section>
                     <div id="kf-suggestion-list" class="kf-suggestion-list"></div>
@@ -127,20 +175,20 @@
 
                 <footer class="kf-review-actions">
                     <button id="kf-accept-all" class="ti-button ti-button-primary" type="button" disabled>Hyväksy kaikki avoimet</button>
-                    <p>Hylätyt ja avoimet ehdotukset eivät päädy ladattavaan teokseen.</p>
+                    <p id="kf-review-footer-note">Hylätyt ja avoimet ehdotukset eivät muuta käsikirjoitusta.</p>
                 </footer>
             </aside>
         </div>
 
         <div id="kf-working" class="ti-working" role="status" aria-live="polite" hidden>
             <div class="ti-spinner" aria-hidden="true"></div>
-            <strong id="kf-working-label">Tarkistetaan käännöstä…</strong>
+            <strong id="kf-working-label">Tarkistetaan tekstiä…</strong>
         </div>
         <div id="kf-toast" class="ti-toast" role="status" aria-live="polite" hidden></div>
     </main>
 
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=4"></script>
-    <script src="kaannoksen-viimeistely.js?v=5"></script>
+    <script src="kaannoksen-viimeistely.js?v=6"></script>
 </body>
 </html>

@@ -27,12 +27,26 @@
 
 .kf-document-region {
     position: relative;
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
     min-width: 0;
     min-height: 0;
     overflow: hidden;
     background: var(--ti-surface);
+}
+
+.kf-mode-panel {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+#kf-text-reader {
+    padding-right: clamp(32px, 7vw, 100px);
+    padding-left: clamp(32px, 7vw, 100px);
 }
 
 .kf-columns {
@@ -354,6 +368,10 @@
         max-height: 76dvh;
     }
 
+    .kf-mode-panel {
+        min-height: 0;
+    }
+
     .kf-review {
         min-height: 540px;
         border-top: 1px solid var(--ti-line);
@@ -397,6 +415,18 @@
         min-height: 0;
         max-height: none;
         overflow: visible;
+    }
+
+    .kf-mode-panel {
+        height: auto;
+        min-height: 58dvh;
+        overflow: visible;
+    }
+
+    #kf-text-reader {
+        min-height: 52dvh;
+        padding-right: 17px;
+        padding-left: 17px;
     }
 
     .kf-column {
