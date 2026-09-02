@@ -12,6 +12,7 @@
 
 .kf-download-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     margin-left: auto;
 }
@@ -298,10 +299,19 @@
     text-align: center;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1380px) {
+    .kf-toolbar {
+        flex-wrap: wrap;
+    }
+
     .kf-download-actions {
         flex: 1 0 100%;
         margin-left: 0;
+    }
+
+    .kf-download-actions .ti-button {
+        flex: 1 1 0;
+        min-width: 0;
     }
 }
 
@@ -329,6 +339,13 @@
     .kf-workspace {
         grid-template-columns: 1fr;
         overflow: visible;
+    }
+
+    .kf-download-actions {
+        display: grid;
+        grid-column: 1 / -1;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        width: 100%;
     }
 
     .kf-document-region {

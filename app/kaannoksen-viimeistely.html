@@ -6,7 +6,7 @@
     <title>Käännöksen viimeistely ja oikoluku · SkriptLab</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="tekstin-parantelu.css?v=1">
-    <link rel="stylesheet" href="kaannoksen-viimeistely.css?v=4">
+    <link rel="stylesheet" href="kaannoksen-viimeistely.css?v=5">
 </head>
 <body>
     <main class="ti-app kf-app" aria-labelledby="kf-title">
@@ -38,11 +38,15 @@
                 <div class="kf-download-actions" aria-label="Lataa viimeistelty aineisto">
                     <button id="kf-download-final" class="ti-button ti-button-secondary" type="button" disabled>
                         <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12"></path><path d="m7.5 10.5 4.5 4.5 4.5-4.5"></path><path d="M4 19.5h16"></path></svg>
-                        Lataa lopullinen teos
+                        Lataa lopullinen (.md)
                     </button>
                     <button id="kf-download-bilingual" class="ti-button ti-button-secondary" type="button" disabled>
                         <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12"></path><path d="m7.5 10.5 4.5 4.5 4.5-4.5"></path><path d="M4 19.5h16"></path></svg>
-                        Lataa bilingual-teos
+                        Lataa bilingual (.md)
+                    </button>
+                    <button id="kf-download-bilingual-docx" class="ti-button ti-button-secondary" type="button" disabled>
+                        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 4.5h6.5v15H4z"></path><path d="M13.5 4.5H20v15h-6.5z"></path><path d="M10.5 8h3M10.5 12h3M10.5 16h3"></path></svg>
+                        Lataa 2-palstainen bilingual (.docx)
                     </button>
                 </div>
             </section>
@@ -137,6 +141,6 @@
 
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=4"></script>
-    <script src="kaannoksen-viimeistely.js?v=4"></script>
+    <script src="kaannoksen-viimeistely.js?v=5"></script>
 </body>
 </html>

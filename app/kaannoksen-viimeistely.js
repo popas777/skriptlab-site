@@ -425,6 +425,7 @@
         $("kf-accept-all").disabled = state.busy || !openCount;
         $("kf-download-final").disabled = state.busy || !state.translation?.id || !chunks.length;
         $("kf-download-bilingual").disabled = state.busy || !state.translation?.id || !chunks.length;
+        $("kf-download-bilingual-docx").disabled = state.busy || !state.translation?.id || !chunks.length;
     }
 
     function populateProjectSelect() {
@@ -777,10 +778,30 @@
 
     async function downloadFinishingExport(format) {
         if (!state.translation?.id) return;
-        const button = format === "bilingual" ? $("kf-download-bilingual") : $("kf-download-final");
-        const fallback = format === "bilingual" ? "viimeistelty-bilingual.md" : "viimeistelty-kaannos.md";
+        const exportConfig = {
+            final: {
+                buttonId: "kf-download-final",
+                fallback: "viimeistelty-kaannos.md",
+                preparing: "Valmistellaan lopullista teosta",
+                success: "Lopullinen teos ladattu",
+            },
+            bilingual: {
+                buttonId: "kf-download-bilingual",
+                fallback: "viimeistelty-bilingual.md",
+                preparing: "Valmistellaan bilingual-teosta",
+                success: "Bilingual-teos ladattu",
+            },
+            "bilingual-docx": {
+                buttonId: "kf-download-bilingual-docx",
+                fallback: "viimeistelty-bilingual-rinnakkain.docx",
+                preparing: "Valmistellaan kaksipalstaista bilingual-teosta",
+                success: "Kaksipalstainen bilingual-teos ladattu",
+            },
+        }[format];
+        if (!exportConfig) return;
+        const button = $(exportConfig.buttonId);
         button.disabled = true;
-        setStatus("Valmistellaan ladattavaa teosta");
+        setStatus(exportConfig.preparing);
         try {
             const query = new URLSearchParams({ format });
             const response = await authorizedFetch(
@@ -800,12 +821,15 @@
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.href = url;
-            link.download = contentDispositionFilename(response.headers.get("Content-Disposition"), fallback);
+            link.download = contentDispositionFilename(
+                response.headers.get("Content-Disposition"),
+                exportConfig.fallback
+            );
             document.body.appendChild(link);
             link.click();
             link.remove();
             URL.revokeObjectURL(url);
-            setStatus(format === "bilingual" ? "Bilingual-teos ladattu" : "Lopullinen teos ladattu");
+            setStatus(exportConfig.success);
         } catch (error) {
             setStatus("Teoksen lataus epäonnistui");
             toast(error.message);
@@ -845,6 +869,7 @@
         });
         $("kf-download-final").addEventListener("click", () => downloadFinishingExport("final"));
         $("kf-download-bilingual").addEventListener("click", () => downloadFinishingExport("bilingual"));
+        $("kf-download-bilingual-docx").addEventListener("click", () => downloadFinishingExport("bilingual-docx"));
         $("kf-source-reader").addEventListener("scroll", () => {
             syncScroll($("kf-source-reader"), $("kf-target-reader"));
         });
