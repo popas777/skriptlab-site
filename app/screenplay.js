@@ -20,6 +20,8 @@
     staleSceneIds: new Set(),
     imageModels: [],
     textModels: [],
+    textModelsLoading: false,
+    textModelLoadError: '',
     assets: new Map(),
     assetRequests: new Map(),
     selectedChapterId: null,
@@ -54,6 +56,7 @@
       'screenplay-notice-text', 'screenplay-notice-action', 'screenplay-project-empty',
       'screenplay-workspace', 'screenplay-world-panel', 'screenplay-scenes-panel',
       'screenplay-export-panel', 'screenplay-text-model', 'screenplay-world-image-model',
+      'screenplay-text-model-retry',
       'screenplay-style-hint', 'screenplay-adaptation-goal', 'screenplay-without-text',
       'screenplay-generate-world', 'screenplay-style-section', 'screenplay-manifest-title',
       'screenplay-logline', 'screenplay-synopsis', 'screenplay-style-prompt',
@@ -1015,29 +1018,113 @@
   function renderTextModels() {
     const select = elements['screenplay-text-model'];
     const currentValue = stringValue(select.value);
-    const options = [Object.assign(document.createElement('option'), { value: '', textContent: 'Järjestelmän suositus käsikirjoitukseen' })];
+    const options = [];
+    if (state.textModelsLoading) {
+      options.push(Object.assign(document.createElement('option'), {
+        value: '',
+        textContent: 'Ladataan hyväksyttyjä käsikirjoitusmalleja…',
+      }));
+    } else if (state.textModelLoadError) {
+      options.push(Object.assign(document.createElement('option'), {
+        value: '',
+        textContent: 'Tekstimallien lataus epäonnistui',
+      }));
+    } else if (!state.textModels.length) {
+      options.push(Object.assign(document.createElement('option'), {
+        value: '',
+        textContent: 'Ei hyväksyttyjä käsikirjoitusmalleja käytettävissä',
+      }));
+    }
     state.textModels.forEach((model) => {
       const option = document.createElement('option');
       option.value = imageModelValue(model);
-      option.textContent = `${model.display_name || model.model_name} · ${model.model_name}`;
+      option.textContent = `${model.display_name || model.model_name} · ${model.model_name} · varmennettu käsikirjoitukseen`;
       options.push(option);
     });
     select.replaceChildren(...options);
-    select.value = options.some((option) => option.value === currentValue) ? currentValue : '';
-    select.disabled = false;
+    select.value = options.some((option) => option.value === currentValue)
+      ? currentValue
+      : options[0]?.value || '';
+    select.disabled = state.textModelsLoading || !state.textModels.length;
+    syncTextModelRetry();
+  }
+
+  function syncTextModelRetry() {
+    const button = elements['screenplay-text-model-retry'];
+    if (!button) return;
+    button.hidden = !state.textModelLoadError;
+    button.disabled = state.textModelsLoading || state.operationActive || state.conflict;
+    button.setAttribute('aria-busy', String(state.textModelsLoading));
+  }
+
+  async function loadTextModels(generation) {
+    if (state.textModelsLoading) return false;
+    state.textModelsLoading = true;
+    state.textModels = [];
+    renderTextModels();
+    syncControls();
+    try {
+      const texts = await api('/api/models/text?purpose=video_screenplay', {
+        signal: state.loadController?.signal,
+      });
+      if (generation !== state.loadGeneration) return false;
+      state.textModels = Array.isArray(texts) ? texts : [];
+      state.textModelLoadError = '';
+      return true;
+    } catch (error) {
+      if (error?.name === 'AbortError' || generation !== state.loadGeneration) return false;
+      state.textModels = [];
+      state.textModelLoadError = error.message || 'Tekstimallien lataus epäonnistui.';
+      return false;
+    } finally {
+      if (generation === state.loadGeneration) {
+        state.textModelsLoading = false;
+        renderTextModels();
+        syncControls();
+      }
+    }
+  }
+
+  function showTextModelLoadError() {
+    setNotice(
+      'Hyväksyttyjen käsikirjoitusmallien lataus epäonnistui. Tarkista yhteys ja yritä uudelleen.',
+      'error',
+      'Yritä uudelleen',
+      retryTextModels,
+    );
+  }
+
+  async function retryTextModels() {
+    if (
+      !state.textModelLoadError
+      || state.textModelsLoading
+      || state.operationActive
+      || state.conflict
+    ) return;
+    const generation = state.loadGeneration;
+    const projectId = state.projectId;
+    setNotice('Ladataan hyväksyttyjä käsikirjoitusmalleja uudelleen…', 'loading');
+    const loaded = await loadTextModels(generation);
+    if (generation !== state.loadGeneration || projectId !== state.projectId) return;
+    if (!loaded) {
+      showTextModelLoadError();
+      return;
+    }
+    if (!state.textModels.length) {
+      setNotice('Palvelin ei palauttanut yhtään käsikirjoitusgenerointiin hyväksyttyä tekstimallia.', 'warning');
+      return;
+    }
+    setNotice('Hyväksytyt käsikirjoitusmallit ladattiin. Generointi on taas käytettävissä.', 'ready');
   }
 
   async function loadModels(generation) {
-    const [images, texts] = await Promise.all([
-      api('/api/models/image').catch(() => []),
-      api('/api/models/text').catch(() => []),
-    ]);
-    if (generation !== state.loadGeneration) return;
+    const textModelsPromise = loadTextModels(generation);
+    const images = await api('/api/models/image').catch(() => []);
+    if (generation !== state.loadGeneration) return false;
     state.imageModels = Array.isArray(images) ? images : [];
-    state.textModels = Array.isArray(texts) ? texts : [];
     renderImageModels();
-    renderTextModels();
     syncControls();
+    return textModelsPromise;
   }
 
   async function loadAssetLibrary(generation) {
@@ -1073,6 +1160,7 @@
     const hasProject = Boolean(state.projectId);
     const busy = state.operationActive || state.imageBusy;
     const documentLocked = state.operationActive || state.conflict;
+    const hasTextModel = Boolean(state.textModels.length && selectedTextModelValue());
     [
       'screenplay-style-hint', 'screenplay-adaptation-goal', 'screenplay-without-text',
       'screenplay-manifest-title', 'screenplay-logline', 'screenplay-synopsis',
@@ -1085,15 +1173,16 @@
     ].forEach((id) => {
       if (elements[id] && !elements[id].readOnly) elements[id].disabled = documentLocked;
     });
-    elements['screenplay-text-model'].disabled = documentLocked;
+    elements['screenplay-text-model'].disabled = documentLocked || state.textModelsLoading || !state.textModels.length;
+    syncTextModelRetry();
     elements['screenplay-world-entities'].querySelectorAll('[data-entity-field], [data-entity-asset-select]').forEach((field) => {
       field.disabled = documentLocked;
     });
     elements['screenplay-scene-characters'].querySelectorAll('input').forEach((field) => {
       field.disabled = documentLocked;
     });
-    elements['screenplay-generate-world'].disabled = !hasProject || busy || state.conflict;
-    elements['screenplay-generate-chapter'].disabled = !selectedChapter() || busy || state.conflict;
+    elements['screenplay-generate-world'].disabled = !hasProject || !hasTextModel || busy || state.conflict;
+    elements['screenplay-generate-chapter'].disabled = !selectedChapter() || !hasTextModel || busy || state.conflict;
     elements['screenplay-generate-scene-image'].disabled = !scene
       || !selectedImageModelValue()
       || busy
@@ -1540,6 +1629,10 @@
       await monitorJob(state.pendingJob.clientRequestId);
       return;
     }
+    if (!selectedTextModelValue()) {
+      setNotice('Käsikirjoitusgenerointiin hyväksyttyä tekstimallia ei ole käytettävissä.', 'error');
+      return;
+    }
     const saved = await flushSave();
     if (!saved) return;
     const chapter = selectedChapter();
@@ -1559,8 +1652,7 @@
       style_hint: stringValue(elements['screenplay-style-hint']?.value, 700),
       adaptation_goal: stringValue(elements['screenplay-adaptation-goal']?.value, 2000),
     };
-    const model = selectedTextModelValue();
-    if (model) common.model = model;
+    common.model = selectedTextModelValue();
     const body = kind === 'chapter'
       ? {
         ...common,
@@ -1655,6 +1747,8 @@
     state.savePromise = null;
     state.operationActive = false;
     state.imageBusy = false;
+    state.textModelsLoading = false;
+    state.textModelLoadError = '';
     state.assetRequests.clear();
   }
 
@@ -1688,18 +1782,35 @@
     state.loadController = new AbortController();
     setNotice('Ladataan käsikirjoitustyöpöytää palvelimelta…', 'loading');
     setSaveState('', 'Ladataan…');
-    loadModels(generation);
+    const modelsPromise = loadModels(generation);
     try {
       const payload = await api(workspacePath(), { signal: state.loadController.signal });
       if (generation !== state.loadGeneration) return;
       const createdPrompts = applyWorkspace(payload);
-      renderAll();
-      loadAssetLibrary(generation);
-      const persisted = readPendingJob();
       const activeId = ACTIVE_JOB_STATES.has(stringValue(payload?.status)) ? stringValue(payload?.client_request_id) : '';
       if (activeId) {
-        savePendingJob(persisted?.clientRequestId === activeId ? persisted : { clientRequestId: activeId, kind: payload?.operation || 'unknown' });
-        monitorJob(activeId, payload);
+        // Lock the document before the first render. Waiting for either model
+        // registry request here would briefly expose editable fields and allow
+        // an autosave to supersede the already-running paid generation.
+        state.operationActive = true;
+        const persisted = readPendingJob();
+        savePendingJob(persisted?.clientRequestId === activeId
+          ? persisted
+          : { clientRequestId: activeId, kind: payload?.operation || 'unknown' });
+      }
+      renderAll();
+      loadAssetLibrary(generation);
+      if (activeId) monitorJob(activeId, payload);
+      await modelsPromise;
+      if (generation !== state.loadGeneration) return;
+      if (activeId) {
+        return;
+      } else if (state.textModelLoadError) {
+        clearPendingJob();
+        showTextModelLoadError();
+      } else if (!state.textModels.length) {
+        clearPendingJob();
+        setNotice('Palvelin ei palauttanut yhtään käsikirjoitusgenerointiin hyväksyttyä tekstimallia.', 'warning');
       } else if (payload?.status === 'failed') {
         clearPendingJob();
         setNotice(stringValue(payload.error) || 'Edellinen generointi epäonnistui. Voit korjata asetukset ja yrittää uudelleen.', 'error');
@@ -1722,6 +1833,7 @@
 
   function bindEvents() {
     elements['screenplay-notice-action'].addEventListener('click', () => state.noticeAction?.());
+    elements['screenplay-text-model-retry'].addEventListener('click', retryTextModels);
     elements['screenplay-open-video'].addEventListener('click', () => {
       if (window.parent && window.parent !== window) {
         window.parent.postMessage({ type: 'skriptlab:video-workspace-tab', tab: 'video' }, window.location.origin);

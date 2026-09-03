@@ -670,6 +670,10 @@ textarea:focus {
   color: var(--rust-dark);
 }
 
+.model-retry-action {
+  margin-top: 8px;
+}
+
 .primary-action svg,
 .secondary-action svg {
   width: 18px;
