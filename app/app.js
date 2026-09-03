@@ -5104,8 +5104,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const sidebarNav = navShowMoreButton?.closest('.sidebar-nav');
     const views = document.querySelectorAll('.view-section');
     const videoWorkspaceTabs = Array.from(document.querySelectorAll('[data-video-workspace-tab]'));
+    const videoWorkspaceTabNames = ['video', 'shorts', 'screenplay'];
     const savedVideoWorkspaceTab = localStorage.getItem('skriptlab_video_workspace_tab');
-    setVideoWorkspaceTab(savedVideoWorkspaceTab === 'shorts' ? 'shorts' : 'video', {
+    setVideoWorkspaceTab(videoWorkspaceTabNames.includes(savedVideoWorkspaceTab) ? savedVideoWorkspaceTab : 'video', {
         persist: false,
         refresh: false
     });
@@ -27756,7 +27757,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     }
 
     function setVideoWorkspaceTab(tab, options = {}) {
-        const selectedTab = tab === 'shorts' ? 'shorts' : 'video';
+        const selectedTab = videoWorkspaceTabNames.includes(tab) ? tab : 'video';
         const tabs = document.getElementById('video-workspace-tabs');
         if (!tabs) return;
         tabs.dataset.activeTab = selectedTab;
@@ -27766,7 +27767,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             button.setAttribute('aria-selected', String(active));
             button.tabIndex = active ? 0 : -1;
         });
-        ['video', 'shorts'].forEach(name => {
+        videoWorkspaceTabNames.forEach(name => {
             const panel = document.getElementById(`video-workspace-${name}-panel`);
             if (panel) panel.hidden = name !== selectedTab;
         });
@@ -27801,13 +27802,19 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             document.getElementById('video-studio-frame'),
             'video.html',
             'videoProjectId',
-            '17'
+            '18'
         );
         refreshEmbeddedVideoFrame(
             document.getElementById('shorts-studio-frame'),
             'shorts.html',
             'shortsProjectId',
-            '2'
+            '4'
+        );
+        refreshEmbeddedVideoFrame(
+            document.getElementById('screenplay-studio-frame'),
+            'screenplay.html',
+            'screenplayProjectId',
+            '1'
         );
     }
 
