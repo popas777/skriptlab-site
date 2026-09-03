@@ -69,12 +69,13 @@
             <p>AI hyödyntää kirjan analyysiä tyylin, hahmojen ja paikkojen tunnistamiseen. Valitun luvun lähdeteksti tulee mukaan vasta kohtausgenerointiin.</p>
             <label class="field" for="screenplay-text-model">
               <span>Tekstimalli</span>
-              <select id="screenplay-text-model" disabled><option value="">Järjestelmän oletus</option></select>
+              <select id="screenplay-text-model" disabled><option value="">Järjestelmän suositus käsikirjoitukseen</option></select>
             </label>
             <label class="field" for="screenplay-world-image-model">
               <span>Kuvamalli hahmoille ja paikoille</span>
               <select id="screenplay-world-image-model" data-image-model-select disabled><option value="">Ladataan kuvamalleja…</option></select>
             </label>
+            <p class="prompt-note">Oletuksena käytetään mallirekisterin samaa suositeltua Gemini-kuvamallia kuin kansien generoinnissa. Voit vaihtaa mallin ennen kuvan luontia.</p>
             <label class="prompt-field" for="screenplay-style-hint">
               <span>Style direction <b>EN</b></span>
               <textarea id="screenplay-style-hint" rows="5" maxlength="700" lang="en" spellcheck="false" placeholder="Optional: grounded Nordic realism, muted autumn palette, natural light…"></textarea>
@@ -207,6 +208,7 @@
             <section class="image-generator" aria-labelledby="screenplay-image-title">
               <div class="section-heading"><div><p class="eyebrow">Oikea kuva-assetti</p><h3 id="screenplay-image-title">Kohtauskuva</h3></div></div>
               <label class="field" for="screenplay-image-model"><span>Kuvamalli</span><select id="screenplay-image-model" data-image-model-select disabled><option value="">Ladataan kuvamalleja…</option></select></label>
+              <p class="prompt-note">Suositeltu oletusmalli on sama kuin kansien generoinnissa. Valittu malli näkyy myös generointiviestissä.</p>
               <div class="field-row image-settings">
                 <label class="field" for="screenplay-image-size"><span>Koko</span><select id="screenplay-image-size"><option value="1K">1K</option><option value="2K">2K</option><option value="4K">4K</option></select></label>
                 <label class="field" for="screenplay-image-ratio"><span>Kuvasuhde</span><select id="screenplay-image-ratio"><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="1:1">1:1</option></select></label>
@@ -302,6 +304,6 @@
     const apiUrl = path => `${API_BASE_URL}${path}`;
   </script>
   <script src="auth.js?v=4"></script>
-  <script src="screenplay.js?v=1"></script>
+  <script src="screenplay.js?v=2"></script>
 </body>
 </html>

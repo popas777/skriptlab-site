@@ -276,6 +276,103 @@
     };
   }
 
+  function automaticEntityContinuityPrompt(kind, entity) {
+    const name = stringValue(entity?.name, 240) || (kind === 'character' ? 'this character' : 'this location');
+    const visualContext = stringValue(entity?.visual_description || entity?.description, 1200);
+    const rule = kind === 'character'
+      ? `Keep ${name}'s facial features, apparent age, hairstyle, body proportions, wardrobe, materials, colour palette, and identifying details consistent across every shot.`
+      : `Keep ${name}'s layout, architecture, materials, season, weather, lighting direction, and colour palette consistent across every shot.`;
+    return [rule, visualContext ? `Reference traits from the book analysis: ${visualContext}` : ''].filter(Boolean).join('\n');
+  }
+
+  function automaticEntityImagePrompt(kind, entity) {
+    const context = [
+      entity?.name ? `Name: ${stringValue(entity.name, 240)}` : '',
+      kind === 'character' && entity?.role ? `Narrative role: ${stringValue(entity.role, 500)}` : '',
+      entity?.visual_description ? `Visual description: ${stringValue(entity.visual_description, 1600)}` : '',
+      entity?.description ? `Story context: ${stringValue(entity.description, 1200)}` : '',
+    ].filter(Boolean).join('\n');
+    const direction = kind === 'character'
+      ? 'Create a consistent cinematic character reference portrait for a short-film adaptation. Show one clearly identifiable person in a natural, neutral pose with readable facial features, realistic anatomy, and wardrobe suitable for continuity across later shots.'
+      : 'Create a cinematic environment reference frame for a short-film adaptation. Establish the location clearly with repeatable geography, architecture, materials, light, weather, season, and colour palette for continuity across later shots.';
+    return [
+      direction,
+      'Use the source context only for narrative and visual facts; do not render the context as written text in the image.',
+      context ? `SOURCE CONTEXT (may be in the book's language)\n${context}` : '',
+    ].filter(Boolean).join('\n\n').slice(0, 4000).trim();
+  }
+
+  function automaticScenePrompt(scene, purpose) {
+    const duration = clampInteger(scene?.duration_s, 2, 120, 8);
+    const context = [
+      scene?.title ? `Scene title: ${stringValue(scene.title, 500)}` : '',
+      scene?.summary ? `Scene summary: ${stringValue(scene.summary, 1400)}` : '',
+      scene?.screenplay_text ? `Screenplay excerpt: ${stringValue(scene.screenplay_text, 1200)}` : '',
+      scene?.source?.excerpt ? `Book excerpt: ${stringValue(scene.source.excerpt, 1200)}` : '',
+    ].filter(Boolean).join('\n');
+    const direction = purpose === 'video'
+      ? `Create a ${duration}-second cinematic shot for this short-film scene. Describe continuous subject movement, camera movement, pacing, environmental motion, and a clear final frame. Preserve the story facts and avoid adding new events.`
+      : 'Create a cinematic opening keyframe for this short-film scene. Depict one decisive, filmable moment with clear subject placement, environment, lighting, depth, and emotional focus. Preserve the story facts and avoid adding new events.';
+    const maximum = purpose === 'video' ? 2000 : 4000;
+    return [
+      direction,
+      'Use the source context only for narrative and visual facts; do not render the context as written text in the image.',
+      context ? `SOURCE CONTEXT (may be in the book's language)\n${context}` : '',
+    ].filter(Boolean).join('\n\n').slice(0, maximum).trim();
+  }
+
+  function ensureAutomaticPrompts(manifest = state.manifest) {
+    if (!manifest) return 0;
+    let created = 0;
+    (manifest.characters || []).forEach((entity) => {
+      if (!stringValue(entity.continuity_prompt)) {
+        entity.continuity_prompt = automaticEntityContinuityPrompt('character', entity);
+        entity.continuity_prompt_source = 'generated';
+        created += 1;
+      }
+      if (!stringValue(entity.image_prompt)) {
+        entity.image_prompt = automaticEntityImagePrompt('character', entity);
+        entity.image_prompt_source = 'generated';
+        created += 1;
+      }
+    });
+    (manifest.locations || []).forEach((entity) => {
+      if (!stringValue(entity.continuity_prompt)) {
+        entity.continuity_prompt = automaticEntityContinuityPrompt('location', entity);
+        entity.continuity_prompt_source = 'generated';
+        created += 1;
+      }
+      if (!stringValue(entity.image_prompt)) {
+        entity.image_prompt = automaticEntityImagePrompt('location', entity);
+        entity.image_prompt_source = 'generated';
+        created += 1;
+      }
+    });
+    (manifest.scenes || []).forEach((scene) => {
+      if (!stringValue(scene.image_prompt)) {
+        scene.image_prompt = automaticScenePrompt(scene, 'image');
+        scene.image_prompt_source = 'generated';
+        created += 1;
+      }
+      if (!stringValue(scene.video_prompt)) {
+        scene.video_prompt = automaticScenePrompt(scene, 'video');
+        scene.video_prompt_source = 'generated';
+        created += 1;
+      }
+    });
+    return created;
+  }
+
+  function queueAutomaticPromptSave(created) {
+    if (!created || !state.projectId || !state.manifest || state.conflict) return;
+    state.dirty = true;
+    state.changeSequence += 1;
+    setSaveState('dirty', `${created} automaattipromptia tallennetaan…`);
+    window.clearTimeout(state.saveTimer);
+    state.saveTimer = window.setTimeout(() => { flushSave(); }, SAVE_DELAY_MS);
+    renderExport();
+  }
+
   function workspacePath(suffix = '') {
     return `/api/projects/${encodeURIComponent(state.projectId)}/screenplay${suffix}`;
   }
@@ -340,6 +437,7 @@
     state.dirty = false;
     state.conflict = false;
     if (!options.preserveSaveState) setSaveState('saved', `Tallennettu · revisio ${state.revision}`);
+    return ensureAutomaticPrompts(state.manifest);
   }
 
   function selectedChapter() {
@@ -884,7 +982,7 @@
         state.imageModels.forEach((model) => {
           const option = document.createElement('option');
           option.value = imageModelValue(model);
-          option.textContent = `${model.display_name || model.model_name} · ${model.model_name}`;
+          option.textContent = `${model.display_name || model.model_name} · ${model.model_name}${model.is_default ? ' · suositeltu kuten kansissa' : ''}`;
           options.push(option);
         });
       }
@@ -916,8 +1014,8 @@
 
   function renderTextModels() {
     const select = elements['screenplay-text-model'];
-    const defaultModel = state.textModels.find((model) => model.is_default) || null;
-    const options = [Object.assign(document.createElement('option'), { value: '', textContent: 'Järjestelmän oletus' })];
+    const currentValue = stringValue(select.value);
+    const options = [Object.assign(document.createElement('option'), { value: '', textContent: 'Järjestelmän suositus käsikirjoitukseen' })];
     state.textModels.forEach((model) => {
       const option = document.createElement('option');
       option.value = imageModelValue(model);
@@ -925,7 +1023,7 @@
       options.push(option);
     });
     select.replaceChildren(...options);
-    select.value = defaultModel ? imageModelValue(defaultModel) : '';
+    select.value = options.some((option) => option.value === currentValue) ? currentValue : '';
     select.disabled = false;
   }
 
@@ -997,7 +1095,6 @@
     elements['screenplay-generate-world'].disabled = !hasProject || busy || state.conflict;
     elements['screenplay-generate-chapter'].disabled = !selectedChapter() || busy || state.conflict;
     elements['screenplay-generate-scene-image'].disabled = !scene
-      || !stringValue(scene.image_prompt)
       || !selectedImageModelValue()
       || busy
       || state.conflict;
@@ -1006,7 +1103,7 @@
     document.querySelectorAll('[data-entity-generate]').forEach((button) => {
       const card = button.closest('[data-entity-kind]');
       const entity = entityFromCard(card);
-      button.disabled = !entity || !stringValue(entity.image_prompt) || !selectedImageModelValue() || busy || state.conflict;
+      button.disabled = !entity || !selectedImageModelValue() || busy || state.conflict;
     });
     document.querySelectorAll('[data-image-model-select]').forEach((select) => {
       select.disabled = !state.imageModels.length || state.imageBusy || state.operationActive || state.conflict;
@@ -1241,32 +1338,80 @@
   async function generateImageFor(kind, entity = null, button = null) {
     if (state.imageBusy || state.operationActive || state.conflict) return;
     const scene = kind === 'scene' ? selectedScene() : null;
-    const prompt = kind === 'scene' ? sceneImageRequestPrompt(scene) : entityImageRequestPrompt(kind, entity);
-    const chapterCustomId = imageChapterCustomId(scene);
-    if (!prompt) {
-      setNotice('Kirjoita ensin englanninkielinen kuvaprompti.', 'warning');
-      return;
-    }
-    if (!chapterCustomId) {
-      setNotice('Kuvagenerointi tarvitsee kirjan luvun. Valitse luku ja yritä uudelleen.', 'error');
-      return;
-    }
-    if (!selectedImageModelValue()) {
-      setNotice('Valitse käytettävä kuvamalli.', 'warning');
-      return;
-    }
     const originalLabel = button?.textContent || '';
     const projectId = state.projectId;
     const generation = state.loadGeneration;
+    let selectedModelLabel = 'valittu kuvamalli';
+
+    // Take the lock before prompt autosave: a second tap must not reach either
+    // the revisioned PUT or the paid image request while this run is pending.
     state.imageBusy = true;
-    state.imageController?.abort();
-    state.imageController = new AbortController();
-    if (button) button.textContent = 'Generoidaan oikeaa kuvaa…';
+    if (button) button.textContent = 'Valmistellaan kuvapyyntöä…';
     syncControls();
-    setNotice('Kuvapyyntö lähetettiin valitulle kuvamallille. Valmis kuva tallennetaan projektin assetiksi.', 'loading');
+
     try {
+      let created = 0;
+      if (kind === 'scene' && scene) {
+        if (!stringValue(scene.image_prompt)) {
+          scene.image_prompt = automaticScenePrompt(scene, 'image');
+          scene.image_prompt_source = 'generated';
+          created += 1;
+        }
+        if (!stringValue(scene.video_prompt)) {
+          scene.video_prompt = automaticScenePrompt(scene, 'video');
+          scene.video_prompt_source = 'generated';
+          created += 1;
+        }
+      } else if (entity) {
+        if (!stringValue(entity.continuity_prompt)) {
+          entity.continuity_prompt = automaticEntityContinuityPrompt(kind, entity);
+          entity.continuity_prompt_source = 'generated';
+          created += 1;
+        }
+        if (!stringValue(entity.image_prompt)) {
+          entity.image_prompt = automaticEntityImagePrompt(kind, entity);
+          entity.image_prompt_source = 'generated';
+          created += 1;
+        }
+      }
+      if (created) {
+        if (kind === 'scene') renderSceneEditor();
+        else renderWorldEntities();
+        // Entity rendering replaces its buttons, so reapply the active lock
+        // before autosave yields control back to the browser.
+        syncControls();
+        queueAutomaticPromptSave(created);
+        const saved = await flushSave();
+        if (!saved) {
+          setNotice('Automaattinen englanninkielinen prompti luotiin näkyviin, mutta sitä ei saatu tallennettua. Tarkista prompti ja yritä uudelleen.', 'warning');
+          return;
+        }
+      }
+
+      const prompt = kind === 'scene' ? sceneImageRequestPrompt(scene) : entityImageRequestPrompt(kind, entity);
+      const chapterCustomId = imageChapterCustomId(scene);
+      if (!prompt) {
+        setNotice('Englanninkielistä kuvapromptia ei saatu muodostettua. Lisää lähdekuvaus tai kirjoita prompti ja yritä uudelleen.', 'warning');
+        return;
+      }
+      if (!chapterCustomId) {
+        setNotice('Kuvagenerointi tarvitsee kirjan luvun. Valitse luku ja yritä uudelleen.', 'error');
+        return;
+      }
+      const selectedModelValue = selectedImageModelValue();
+      const selectedModel = state.imageModels.find((model) => imageModelValue(model) === selectedModelValue) || null;
+      if (!selectedModel) {
+        setNotice('Valitse käytettävä kuvamalli. Suositeltu oletus on sama Gemini-kuvamalli kuin kansien generoinnissa.', 'warning');
+        return;
+      }
+
+      selectedModelLabel = selectedModel.display_name || selectedModel.model_name;
+      state.imageController?.abort();
+      state.imageController = new AbortController();
+      if (button) button.textContent = 'Generoidaan oikeaa kuvaa…';
+      setNotice(`Kuvapyyntö lähetettiin mallille ${selectedModelLabel}. Valmis kuva tallennetaan projektin assetiksi.`, 'loading');
       const payload = await api(`/api/projects/${encodeURIComponent(projectId)}/visual-images`, jsonOptions({
-        model: selectedImageModelValue(),
+        model: imageModelValue(selectedModel),
         visual_kind: kind,
         section_label: kind === 'scene' ? (scene?.title || 'Kohtaus') : (entity?.name || (kind === 'character' ? 'Hahmo' : 'Paikka')),
         chapter_custom_id: chapterCustomId,
@@ -1305,7 +1450,12 @@
       );
     } catch (error) {
       if (error?.name === 'AbortError' || generation !== state.loadGeneration) return;
-      setNotice(error.message || 'Kuvan generointi epäonnistui.', 'error');
+      setNotice(
+        error?.isNetworkError
+          ? `Yhteys kuvapalveluun katkesi ennen mallin ${selectedModelLabel} vastausta. Lataa sivu uudelleen ennen uutta yritystä, jotta mahdollinen valmis kuva ei jää huomaamatta.`
+          : (error.message || `Kuvan generointi mallilla ${selectedModelLabel} epäonnistui.`),
+        'error',
+      );
     } finally {
       if (generation === state.loadGeneration) {
         state.imageBusy = false;
@@ -1353,10 +1503,11 @@
       }
       const status = stringValue(payload?.status);
       if (status === 'ready') {
-        applyWorkspace(payload);
+        const createdPrompts = applyWorkspace(payload);
         clearPendingJob(clientRequestId);
         state.operationActive = false;
         renderAll();
+        queueAutomaticPromptSave(createdPrompts);
         loadAssetLibrary(generation);
         setNotice(payload?.operation === 'world' ? 'Maailma on valmis. Valitse seuraavaksi luku Kohtaukset-välilehdeltä.' : 'Luvun kohtaukset ovat valmiit ja muokattavissa.', 'ready');
         return;
@@ -1541,7 +1692,7 @@
     try {
       const payload = await api(workspacePath(), { signal: state.loadController.signal });
       if (generation !== state.loadGeneration) return;
-      applyWorkspace(payload);
+      const createdPrompts = applyWorkspace(payload);
       renderAll();
       loadAssetLibrary(generation);
       const persisted = readPendingJob();
@@ -1559,6 +1710,7 @@
         clearPendingJob();
         setNotice('Käsikirjoitustyöpöytä ladattiin. Kaikki muutokset tallentuvat palvelimelle revisioina.', 'ready');
       }
+      if (!activeId) queueAutomaticPromptSave(createdPrompts);
     } catch (error) {
       if (error?.name === 'AbortError' || generation !== state.loadGeneration) return;
       state.manifest = emptyManifest();
