@@ -464,14 +464,28 @@
             : { paragraph: endParagraph + 1, offset: 0 });
     }
 
-    function cursorAfterReplacement(paragraphs, selection, replacement) {
+    function exactReplacementParagraphs(replacement, selection) {
+        const expectedCount = Math.max(
+            1,
+            (Number(selection?.endParagraph) || 0) - (Number(selection?.startParagraph) || 0) + 1
+        );
+        const values = String(replacement ?? "").replace(/\r\n?/g, "\n").split("\n\n");
+        if (values.length !== expectedCount) {
+            throw new Error("Muokattu teksti ei voi lisätä tai poistaa kappalerajoja.");
+        }
+        return values;
+    }
+
+    function cursorAfterReplacement(paragraphs, selection, replacement, preserveParagraphSlots) {
         const values = Array.isArray(paragraphs)
             ? paragraphs.map((value) => String(value || ""))
             : [];
         if (!selection || !values.length) return null;
         const startParagraph = Math.max(0, Math.min(selection.startParagraph, values.length - 1));
         const startOffset = Math.max(0, Math.min(selection.startOffset, values[startParagraph].length));
-        const replacementParagraphs = paragraphModel(replacement).paragraphs;
+        const replacementParagraphs = preserveParagraphSlots
+            ? exactReplacementParagraphs(replacement, selection)
+            : paragraphModel(replacement).paragraphs;
         return {
             paragraph: startParagraph + replacementParagraphs.length - 1,
             offset: (replacementParagraphs.length === 1 ? startOffset : 0)
@@ -506,7 +520,7 @@
         return selection;
     }
 
-    function applyReplacement(paragraphs, selection, replacement) {
+    function applyReplacement(paragraphs, selection, replacement, preserveParagraphSlots) {
         const source = paragraphs.map((paragraph) => String(paragraph || ""));
         if (!selection || !source.length) return source;
         const startParagraph = Math.max(0, Math.min(selection.startParagraph, source.length - 1));
@@ -515,7 +529,9 @@
         const endOffset = Math.max(0, Math.min(selection.endOffset, source[endParagraph].length));
         const prefix = source[startParagraph].slice(0, startOffset);
         const suffix = source[endParagraph].slice(endOffset);
-        const replacements = paragraphModel(replacement).paragraphs;
+        const replacements = preserveParagraphSlots
+            ? exactReplacementParagraphs(replacement, selection)
+            : paragraphModel(replacement).paragraphs;
         replacements[0] = prefix + replacements[0];
         replacements[replacements.length - 1] += suffix;
         source.splice(startParagraph, endParagraph - startParagraph + 1, ...replacements);
@@ -1583,8 +1599,13 @@
                 context_after: context.after,
                 model: null,
             }));
-            const edited = String(result?.edited_text || "").trim();
-            if (!edited) throw new Error("Mallilta ei saatu tekstiehdotusta.");
+            const returnedEdit = String(result?.edited_text ?? "");
+            const returnedEditTrimmed = returnedEdit.trim();
+            if (!returnedEditTrimmed) throw new Error("Mallilta ei saatu tekstiehdotusta.");
+            const offersOriginalForManualEditing = returnedEdit === requestSelection.text;
+            const edited = offersOriginalForManualEditing
+                ? requestSelection.text
+                : returnedEditTrimmed;
             const sourceChanged = state.mode !== requestMode
                 || String(state.project?.id || "") !== String(requestProjectId || "")
                 || (!isTranslation && state.chapterIndex !== requestChapterIndex)
@@ -1605,10 +1626,20 @@
                 mode: requestMode,
                 original: requestSelection.text,
                 edited,
-                reason: [result.reason, result.notes]
-                    .map((value) => String(value || "").trim())
-                    .filter(Boolean)
-                    .join(" "),
+                manualFallback: offersOriginalForManualEditing,
+                manualEdited: false,
+                reason: offersOriginalForManualEditing
+                    ? [
+                        "Automaattinen tarkistus ei löytänyt muutettavaa. Voit muokata ehdotusta itse ennen hyväksymistä.",
+                        result.notes,
+                    ]
+                        .map((value) => String(value || "").trim())
+                        .filter(Boolean)
+                        .join(" ")
+                    : [result.reason, result.notes]
+                        .map((value) => String(value || "").trim())
+                        .filter(Boolean)
+                        .join(" "),
                 selection: requestSelection,
                 chapterIndex: requestChapterIndex,
                 segmentIndex: requestSegmentIndex,
@@ -1619,7 +1650,9 @@
             };
             renderInspector();
             state.focusAfterBusy = $("ti-suggestion-text");
-            setStatus("Ehdotus valmis · hyväksy tai hylkää");
+            setStatus(offersOriginalForManualEditing
+                ? "Valittu teksti valmis muokattavaksi · hyväksy tai hylkää"
+                : "Ehdotus valmis · hyväksy tai hylkää");
         } catch (error) {
             const activeRun = chapterRunRequest ? currentChapterRun() : null;
             if (activeRun?.id === chapterRunRequest?.id) activeRun.status = "ready";
@@ -1648,14 +1681,40 @@
         if (current !== suggestion.original) {
             throw new Error("Tekstikohta on muuttunut ehdotuksen luonnin jälkeen. Päivitä näkymä ja tee ehdotus uudelleen.");
         }
-        const editedReplacement = $("ti-suggestion-text").value;
+        const editedReplacement = suggestion.edited;
         if (!editedReplacement.trim()) throw new Error("Ehdotus ei voi olla tyhjä.");
         const replacement = replacementWithBoundaryWhitespace(suggestion.original, editedReplacement);
+        if (replacement === suggestion.original) {
+            rememberProject(latest, false);
+            state.project = latest;
+            state.chapterIndex = Math.min(suggestion.chapterIndex, (latest.chapters || []).length - 1);
+            if (suggestion.chapterRun) {
+                const progress = advanceChapterRun(
+                    suggestion,
+                    paragraphs,
+                    cursorAfterSelection(paragraphs, suggestion.selection)
+                );
+                return Object.assign(progress, { unchanged: true });
+            }
+            state.normalSelection = null;
+            return { inRun: false, hasMore: false, unchanged: true };
+        }
+        const preserveParagraphSlots = Boolean(suggestion.manualFallback);
         const chapterContinuationCursor = suggestion.chapterRun
-            ? cursorAfterReplacement(paragraphs, suggestion.selection, replacement)
+            ? cursorAfterReplacement(
+                paragraphs,
+                suggestion.selection,
+                replacement,
+                preserveParagraphSlots
+            )
             : null;
         const nextChapter = Object.assign({}, chapter, {
-            paragraphs: applyReplacement(paragraphs, suggestion.selection, replacement),
+            paragraphs: applyReplacement(
+                paragraphs,
+                suggestion.selection,
+                replacement,
+                preserveParagraphSlots
+            ),
         });
         const saved = await api(
             "/projects/" + encodeURIComponent(latest.id) + "/chapters/" + suggestion.chapterIndex,
@@ -1691,9 +1750,18 @@
         if (current !== suggestion.original) {
             throw new Error("Käännöskohta on muuttunut ehdotuksen luonnin jälkeen. Päivitä näkymä ja tee ehdotus uudelleen.");
         }
-        const editedReplacement = $("ti-suggestion-text").value;
+        const editedReplacement = suggestion.edited;
         if (!editedReplacement.trim()) throw new Error("Ehdotus ei voi olla tyhjä.");
         const replacement = replacementWithBoundaryWhitespace(suggestion.original, editedReplacement);
+        if (replacement === suggestion.original) {
+            state.translation = latest;
+            const translationIndex = state.translations.findIndex((item) => String(item.id) === String(latest.id));
+            if (translationIndex >= 0) state.translations[translationIndex] = latest;
+            state.segmentIndex = Math.min(suggestion.segmentIndex, translationChunks(latest).length - 1);
+            state.translationSelection = null;
+            populateTranslationSelect();
+            return { inRun: false, hasMore: false, unchanged: true };
+        }
         const updatedText = replaceSelectionInParagraphModel(model, suggestion.selection, replacement);
         const saved = await api(
             "/translations/" + encodeURIComponent(suggestion.translationId) + "/chunks/" + rawChunkIndex,
@@ -1712,15 +1780,18 @@
 
     async function acceptSuggestion() {
         if (!state.suggestion) return;
+        const edited = state.suggestion.manualFallback && !state.suggestion.manualEdited
+            ? state.suggestion.original
+            : $("ti-suggestion-text").value;
         const suggestion = Object.assign({}, state.suggestion, {
-            edited: $("ti-suggestion-text").value,
+            edited,
         });
         setBusy(true, "Tallennetaan hyväksyttyä muutosta…");
         setStatus("Tallennetaan muutosta");
         try {
-            let chapterProgress = { inRun: false, hasMore: false };
+            let chapterProgress = { inRun: false, hasMore: false, unchanged: false };
             if (suggestion.mode === "translation") {
-                await acceptTranslationSuggestion(suggestion);
+                chapterProgress = await acceptTranslationSuggestion(suggestion) || chapterProgress;
             } else {
                 chapterProgress = await acceptNormalSuggestion(suggestion);
             }
@@ -1733,10 +1804,17 @@
             if (chapterProgress.inRun && chapterProgress.hasMore) {
                 revealNormalSelection(state.normalSelection);
                 setStatus("Luvun osa tallennettu · jatka seuraavaan osaan");
-                toast("Luvun osa hyväksyttiin ja tallennettiin. Jatka seuraavaan osaan.");
+                toast(chapterProgress.unchanged
+                    ? "Luvun osa hyväksyttiin ilman muutoksia. Jatka seuraavaan osaan."
+                    : "Luvun osa hyväksyttiin ja tallennettiin. Jatka seuraavaan osaan.");
             } else if (chapterProgress.inRun) {
                 setStatus("Koko luku käsitelty");
-                toast("Luvun viimeinen osa hyväksyttiin. Koko luku on käsitelty.");
+                toast(chapterProgress.unchanged
+                    ? "Luvun viimeinen osa hyväksyttiin ilman muutoksia. Koko luku on käsitelty."
+                    : "Luvun viimeinen osa hyväksyttiin. Koko luku on käsitelty.");
+            } else if (chapterProgress.unchanged) {
+                setStatus("Teksti hyväksytty ilman muutoksia");
+                toast("Teksti hyväksyttiin ilman muutoksia.");
             } else {
                 setStatus("Muutos tallennettu");
                 toast("Muutos hyväksyttiin ja tallennettiin.");
@@ -1750,16 +1828,63 @@
         }
     }
 
-    function rejectSuggestion() {
+    async function rejectSuggestion() {
         if (!state.suggestion) return;
         const suggestion = state.suggestion;
-        const chapterProgress = suggestion.chapterRun
-            ? advanceChapterRun(
-                suggestion,
-                normalParagraphs(),
-                cursorAfterSelection(normalParagraphs(), suggestion.selection)
-            )
-            : { inRun: false, hasMore: false };
+        let chapterProgress = { inRun: false, hasMore: false };
+        if (suggestion.chapterRun) {
+            const projectId = String(state.project?.id || "");
+            const chapterIndex = suggestion.chapterIndex;
+            setBusy(true, "Varmistetaan luvun ajantasaisuus…");
+            setStatus("Varmistetaan hylkäystä");
+            try {
+                const latest = await api("/projects/" + encodeURIComponent(projectId));
+                if (
+                    state.suggestion !== suggestion
+                    || state.mode !== "normal"
+                    || String(state.project?.id || "") !== projectId
+                    || state.chapterIndex !== chapterIndex
+                    || currentChapterRun()?.id !== suggestion.chapterRun.id
+                ) {
+                    throw new Error("Aineisto vaihtui ehdotuksen hylkäyksen aikana.");
+                }
+                const chapter = latest?.chapters?.[chapterIndex] || null;
+                const paragraphs = (chapter?.paragraphs || []).map((paragraph) => String(paragraph || ""));
+                if (
+                    !chapter
+                    || !Array.isArray(suggestion.chapterSnapshot)
+                    || !paragraphSnapshotsMatch(paragraphs, suggestion.chapterSnapshot)
+                ) {
+                    rememberProject(latest, false);
+                    state.chapterIndex = Math.min(
+                        chapterIndex,
+                        Math.max(0, (latest?.chapters || []).length - 1)
+                    );
+                    state.normalSelection = null;
+                    clearSuggestion();
+                    cancelChapterRun();
+                    renderAll();
+                    state.focusAfterBusy = $("ti-normal-reader");
+                    setStatus("Ajantasainen luku ladattu");
+                    toast("Luku muuttui toisessa näkymässä. Ajantasainen teksti ladattiin; aloita luvun parantelu uudelleen.");
+                    return;
+                }
+                rememberProject(latest, false);
+                state.chapterIndex = chapterIndex;
+                chapterProgress = advanceChapterRun(
+                    suggestion,
+                    paragraphs,
+                    cursorAfterSelection(paragraphs, suggestion.selection)
+                );
+            } catch (error) {
+                state.focusAfterBusy = $("ti-suggestion-text");
+                setStatus("Hylkäyksen varmistus epäonnistui");
+                toast(error.message);
+                return;
+            } finally {
+                setBusy(false);
+            }
+        }
         clearSuggestion();
         renderMode();
         if (chapterProgress.inRun && chapterProgress.hasMore) {
@@ -1931,7 +2056,10 @@
         $("ti-generate").addEventListener("click", () => generateSuggestion());
         $("ti-chapter-generate").addEventListener("click", generateNextChapterSuggestion);
         $("ti-suggestion-text").addEventListener("input", (event) => {
-            if (state.suggestion) state.suggestion.edited = event.target.value;
+            if (state.suggestion) {
+                state.suggestion.edited = event.target.value;
+                state.suggestion.manualEdited = true;
+            }
             updateActionStates();
         });
         $("ti-accept").addEventListener("click", acceptSuggestion);

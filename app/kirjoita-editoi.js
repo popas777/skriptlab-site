@@ -327,14 +327,28 @@
       : { paragraph: endParagraph + 1, offset: 0 });
   }
 
-  function cursorAfterReplacement(paragraphs, selection, replacement) {
+  function exactReplacementParagraphs(replacement, selection) {
+    const expectedCount = Math.max(
+      1,
+      (Number(selection?.endParagraph) || 0) - (Number(selection?.startParagraph) || 0) + 1
+    );
+    const values = String(replacement ?? "").replace(/\r\n?/g, "\n").split("\n\n");
+    if (values.length !== expectedCount) {
+      throw new Error("Muokattu teksti ei voi lisätä tai poistaa kappalerajoja.");
+    }
+    return values;
+  }
+
+  function cursorAfterReplacement(paragraphs, selection, replacement, preserveParagraphSlots) {
     const values = Array.isArray(paragraphs)
       ? paragraphs.map((value) => String(value || ""))
       : [];
     if (!selection || !values.length) return null;
     const startParagraph = Math.max(0, Math.min(selection.startParagraph, values.length - 1));
     const startOffset = Math.max(0, Math.min(selection.startOffset, values[startParagraph].length));
-    const replacementParagraphs = paragraphModel(replacement).paragraphs;
+    const replacementParagraphs = preserveParagraphSlots
+      ? exactReplacementParagraphs(replacement, selection)
+      : paragraphModel(replacement).paragraphs;
     return {
       paragraph: startParagraph + replacementParagraphs.length - 1,
       offset: (replacementParagraphs.length === 1 ? startOffset : 0)
@@ -358,7 +372,7 @@
     return count;
   }
 
-  function applyReplacement(paragraphs, selection, replacement) {
+  function applyReplacement(paragraphs, selection, replacement, preserveParagraphSlots) {
     const source = paragraphs.map((paragraph) => String(paragraph || ""));
     if (!selection || !source.length) return source;
     const startParagraph = Math.max(0, Math.min(selection.startParagraph, source.length - 1));
@@ -367,7 +381,9 @@
     const endOffset = Math.max(0, Math.min(selection.endOffset, source[endParagraph].length));
     const prefix = source[startParagraph].slice(0, startOffset);
     const suffix = source[endParagraph].slice(endOffset);
-    const replacements = paragraphModel(replacement).paragraphs;
+    const replacements = preserveParagraphSlots
+      ? exactReplacementParagraphs(replacement, selection)
+      : paragraphModel(replacement).paragraphs;
     replacements[0] = prefix + replacements[0];
     replacements[replacements.length - 1] += suffix;
     source.splice(startParagraph, endParagraph - startParagraph + 1, ...replacements);
@@ -1323,8 +1339,18 @@
     return chunks;
   }
 
-  async function processTaskText(text, prompt, progressLabel) {
-    const chunks = splitLongText(text, 42000);
+  function editableProofreadText(original, proposed) {
+    const originalText = String(original ?? "");
+    const proposedText = String(proposed ?? "");
+    if (!proposedText.trim()) {
+      throw new Error("Mallilta ei saatu oikolukuehdotusta.");
+    }
+    return proposedText === originalText ? originalText : proposedText;
+  }
+
+  async function processTaskText(text, prompt, progressLabel, options) {
+    const preserveExactFallback = Boolean(options?.preserveExactFallback);
+    const chunks = preserveExactFallback ? [String(text ?? "")] : splitLongText(text, 42000);
     const outputs = [];
     const errors = [];
     for (let index = 0; index < chunks.length; index += 1) {
@@ -1338,7 +1364,9 @@
           purpose: "write_edit",
           temperature: 0.25
         }));
-        outputs.push(response.edited_text || chunks[index]);
+        outputs.push(preserveExactFallback
+          ? editableProofreadText(chunks[index], response?.edited_text)
+          : (response.edited_text || chunks[index]));
       } catch (error) {
         outputs.push(chunks[index]);
         errors.push("Pala " + (index + 1) + ": " + error.message);
@@ -1569,8 +1597,7 @@
       ) {
         throw new Error("Aineisto vaihtui oikolukuehdotuksen luonnin aikana.");
       }
-      const edited = String(response?.edited_text ?? "");
-      if (!edited.trim()) throw new Error("Mallilta ei saatu oikolukuehdotusta.");
+      const edited = editableProofreadText(selection.text, response?.edited_text);
 
       activeRun.status = "review";
       state.suggestion = {
@@ -1579,6 +1606,8 @@
         chapterIndex: requestChapterIndex,
         original: selection.text,
         edited,
+        unchanged: edited === selection.text,
+        userEdited: false,
         errors: [],
         selection: Object.assign({}, selection),
         chapterSnapshot: requestChapterSnapshot,
@@ -1678,7 +1707,8 @@
         const result = await processTaskText(
           original,
           scope === "chapter" ? chapterContextPrompt(task.prompt, state.chapterIndex) : task.prompt,
-          scope === "selection" ? "Valittu teksti" : (currentChapter().toc_title || currentChapter().title || "Osio")
+          scope === "selection" ? "Valittu teksti" : (currentChapter().toc_title || currentChapter().title || "Osio"),
+          { preserveExactFallback: task.id === "proofread" && scope === "selection" }
         );
         $("task-progress-count").textContent = "1/1";
         $("task-progress-bar").value = 1;
@@ -1688,6 +1718,8 @@
           chapterIndex: state.chapterIndex,
           original,
           edited: result.text,
+          unchanged: task.id === "proofread" && result.text === original,
+          userEdited: false,
           errors: result.errors,
           range: requestRange,
           chapterSnapshot: requestChapterSnapshot
@@ -1711,7 +1743,10 @@
 
   function syncSuggestionTextarea() {
     const item = currentSuggestionItem();
-    if (item && !$("suggestion-panel").hidden) item.edited = $("suggestion-text").value;
+    if (!item || $("suggestion-panel").hidden) return;
+    item.edited = item.unchanged && !item.userEdited
+      ? item.original
+      : $("suggestion-text").value;
   }
 
   function renderSuggestion() {
@@ -1737,8 +1772,10 @@
     $("accept-suggestion").textContent = item.accepted ? "Hyväksytty" : "Hyväksy";
     const errors = Array.isArray(item.errors) ? item.errors : [];
     $("suggestion-status").textContent = errors.length
-      ? errors.length + " osaa jäi alkuperäiseen muotoon virheen vuoksi."
-      : "Voit muokata ehdotusta ennen hyväksymistä.";
+      ? errors.length + " osaa jäi alkuperäiseen muotoon virheen vuoksi. Voit muokata tekstiä itse ennen hyväksymistä."
+      : item.unchanged
+        ? "Automaattisia muutoksia ei ehdotettu. Teksti on alla alkuperäisenä, ja voit muokata sitä itse ennen hyväksymistä."
+        : "Voit muokata ehdotusta ennen hyväksymistä.";
     updateTaskInteractionState();
   }
 
@@ -1859,6 +1896,12 @@
       throw new Error("Editorin teksti on muuttunut ehdotuksen luonnin jälkeen. Hylkää ehdotus ja tee se uudelleen.");
     }
     const replacement = replacementWithBoundaryWhitespace(item.original, item.edited);
+    if (replacement === item.original) {
+      rememberProject(latest, false);
+      state.chapterIndex = Math.min(chapterIndex, (latest.chapters || []).length - 1);
+      state.dirty = false;
+      return { inRun: false, hasMore: false, unchanged: true };
+    }
     const nextParagraphs = replacementParagraphsForRange(item.range, item.original, replacement);
     const nextChapter = Object.assign({}, chapter, { paragraphs: nextParagraphs });
     let saved;
@@ -1930,9 +1973,31 @@
     }
 
     const replacement = replacementWithBoundaryWhitespace(item.original, item.edited);
-    const nextCursor = cursorAfterReplacement(paragraphs, item.selection, replacement);
+    if (replacement === item.original) {
+      rememberProject(latest, false);
+      state.chapterIndex = Math.min(item.chapterIndex, (latest.chapters || []).length - 1);
+      state.dirty = false;
+      renderEditor();
+      const progress = advanceProofreadChapterRun(
+        item,
+        paragraphs,
+        cursorAfterSelection(paragraphs, item.selection)
+      );
+      return Object.assign(progress, { unchanged: true });
+    }
+    const nextCursor = cursorAfterReplacement(
+      paragraphs,
+      item.selection,
+      replacement,
+      Boolean(item.unchanged)
+    );
     const nextChapter = Object.assign({}, chapter, {
-      paragraphs: applyReplacement(paragraphs, item.selection, replacement)
+      paragraphs: applyReplacement(
+        paragraphs,
+        item.selection,
+        replacement,
+        Boolean(item.unchanged)
+      )
     });
     const saved = await patchChapter(item.chapterIndex, nextChapter, paragraphs);
     rememberProject(saved);
@@ -1977,10 +2042,16 @@
       }
       renderSuggestion();
       if (chapterProgress.inRun && chapterProgress.hasMore) {
-        toast("Luvun osa hyväksyttiin ja tallennettiin. Jatka seuraavaan osaan.");
+        toast(chapterProgress.unchanged
+          ? "Luvun osa hyväksyttiin ilman muutoksia. Jatka seuraavaan osaan."
+          : "Luvun osa hyväksyttiin ja tallennettiin. Jatka seuraavaan osaan.");
         window.requestAnimationFrame(() => $("proofread-chapter-continue")?.focus({ preventScroll: true }));
       } else if (chapterProgress.inRun) {
-        toast("Luvun viimeinen osa hyväksyttiin. Koko luku on käsitelty.");
+        toast(chapterProgress.unchanged
+          ? "Luvun viimeinen osa hyväksyttiin ilman muutoksia. Koko luku on käsitelty."
+          : "Luvun viimeinen osa hyväksyttiin. Koko luku on käsitelty.");
+      } else if (chapterProgress.unchanged) {
+        toast("Teksti hyväksyttiin ilman muutoksia.");
       } else {
         toast("Muutos tallennettu.");
       }
@@ -2254,6 +2325,12 @@
     document.querySelectorAll("[data-task]").forEach((button) => {
       button.addEventListener("click", () => runTask(TASKS[button.dataset.task]));
     });
+    $("suggestion-text").addEventListener("input", (event) => {
+      const item = currentSuggestionItem();
+      if (!item) return;
+      item.edited = event.target.value;
+      item.userEdited = true;
+    });
     $("suggestion-prev").addEventListener("click", () => moveSuggestion(-1));
     $("suggestion-next").addEventListener("click", () => moveSuggestion(1));
     $("reject-suggestion").addEventListener("click", rejectCurrentSuggestion);
@@ -2338,7 +2415,9 @@
     cursorAfterReplacement,
     countChapterParts,
     applyReplacement,
+    exactReplacementParagraphs,
     replacementWithBoundaryWhitespace,
+    editableProofreadText,
     paragraphSnapshotsMatch
   };
 

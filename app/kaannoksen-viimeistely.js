@@ -298,6 +298,59 @@
         } : null;
     }
 
+    function exactSelectionBounds(paragraphs, selection) {
+        const values = Array.isArray(paragraphs)
+            ? paragraphs.map((value) => String(value || "").replace(/\r\n?/g, "\n"))
+            : [];
+        const startParagraph = Number(selection?.startParagraph);
+        const endParagraph = Number(selection?.endParagraph);
+        const startOffset = Number(selection?.startOffset);
+        const endOffset = Number(selection?.endOffset);
+        if (
+            !values.length
+            || !Number.isInteger(startParagraph)
+            || !Number.isInteger(endParagraph)
+            || !Number.isInteger(startOffset)
+            || !Number.isInteger(endOffset)
+            || startParagraph < 0
+            || endParagraph < startParagraph
+            || endParagraph >= values.length
+            || startOffset < 0
+            || startOffset > values[startParagraph].length
+            || endOffset < 0
+            || endOffset > values[endParagraph].length
+            || (startParagraph === endParagraph && endOffset < startOffset)
+        ) {
+            return { error: "Valittu tekstialue ei enää vastaa nykyistä tekstiä." };
+        }
+        const normalizedSelection = {
+            startParagraph,
+            endParagraph,
+            startOffset,
+            endOffset,
+        };
+        normalizedSelection.text = selectionText(values, normalizedSelection);
+        return { values, selection: normalizedSelection, text: normalizedSelection.text };
+    }
+
+    function manualFallbackSuggestion(selection) {
+        const text = String(selection?.text || "");
+        return {
+            type: "oma muokkaus",
+            paragraph_index: Number(selection?.startParagraph) || 0,
+            original: text,
+            replacement: text,
+            edited_replacement: text,
+            reason: "Automaattinen tarkistus ei löytänyt korjattavaa. Voit muokata valittua tekstiä itse.",
+            manual_fallback: true,
+            paragraph_count: Math.max(
+                1,
+                (Number(selection?.endParagraph) || 0) - (Number(selection?.startParagraph) || 0) + 1
+            ),
+            status: "open",
+        };
+    }
+
     function findSuggestionInParagraphs(paragraphs, suggestion, scope) {
         const values = Array.isArray(paragraphs)
             ? paragraphs.map((value) => String(value || "").replace(/\r\n?/g, "\n"))
@@ -334,6 +387,28 @@
 
     function findSuggestionRange(text, suggestion, scope) {
         const model = paragraphModel(text);
+        if (suggestion?.manual_fallback) {
+            const bounds = exactSelectionBounds(model.paragraphs, scope);
+            if (bounds.error) return bounds;
+            if (bounds.text !== String(suggestion.original || "")) {
+                return { error: "Valittu tekstikohta on muuttunut tarkistuksen jälkeen." };
+            }
+            const start = absoluteOffsetForCursor(model, {
+                paragraph: bounds.selection.startParagraph,
+                offset: bounds.selection.startOffset,
+            });
+            const end = absoluteOffsetForCursor(model, {
+                paragraph: bounds.selection.endParagraph,
+                offset: bounds.selection.endOffset,
+            });
+            return {
+                start,
+                end,
+                paragraphIndex: bounds.selection.startParagraph,
+                paragraphStart: bounds.selection.startOffset,
+                paragraphEnd: bounds.selection.endOffset,
+            };
+        }
         const localRange = findSuggestionInParagraphs(model.paragraphs, suggestion, scope);
         if (localRange.error) return localRange;
         let paragraphStart = 0;
@@ -351,12 +426,19 @@
 
     function replaceSuggestionRange(text, suggestion, replacement, scope) {
         const normalized = paragraphModel(text).text;
+        const replacementText = suggestion?.manual_fallback
+            ? String(replacement ?? "").replace(/\r\n?/g, "\n")
+            : String(replacement ?? "");
+        if (suggestion?.manual_fallback) {
+            const replacementError = editableReplacementError(suggestion, replacementText);
+            if (replacementError) return { text: normalized, error: replacementError };
+        }
         const range = findSuggestionRange(normalized, suggestion, scope);
         if (range.error) return { text: normalized, error: range.error };
         return {
-            text: normalized.slice(0, range.start) + String(replacement ?? "") + normalized.slice(range.end),
+            text: normalized.slice(0, range.start) + replacementText + normalized.slice(range.end),
             range,
-            delta: String(replacement ?? "").length - (range.end - range.start),
+            delta: replacementText.length - (range.end - range.start),
         };
     }
 
@@ -367,6 +449,21 @@
     function replacementParagraphBoundaryError(suggestion, replacement) {
         if (paragraphBoundaryCount(suggestion?.original) === paragraphBoundaryCount(replacement)) return "";
         return "Korjausehdotus ei voi lisätä tai poistaa kappalerajaa. Muokkaa ehdotusta niin, että kappalerajojen määrä vastaa nykyistä tekstikohtaa.";
+    }
+
+    function editableReplacementError(suggestion, replacement) {
+        if (suggestion?.manual_fallback && !String(replacement || "").trim()) {
+            return "Muokattava teksti ei voi olla tyhjä. Kirjoita teksti tai hylkää oma muokkaus.";
+        }
+        if (suggestion?.manual_fallback) {
+            const expectedParagraphs = Math.max(1, Number(suggestion.paragraph_count) || 1);
+            const replacementParagraphs = String(replacement ?? "")
+                .replace(/\r\n?/g, "\n")
+                .split("\n\n");
+            if (replacementParagraphs.length === expectedParagraphs) return "";
+            return "Korjausehdotus ei voi lisätä tai poistaa kappalerajaa. Muokkaa ehdotusta niin, että kappalerajojen määrä vastaa nykyistä tekstikohtaa.";
+        }
+        return replacementParagraphBoundaryError(suggestion, replacement);
     }
 
     function wordCount(value) {
@@ -483,6 +580,60 @@
 
     function replaceTextSuggestion(paragraphs, suggestion, replacement, scope) {
         const nextParagraphs = paragraphs.map((paragraph) => String(paragraph || ""));
+        if (suggestion?.manual_fallback) {
+            const bounds = exactSelectionBounds(nextParagraphs, scope);
+            if (bounds.error) return { paragraphs: nextParagraphs, error: bounds.error };
+            if (bounds.text !== String(suggestion.original || "")) {
+                return {
+                    paragraphs: nextParagraphs,
+                    error: "Valittu tekstikohta on muuttunut tarkistuksen jälkeen.",
+                };
+            }
+            const replacementText = paragraphModel(replacement).text;
+            const replacementError = editableReplacementError(suggestion, replacementText);
+            if (replacementError) return { paragraphs: nextParagraphs, error: replacementError };
+            const replacementParagraphs = replacementText.split("\n\n");
+            const replacedParagraphCount = bounds.selection.endParagraph
+                - bounds.selection.startParagraph + 1;
+            if (replacementParagraphs.length !== replacedParagraphCount) {
+                return {
+                    paragraphs: nextParagraphs,
+                    error: "Muokatun tekstin kappalerajat eivät vastaa valittua tekstialuetta.",
+                };
+            }
+
+            const firstIndex = bounds.selection.startParagraph;
+            const lastIndex = bounds.selection.endParagraph;
+            const prefix = bounds.values[firstIndex].slice(0, bounds.selection.startOffset);
+            const suffix = bounds.values[lastIndex].slice(bounds.selection.endOffset);
+            const inserted = replacementParagraphs.slice();
+            if (inserted.length === 1) {
+                inserted[0] = prefix + inserted[0] + suffix;
+            } else {
+                inserted[0] = prefix + inserted[0];
+                inserted[inserted.length - 1] += suffix;
+            }
+            nextParagraphs.splice(firstIndex, replacedParagraphCount, ...inserted);
+            const nextSelection = {
+                startParagraph: firstIndex,
+                endParagraph: lastIndex,
+                startOffset: bounds.selection.startOffset,
+                endOffset: replacementParagraphs.length === 1
+                    ? bounds.selection.startOffset + replacementParagraphs[0].length
+                    : replacementParagraphs[replacementParagraphs.length - 1].length,
+            };
+            nextSelection.text = selectionText(nextParagraphs, nextSelection);
+            return {
+                paragraphs: nextParagraphs,
+                range: {
+                    paragraphIndex: firstIndex,
+                    start: bounds.selection.startOffset,
+                    end: bounds.selection.endOffset,
+                    selection: nextSelection,
+                },
+                delta: replacementText.length - bounds.text.length,
+            };
+        }
         const range = findSuggestionInParagraphs(nextParagraphs, suggestion, scope);
         if (range.error) return { paragraphs: nextParagraphs, error: range.error };
         const paragraph = nextParagraphs[range.paragraphIndex].replace(/\r\n?/g, "\n");
@@ -738,15 +889,17 @@
 
     function suggestionCard(item, index) {
         const status = item.status || "open";
+        const isManualFallback = Boolean(item.manual_fallback);
         const card = document.createElement("article");
-        card.className = "kf-suggestion-card is-" + status;
+        card.className = "kf-suggestion-card is-" + status
+            + (isManualFallback ? " is-manual-fallback" : "");
         card.dataset.suggestionIndex = String(index);
 
         const heading = document.createElement("div");
         heading.className = "kf-suggestion-heading";
         const type = document.createElement("span");
         type.className = "kf-suggestion-type";
-        type.textContent = String(item.type || "oikoluku");
+        type.textContent = String(item.type || (isManualFallback ? "oma muokkaus" : "oikoluku"));
         const stateChip = document.createElement("span");
         stateChip.className = "kf-suggestion-status";
         stateChip.textContent = statusLabel(status);
@@ -755,8 +908,8 @@
         const originalBlock = document.createElement("div");
         originalBlock.className = "kf-change-block";
         const originalLabel = document.createElement("span");
-        originalLabel.textContent = "Nykyinen";
-        const original = document.createElement("del");
+        originalLabel.textContent = isManualFallback ? "Valittu teksti" : "Nykyinen";
+        const original = document.createElement(isManualFallback ? "div" : "del");
         original.className = "kf-original";
         original.textContent = String(item.original || "");
         originalBlock.append(originalLabel, original);
@@ -764,13 +917,18 @@
         const replacementBlock = document.createElement("label");
         replacementBlock.className = "kf-change-block";
         const replacementLabel = document.createElement("span");
-        replacementLabel.textContent = "Ehdotus";
+        replacementLabel.textContent = isManualFallback ? "Muokkaa tekstiä" : "Ehdotus";
         const replacement = document.createElement("textarea");
         replacement.className = "kf-replacement";
-        replacement.rows = 2;
+        replacement.rows = isManualFallback ? 7 : 2;
         replacement.value = String(item.edited_replacement ?? item.replacement ?? "");
         replacement.disabled = state.busy || status !== "open";
-        replacement.setAttribute("aria-label", "Muokattava korjausehdotus " + (index + 1));
+        replacement.setAttribute(
+            "aria-label",
+            isManualFallback
+                ? "Muokattava valittu teksti"
+                : "Muokattava korjausehdotus " + (index + 1)
+        );
         replacement.addEventListener("input", () => {
             item.edited_replacement = replacement.value;
             item.replacement_error = "";
@@ -1599,7 +1757,21 @@
                 throw new Error("Käsikirjoitus vaihtui tarkistuksen aikana. Aja tarkistus uudelleen.");
             }
             const chapter = latest?.chapters?.[context.chapterIndex];
-            if (!chapter) throw canonicalChangedError("Valittua lukua ei enää löytynyt.");
+            if (!chapter) {
+                rememberProject(latest, false);
+                state.chapterIndex = Math.max(
+                    0,
+                    Math.min(context.chapterIndex, (latest?.chapters || []).length - 1)
+                );
+                state.textSelection = null;
+                state.textReviews.delete(context.chapterIndex);
+                cancelUnitRun();
+                populateProjectSelect();
+                renderAll();
+                throw canonicalChangedError(
+                    "Valittua lukua ei enää löytynyt. Ajantasainen käsikirjoitus ladattiin; valitse uusi kohta tai aloita koko luvun tarkistus uudelleen."
+                );
+            }
             const paragraphs = chapterParagraphs(chapter);
             if (!paragraphSnapshotsMatch(context.chapterSnapshot, paragraphs)) {
                 rememberProject(latest, false);
@@ -1622,7 +1794,21 @@
         }
         const rawChunks = Array.isArray(latest?.chunk_details) ? latest.chunk_details : [];
         const chunk = rawChunks[context.rawChunkIndex];
-        if (!chunk) throw canonicalChangedError("Valittua käännössegmenttiä ei enää löytynyt.");
+        if (!chunk) {
+            rememberTranslation(latest);
+            state.segmentIndex = Math.max(
+                0,
+                Math.min(context.segmentIndex, translationChunks(latest).length - 1)
+            );
+            state.translationSelection = null;
+            state.translationReviews.delete(context.rawChunkIndex);
+            cancelUnitRun();
+            populateTranslationSelect();
+            renderAll();
+            throw canonicalChangedError(
+                "Valittua käännössegmenttiä ei enää löytynyt. Ajantasainen käännös ladattiin; valitse uusi kohta tai aloita koko segmentin tarkistus uudelleen."
+            );
+        }
         const canonicalTranslation = translationTextForChunk(chunk);
         if (canonicalTranslation !== context.translationSnapshot) {
             rememberTranslation(latest);
@@ -1734,6 +1920,8 @@
             if (hasUnreliableEmptySuggestionResult(result, suggestions)) {
                 throw new Error(warnings.join(" ") + " Yritä samaa osaa uudelleen.");
             }
+            const usesManualFallback = suggestions.length === 0;
+            if (usesManualFallback) suggestions.push(manualFallbackSuggestion(canonicalSelection));
             const review = {
                 expectedParagraphs: canonical.expectedParagraphs || null,
                 expectedTranslation: canonical.expectedTranslation ?? null,
@@ -1747,26 +1935,19 @@
             if (unitRunRequest) {
                 const run = currentUnitRun();
                 if (run?.id === unitRunRequest.id) {
-                    run.status = suggestions.length ? "review" : "ready";
-                    if (!suggestions.length) advanceUnitRun(review, canonical.paragraphs);
+                    run.status = "review";
                 }
             }
             renderAll();
-            if (suggestions.length) {
+            if (usesManualFallback) {
+                focusUnitButton = false;
+                setStatus("Korjattavaa ei löytynyt · muokkaa tekstiä itse tai hylkää");
+                toast("Valittu teksti avattiin muokattavaksi ilman automaattisia muutoksia.");
+            } else {
                 focusUnitButton = false;
                 setStatus(suggestions.length === 1
                     ? "1 korjausehdotus · hyväksy tai hylkää"
                     : suggestions.length + " korjausehdotusta · hyväksy tai hylkää");
-            } else if (unitRunRequest && currentUnitRun()?.status === "complete") {
-                setStatus(isTranslation ? "Koko segmentti käsitelty" : "Koko luku käsitelty");
-                toast("Tästä osasta ei löytynyt korjattavaa. Koko "
-                    + (isTranslation ? "segmentti" : "luku") + " on käsitelty.");
-            } else if (unitRunRequest) {
-                setStatus("Osa tarkistettu · jatka seuraavaan osaan");
-                toast("Tästä osasta ei löytynyt korjattavaa. Voit jatkaa seuraavaan osaan.");
-            } else {
-                setStatus("Valittu kohta tarkistettu · ei korjausehdotuksia");
-                toast("Valitusta kohdasta ei löytynyt selvää korjattavaa.");
             }
         } catch (error) {
             const run = unitRunRequest ? currentUnitRun() : null;
@@ -1875,6 +2056,7 @@
     }
 
     function adjustParagraphSelection(selection, range, delta, paragraphs) {
+        if (range?.selection) return cloneSelection(range.selection);
         const next = cloneSelection(selection);
         if (!next || !range || !delta) return next;
         if (range.paragraphIndex === next.endParagraph && range.start < next.endOffset) {
@@ -1941,6 +2123,64 @@
             return { inRun: false, hasMore: false };
         }
         return advanceUnitRun(review, paragraphs);
+    }
+
+    function unchangedManualSuggestionItems(review, indexes) {
+        const items = (Array.isArray(indexes) ? indexes : [])
+            .map((index) => review?.suggestions?.[index])
+            .filter((item) => item && (item.status || "open") === "open");
+        if (
+            !items.length
+            || items.some((item) => (
+                !item.manual_fallback
+                || String(item.edited_replacement ?? item.replacement ?? "") !== String(item.original || "")
+            ))
+        ) return null;
+        return items;
+    }
+
+    async function acceptUnchangedManualSuggestions(review, indexes) {
+        const items = unchangedManualSuggestionItems(review, indexes);
+        if (!items) return false;
+        const context = requestContext(null);
+        setBusy(true, "Varmistetaan tekstin ajantasaisuus…");
+        setStatus("Varmistetaan muuttumatonta hyväksyntää");
+        try {
+            const canonical = await fetchCanonicalUnit(context);
+            if (currentReview() !== review || !requestContextIsCurrent(context)) {
+                throw new Error("Aineisto vaihtui hyväksynnän aikana. Aja tarkistus uudelleen.");
+            }
+            if (context.mode === "text") {
+                review.expectedParagraphs = canonical.expectedParagraphs.slice();
+            } else {
+                review.expectedTranslation = canonical.expectedTranslation;
+            }
+            items.forEach((item) => {
+                item.status = "accepted";
+                item.stale_reason = "";
+            });
+            const result = {
+                count: items.length,
+                progress: finishResolvedUnitPart(review, canonical.paragraphs),
+            };
+            renderUnchangedManualAcceptance(result);
+        } catch (error) {
+            setStatus(error.canonicalChanged ? "Aineisto muuttui" : "Hyväksynnän varmistus epäonnistui");
+            toast(error.message);
+        } finally {
+            setBusy(false);
+        }
+        return true;
+    }
+
+    function renderUnchangedManualAcceptance(result) {
+        renderAll();
+        const completedMessage = resolvedUnitMessage(result.progress);
+        setStatus(completedMessage?.status || "Valittu teksti hyväksytty ilman muutoksia");
+        toast(completedMessage?.toast || "Teksti hyväksyttiin ilman muutoksia.");
+        window.requestAnimationFrame(() => {
+            if (result.progress.inRun) $("kf-run-unit")?.focus({ preventScroll: true });
+        });
     }
 
     function resolvedUnitMessage(progress) {
@@ -2028,6 +2268,7 @@
             toast("Luku on muuttunut ehdotusten luonnin jälkeen. Aja tarkistus uudelleen ajantasaisesta tekstistä.");
             return;
         }
+        if (await acceptUnchangedManualSuggestions(review, indexes)) return;
         let nextParagraphs = expectedParagraphs.slice();
         let workingSelection = cloneSelection(review.selection);
         const applied = [];
@@ -2037,9 +2278,9 @@
             const item = review.suggestions[index];
             if (!item || (item.status || "open") !== "open") return;
             const replacement = String(item.edited_replacement ?? item.replacement ?? "");
-            const boundaryError = replacementParagraphBoundaryError(item, replacement);
-            if (boundaryError) {
-                item.replacement_error = boundaryError;
+            const replacementError = editableReplacementError(item, replacement);
+            if (replacementError) {
+                item.replacement_error = replacementError;
                 blockedIndexes.push(index);
                 return;
             }
@@ -2150,6 +2391,7 @@
             toast("Käännössegmentti on muuttunut ehdotusten luonnin jälkeen. Aja tarkistus uudelleen ajantasaisesta tekstistä.");
             return;
         }
+        if (await acceptUnchangedManualSuggestions(review, indexes)) return;
         let nextTranslation = expectedTranslation;
         let workingSelection = cloneSelection(review.selection);
         const applied = [];
@@ -2159,9 +2401,9 @@
             const item = review.suggestions[index];
             if (!item || (item.status || "open") !== "open") return;
             const replacement = String(item.edited_replacement ?? item.replacement ?? "");
-            const boundaryError = replacementParagraphBoundaryError(item, replacement);
-            if (boundaryError) {
-                item.replacement_error = boundaryError;
+            const replacementError = editableReplacementError(item, replacement);
+            if (replacementError) {
+                item.replacement_error = replacementError;
                 blockedIndexes.push(index);
                 return;
             }
@@ -2264,12 +2506,36 @@
             : applyTextSuggestionIndexes(indexes);
     }
 
-    function rejectSuggestion(index) {
+    async function rejectSuggestion(index) {
         const review = currentReview();
         const item = review?.suggestions?.[index];
         if (!item || (item.status || "open") !== "open") return;
+        let paragraphs = currentUnitParagraphs();
+        if (review.unitRun) {
+            const context = requestContext(null);
+            setBusy(true, "Varmistetaan tekstin ajantasaisuus…");
+            setStatus("Varmistetaan hylkäystä");
+            try {
+                const canonical = await fetchCanonicalUnit(context);
+                if (currentReview() !== review || !requestContextIsCurrent(context)) {
+                    throw new Error("Aineisto vaihtui hylkäyksen aikana. Aja tarkistus uudelleen.");
+                }
+                paragraphs = canonical.paragraphs;
+                if (context.mode === "text") {
+                    review.expectedParagraphs = canonical.expectedParagraphs.slice();
+                } else {
+                    review.expectedTranslation = canonical.expectedTranslation;
+                }
+            } catch (error) {
+                setStatus(error.canonicalChanged ? "Aineisto muuttui" : "Hylkäyksen varmistus epäonnistui");
+                toast(error.message);
+                setBusy(false);
+                return;
+            }
+        }
         item.status = "rejected";
-        const progress = finishResolvedUnitPart(review, currentUnitParagraphs());
+        const progress = finishResolvedUnitPart(review, paragraphs);
+        if (review.unitRun) setBusy(false);
         renderAll();
         const completedMessage = resolvedUnitMessage(progress);
         setStatus(completedMessage?.status || (state.mode === "translation"
