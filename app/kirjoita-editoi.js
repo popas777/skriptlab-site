@@ -90,6 +90,17 @@
     deleteConfirmTimer: null
   };
 
+  const textModelSettings = window.SkriptLabTextModelSettings
+    ? window.SkriptLabTextModelSettings.mount({
+      triggerId: "write-model-settings",
+      defaultKind: "standard",
+      description: "Valitse Kirjoita ja editoi -keskustelun ja AI-tehtävien kielimalli. Automaattinen käyttää kunkin tehtävän palvelinoletusta."
+    })
+    : {
+      getModel: () => null,
+      load: async () => false
+    };
+
   let toastTimer = null;
 
   function toast(message) {
@@ -1143,8 +1154,11 @@
     const input = $("chat-input");
     const message = input.value.trim();
     if (!message) return;
+    await textModelSettings.load(false);
+    if (input.disabled) return;
     const selectedText = state.selectedText.trim();
     const visibleText = visibleEditorContext(selectedText ? 3500 : 9000);
+    const requestModel = textModelSettings.getModel();
     const history = state.chatHistory.slice(-8).map((item) => ({
       role: item.role === "assistant" ? "assistant" : "user",
       content: String(item.content || "").slice(0, 3500)
@@ -1162,7 +1176,8 @@
         chapter_index: state.chapterIndex,
         selected_text: selectedText,
         visible_text: visibleText,
-        history
+        history,
+        model: requestModel
       }));
       state.chatHistory.push({ role: "assistant", content: response.message });
       saveChatHistory();
@@ -1350,6 +1365,7 @@
 
   async function processTaskText(text, prompt, progressLabel, options) {
     const preserveExactFallback = Boolean(options?.preserveExactFallback);
+    const requestModel = options?.model || null;
     const chunks = preserveExactFallback ? [String(text ?? "")] : splitLongText(text, 42000);
     const outputs = [];
     const errors = [];
@@ -1362,7 +1378,8 @@
             ? "\n\nKäsittelet nyt osaa " + (index + 1) + "/" + chunks.length + ". Palauta vain tämän osan muokattu teksti."
             : ""),
           purpose: "write_edit",
-          temperature: 0.25
+          temperature: 0.25,
+          model: requestModel
         }));
         outputs.push(preserveExactFallback
           ? editableProofreadText(chunks[index], response?.edited_text)
@@ -1485,6 +1502,11 @@
       run = null;
     }
 
+    if (!run) {
+      await textModelSettings.load(false);
+      if (state.taskRunning || state.suggestion) return;
+    }
+    const requestModel = run ? (run.model || null) : textModelSettings.getModel();
     const requestProjectId = String(state.project.id);
     const requestChapterIndex = state.chapterIndex;
     const existingRunId = run?.id || null;
@@ -1555,6 +1577,7 @@
           totalParts,
           nextCursor,
           chapterSnapshot: paragraphs.slice(),
+          model: requestModel,
           status: "ready"
         };
         state.proofreadChapterRun = run;
@@ -1585,7 +1608,8 @@
           + "\n\nKäsittelet nyt luvun osaa " + partNumber + "/" + totalParts
           + ". Palauta vain tämän osan oikoluettu teksti. Älä lisää kommentteja tai käsittele osan ulkopuolista tekstiä.",
         purpose: "write_edit",
-        temperature: 0.25
+        temperature: 0.25,
+        model: requestModel
       }));
       const activeRun = currentProofreadChapterRun();
       if (
@@ -1648,6 +1672,9 @@
       return generateNextProofreadChapterPart(task);
     }
     if (currentProofreadChapterRun()) cancelProofreadChapterRun();
+    await textModelSettings.load(false);
+    if (state.taskRunning || state.suggestion) return;
+    const requestModel = textModelSettings.getModel();
     const requestRange = scope === "selection" && state.selectedRange
       ? state.selectedRange.cloneRange()
       : null;
@@ -1684,7 +1711,8 @@
           const result = await processTaskText(
             target.text,
             chapterContextPrompt(task.prompt, target.index),
-            target.chapter.toc_title || target.chapter.title || "Osio " + (target.index + 1)
+            target.chapter.toc_title || target.chapter.title || "Osio " + (target.index + 1),
+            { model: requestModel }
           );
           return {
             chapterIndex: target.index,
@@ -1708,7 +1736,10 @@
           original,
           scope === "chapter" ? chapterContextPrompt(task.prompt, state.chapterIndex) : task.prompt,
           scope === "selection" ? "Valittu teksti" : (currentChapter().toc_title || currentChapter().title || "Osio"),
-          { preserveExactFallback: task.id === "proofread" && scope === "selection" }
+          {
+            preserveExactFallback: task.id === "proofread" && scope === "selection",
+            model: requestModel
+          }
         );
         $("task-progress-count").textContent = "1/1";
         $("task-progress-bar").value = 1;

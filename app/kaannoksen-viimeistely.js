@@ -43,6 +43,18 @@
         return;
     }
 
+    const modelSettings = window.SkriptLabTextModelSettings
+        ? window.SkriptLabTextModelSettings.mount({
+            triggerId: "kf-model-settings",
+            defaultKind: "demanding",
+            description: "Valitse seuraavissa viimeistely- ja oikolukupyynnöissä käytettävä kielimalli.",
+        })
+        : {
+            getModel: () => null,
+            labelFor: (value) => String(value || ""),
+            load: async () => false,
+        };
+
     function jsonOptions(method, body) {
         return {
             method,
@@ -977,6 +989,15 @@
         $("kf-accepted-count").textContent = String(counts.accepted || 0);
         $("kf-rejected-count").textContent = String((counts.rejected || 0) + (counts.stale || 0));
 
+        const usedModel = $("kf-used-model");
+        if (usedModel) {
+            const generatedBy = String(review?.generatedBy || "").trim();
+            usedModel.hidden = !generatedBy;
+            usedModel.textContent = generatedBy
+                ? "Käytetty malli: " + modelSettings.labelFor(generatedBy)
+                : "";
+        }
+
         const warningBox = $("kf-warnings");
         const warnings = Array.isArray(review?.warnings) ? review.warnings.filter(Boolean) : [];
         warningBox.hidden = !warnings.length;
@@ -1862,6 +1883,13 @@
 
     async function generateFinishingSuggestions(selection, unitRunRequest) {
         if (state.busy || keepOpenReviewForDecision()) return;
+        if (!unitRunRequest) {
+            await modelSettings.load(false);
+            if (state.busy || keepOpenReviewForDecision()) return;
+        }
+        const requestModel = unitRunRequest
+            ? String(unitRunRequest.model || "").trim() || null
+            : modelSettings.getModel();
         const context = requestContext(unitRunRequest);
         const isTranslation = context.mode === "translation";
         if (
@@ -1895,7 +1923,7 @@
                 throw canonicalChangedError("Valittu tekstikohta ei enää sisällä tarkistettavaa tekstiä.");
             }
             const body = {
-                model: null,
+                model: requestModel,
                 selection: selectionRequestPayload(canonicalSelection, canonical.paragraphs),
             };
             let result;
@@ -1977,7 +2005,7 @@
         return generateFinishingSuggestions(selection, null);
     }
 
-    function generateNextUnitReview() {
+    async function generateNextUnitReview() {
         if (keepOpenReviewForDecision()) return;
         if (!(state.mode === "translation" ? currentChunk() : currentChapter()) || !unitHasText()) {
             toast(state.mode === "translation"
@@ -1987,6 +2015,8 @@
         }
         let run = currentUnitRun();
         if (!run || run.status === "complete") {
+            await modelSettings.load(false);
+            if (state.busy || currentUnitRun()?.status === "requesting") return;
             cancelUnitRun();
             const paragraphs = currentUnitParagraphs();
             const totalParts = countUnitParts(paragraphs, REVIEW_PART_MAX_CHARACTERS);
@@ -2003,6 +2033,7 @@
                 chapterIndex: state.chapterIndex,
                 translationId: state.translation?.id || null,
                 rawChunkIndex: currentChunk()?._kfRawIndex ?? null,
+                model: modelSettings.getModel(),
                 partNumber: 1,
                 totalParts,
                 nextCursor,
@@ -2028,6 +2059,7 @@
         revealCurrentSelection(selection);
         return generateFinishingSuggestions(selection, {
             id: run.id,
+            model: run.model,
             partNumber: run.partNumber,
             totalParts: run.totalParts,
         });

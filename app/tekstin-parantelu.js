@@ -60,6 +60,17 @@
         return;
     }
 
+    const textModelSettings = window.SkriptLabTextModelSettings
+        ? window.SkriptLabTextModelSettings.mount({
+            triggerId: "ti-model-settings",
+            defaultKind: "demanding",
+        })
+        : {
+            getModel: () => null,
+            labelFor: (value) => String(value || ""),
+            load: async () => false,
+        };
+
     function jsonOptions(method, body) {
         return {
             method,
@@ -894,6 +905,14 @@
         $("ti-suggestion-empty").hidden = hasSuggestion;
         $("ti-suggestion").hidden = !hasSuggestion;
         $("ti-inspector-actions").hidden = !hasSuggestion;
+        const usedModel = $("ti-used-model");
+        if (usedModel) {
+            const generatedBy = String(state.suggestion?.generatedBy || "").trim();
+            usedModel.textContent = generatedBy
+                ? "Käytetty malli: " + textModelSettings.labelFor(generatedBy)
+                : "";
+            usedModel.hidden = !generatedBy;
+        }
         if (hasSuggestion) {
             $("ti-original").textContent = state.suggestion.original;
             $("ti-suggestion-text").value = state.suggestion.edited;
@@ -1472,6 +1491,8 @@
 
         let run = currentChapterRun();
         if (!run || run.status === "complete") {
+            await textModelSettings.load(false);
+            if (currentChapterRun()?.status === "requesting") return;
             cancelChapterRun();
             const paragraphs = normalParagraphs();
             const totalParts = countChapterParts(paragraphs, CHAPTER_PART_MAX_CHARACTERS);
@@ -1488,6 +1509,7 @@
                 partNumber: 1,
                 totalParts,
                 nextCursor,
+                model: textModelSettings.getModel(),
                 status: "ready",
             };
             state.chapterRun = run;
@@ -1555,12 +1577,14 @@
                 id: run.id,
                 partNumber: run.partNumber,
                 totalParts: run.totalParts,
+                model: run.model,
             },
         });
     }
 
     async function generateSuggestion(options) {
         const chapterRunRequest = options?.chapterRun || null;
+        if (!chapterRunRequest) await textModelSettings.load(false);
         if (state.suggestion) {
             keepOpenSuggestionForReview();
             return;
@@ -1572,6 +1596,9 @@
             return;
         }
         if (!chapterRunRequest && activeChapterRun) cancelChapterRun();
+        const requestModel = chapterRunRequest
+            ? chapterRunRequest.model || null
+            : textModelSettings.getModel();
         const selection = currentSelection();
         if (!selection?.text?.trim()) {
             toast("Valitse ensin parannettava tekstikohta.");
@@ -1597,7 +1624,7 @@
                 source_text: sourceText,
                 context_before: context.before,
                 context_after: context.after,
-                model: null,
+                model: requestModel,
             }));
             const returnedEdit = String(result?.edited_text ?? "");
             const returnedEditTrimmed = returnedEdit.trim();
@@ -1647,6 +1674,7 @@
                 translationId: requestTranslationId,
                 chapterRun: chapterRunRequest,
                 chapterSnapshot: requestChapterSnapshot,
+                generatedBy: String(result?.generated_by || ""),
             };
             renderInspector();
             state.focusAfterBusy = $("ti-suggestion-text");

@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="tekstin-parantelu.css?v=2">
     <link rel="stylesheet" href="kaannoksen-viimeistely.css?v=7">
+    <link rel="stylesheet" href="text-model-settings.css?v=1">
 </head>
 <body>
     <main class="ti-app kf-app" aria-labelledby="kf-title">
@@ -16,7 +17,13 @@
                     <h1 id="kf-title">Tekstin/Käännöksen viimeistely ja oikoluku</h1>
                     <p id="kf-project-name">Valitse viimeisteltävä teos.</p>
                 </div>
-                <p id="kf-status" class="ti-status" role="status" aria-live="polite">Valmis</p>
+                <div class="ti-title-actions">
+                    <p id="kf-status" class="ti-status" role="status" aria-live="polite">Valmis</p>
+                    <button id="kf-model-settings" class="ti-button ti-button-secondary text-model-settings-trigger" type="button">
+                        <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.25"></circle><path d="M12 2.75v2M12 19.25v2M2.75 12h2M19.25 12h2M5.45 5.45l1.4 1.4M17.15 17.15l1.4 1.4M18.55 5.45l-1.4 1.4M6.85 17.15l-1.4 1.4"></path></svg>
+                        <span data-text-model-current>Malli: automaattinen</span>
+                    </button>
+                </div>
             </div>
 
             <div class="ti-tabs" role="tablist" aria-label="Viimeistelyn ja oikoluvun tyyppi">
@@ -213,6 +220,7 @@
                         <span><strong id="kf-rejected-count">0</strong> hylättyä</span>
                     </div>
                     <div id="kf-warnings" class="kf-warnings" role="status" aria-live="polite" hidden></div>
+                    <p id="kf-used-model" class="text-model-generated-by" hidden></p>
 
                     <section id="kf-suggestion-empty" class="ti-suggestion-empty">
                         <div class="ti-selection-icon" aria-hidden="true">
@@ -240,6 +248,7 @@
 
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=4"></script>
-    <script src="kaannoksen-viimeistely.js?v=8"></script>
+    <script src="text-model-settings.js?v=1"></script>
+    <script src="kaannoksen-viimeistely.js?v=9"></script>
 </body>
 </html>

@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#f4f2ed">
   <title>Kirjoita ja editoi - SkriptLab</title>
   <link rel="stylesheet" href="kirjoita-editoi.css?v=7">
+  <link rel="stylesheet" href="text-model-settings.css?v=1">
 </head>
 <body data-mobile-panel="editor">
   <main class="write-editor-app" aria-label="Kirjoita ja editoi">
@@ -20,6 +21,10 @@
       <div class="header-status">
         <span id="selection-counter">0 sanaa</span>
         <span id="save-status" role="status" aria-live="polite">Ei tallennettavaa</span>
+        <button class="text-model-settings-trigger" id="write-model-settings" type="button">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.25"></circle><path d="M12 2.75v2M12 19.25v2M2.75 12h2M19.25 12h2M5.45 5.45l1.4 1.4M17.15 17.15l1.4 1.4M18.55 5.45l-1.4 1.4M6.85 17.15l-1.4 1.4"></path></svg>
+          <span data-text-model-current>Malli: automaattinen</span>
+        </button>
         <button class="icon-btn" id="save-btn" type="button" aria-label="Tallenna" title="Tallenna">✓</button>
         <button class="icon-btn" id="assistant-toggle" type="button" aria-label="Näytä tai piilota avustaja" title="Avustaja">◫</button>
       </div>
@@ -224,6 +229,7 @@
 
   <script src="config.js?v=1"></script>
   <script src="demo-terminology.js?v=1"></script>
-  <script src="kirjoita-editoi.js?v=13"></script>
+  <script src="text-model-settings.js?v=1"></script>
+  <script src="kirjoita-editoi.js?v=14"></script>
 </body>
 </html>
