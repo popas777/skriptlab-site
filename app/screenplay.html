@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="screenplay.css?v=2">
+  <link rel="stylesheet" href="screenplay.css?v=3">
 </head>
 <body>
   <main class="screenplay-app" id="screenplay-app" data-active-view="world" aria-labelledby="screenplay-title">
@@ -35,8 +35,11 @@
       <button id="screenplay-scenes-tab" type="button" role="tab" aria-selected="false" aria-controls="screenplay-scenes-panel" data-screenplay-view="scenes">
         <span>2</span>Kohtaukset
       </button>
+      <button id="screenplay-preview-tab" type="button" role="tab" aria-selected="false" aria-controls="screenplay-preview-panel" data-screenplay-view="preview">
+        <span>3</span>Esikatselu
+      </button>
       <button id="screenplay-export-tab" type="button" role="tab" aria-selected="false" aria-controls="screenplay-export-panel" data-screenplay-view="export">
-        <span>3</span>Vie
+        <span>4</span>Vie
       </button>
     </nav>
 
@@ -202,6 +205,7 @@
               <div class="reference-content">
                 <label class="field" for="screenplay-scene-location"><span>Kohtauksen paikka</span><select id="screenplay-scene-location"></select></label>
                 <div class="field" role="group" aria-labelledby="screenplay-scene-characters-label"><span id="screenplay-scene-characters-label">Kohtauksen hahmot</span><div class="character-choices" id="screenplay-scene-characters"></div></div>
+                <p class="prompt-note">Paikka ja hahmot esivalitaan kohtauksen sisällön perusteella. Voit vaihtaa valintoja ennen kuvan tai videon generointia.</p>
                 <div class="selected-references" id="screenplay-selected-references"></div>
               </div>
             </details>
@@ -211,8 +215,8 @@
               <label class="field" for="screenplay-image-model"><span>Kuvamalli</span><select id="screenplay-image-model" data-image-model-select disabled><option value="">Ladataan kuvamalleja…</option></select></label>
               <p class="prompt-note">Suositeltu oletusmalli on sama kuin kansien generoinnissa. Valittu malli näkyy myös generointiviestissä.</p>
               <div class="field-row image-settings">
-                <label class="field" for="screenplay-image-size"><span>Koko</span><select id="screenplay-image-size"><option value="1K">1K</option><option value="2K">2K</option><option value="4K">4K</option></select></label>
-                <label class="field" for="screenplay-image-ratio"><span>Kuvasuhde</span><select id="screenplay-image-ratio"><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="1:1">1:1</option></select></label>
+                <label class="field" for="screenplay-image-size"><span>Koko</span><select id="screenplay-image-size" data-image-size-select><option value="1K">1K</option><option value="2K">2K</option><option value="4K">4K</option></select></label>
+                <label class="field" for="screenplay-image-ratio"><span>Kuvasuhde</span><select id="screenplay-image-ratio" data-image-ratio-select><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="1:1">1:1</option></select></label>
               </div>
               <label class="field" for="screenplay-scene-asset-select"><span>Käytä olemassa olevaa kuvaa</span><select id="screenplay-scene-asset-select"><option value="">Ei valittua kuvaa</option></select></label>
               <p class="without-text-note"><strong>Ilman tekstiä.</strong> Asetus tulee Maailma-vaiheesta ja tallentuu tuotantoon.</p>
@@ -227,9 +231,31 @@
         </div>
       </section>
 
+      <section class="workspace-panel preview-panel" id="screenplay-preview-panel" role="tabpanel" aria-labelledby="screenplay-preview-tab" data-screenplay-panel="preview" hidden aria-hidden="true">
+        <header class="column-heading">
+          <div><span class="column-number">03</span><h2>Kohtausten esikatselu</h2></div>
+          <p>Vertaa kohtauskuvia, generoi vaihtoehtoja ja valitse vientiin käytettävä kuva.</p>
+        </header>
+        <section class="preview-toolbar" aria-labelledby="screenplay-preview-settings-title">
+          <div class="section-heading compact"><div><p class="eyebrow">Uudet vaihtoehdot</p><h3 id="screenplay-preview-settings-title">Kuva-asetukset</h3></div></div>
+          <div class="preview-settings">
+            <label class="field" for="screenplay-preview-image-model"><span>Kuvamalli</span><select id="screenplay-preview-image-model" data-image-model-select disabled><option value="">Ladataan kuvamalleja…</option></select></label>
+            <label class="field" for="screenplay-preview-image-size"><span>Koko</span><select id="screenplay-preview-image-size" data-image-size-select><option value="1K">1K</option><option value="2K">2K</option><option value="4K">4K</option></select></label>
+            <label class="field" for="screenplay-preview-image-ratio"><span>Kuvasuhde</span><select id="screenplay-preview-image-ratio" data-image-ratio-select><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="1:1">1:1</option></select></label>
+          </div>
+          <p class="prompt-note">Uusi kuva tallennetaan ensin vaihtoehdoksi. Nykyinen kuva vaihtuu vasta, kun painat vaihtoehdosta “Ota käyttöön”.</p>
+        </section>
+        <div class="preview-list" id="screenplay-preview-list"></div>
+        <div class="column-empty" id="screenplay-preview-empty">
+          <span aria-hidden="true">00</span><strong>Ei vielä esikatseltavia kohtauksia</strong>
+          <p>Luo kohtaukset ensin. Sen jälkeen voit vertailla nykyisiä kohtauskuvia ja uusia vaihtoehtoja tässä.</p>
+          <button class="secondary-action" type="button" data-open-view="scenes">Siirry kohtauksiin</button>
+        </div>
+      </section>
+
       <section class="workspace-panel export-panel" id="screenplay-export-panel" role="tabpanel" aria-labelledby="screenplay-export-tab" data-screenplay-panel="export" hidden aria-hidden="true">
         <header class="column-heading">
-          <div><span class="column-number">03</span><h2>Vie tuotantoon</h2></div>
+          <div><span class="column-number">04</span><h2>Vie tuotantoon</h2></div>
           <p>Lataa yksi kohtaus tai koko elokuvan aineisto ulkoiseen työkaluun.</p>
         </header>
         <div class="export-workbench">
@@ -305,6 +331,6 @@
     const apiUrl = path => `${API_BASE_URL}${path}`;
   </script>
   <script src="auth.js?v=4"></script>
-  <script src="screenplay.js?v=3"></script>
+  <script src="screenplay.js?v=4"></script>
 </body>
 </html>

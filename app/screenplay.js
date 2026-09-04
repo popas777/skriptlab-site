@@ -9,6 +9,8 @@
   const IMAGE_MIME_PATTERN = /^data:image\/(?:png|jpe?g|webp);base64,[a-z0-9+/]+=*$/i;
   const NO_TEXT_GUARD = 'No visible text, letters, subtitles, captions, logos, or watermarks.';
   const JOB_STORAGE_PREFIX = 'skriptlab_screenplay_job_v1_';
+  const IMAGE_REQUEST_STORAGE_PREFIX = 'skriptlab_screenplay_image_request_v1_';
+  const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
   const elements = {};
   const state = {
@@ -24,6 +26,7 @@
     textModelLoadError: '',
     assets: new Map(),
     assetRequests: new Map(),
+    previewAssetObserver: null,
     selectedChapterId: null,
     selectedSceneId: null,
     activeView: 'world',
@@ -41,6 +44,8 @@
     pollTimer: null,
     operationActive: false,
     imageBusy: false,
+    imageBusySceneId: null,
+    pendingImageRequest: null,
     pendingJob: null,
     noticeAction: null,
   };
@@ -55,7 +60,7 @@
       'screenplay-save-state', 'screenplay-save-label', 'screenplay-notice',
       'screenplay-notice-text', 'screenplay-notice-action', 'screenplay-project-empty',
       'screenplay-workspace', 'screenplay-world-panel', 'screenplay-scenes-panel',
-      'screenplay-export-panel', 'screenplay-text-model', 'screenplay-world-image-model',
+      'screenplay-preview-panel', 'screenplay-export-panel', 'screenplay-text-model', 'screenplay-world-image-model',
       'screenplay-text-model-retry',
       'screenplay-style-hint', 'screenplay-adaptation-goal', 'screenplay-without-text',
       'screenplay-generate-world', 'screenplay-style-section', 'screenplay-manifest-title',
@@ -78,6 +83,8 @@
       'screenplay-image-size', 'screenplay-image-ratio', 'screenplay-scene-asset-select',
       'screenplay-image-request-prompt',
       'screenplay-scene-asset', 'screenplay-generate-scene-image',
+      'screenplay-preview-image-model', 'screenplay-preview-image-size',
+      'screenplay-preview-image-ratio', 'screenplay-preview-list', 'screenplay-preview-empty',
       'screenplay-export-stats', 'screenplay-export-scene-select',
       'screenplay-export-scene', 'screenplay-export-all', 'screenplay-entity-template',
     ].forEach((id) => {
@@ -238,6 +245,9 @@
 
   function normalizeScene(raw, index) {
     const assetId = positiveInteger(raw?.keyframe_asset_id);
+    const variantAssetIds = [...new Set((Array.isArray(raw?.image_variant_asset_ids) ? raw.image_variant_asset_ids : [])
+      .map(positiveInteger)
+      .filter((id) => id && id !== assetId))].slice(0, 12);
     return {
       id: stringValue(raw?.id, 80) || `scene-${index + 1}`,
       order: clampInteger(raw?.order, 0, 10000, index),
@@ -247,6 +257,7 @@
       screenplay_text: String(raw?.screenplay_text || '').slice(0, 12000),
       character_ids: [...new Set((Array.isArray(raw?.character_ids) ? raw.character_ids : []).map((value) => stringValue(value, 80)).filter(Boolean))].slice(0, 16),
       ...(stringValue(raw?.location_id, 80) ? { location_id: stringValue(raw.location_id, 80) } : {}),
+      assignments_initialized: raw?.assignments_initialized === true,
       duration_s: clampInteger(raw?.duration_s, 2, 120, 8),
       continuity_note: stringValue(raw?.continuity_note, 2000),
       image_prompt: stringValue(raw?.image_prompt, 4000),
@@ -254,6 +265,7 @@
       image_prompt_source: normalizePromptSource(raw?.image_prompt_source),
       video_prompt_source: normalizePromptSource(raw?.video_prompt_source),
       ...(assetId ? { keyframe_asset_id: assetId } : {}),
+      image_variant_asset_ids: variantAssetIds,
     };
   }
 
@@ -366,11 +378,88 @@
     return created;
   }
 
+  function searchableText(value) {
+    return stringValue(value)
+      .normalize('NFKC')
+      .toLocaleLowerCase('fi')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function escapeRegularExpression(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  function entityNameOccurs(name, text) {
+    const needle = searchableText(name);
+    const haystack = searchableText(text);
+    if (!needle || !haystack) return false;
+    // World-bible names use the nominative form while Finnish prose commonly
+    // inflects them. Keep suffixes explicit so Aino does not match Ainola.
+    const suffix = '(?:n|a|ä|an|än|en|in|on|ön|un|yn|ssa|ssä|sta|stä|lla|llä|lta|ltä|lle|ksi|na|nä|tta|ttä|ineen)?';
+    const pattern = `(?<![\\p{L}\\p{N}_])${escapeRegularExpression(needle)}${suffix}(?![\\p{L}\\p{N}_])`;
+    try {
+      if (new RegExp(pattern, 'u').test(haystack)) return true;
+    } catch (_error) {
+      // The current browser targets support Unicode properties. For an older
+      // embedded browser, exact containment remains safe for non-Latin names.
+    }
+    return !/[a-zåäö]/iu.test(needle) && haystack.includes(needle);
+  }
+
+  function sceneSearchText(scene) {
+    return searchableText([
+      scene?.title,
+      scene?.summary,
+      scene?.screenplay_text,
+      scene?.source?.excerpt,
+      scene?.image_prompt,
+      scene?.video_prompt,
+    ].filter(Boolean).join(' '));
+  }
+
+  function ensureSceneAssignments(manifest = state.manifest) {
+    if (!manifest) return 0;
+    const characters = manifest.characters || [];
+    const locations = manifest.locations || [];
+    const characterIds = new Set(characters.map((item) => item.id));
+    const locationIds = new Set(locations.map((item) => item.id));
+    let changed = 0;
+    (manifest.scenes || []).forEach((scene) => {
+      const validCharacters = (scene.character_ids || []).filter((id) => characterIds.has(id));
+      if (validCharacters.length !== (scene.character_ids || []).length) {
+        scene.character_ids = validCharacters;
+        changed += 1;
+      }
+      if (scene.location_id && !locationIds.has(scene.location_id)) {
+        delete scene.location_id;
+        changed += 1;
+      }
+      if (scene.assignments_initialized === true) return;
+      const haystack = sceneSearchText(scene);
+      if (!scene.character_ids.length && characters.length) {
+        const mentioned = characters.filter((character) => entityNameOccurs(character.name, haystack));
+        scene.character_ids = (mentioned.length ? mentioned : [characters[0]]).map((item) => item.id).slice(0, 16);
+        changed += 1;
+      }
+      if (!scene.location_id && locations.length) {
+        const mentioned = locations.find((location) => entityNameOccurs(location.name, haystack));
+        scene.location_id = (mentioned || locations[0]).id;
+        changed += 1;
+      }
+      if (characters.length || locations.length) {
+        scene.assignments_initialized = true;
+        changed += 1;
+      }
+    });
+    return changed;
+  }
+
   function queueAutomaticPromptSave(created) {
     if (!created || !state.projectId || !state.manifest || state.conflict) return;
     state.dirty = true;
     state.changeSequence += 1;
-    setSaveState('dirty', `${created} automaattipromptia tallennetaan…`);
+    setSaveState('dirty', `${created} automaattista täydennystä tallennetaan…`);
     window.clearTimeout(state.saveTimer);
     state.saveTimer = window.setTimeout(() => { flushSave(); }, SAVE_DELAY_MS);
     renderExport();
@@ -413,6 +502,88 @@
     savePendingJob(null);
   }
 
+  function pendingImageStorageKey(projectId = state.projectId) {
+    return projectId ? `${IMAGE_REQUEST_STORAGE_PREFIX}${projectId}` : '';
+  }
+
+  function normalizePendingImageRequest(raw, projectId = state.projectId) {
+    if (!raw || typeof raw !== 'object' || Number(raw.projectId) !== Number(projectId)) return null;
+    const clientRequestId = stringValue(raw.clientRequestId, 80);
+    const requestBody = raw.requestBody && typeof raw.requestBody === 'object' ? raw.requestBody : null;
+    const target = raw.target && typeof raw.target === 'object' ? raw.target : null;
+    const kind = stringValue(target?.kind, 20);
+    const targetId = stringValue(target?.id, 80);
+    const attachMode = target?.attachMode === 'variant' ? 'variant' : 'current';
+    if (
+      !UUID_PATTERN.test(clientRequestId)
+      || !requestBody
+      || requestBody.client_request_id !== clientRequestId
+      || !['scene', 'character', 'location'].includes(kind)
+      || !targetId
+      || stringValue(requestBody.visual_kind, 20) !== kind
+      || !stringValue(requestBody.model, 240)
+      || !stringValue(requestBody.chapter_custom_id, 240)
+      || !stringValue(requestBody.prompt, IMAGE_PROMPT_LIMIT)
+      || !['16:9', '9:16', '1:1', '3:4'].includes(requestBody.aspect_ratio)
+      || !['512', '1K', '2K', '4K'].includes(stringValue(requestBody.image_size).toUpperCase())
+    ) return null;
+    return {
+      projectId: Number(projectId),
+      clientRequestId,
+      createdAt: stringValue(raw.createdAt, 80),
+      target: { kind, id: targetId, attachMode },
+      requestBody: {
+        client_request_id: clientRequestId,
+        model: stringValue(requestBody.model, 240),
+        visual_kind: kind,
+        section_label: stringValue(requestBody.section_label, 240),
+        chapter_custom_id: stringValue(requestBody.chapter_custom_id, 240),
+        prompt: stringValue(requestBody.prompt, IMAGE_PROMPT_LIMIT),
+        aspect_ratio: requestBody.aspect_ratio,
+        image_size: stringValue(requestBody.image_size).toUpperCase(),
+        use_analysis: requestBody.use_analysis === true,
+        use_project_memory: requestBody.use_project_memory === true,
+        without_text: requestBody.without_text !== false,
+      },
+    };
+  }
+
+  function savePendingImageRequest(record) {
+    const normalized = normalizePendingImageRequest(record, state.projectId);
+    const key = pendingImageStorageKey();
+    if (!normalized || !key) return false;
+    try {
+      sessionStorage.setItem(key, JSON.stringify(normalized));
+      state.pendingImageRequest = normalized;
+      return true;
+    } catch (_error) {
+      state.pendingImageRequest = null;
+      return false;
+    }
+  }
+
+  function readPendingImageRequest(projectId = state.projectId) {
+    const key = pendingImageStorageKey(projectId);
+    if (!key) return null;
+    try {
+      const parsed = JSON.parse(sessionStorage.getItem(key) || 'null');
+      const normalized = normalizePendingImageRequest(parsed, projectId);
+      if (!normalized && parsed) sessionStorage.removeItem(key);
+      return normalized;
+    } catch (_error) {
+      try { sessionStorage.removeItem(key); } catch (_storageError) { /* Storage is optional. */ }
+      return null;
+    }
+  }
+
+  function clearPendingImageRequest(clientRequestId = '') {
+    if (clientRequestId && state.pendingImageRequest?.clientRequestId !== clientRequestId) return;
+    const key = pendingImageStorageKey();
+    state.pendingImageRequest = null;
+    if (!key) return;
+    try { sessionStorage.removeItem(key); } catch (_error) { /* Storage is optional. */ }
+  }
+
   function applyWorkspace(payload, options = {}) {
     const previousSceneId = state.selectedSceneId;
     const previousChapterId = state.selectedChapterId;
@@ -440,7 +611,7 @@
     state.dirty = false;
     state.conflict = false;
     if (!options.preserveSaveState) setSaveState('saved', `Tallennettu · revisio ${state.revision}`);
-    return ensureAutomaticPrompts(state.manifest);
+    return ensureAutomaticPrompts(state.manifest) + ensureSceneAssignments(state.manifest);
   }
 
   function selectedChapter() {
@@ -469,6 +640,16 @@
     return stringValue(elements['screenplay-image-model']?.value || elements['screenplay-world-image-model']?.value);
   }
 
+  function selectedImageSizeValue() {
+    return stringValue(elements['screenplay-preview-image-size']?.value || elements['screenplay-image-size']?.value) || '1K';
+  }
+
+  function selectedImageRatioValue() {
+    return stringValue(elements['screenplay-preview-image-ratio']?.value || elements['screenplay-image-ratio']?.value)
+      || state.manifest?.aspect_ratio
+      || '16:9';
+  }
+
   function selectedTextModelValue() {
     return stringValue(elements['screenplay-text-model']?.value);
   }
@@ -486,7 +667,8 @@
   }
 
   function setActiveView(view, options = {}) {
-    const next = ['world', 'scenes', 'export'].includes(view) ? view : 'world';
+    const next = ['world', 'scenes', 'preview', 'export'].includes(view) ? view : 'world';
+    if (next !== 'preview') disconnectPreviewAssetObserver();
     state.activeView = next;
     elements['screenplay-app'].dataset.activeView = next;
     document.querySelectorAll('[data-screenplay-view]').forEach((button) => {
@@ -500,6 +682,7 @@
       panel.hidden = !active;
       panel.setAttribute('aria-hidden', String(!active));
     });
+    if (next === 'preview') renderPreview();
     if (next === 'export') renderExport();
     if (options.focus) byId(`screenplay-${next}-tab`)?.focus();
     if (options.scroll) window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -528,7 +711,7 @@
     setFieldValue(elements['screenplay-style-prompt'], manifest.visual_style_prompt);
     setFieldValue(elements['screenplay-cinematography-prompt'], manifest.cinematography_prompt);
     setFieldValue(elements['screenplay-aspect-ratio'], manifest.aspect_ratio);
-    setFieldValue(elements['screenplay-image-ratio'], manifest.aspect_ratio);
+    document.querySelectorAll('[data-image-ratio-select]').forEach((select) => setFieldValue(select, manifest.aspect_ratio));
     elements['screenplay-without-text'].checked = manifest.without_text !== false;
     const visible = hasWorld();
     elements['screenplay-style-section'].hidden = !visible;
@@ -660,6 +843,51 @@
       caption.append(text, download);
       container.appendChild(caption);
     }
+  }
+
+  function disconnectPreviewAssetObserver() {
+    state.previewAssetObserver?.disconnect();
+    state.previewAssetObserver = null;
+  }
+
+  function preparePreviewAssetObserver() {
+    disconnectPreviewAssetObserver();
+    if (typeof window.IntersectionObserver !== 'function') return null;
+    state.previewAssetObserver = new window.IntersectionObserver((entries, observer) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        observer.unobserve(entry.target);
+        if (!entry.target.isConnected || state.activeView !== 'preview') return;
+        const id = positiveInteger(entry.target.dataset.assetId);
+        const label = stringValue(entry.target.dataset.previewAssetLabel, 500);
+        renderAsset(entry.target, id, label);
+      });
+    }, { rootMargin: '320px 0px', threshold: 0.01 });
+    return state.previewAssetObserver;
+  }
+
+  function renderDeferredPreviewAsset(container, assetId, label) {
+    const id = positiveInteger(assetId);
+    container.dataset.assetId = id ? String(id) : '';
+    container.dataset.previewAssetLabel = stringValue(label, 500);
+    if (!id) {
+      renderAsset(container, null, label);
+      return;
+    }
+    container.replaceChildren(assetEmptyContent('Kuva ladataan, kun se tulee näkyviin…'));
+    container.dataset.previewAssetPending = 'true';
+  }
+
+  function observeDeferredPreviewAssets(list) {
+    list.querySelectorAll('[data-preview-asset-pending="true"]').forEach((container) => {
+      delete container.dataset.previewAssetPending;
+      if (state.previewAssetObserver) state.previewAssetObserver.observe(container);
+      else renderAsset(
+        container,
+        positiveInteger(container.dataset.assetId),
+        stringValue(container.dataset.previewAssetLabel, 500),
+      );
+    });
   }
 
   function safeFileStem(value, fallback = 'kuva') {
@@ -924,6 +1152,188 @@
     syncControls();
   }
 
+  function sceneVariantAssetIds(scene) {
+    const currentId = positiveInteger(scene?.keyframe_asset_id);
+    return [...new Set((Array.isArray(scene?.image_variant_asset_ids) ? scene.image_variant_asset_ids : [])
+      .map(positiveInteger)
+      .filter((id) => id && id !== currentId))].slice(0, 12);
+  }
+
+  function addSceneVariantAsset(scene, assetId) {
+    const id = positiveInteger(assetId);
+    if (!scene || !id || id === positiveInteger(scene.keyframe_asset_id)) return false;
+    scene.image_variant_asset_ids = [...new Set([id, ...sceneVariantAssetIds(scene)])].slice(0, 12);
+    return true;
+  }
+
+  function setSceneKeyframeAsset(scene, assetId) {
+    if (!scene) return false;
+    const nextId = positiveInteger(assetId);
+    const previousId = positiveInteger(scene.keyframe_asset_id);
+    if (nextId === previousId) return false;
+    const alternatives = [...new Set([
+      previousId,
+      ...sceneVariantAssetIds(scene),
+    ].filter((id) => id && id !== nextId))].slice(0, 12);
+    if (nextId) scene.keyframe_asset_id = nextId;
+    else delete scene.keyframe_asset_id;
+    scene.image_variant_asset_ids = alternatives;
+    return true;
+  }
+
+  function sceneAssignmentSummary(scene) {
+    const location = referencedLocation(scene)?.name || 'Ei valittua paikkaa';
+    const characters = referencedCharacters(scene).map((item) => item.name || item.id);
+    return `Paikka: ${location} · Hahmot: ${characters.length ? characters.join(', ') : 'ei valittuja hahmoja'}`;
+  }
+
+  function createPreviewAsset(scene, assetId, current = false) {
+    const item = document.createElement('article');
+    item.className = `preview-asset${current ? ' is-current' : ''}`;
+    const heading = document.createElement('div');
+    heading.className = 'preview-asset-heading';
+    const label = document.createElement('strong');
+    label.textContent = current ? 'Käytössä' : 'Vaihtoehto';
+    heading.appendChild(label);
+    if (current) {
+      const badge = document.createElement('span');
+      badge.textContent = 'Viedään tuotantoon';
+      heading.appendChild(badge);
+    }
+    const frame = document.createElement('div');
+    frame.className = 'asset-frame preview-asset-frame';
+    renderDeferredPreviewAsset(
+      frame,
+      assetId,
+      `${scene.title || 'Kohtaus'} – ${current ? 'käytössä oleva kuva' : 'kuvavaihtoehto'}`,
+    );
+    item.append(heading, frame);
+    if (!current) {
+      const select = document.createElement('button');
+      select.type = 'button';
+      select.className = 'secondary-action preview-select-action';
+      select.dataset.previewSelect = '';
+      select.dataset.sceneId = scene.id;
+      select.dataset.assetId = String(assetId);
+      select.textContent = 'Ota käyttöön';
+      select.setAttribute('aria-label', `Ota kuvavaihtoehto käyttöön kohtauksessa ${scene.title || Number(scene.order) + 1}`);
+      item.appendChild(select);
+    }
+    return item;
+  }
+
+  function renderPreview() {
+    const list = elements['screenplay-preview-list'];
+    if (!list) return;
+    disconnectPreviewAssetObserver();
+    if (state.activeView !== 'preview') {
+      list.replaceChildren();
+      return;
+    }
+    preparePreviewAssetObserver();
+    const scenes = [...(state.manifest?.scenes || [])].sort((left, right) => left.order - right.order);
+    list.replaceChildren();
+    elements['screenplay-preview-empty'].hidden = scenes.length > 0;
+    list.hidden = scenes.length === 0;
+    scenes.forEach((scene) => {
+      const card = document.createElement('article');
+      card.className = 'preview-scene-card';
+      card.dataset.previewSceneId = scene.id;
+
+      const header = document.createElement('header');
+      header.className = 'preview-scene-heading';
+      const headingCopy = document.createElement('div');
+      const kicker = document.createElement('p');
+      kicker.className = 'eyebrow';
+      kicker.textContent = `Kohtaus ${String(Number(scene.order) + 1).padStart(2, '0')} · ${scene.duration_s || 0} s`;
+      const title = document.createElement('h3');
+      title.textContent = scene.title || `Kohtaus ${Number(scene.order) + 1}`;
+      headingCopy.append(kicker, title);
+      const assignments = document.createElement('p');
+      assignments.className = 'preview-assignments';
+      assignments.textContent = sceneAssignmentSummary(scene);
+      header.append(headingCopy, assignments);
+
+      const promptDetails = document.createElement('details');
+      promptDetails.className = 'preview-prompt-details';
+      const promptSummary = document.createElement('summary');
+      promptSummary.textContent = 'Näytä ja muokkaa kuvapromptia (EN)';
+      const promptContent = document.createElement('div');
+      promptContent.className = 'preview-prompt-content';
+      const scenePromptLabel = document.createElement('label');
+      scenePromptLabel.className = 'prompt-field';
+      const scenePromptTitle = document.createElement('span');
+      scenePromptTitle.textContent = 'Scene image prompt (EN)';
+      const scenePrompt = document.createElement('textarea');
+      scenePrompt.rows = 6;
+      scenePrompt.maxLength = 4000;
+      scenePrompt.lang = 'en';
+      scenePrompt.spellcheck = false;
+      scenePrompt.dataset.previewImagePrompt = '';
+      scenePrompt.dataset.sceneId = scene.id;
+      scenePrompt.value = scene.image_prompt || '';
+      scenePromptLabel.append(scenePromptTitle, scenePrompt);
+      const requestPromptLabel = document.createElement('label');
+      requestPromptLabel.className = 'prompt-field';
+      const requestPromptTitle = document.createElement('span');
+      requestPromptTitle.textContent = 'API:lle lähetettävä koottu käyttäjäprompti (EN · max 2000)';
+      const requestPrompt = document.createElement('textarea');
+      requestPrompt.rows = 7;
+      requestPrompt.lang = 'en';
+      requestPrompt.spellcheck = false;
+      requestPrompt.readOnly = true;
+      requestPrompt.dataset.previewRequestPrompt = '';
+      requestPrompt.value = sceneImageRequestPrompt(scene);
+      requestPromptLabel.append(requestPromptTitle, requestPrompt);
+      const promptNote = document.createElement('p');
+      promptNote.className = 'prompt-note';
+      promptNote.textContent = 'Palvelin lisää alempaan koosteeseen vielä valitun luvun, kirja-analyysin ja projektimuistin lähdekontekstiksi. Muokkaa yllä olevaa kohtauspromptia; muutokset tallennetaan ennen kuvan generointia.';
+      promptContent.append(scenePromptLabel, requestPromptLabel, promptNote);
+      promptDetails.append(promptSummary, promptContent);
+
+      const comparison = document.createElement('div');
+      comparison.className = 'preview-comparison';
+      const currentColumn = document.createElement('div');
+      currentColumn.className = 'preview-current-column';
+      currentColumn.appendChild(createPreviewAsset(scene, positiveInteger(scene.keyframe_asset_id), true));
+
+      const alternativesColumn = document.createElement('section');
+      alternativesColumn.className = 'preview-alternatives-column';
+      const actions = document.createElement('div');
+      actions.className = 'preview-alternatives-heading';
+      const alternativesTitle = document.createElement('strong');
+      const alternativeIds = sceneVariantAssetIds(scene);
+      alternativesTitle.textContent = `Vaihtoehdot (${alternativeIds.length})`;
+      const generate = document.createElement('button');
+      generate.type = 'button';
+      generate.className = 'secondary-action preview-generate-action';
+      generate.dataset.previewGenerate = '';
+      generate.dataset.sceneId = scene.id;
+      const generating = state.imageBusy && state.imageBusySceneId === scene.id;
+      generate.textContent = generating ? 'Generoidaan vaihtoehtoa…' : 'Generoi uusi vaihtoehto';
+      generate.setAttribute('aria-busy', String(generating));
+      generate.setAttribute('aria-label', `Generoi uusi kuvavaihtoehto kohtaukselle ${scene.title || Number(scene.order) + 1}`);
+      actions.append(alternativesTitle, generate);
+      alternativesColumn.appendChild(actions);
+
+      const alternatives = document.createElement('div');
+      alternatives.className = 'preview-alternative-list';
+      alternativeIds.forEach((id) => alternatives.appendChild(createPreviewAsset(scene, id, false)));
+      if (!alternativeIds.length) {
+        const note = document.createElement('p');
+        note.className = 'preview-no-alternatives';
+        note.textContent = 'Ei vielä vaihtoehtoja. Nykyinen kuva säilyy, kun generoit uuden.';
+        alternatives.appendChild(note);
+      }
+      alternativesColumn.appendChild(alternatives);
+      comparison.append(currentColumn, alternativesColumn);
+      card.append(header, promptDetails, comparison);
+      list.appendChild(card);
+    });
+    observeDeferredPreviewAssets(list);
+    syncControls();
+  }
+
   function renderExport() {
     const scenes = [...(state.manifest?.scenes || [])].sort((left, right) => left.order - right.order);
     const select = elements['screenplay-export-scene-select'];
@@ -947,7 +1357,10 @@
     const assetIds = new Set();
     (state.manifest?.characters || []).forEach((item) => { if (positiveInteger(item.reference_asset_id)) assetIds.add(Number(item.reference_asset_id)); });
     (state.manifest?.locations || []).forEach((item) => { if (positiveInteger(item.background_asset_id)) assetIds.add(Number(item.background_asset_id)); });
-    scenes.forEach((item) => { if (positiveInteger(item.keyframe_asset_id)) assetIds.add(Number(item.keyframe_asset_id)); });
+    scenes.forEach((item) => {
+      if (positiveInteger(item.keyframe_asset_id)) assetIds.add(Number(item.keyframe_asset_id));
+      sceneVariantAssetIds(item).forEach((id) => assetIds.add(id));
+    });
     const values = [scenes.length, assetIds.size, state.revision];
     elements['screenplay-export-stats'].querySelectorAll('dd').forEach((item, index) => { item.textContent = String(values[index] || 0); });
     syncControls();
@@ -961,6 +1374,7 @@
     renderChapters();
     renderSceneList();
     renderSceneEditor();
+    renderPreview();
     renderExport();
     elements['screenplay-source-warning'].hidden = state.staleSceneIds.size === 0;
     setActiveView(state.activeView);
@@ -1009,10 +1423,23 @@
       .map((value) => stringValue(value).toUpperCase().replace(/\s*PX$/, ''))
       .filter((value, index, values) => ['512', '1K', '2K', '4K'].includes(value) && values.indexOf(value) === index);
     const sizes = supported.length ? supported : ['1K'];
-    const select = elements['screenplay-image-size'];
-    const previous = select.value;
-    select.replaceChildren(...sizes.map((size) => Object.assign(document.createElement('option'), { value: size, textContent: size })));
-    select.value = sizes.includes(previous) ? previous : sizes[0];
+    const selected = selectedImageSizeValue();
+    document.querySelectorAll('[data-image-size-select]').forEach((select) => {
+      select.replaceChildren(...sizes.map((size) => Object.assign(document.createElement('option'), { value: size, textContent: size })));
+      select.value = sizes.includes(selected) ? selected : sizes[0];
+    });
+  }
+
+  function syncImageSizeSelects(value) {
+    document.querySelectorAll('[data-image-size-select]').forEach((select) => {
+      if ([...select.options].some((option) => option.value === value)) select.value = value;
+    });
+  }
+
+  function syncImageRatioSelects(value) {
+    document.querySelectorAll('[data-image-ratio-select]').forEach((select) => {
+      if ([...select.options].some((option) => option.value === value)) select.value = value;
+    });
   }
 
   function renderTextModels() {
@@ -1153,13 +1580,15 @@
     detailed.forEach((asset) => state.assets.set(Number(asset.id), { ...(state.assets.get(Number(asset.id)) || {}), ...asset }));
     renderWorldEntities();
     renderSceneEditor();
+    renderPreview();
   }
 
   function syncControls() {
     const scene = selectedScene();
     const hasProject = Boolean(state.projectId);
-    const busy = state.operationActive || state.imageBusy;
-    const documentLocked = state.operationActive || state.conflict;
+    const pendingImage = Boolean(state.pendingImageRequest);
+    const busy = state.operationActive || state.imageBusy || pendingImage;
+    const documentLocked = state.operationActive || state.imageBusy || pendingImage || state.conflict;
     const hasTextModel = Boolean(state.textModels.length && selectedTextModelValue());
     [
       'screenplay-style-hint', 'screenplay-adaptation-goal', 'screenplay-without-text',
@@ -1187,6 +1616,18 @@
       || !selectedImageModelValue()
       || busy
       || state.conflict;
+    document.querySelectorAll('[data-preview-generate]').forEach((button) => {
+      const targetScene = state.manifest?.scenes?.find((item) => item.id === button.dataset.sceneId);
+      button.disabled = !targetScene || !selectedImageModelValue() || busy || state.conflict;
+    });
+    document.querySelectorAll('[data-preview-select]').forEach((button) => {
+      const targetScene = state.manifest?.scenes?.find((item) => item.id === button.dataset.sceneId);
+      const targetAssetId = positiveInteger(button.dataset.assetId);
+      button.disabled = !targetScene || !targetAssetId || busy || state.conflict;
+    });
+    elements['screenplay-preview-list']?.querySelectorAll('[data-preview-image-prompt]').forEach((field) => {
+      field.disabled = documentLocked || state.imageBusy;
+    });
     elements['screenplay-export-scene'].disabled = !elements['screenplay-export-scene-select']?.value || busy || state.dirty || state.conflict;
     elements['screenplay-export-all'].disabled = !(state.manifest?.scenes?.length) || busy || state.dirty || state.conflict;
     document.querySelectorAll('[data-entity-generate]').forEach((button) => {
@@ -1195,7 +1636,10 @@
       button.disabled = !entity || !selectedImageModelValue() || busy || state.conflict;
     });
     document.querySelectorAll('[data-image-model-select]').forEach((select) => {
-      select.disabled = !state.imageModels.length || state.imageBusy || state.operationActive || state.conflict;
+      select.disabled = !state.imageModels.length || documentLocked;
+    });
+    document.querySelectorAll('[data-image-size-select], [data-image-ratio-select]').forEach((select) => {
+      select.disabled = !state.imageModels.length || documentLocked;
     });
   }
 
@@ -1424,17 +1868,196 @@
     return selectedChapter()?.custom_id || state.chapters[0]?.custom_id || '';
   }
 
-  async function generateImageFor(kind, entity = null, button = null) {
+  function resolvePendingImageTarget(record) {
+    const kind = record?.target?.kind;
+    const id = record?.target?.id;
+    if (kind === 'scene') {
+      const scene = state.manifest?.scenes?.find((item) => item.id === id) || null;
+      return scene ? { kind, scene, entity: null, keepAsVariant: record.target.attachMode === 'variant' } : null;
+    }
+    const entity = entityByKindAndId(kind, id);
+    return entity ? { kind, scene: null, entity, keepAsVariant: false } : null;
+  }
+
+  function renderImageAttachment(target) {
+    if (target?.kind === 'scene') {
+      renderSceneList();
+      if (target.scene.id === state.selectedSceneId) renderSceneEditor();
+      renderPreview();
+    } else {
+      renderWorldEntities();
+      renderSelectedReferences(selectedScene());
+    }
+  }
+
+  async function attachPendingImageResult(record, payload) {
+    const assetId = positiveInteger(payload?.id);
+    if (!assetId) throw new Error('Kuvapalvelu ei palauttanut tallennetun assetin tunnistetta.');
+    state.assets.set(assetId, payload);
+    const target = resolvePendingImageTarget(record);
+    if (!target) {
+      clearPendingImageRequest(record.clientRequestId);
+      renderWorldEntities();
+      renderSceneEditor();
+      renderPreview();
+      return { assetId, saved: true, targetMissing: true, target: null };
+    }
+    let changed = false;
+    if (target.kind === 'scene' && target.keepAsVariant) changed = addSceneVariantAsset(target.scene, assetId);
+    else if (target.kind === 'scene') changed = setSceneKeyframeAsset(target.scene, assetId);
+    else if (target.kind === 'character' && positiveInteger(target.entity.reference_asset_id) !== assetId) {
+      target.entity.reference_asset_id = assetId;
+      changed = true;
+    } else if (target.kind === 'location' && positiveInteger(target.entity.background_asset_id) !== assetId) {
+      target.entity.background_asset_id = assetId;
+      changed = true;
+    }
+    if (changed) markDirty();
+    renderImageAttachment(target);
+    const saved = await flushSave();
+    if (saved) clearPendingImageRequest(record.clientRequestId);
+    return { assetId, saved, targetMissing: false, target };
+  }
+
+  function isImageRequestStillProcessing(error) {
+    return error?.status === 409 && /jo käsittelyssä/i.test(stringValue(error.message));
+  }
+
+  function shouldKeepPendingImageRequest(error) {
+    if (error?.name === 'AbortError' || error?.isNetworkError) return true;
+    const status = Number(error?.status);
+    if (status === 408 || (status >= 500 && status <= 599)) return true;
+    return status === 409 && /(jo käsittelyssä|käsittelyvaraus siirtyi)/i.test(stringValue(error.message));
+  }
+
+  function showPendingImageNotice(message = '') {
+    if (!state.pendingImageRequest) return;
+    setNotice(
+      message || 'Aiemman kuvapyynnön vastaus jäi epäselväksi. Tarkista sama pyyntö turvallisesti ennen uuden kuvan generointia.',
+      'warning',
+      'Tarkista aiempi kuvapyyntö',
+      replayPendingImageRequest,
+    );
+    syncControls();
+  }
+
+  function handlePendingImageError(error, record, generation, projectId) {
+    if (generation !== state.loadGeneration || projectId !== state.projectId) return;
+    if (error?.name === 'AbortError' || error?.isNetworkError) {
+      showPendingImageNotice(
+        'Kuvapyynnön vastaus katkesi. Emme voi vielä varmistaa, valmistuiko kuva. Tarkista sama pyyntö ennen uutta generointia.',
+      );
+      return;
+    }
+    if (isImageRequestStillProcessing(error)) {
+      showPendingImageNotice('Samaa kuvapyyntöä käsitellään vielä. Tarkista tulos hetken kuluttua.');
+      return;
+    }
+    if (shouldKeepPendingImageRequest(error)) {
+      showPendingImageNotice(
+        Number(error?.status) === 409
+          ? 'Samaa kuvapyyntöä käsitellään vielä. Tarkista tulos hetken kuluttua.'
+          : 'Kuvapalvelu palautti tilapäisen palvelinvirheen. Pyynnön lopputulos voi silti olla tallentunut; tarkista sama pyyntö ennen uutta generointia.',
+      );
+      return;
+    }
+    if (Number.isInteger(error?.status)) {
+      clearPendingImageRequest(record?.clientRequestId || '');
+      setNotice(error?.message || 'Kuvan generointi epäonnistui.', 'error');
+      syncControls();
+      return;
+    }
+    showPendingImageNotice(
+      error?.message
+        ? `${error.message} Pyynnön tila jäi epäselväksi, joten tarkista sama pyyntö ennen uutta generointia.`
+        : 'Kuvapyynnön tila jäi epäselväksi. Tarkista sama pyyntö ennen uuden kuvan generointia.',
+    );
+  }
+
+  async function submitPendingImageRequest(record) {
+    const projectId = state.projectId;
+    const generation = state.loadGeneration;
+    state.imageController?.abort();
+    state.imageController = new AbortController();
+    setNotice('Tarkistetaan kuvapyyntö samalla turvallisella tunnisteella…', 'loading');
+    const payload = await api(`/api/projects/${encodeURIComponent(projectId)}/visual-images`, jsonOptions(
+      deepClone(record.requestBody),
+      { method: 'POST', signal: state.imageController.signal },
+    ));
+    if (generation !== state.loadGeneration || projectId !== state.projectId) return null;
+    return attachPendingImageResult(record, payload);
+  }
+
+  function showImageRequestResult(result, record) {
+    if (!result) return;
+    if (result.targetMissing) {
+      setNotice('Aiempi kuvapyyntö löytyi, mutta sen alkuperäistä kohtausta, hahmoa tai paikkaa ei enää ole. Kuva säilyy projektin kuvakirjastossa.', 'warning');
+      return;
+    }
+    if (result.saved) {
+      setNotice(
+        record.target.attachMode === 'variant'
+          ? 'Uusi kuvavaihtoehto tallennettiin nykyisen rinnalle. Nykyinen kuva säilyi käytössä.'
+          : 'Kuva generoitiin, tallennettiin projektin assetiksi ja liitettiin käsikirjoitukseen.',
+        'ready',
+      );
+    } else if (!state.conflict) {
+      showPendingImageNotice('Kuva löytyi samalla tunnisteella, mutta sen liitoksen tallennus odottaa uutta yritystä.');
+    }
+  }
+
+  async function replayPendingImageRequest() {
     if (state.imageBusy || state.operationActive || state.conflict) return;
-    const scene = kind === 'scene' ? selectedScene() : null;
+    const record = state.pendingImageRequest || readPendingImageRequest();
+    if (!record) {
+      clearPendingImageRequest();
+      setNotice('Aiemmin kesken jäänyttä kuvapyyntöä ei löytynyt.', 'warning');
+      syncControls();
+      return;
+    }
+    const projectId = state.projectId;
+    const generation = state.loadGeneration;
+    state.pendingImageRequest = record;
+    state.imageBusy = true;
+    state.imageBusySceneId = record.target.kind === 'scene' ? record.target.id : null;
+    syncControls();
+    try {
+      const result = await submitPendingImageRequest(record);
+      showImageRequestResult(result, record);
+    } catch (error) {
+      handlePendingImageError(error, record, generation, projectId);
+    } finally {
+      if (generation === state.loadGeneration && projectId === state.projectId) {
+        state.imageBusy = false;
+        state.imageBusySceneId = null;
+        state.imageController = null;
+        renderPreview();
+        syncControls();
+      }
+    }
+  }
+
+  async function generateImageFor(kind, entity = null, button = null) {
+    if (state.pendingImageRequest) {
+      showPendingImageNotice();
+      return;
+    }
+    if (state.imageBusy || state.operationActive || state.conflict) return;
+    const scene = kind === 'scene'
+      ? (entity && state.manifest?.scenes?.includes(entity) ? entity : selectedScene())
+      : null;
+    const keepAsVariant = kind === 'scene' && Boolean(button?.hasAttribute('data-preview-generate'));
+    if (kind === 'scene' && !scene) return;
     const originalLabel = button?.textContent || '';
     const projectId = state.projectId;
     const generation = state.loadGeneration;
     let selectedModelLabel = 'valittu kuvamalli';
+    let pendingRecord = null;
 
     // Take the lock before prompt autosave: a second tap must not reach either
     // the revisioned PUT or the paid image request while this run is pending.
     state.imageBusy = true;
+    state.imageBusySceneId = scene?.id || null;
     if (button) button.textContent = 'Valmistellaan kuvapyyntöä…';
     syncControls();
 
@@ -1464,17 +2087,41 @@
         }
       }
       if (created) {
-        if (kind === 'scene') renderSceneEditor();
-        else renderWorldEntities();
+        if (kind === 'scene') {
+          if (scene.id === state.selectedSceneId) renderSceneEditor();
+          renderPreview();
+        } else {
+          renderWorldEntities();
+        }
         // Entity rendering replaces its buttons, so reapply the active lock
         // before autosave yields control back to the browser.
         syncControls();
         queueAutomaticPromptSave(created);
         const saved = await flushSave();
         if (!saved) {
-          setNotice('Automaattinen englanninkielinen prompti luotiin näkyviin, mutta sitä ei saatu tallennettua. Tarkista prompti ja yritä uudelleen.', 'warning');
+          if (!state.conflict) {
+            setNotice(
+              'Automaattinen englanninkielinen prompti luotiin näkyviin, mutta sitä ei saatu tallennettua. Tarkista prompti ja yritä uudelleen.',
+              'warning',
+              'Yritä tallentaa',
+              () => flushSave(),
+            );
+          }
           return;
         }
+      }
+
+      const preflightSaved = await flushSave();
+      if (!preflightSaved) {
+        if (!state.conflict) {
+          setNotice(
+            'Kuvan generointia ei käynnistetty, koska näkyvää promptia ja valintoja ei saatu ensin tallennettua.',
+            'warning',
+            'Yritä tallentaa',
+            () => flushSave(),
+          );
+        }
+        return;
       }
 
       const prompt = kind === 'scene' ? sceneImageRequestPrompt(scene) : entityImageRequestPrompt(kind, entity);
@@ -1495,61 +2142,64 @@
       }
 
       selectedModelLabel = selectedModel.display_name || selectedModel.model_name;
-      state.imageController?.abort();
-      state.imageController = new AbortController();
-      if (button) button.textContent = 'Generoidaan oikeaa kuvaa…';
-      setNotice(`Kuvapyyntö lähetettiin mallille ${selectedModelLabel}. Valmis kuva tallennetaan projektin assetiksi.`, 'loading');
-      const payload = await api(`/api/projects/${encodeURIComponent(projectId)}/visual-images`, jsonOptions({
+      const clientRequestId = createClientRequestId();
+      const requestBody = {
+        client_request_id: clientRequestId,
         model: imageModelValue(selectedModel),
         visual_kind: kind,
-        section_label: kind === 'scene' ? (scene?.title || 'Kohtaus') : (entity?.name || (kind === 'character' ? 'Hahmo' : 'Paikka')),
+        section_label: stringValue(
+          kind === 'scene'
+            ? (scene?.title || 'Kohtaus')
+            : (entity?.name || (kind === 'character' ? 'Hahmo' : 'Paikka')),
+          240,
+        ),
         chapter_custom_id: chapterCustomId,
         prompt,
         aspect_ratio: kind === 'character'
           ? '3:4'
           : kind === 'scene'
-            ? (elements['screenplay-image-ratio']?.value || state.manifest.aspect_ratio || '16:9')
+            ? selectedImageRatioValue()
             : (state.manifest.aspect_ratio || '16:9'),
-        image_size: elements['screenplay-image-size']?.value || '1K',
+        image_size: selectedImageSizeValue(),
         use_analysis: true,
         use_project_memory: true,
         without_text: state.manifest.without_text !== false,
-      }, { method: 'POST', signal: state.imageController.signal }));
-      if (generation !== state.loadGeneration || projectId !== state.projectId) return;
-      const assetId = positiveInteger(payload?.id);
-      if (!assetId) throw new Error('Kuvapalvelu ei palauttanut tallennetun assetin tunnistetta.');
-      state.assets.set(assetId, payload);
-      if (kind === 'scene') scene.keyframe_asset_id = assetId;
-      else if (kind === 'character') entity.reference_asset_id = assetId;
-      else entity.background_asset_id = assetId;
-      markDirty();
-      const saved = await flushSave();
-      if (kind === 'scene') {
-        renderSceneList();
-        renderSceneEditor();
-      } else {
-        renderWorldEntities();
-        renderSelectedReferences(selectedScene());
+      };
+      pendingRecord = {
+        projectId,
+        clientRequestId,
+        createdAt: new Date().toISOString(),
+        target: {
+          kind,
+          id: kind === 'scene' ? scene.id : entity.id,
+          attachMode: keepAsVariant ? 'variant' : 'current',
+        },
+        requestBody,
+      };
+      if (!savePendingImageRequest(pendingRecord)) {
+        setNotice(
+          'Kuvapyyntöä ei käynnistetty, koska sen turvallista uudelleenyritystunnistetta ei voitu tallentaa tähän selainistuntoon.',
+          'error',
+        );
+        return;
       }
-      setNotice(
-        saved
-          ? 'Kuva generoitiin, tallennettiin projektin assetiksi ja liitettiin käsikirjoitukseen.'
-          : 'Kuva generoitiin ja tallennettiin projektiin, mutta liitoksen tallennus odottaa uutta yritystä.',
-        saved ? 'ready' : 'warning',
-      );
+      pendingRecord = state.pendingImageRequest;
+      syncControls();
+      if (button) button.textContent = 'Generoidaan oikeaa kuvaa…';
+      setNotice(`Kuvapyyntö lähetettiin mallille ${selectedModelLabel}. Valmis kuva tallennetaan projektin assetiksi.`, 'loading');
+      const result = await submitPendingImageRequest(pendingRecord);
+      showImageRequestResult(result, pendingRecord);
     } catch (error) {
-      if (error?.name === 'AbortError' || generation !== state.loadGeneration) return;
-      setNotice(
-        error?.isNetworkError
-          ? `Yhteys kuvapalveluun katkesi ennen mallin ${selectedModelLabel} vastausta. Lataa sivu uudelleen ennen uutta yritystä, jotta mahdollinen valmis kuva ei jää huomaamatta.`
-          : (error.message || `Kuvan generointi mallilla ${selectedModelLabel} epäonnistui.`),
-        'error',
-      );
+      if (generation !== state.loadGeneration || projectId !== state.projectId) return;
+      if (pendingRecord) handlePendingImageError(error, pendingRecord, generation, projectId);
+      else if (error?.name !== 'AbortError') setNotice(error.message || `Kuvan generointi mallilla ${selectedModelLabel} epäonnistui.`, 'error');
     } finally {
       if (generation === state.loadGeneration) {
         state.imageBusy = false;
+        state.imageBusySceneId = null;
         state.imageController = null;
         if (button) button.textContent = originalLabel;
+        if (kind === 'scene') renderPreview();
         syncControls();
       }
     }
@@ -1737,6 +2387,7 @@
     state.pollController?.abort();
     window.clearTimeout(state.pollTimer);
     window.clearTimeout(state.saveTimer);
+    disconnectPreviewAssetObserver();
     state.loadController = null;
     state.saveController = null;
     state.generationController = null;
@@ -1747,6 +2398,10 @@
     state.savePromise = null;
     state.operationActive = false;
     state.imageBusy = false;
+    state.imageBusySceneId = null;
+    // Keep the project-scoped sessionStorage record intact so an ambiguous
+    // paid image request can be reconciled after navigation or a reload.
+    state.pendingImageRequest = null;
     state.textModelsLoading = false;
     state.textModelLoadError = '';
     state.assetRequests.clear();
@@ -1767,6 +2422,7 @@
     state.dirty = false;
     state.conflict = false;
     state.pendingJob = null;
+    state.pendingImageRequest = readPendingImageRequest(state.projectId);
     if (previousProjectId !== state.projectId) {
       setFieldValue(elements['screenplay-style-hint'], '');
       setFieldValue(elements['screenplay-adaptation-goal'], '');
@@ -1805,6 +2461,9 @@
       if (generation !== state.loadGeneration) return;
       if (activeId) {
         return;
+      } else if (state.pendingImageRequest) {
+        clearPendingJob();
+        showPendingImageNotice();
       } else if (state.textModelLoadError) {
         clearPendingJob();
         showTextModelLoadError();
@@ -1845,12 +2504,18 @@
     document.querySelectorAll('[data-screenplay-view]').forEach((button) => {
       button.addEventListener('click', () => setActiveView(button.dataset.screenplayView, { scroll: true }));
       button.addEventListener('keydown', (event) => {
-        if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
         event.preventDefault();
-        const tabs = ['world', 'scenes', 'export'];
+        const tabs = ['world', 'scenes', 'preview', 'export'];
         const current = tabs.indexOf(state.activeView);
-        const direction = event.key === 'ArrowRight' ? 1 : -1;
-        setActiveView(tabs[(current + direction + tabs.length) % tabs.length], { focus: true });
+        let nextView;
+        if (event.key === 'Home') nextView = tabs[0];
+        else if (event.key === 'End') nextView = tabs[tabs.length - 1];
+        else {
+          const direction = event.key === 'ArrowRight' ? 1 : -1;
+          nextView = tabs[(current + direction + tabs.length) % tabs.length];
+        }
+        setActiveView(nextView, { focus: true });
       });
     });
     document.querySelectorAll('[data-open-view]').forEach((button) => {
@@ -1901,26 +2566,30 @@
       const value = stringValue(event.currentTarget.value);
       if (value) scene.location_id = value;
       else delete scene.location_id;
+      scene.assignments_initialized = true;
       renderSelectedReferences(scene);
       renderCompiledPrompts(scene);
+      renderPreview();
       markDirty();
     });
     elements['screenplay-scene-characters'].addEventListener('change', () => {
       const scene = selectedScene();
       if (!scene) return;
       scene.character_ids = [...elements['screenplay-scene-characters'].querySelectorAll('input:checked')].map((input) => input.value);
+      scene.assignments_initialized = true;
       renderSelectedReferences(scene);
       renderCompiledPrompts(scene);
+      renderPreview();
       markDirty();
     });
     elements['screenplay-scene-asset-select'].addEventListener('change', (event) => {
       const scene = selectedScene();
       if (!scene) return;
       const assetId = positiveInteger(event.currentTarget.value);
-      if (assetId) scene.keyframe_asset_id = assetId;
-      else delete scene.keyframe_asset_id;
+      if (!setSceneKeyframeAsset(scene, assetId)) return;
       renderAsset(elements['screenplay-scene-asset'], assetId, scene.title || 'Kohtauskuva');
       renderSceneList();
+      renderPreview();
       markDirty();
     });
     elements['screenplay-export-scene-select'].addEventListener('change', (event) => {
@@ -1930,6 +2599,56 @@
 
     document.querySelectorAll('[data-image-model-select]').forEach((select) => {
       select.addEventListener('change', (event) => syncImageModelSelects(event.currentTarget.value));
+    });
+    document.querySelectorAll('[data-image-size-select]').forEach((select) => {
+      select.addEventListener('change', (event) => syncImageSizeSelects(event.currentTarget.value));
+    });
+    document.querySelectorAll('[data-image-ratio-select]').forEach((select) => {
+      select.addEventListener('change', (event) => syncImageRatioSelects(event.currentTarget.value));
+    });
+    elements['screenplay-preview-list'].addEventListener('input', (event) => {
+      const field = event.target.closest('[data-preview-image-prompt]');
+      if (!field || state.operationActive || state.conflict) return;
+      const scene = state.manifest?.scenes?.find((item) => item.id === field.dataset.sceneId);
+      if (!scene) return;
+      scene.image_prompt = field.value;
+      scene.image_prompt_source = 'manual';
+      const card = field.closest('[data-preview-scene-id]');
+      const requestPrompt = card?.querySelector('[data-preview-request-prompt]');
+      if (requestPrompt) requestPrompt.value = sceneImageRequestPrompt(scene);
+      if (scene.id === state.selectedSceneId) {
+        setFieldValue(elements['screenplay-scene-image-prompt'], scene.image_prompt);
+        renderCompiledPrompts(scene);
+      }
+      markDirty();
+    });
+    elements['screenplay-preview-list'].addEventListener('click', async (event) => {
+      const generate = event.target.closest('[data-preview-generate]');
+      if (generate) {
+        const scene = state.manifest?.scenes?.find((item) => item.id === generate.dataset.sceneId);
+        if (scene) await generateImageFor('scene', scene, generate);
+        return;
+      }
+      const select = event.target.closest('[data-preview-select]');
+      if (!select || state.operationActive || state.imageBusy || state.conflict) return;
+      const scene = state.manifest?.scenes?.find((item) => item.id === select.dataset.sceneId);
+      const assetId = positiveInteger(select.dataset.assetId);
+      if (!scene || !assetId || !setSceneKeyframeAsset(scene, assetId)) return;
+      markDirty();
+      renderSceneList();
+      if (scene.id === state.selectedSceneId) renderSceneEditor();
+      renderPreview();
+      const saved = await flushSave();
+      if (scene.keyframe_asset_id === assetId && saved) {
+        setNotice('Kuvavaihtoehto otettiin käyttöön. Aiempi kuva jäi vaihtoehdoksi.', 'ready');
+      } else if (scene.keyframe_asset_id === assetId && !state.conflict) {
+        setNotice(
+          'Kuva vaihdettiin tässä näkymässä, mutta valinnan tallennus odottaa uutta yritystä.',
+          'warning',
+          'Yritä tallentaa',
+          () => flushSave(),
+        );
+      }
     });
     elements['screenplay-world-entities'].addEventListener('input', (event) => {
       if (event.target.matches('[data-entity-field]')) applyEntityInput(event.target);
