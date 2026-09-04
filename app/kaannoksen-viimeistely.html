@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tekstin/Käännöksen viimeistely ja oikoluku · SkriptLab</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="tekstin-parantelu.css?v=1">
-    <link rel="stylesheet" href="kaannoksen-viimeistely.css?v=6">
+    <link rel="stylesheet" href="tekstin-parantelu.css?v=2">
+    <link rel="stylesheet" href="kaannoksen-viimeistely.css?v=7">
 </head>
 <body>
     <main class="ti-app kf-app" aria-labelledby="kf-title">
@@ -107,7 +107,13 @@
                         <h2 id="kf-text-document-title">Käsikirjoituksen tarkistusnäkymä</h2>
                         <span id="kf-text-word-count">0 sanaa</span>
                     </header>
-                    <div id="kf-text-reader" class="ti-prose kf-reader" tabindex="0" aria-label="Viimeisteltävä teksti"></div>
+                    <div
+                        id="kf-text-reader"
+                        class="ti-prose kf-reader"
+                        tabindex="0"
+                        aria-label="Viimeisteltävä teksti. Maalaa tarkistettava kohta tai valitse kappale napsauttamalla tai nuolinäppäimillä."
+                        aria-describedby="kf-selection-help"
+                    ></div>
                     <div id="kf-text-empty" class="ti-empty-state">
                         <svg aria-hidden="true" viewBox="0 0 48 48"><path d="M12 7h19l5 5v29H12z"></path><path d="M31 7v6h5M17 21h14M17 27h14M17 33h10"></path></svg>
                         <h2>Valitse viimeisteltävä teos</h2>
@@ -133,7 +139,13 @@
                                 <h3>Käännös</h3>
                                 <span id="kf-target-label">Kohdeteksti</span>
                             </header>
-                            <div id="kf-target-reader" class="ti-prose ti-aligned-prose kf-reader" tabindex="0" aria-label="Viimeisteltävä käännös"></div>
+                            <div
+                                id="kf-target-reader"
+                                class="ti-prose ti-aligned-prose kf-reader"
+                                tabindex="0"
+                                aria-label="Viimeisteltävä käännös. Maalaa tarkistettava kohta tai valitse kappale napsauttamalla tai nuolinäppäimillä."
+                                aria-describedby="kf-selection-help"
+                            ></div>
                         </article>
                     </div>
                     <div id="kf-translation-empty" class="ti-empty-state">
@@ -149,12 +161,51 @@
                     <header class="ti-inspector-header">
                         <h2 id="kf-review-title">Tekstin kieli- ja ulkoasuehdotukset</h2>
                         <p id="kf-review-description">Oikoluku etsii käsikirjoituksesta selvät kieli-, typografia- ja tekstin ulkoasun korjaukset. Teksti muuttuu vain hyväksynnällä.</p>
+                        <p id="kf-selection-help" class="kf-selection-help" role="status" aria-live="polite" aria-atomic="true">Valitse tekstistä sana, virke tai kappale.</p>
                     </header>
+
+                    <section id="kf-keyboard-selection" class="ti-keyboard-selection" aria-labelledby="kf-keyboard-selection-label">
+                        <label for="kf-keyboard-selection-text">
+                            <span id="kf-keyboard-selection-label">Tarkka näppäimistövalinta</span>
+                            <small id="kf-keyboard-selection-instructions">Valitse sana tai virke tekstikentässä Vaihto + nuolinäppäimillä. Ctrl/Cmd + Enter ottaa valinnan käyttöön.</small>
+                        </label>
+                        <textarea
+                            id="kf-keyboard-selection-text"
+                            rows="4"
+                            readonly
+                            spellcheck="false"
+                            aria-describedby="kf-keyboard-selection-instructions kf-keyboard-selection-status"
+                        ></textarea>
+                        <div class="ti-keyboard-selection-actions">
+                            <p id="kf-keyboard-selection-status" role="status" aria-live="polite" aria-atomic="true">Valitse ensin kappale tekstistä.</p>
+                            <button id="kf-use-keyboard-selection" class="ti-button ti-button-secondary" type="button" disabled>Käytä valintaa</button>
+                        </div>
+                    </section>
 
                     <button id="kf-run" class="ti-button ti-button-primary kf-run-button" type="button" disabled>
                         <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m12 3 1.35 4.15L17.5 8.5l-4.15 1.35L12 14l-1.35-4.15L6.5 8.5l4.15-1.35z"></path><path d="m18.5 14 .75 2.25 2.25.75-2.25.75L18.5 20l-.75-2.25L15.5 17l2.25-.75z"></path></svg>
-                        <span id="kf-run-label">Tarkista tämä luku</span>
+                        <span id="kf-run-label">Tarkista valittu kohta</span>
                     </button>
+
+                    <section id="kf-unit-controls" class="ti-chapter-controls kf-unit-controls" aria-labelledby="kf-unit-controls-title">
+                        <div>
+                            <h3 id="kf-unit-controls-title">Koko luvun tarkistus</h3>
+                            <p id="kf-unit-progress" role="status" aria-live="polite" aria-atomic="true">Enintään 12 000 merkin luku tarkistetaan kerralla. Pitkä luku jaetaan kappalerajoilla osiin.</p>
+                            <div
+                                id="kf-unit-progressbar"
+                                class="ti-chapter-progressbar"
+                                role="progressbar"
+                                aria-label="Koko luvun tarkistuksen eteneminen"
+                                aria-valuemin="0"
+                                aria-valuemax="1"
+                                aria-valuenow="0"
+                                aria-valuetext="Ei aloitettu"
+                            ><span></span></div>
+                        </div>
+                        <button id="kf-run-unit" class="ti-button ti-button-secondary" type="button" aria-describedby="kf-unit-progress" disabled>
+                            Tarkista koko luku
+                        </button>
+                    </section>
 
                     <div id="kf-summary" class="kf-summary" aria-live="polite">
                         <span><strong id="kf-open-count">0</strong> avointa</span>
@@ -189,6 +240,6 @@
 
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=4"></script>
-    <script src="kaannoksen-viimeistely.js?v=6"></script>
+    <script src="kaannoksen-viimeistely.js?v=7"></script>
 </body>
 </html>

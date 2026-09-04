@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f4f2ed">
   <title>Kirjoita ja editoi - SkriptLab</title>
-  <link rel="stylesheet" href="kirjoita-editoi.css?v=6">
+  <link rel="stylesheet" href="kirjoita-editoi.css?v=7">
 </head>
 <body data-mobile-panel="editor">
   <main class="write-editor-app" aria-label="Kirjoita ja editoi">
@@ -29,17 +29,17 @@
       <aside class="notes-pane" id="notes-pane" aria-label="Käsikirjoituksen muistiinpanot">
         <div class="pane-header">
           <div>
-            <span class="pane-kicker">Kontekstimuisti</span>
+            <span class="pane-kicker">Kirjamuisti</span>
             <h2>Muistiinpanot</h2>
           </div>
           <button class="icon-btn pane-close" id="notes-close" type="button" aria-label="Sulje muistiinpanot">×</button>
         </div>
         <div class="notes-scroll">
-          <details class="note-group project-memory-group">
+          <details class="note-group project-memory-group" open>
             <summary><span>Aktiivisen osion kontekstimuisti</span><span class="note-count" id="project-memory-count">0</span></summary>
             <div class="note-content project-memory-content" id="project-memory-content"></div>
           </details>
-          <details class="note-group">
+          <details class="note-group" open>
             <summary><span>Yleiskuva</span><span class="note-count" id="overview-count">0</span></summary>
             <div class="note-content" id="note-overview"></div>
           </details>
@@ -148,7 +148,7 @@
         <section class="assistant-panel" id="tasks-panel" data-panel="tasks" hidden>
           <div class="scope-control" role="group" aria-label="Tehtävän laajuus">
             <button type="button" data-task-scope="selection">Valinta</button>
-            <button class="is-active" type="button" data-task-scope="chapter">Osio</button>
+            <button class="is-active" type="button" data-task-scope="chapter">Koko luku</button>
             <button type="button" data-task-scope="book">Koko kirja</button>
           </div>
 
@@ -165,6 +165,16 @@
             <progress id="task-progress-bar" max="1" value="0"></progress>
             <span class="mini-status" id="task-progress-note"></span>
           </div>
+
+          <section class="proofread-chapter-run" id="proofread-chapter-run" aria-labelledby="proofread-chapter-run-title" hidden>
+            <div class="proofread-chapter-run-heading">
+              <strong id="proofread-chapter-run-title">Koko luvun oikoluku</strong>
+              <span id="proofread-chapter-run-count">0/0</span>
+            </div>
+            <progress id="proofread-chapter-run-bar" max="1" value="0">0/0</progress>
+            <p class="mini-status" id="proofread-chapter-run-note" role="status" aria-live="polite"></p>
+            <button class="primary-btn" id="proofread-chapter-continue" type="button">Jatka</button>
+          </section>
 
           <section class="suggestion-panel" id="suggestion-panel" hidden>
             <div class="suggestion-header">

@@ -27691,7 +27691,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (projectId) params.set('project', projectId);
         if (pendingWriteEditorChapterId) params.set('chapter', pendingWriteEditorChapterId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '12');
+        params.set('v', '13');
         const reloaded = updateEmbeddedModuleFrame(frame, 'kirjoita-editoi.html', params);
         if (!reloaded && frame.contentWindow) {
             frame.contentWindow.postMessage({ type: 'skriptlab:write-editor-opened' }, window.location.origin);
@@ -27706,7 +27706,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '2');
+        params.set('v', '3');
         const reloaded = updateEmbeddedModuleFrame(frame, 'tekstin-parantelu.html', params);
         if (!reloaded && frame.contentWindow) {
             frame.contentWindow.postMessage({
@@ -27723,7 +27723,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '6');
+        params.set('v', '7');
         const reloaded = updateEmbeddedModuleFrame(frame, 'kaannoksen-viimeistely.html', params);
         if (!reloaded && frame.contentWindow) {
             frame.contentWindow.postMessage({

@@ -766,6 +766,7 @@ button:disabled {
 }
 
 .task-progress,
+.proofread-chapter-run,
 .suggestion-panel,
 .saved-prompts {
   margin-top: 12px;
@@ -774,6 +775,7 @@ button:disabled {
 }
 
 .task-progress > div,
+.proofread-chapter-run-heading,
 .suggestion-header,
 .section-heading,
 .suggestion-actions {
@@ -788,6 +790,39 @@ button:disabled {
   height: 8px;
   margin: 10px 0 5px;
   accent-color: var(--accent);
+}
+
+.proofread-chapter-run {
+  display: grid;
+  gap: 8px;
+}
+
+.proofread-chapter-run[hidden] {
+  display: none;
+}
+
+.proofread-chapter-run-heading {
+  font-size: 12px;
+}
+
+.proofread-chapter-run-heading span {
+  color: var(--muted);
+}
+
+.proofread-chapter-run progress {
+  width: 100%;
+  height: 8px;
+  accent-color: var(--accent);
+}
+
+.proofread-chapter-run p {
+  min-height: 2.8em;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.proofread-chapter-run .primary-btn {
+  width: 100%;
 }
 
 .suggestion-header > div:first-child {

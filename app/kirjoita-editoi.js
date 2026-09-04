@@ -6,6 +6,8 @@
   const ACTIVE_PROJECT_KEY = "skriptlab_active_project_id";
   const NOTES_OPEN_KEY = "skriptlab_write_editor_notes_open";
   const ASSISTANT_OPEN_KEY = "skriptlab_write_editor_assistant_open";
+  const MANUAL_SELECTION_MAX_CHARACTERS = 12000;
+  const PROOFREAD_CHAPTER_PART_MAX_CHARACTERS = 12000;
   const $ = (id) => document.getElementById(id);
   let authUser = null;
   try {
@@ -23,6 +25,7 @@
 
   const TASKS = {
     proofread: {
+      id: "proofread",
       title: "Oikoluku",
       prompt: "Korjaa vain selvät oikeinkirjoitus-, kielioppi-, välimerkki- ja typografiavirheet. Säilytä sanavalinnat, rytmi, henkilön puhetapa, kappalejako ja kirjailijan ääni. Älä tee tyylillisiä uudelleenkirjoituksia ilman selvää virhettä."
     },
@@ -72,11 +75,14 @@
     saveAgain: false,
     selectedText: "",
     selectedRange: null,
+    selectionTooLong: false,
     lastEditorRange: null,
     taskScope: "chapter",
     taskRunning: false,
     suggestion: null,
     suggestionIndex: 0,
+    proofreadChapterRun: null,
+    proofreadChapterRunRevision: 0,
     chatHistory: [],
     savedPrompts: [],
     notesTimer: null,
@@ -189,6 +195,203 @@
       .filter(Boolean);
   }
 
+  function paragraphModel(value) {
+    const text = String(value || "").replace(/\r\n?/g, "\n");
+    const paragraphs = [];
+    const separators = [];
+    const pattern = /\n(?:[ \t]*\n)+/g;
+    let cursor = 0;
+    let match = pattern.exec(text);
+    while (match) {
+      paragraphs.push(text.slice(cursor, match.index));
+      separators.push(match[0]);
+      cursor = match.index + match[0].length;
+      match = pattern.exec(text);
+    }
+    paragraphs.push(text.slice(cursor));
+    return { text, paragraphs, separators };
+  }
+
+  function selectionText(paragraphs, selection) {
+    if (!selection || !Array.isArray(paragraphs) || !paragraphs.length) return "";
+    const startParagraph = Math.max(0, Math.min(selection.startParagraph, paragraphs.length - 1));
+    const endParagraph = Math.max(startParagraph, Math.min(selection.endParagraph, paragraphs.length - 1));
+    const parts = [];
+    for (let index = startParagraph; index <= endParagraph; index += 1) {
+      const paragraph = String(paragraphs[index] || "");
+      const start = index === startParagraph ? Math.max(0, selection.startOffset) : 0;
+      const end = index === endParagraph
+        ? Math.max(start, Math.min(selection.endOffset, paragraph.length))
+        : paragraph.length;
+      parts.push(paragraph.slice(start, end));
+    }
+    return parts.join("\n\n");
+  }
+
+  function normalizedChapterCursor(paragraphs, cursor) {
+    const values = Array.isArray(paragraphs)
+      ? paragraphs.map((value) => String(value || ""))
+      : [];
+    let paragraph = Math.max(0, Number(cursor?.paragraph) || 0);
+    let offset = Math.max(0, Number(cursor?.offset) || 0);
+    while (paragraph < values.length) {
+      offset = Math.min(offset, values[paragraph].length);
+      if (values[paragraph].slice(offset).trim()) return { paragraph, offset };
+      paragraph += 1;
+      offset = 0;
+    }
+    return null;
+  }
+
+  function safeParagraphCut(text, startOffset, maxCharacters) {
+    const value = String(text || "");
+    const start = Math.max(0, Math.min(Number(startOffset) || 0, value.length));
+    const limit = Math.max(1, Number(maxCharacters) || 1);
+    if (value.length - start <= limit) return value.length;
+    const candidate = value.slice(start, start + limit);
+    const minimumUsefulCut = Math.floor(limit * 0.7);
+    let match;
+    let usefulCut = 0;
+    const sentenceBoundary = /[.!?…]["'”’»)]*(?:\s+|$)/g;
+    while ((match = sentenceBoundary.exec(candidate))) {
+      const matchEnd = match.index + match[0].length;
+      if (matchEnd >= minimumUsefulCut) usefulCut = matchEnd;
+    }
+    const whitespace = /\s+/g;
+    if (!usefulCut) {
+      while ((match = whitespace.exec(candidate))) {
+        const matchEnd = match.index + match[0].length;
+        if (matchEnd >= minimumUsefulCut) usefulCut = matchEnd;
+      }
+    }
+    let cut = start + (usefulCut || limit);
+    const previousCode = value.charCodeAt(cut - 1);
+    const nextCode = value.charCodeAt(cut);
+    if (
+      previousCode >= 0xD800 && previousCode <= 0xDBFF
+      && nextCode >= 0xDC00 && nextCode <= 0xDFFF
+    ) cut -= 1;
+    if (cut <= start) {
+      const firstCodePoint = value.codePointAt(start);
+      return start + (firstCodePoint > 0xFFFF ? 2 : 1);
+    }
+    return cut;
+  }
+
+  function chapterPartSelection(paragraphs, cursor, maxCharacters) {
+    const values = Array.isArray(paragraphs)
+      ? paragraphs.map((value) => String(value || ""))
+      : [];
+    const limit = Math.max(1, Number(maxCharacters) || PROOFREAD_CHAPTER_PART_MAX_CHARACTERS);
+    const start = normalizedChapterCursor(values, cursor);
+    if (!start) return null;
+
+    const firstText = values[start.paragraph];
+    const firstRemaining = firstText.length - start.offset;
+    let endParagraph = start.paragraph;
+    let endOffset = firstText.length;
+    let used = firstRemaining;
+
+    if (firstRemaining > limit) {
+      endOffset = safeParagraphCut(firstText, start.offset, limit);
+    } else {
+      while (endParagraph + 1 < values.length) {
+        const nextText = values[endParagraph + 1];
+        const nextLength = 2 + nextText.length;
+        if (used + nextLength > limit) break;
+        used += nextLength;
+        endParagraph += 1;
+        endOffset = nextText.length;
+      }
+    }
+
+    const selection = {
+      startParagraph: start.paragraph,
+      endParagraph,
+      startOffset: start.offset,
+      endOffset,
+    };
+    selection.text = selectionText(values, selection);
+    return selection.text.trim() ? selection : null;
+  }
+
+  function cursorAfterSelection(paragraphs, selection) {
+    const values = Array.isArray(paragraphs)
+      ? paragraphs.map((value) => String(value || ""))
+      : [];
+    if (!selection || !values.length) return null;
+    const endParagraph = Math.max(0, Math.min(selection.endParagraph, values.length - 1));
+    const endOffset = Math.max(0, Math.min(selection.endOffset, values[endParagraph].length));
+    return normalizedChapterCursor(values, endOffset < values[endParagraph].length
+      ? { paragraph: endParagraph, offset: endOffset }
+      : { paragraph: endParagraph + 1, offset: 0 });
+  }
+
+  function cursorAfterReplacement(paragraphs, selection, replacement) {
+    const values = Array.isArray(paragraphs)
+      ? paragraphs.map((value) => String(value || ""))
+      : [];
+    if (!selection || !values.length) return null;
+    const startParagraph = Math.max(0, Math.min(selection.startParagraph, values.length - 1));
+    const startOffset = Math.max(0, Math.min(selection.startOffset, values[startParagraph].length));
+    const replacementParagraphs = paragraphModel(replacement).paragraphs;
+    return {
+      paragraph: startParagraph + replacementParagraphs.length - 1,
+      offset: (replacementParagraphs.length === 1 ? startOffset : 0)
+        + String(replacementParagraphs[replacementParagraphs.length - 1] || "").length,
+    };
+  }
+
+  function countChapterParts(paragraphs, maxCharacters, startCursor) {
+    let count = 0;
+    let cursor = normalizedChapterCursor(
+      paragraphs,
+      startCursor || { paragraph: 0, offset: 0 }
+    );
+    const safetyLimit = Math.max(1, (Array.isArray(paragraphs) ? paragraphs.length : 0) * 2 + 10000);
+    while (cursor && count < safetyLimit) {
+      const selection = chapterPartSelection(paragraphs, cursor, maxCharacters);
+      if (!selection) break;
+      count += 1;
+      cursor = cursorAfterSelection(paragraphs, selection);
+    }
+    return count;
+  }
+
+  function applyReplacement(paragraphs, selection, replacement) {
+    const source = paragraphs.map((paragraph) => String(paragraph || ""));
+    if (!selection || !source.length) return source;
+    const startParagraph = Math.max(0, Math.min(selection.startParagraph, source.length - 1));
+    const endParagraph = Math.max(startParagraph, Math.min(selection.endParagraph, source.length - 1));
+    const startOffset = Math.max(0, Math.min(selection.startOffset, source[startParagraph].length));
+    const endOffset = Math.max(0, Math.min(selection.endOffset, source[endParagraph].length));
+    const prefix = source[startParagraph].slice(0, startOffset);
+    const suffix = source[endParagraph].slice(endOffset);
+    const replacements = paragraphModel(replacement).paragraphs;
+    replacements[0] = prefix + replacements[0];
+    replacements[replacements.length - 1] += suffix;
+    source.splice(startParagraph, endParagraph - startParagraph + 1, ...replacements);
+    return source;
+  }
+
+  function replacementWithBoundaryWhitespace(original, replacement) {
+    const source = String(original || "");
+    let result = String(replacement || "");
+    if (source && !source.trim()) return source;
+    const leading = source.match(/^\s+/u)?.[0] || "";
+    const trailing = source.match(/\s+$/u)?.[0] || "";
+    if (leading) result = result.replace(/^\s+/u, "");
+    if (trailing) result = result.replace(/\s+$/u, "");
+    return leading + result + trailing;
+  }
+
+  function paragraphSnapshotsMatch(left, right) {
+    const first = Array.isArray(left) ? left.map((value) => String(value || "")) : [];
+    const second = Array.isArray(right) ? right.map((value) => String(value || "")) : [];
+    return first.length === second.length
+      && first.every((paragraph, index) => paragraph === second[index]);
+  }
+
   function wordCount(text) {
     return (String(text || "").trim().match(/\S+/g) || []).length;
   }
@@ -282,7 +485,10 @@
   }
 
   function editorParagraphs() {
-    const editor = $("manuscript-editor");
+    return editorParagraphsFromElement($("manuscript-editor"));
+  }
+
+  function editorParagraphsFromElement(editor) {
     const paragraphs = [];
     Array.from(editor.childNodes).forEach((node) => {
       serializeEditorNode(node, 0, paragraphs);
@@ -291,6 +497,20 @@
       splitParagraphs(editor.innerText).forEach((value) => paragraphs.push(value));
     }
     return paragraphs;
+  }
+
+  function editorChapterDraft() {
+    const chapter = currentChapter();
+    if (!chapter) return null;
+    const title = $("chapter-title-input").value.trim()
+      || chapter.toc_title
+      || chapter.title
+      || "Nimetön osio";
+    return Object.assign({}, chapter, {
+      title,
+      toc_title: title,
+      paragraphs: editorParagraphs()
+    });
   }
 
   function rememberProject(project, notifyParent) {
@@ -331,6 +551,7 @@
       renderChapterRail();
       renderProjectMemory();
       updateHeaderCounter();
+      updateTaskInteractionState();
       return;
     }
     $("chapter-title-input").value = chapter.toc_title || chapter.title || "";
@@ -343,6 +564,7 @@
     renderProjectMemory();
     clearSelectionContext(false);
     updateHeaderCounter();
+    updateTaskInteractionState();
   }
 
   function renderChapterRail() {
@@ -369,15 +591,12 @@
   function syncEditorToState() {
     const chapter = currentChapter();
     if (!chapter) return null;
-    const title = $("chapter-title-input").value.trim() || chapter.toc_title || chapter.title || "Nimetön osio";
-    chapter.title = title;
-    chapter.toc_title = title;
-    chapter.paragraphs = editorParagraphs();
+    Object.assign(chapter, editorChapterDraft());
     return chapter;
   }
 
-  async function patchChapter(index, chapter) {
-    return api("/projects/" + state.project.id + "/chapters/" + index, jsonOptions("PATCH", {
+  async function patchChapter(index, chapter, expectedParagraphs) {
+    const body = {
       chapter: {
         id: chapter.id,
         title: chapter.title || "",
@@ -385,7 +604,11 @@
         kind: chapter.kind || "main",
         paragraphs: Array.isArray(chapter.paragraphs) ? chapter.paragraphs : []
       }
-    }));
+    };
+    if (Array.isArray(expectedParagraphs)) {
+      body.expected_paragraphs = expectedParagraphs.map((paragraph) => String(paragraph || ""));
+    }
+    return api("/projects/" + state.project.id + "/chapters/" + index, jsonOptions("PATCH", body));
   }
 
   async function replaceProjectChapters(chapters) {
@@ -424,12 +647,15 @@
       state.saveAgain = true;
       return;
     }
-    const chapter = syncEditorToState();
+    const expectedParagraphs = Array.isArray(currentChapter()?.paragraphs)
+      ? currentChapter().paragraphs.map((paragraph) => String(paragraph || ""))
+      : [];
+    const chapter = editorChapterDraft();
     const version = state.changeVersion;
     state.saving = true;
     $("save-status").textContent = "Tallennetaan…";
     try {
-      const response = await patchChapter(state.chapterIndex, chapter);
+      const response = await patchChapter(state.chapterIndex, chapter, expectedParagraphs);
       rememberProject(response);
       if (state.changeVersion === version) state.dirty = false;
       const time = new Intl.DateTimeFormat("fi-FI", { hour: "2-digit", minute: "2-digit" }).format(new Date());
@@ -449,9 +675,11 @@
 
   async function gotoChapter(index) {
     if (!state.project || !state.project.chapters.length) return;
+    if (keepOpenTaskSuggestion()) return;
     const next = Math.min(Math.max(0, Number(index)), state.project.chapters.length - 1);
     if (next === state.chapterIndex) return;
     await saveNow(false);
+    if (currentProofreadChapterRun()) cancelProofreadChapterRun();
     state.chapterIndex = next;
     localStorage.setItem("skriptlab_write_editor_chapter_" + state.project.id, String(next));
     renderEditor();
@@ -599,23 +827,41 @@
   }
 
   function captureSelection() {
+    if (state.taskRunning || state.suggestion) return;
     const selection = window.getSelection();
     const editor = $("manuscript-editor");
     if (!selection || !selection.rangeCount) return;
     const range = selection.getRangeAt(0);
     if (!editor.contains(range.commonAncestorContainer)) return;
     state.lastEditorRange = range.cloneRange();
-    const text = selection.toString().trim();
-    if (text) {
-      state.selectedText = text.slice(0, 12000);
+    const text = selection.toString();
+    if (text.trim()) {
+      if (text.length > MANUAL_SELECTION_MAX_CHARACTERS) {
+        const shouldNotify = !state.selectionTooLong;
+        state.selectedText = "";
+        state.selectedRange = null;
+        state.selectionTooLong = true;
+        $("selected-context-text").textContent = "Valinta on " + text.length.toLocaleString("fi-FI")
+          + " merkkiä. Valitse enintään 12 000 merkkiä.";
+        $("selected-context").hidden = false;
+        const selectionScope = document.querySelector('[data-task-scope="selection"]');
+        selectionScope.disabled = true;
+        if (state.taskScope === "selection") setTaskScope("chapter");
+        if (shouldNotify) toast("Valinta on liian pitkä. Valitse enintään 12 000 merkkiä.");
+        updateHeaderCounter();
+        return;
+      }
+      state.selectionTooLong = false;
+      state.selectedText = text;
       state.selectedRange = range.cloneRange();
       $("selected-context-text").textContent = state.selectedText;
       $("selected-context").hidden = false;
       const selectionScope = document.querySelector('[data-task-scope="selection"]');
-      selectionScope.disabled = false;
+      selectionScope.disabled = state.taskRunning || Boolean(state.suggestion);
     } else {
       state.selectedText = "";
       state.selectedRange = null;
+      state.selectionTooLong = false;
       $("selected-context").hidden = true;
       const selectionScope = document.querySelector('[data-task-scope="selection"]');
       selectionScope.disabled = true;
@@ -627,6 +873,7 @@
   function clearSelectionContext(removeBrowserSelection) {
     state.selectedText = "";
     state.selectedRange = null;
+    state.selectionTooLong = false;
     $("selected-context").hidden = true;
     const selectionScope = document.querySelector('[data-task-scope="selection"]');
     if (selectionScope) selectionScope.disabled = true;
@@ -925,15 +1172,119 @@
     $("tasks-panel").hidden = name !== "tasks";
   }
 
+  function currentProofreadChapterRun() {
+    const run = state.proofreadChapterRun;
+    if (!run || run.taskId !== "proofread") return null;
+    if (
+      String(run.projectId || "") !== String(state.project?.id || "")
+      || run.chapterIndex !== state.chapterIndex
+    ) return null;
+    return run;
+  }
+
+  function cancelProofreadChapterRun() {
+    state.proofreadChapterRunRevision += 1;
+    state.proofreadChapterRun = null;
+    renderProofreadChapterRun();
+  }
+
+  function keepOpenTaskSuggestion() {
+    if (!state.suggestion) return false;
+    toast("Hyväksy tai hylkää avoin ehdotus ennen tekstin, luvun tai tehtävän vaihtamista.");
+    window.requestAnimationFrame(() => $("suggestion-text")?.focus({ preventScroll: true }));
+    return true;
+  }
+
+  function renderProofreadChapterRun() {
+    const panel = $("proofread-chapter-run");
+    if (!panel) return;
+    const run = currentProofreadChapterRun();
+    panel.hidden = !run;
+    if (!run) return;
+
+    const total = Math.max(1, Number(run.totalParts) || 1);
+    const completed = run.status === "complete"
+      ? total
+      : Math.max(0, Math.min(total, (Number(run.partNumber) || 1) - 1));
+    $("proofread-chapter-run-count").textContent = completed + "/" + total;
+    const bar = $("proofread-chapter-run-bar");
+    bar.max = total;
+    bar.value = completed;
+    bar.textContent = completed + "/" + total;
+
+    const button = $("proofread-chapter-continue");
+    const note = $("proofread-chapter-run-note");
+    if (run.status === "complete") {
+      button.textContent = "Oikolue luku uudelleen";
+      note.textContent = total === 1
+        ? "Luku on käsitelty."
+        : "Luvun kaikki " + total + " osaa on käsitelty.";
+    } else if (run.status === "review") {
+      button.textContent = "Käsittele ehdotus ensin";
+      note.textContent = "Luvun osa " + run.partNumber + "/" + total + " odottaa hyväksyntää tai hylkäystä.";
+    } else if (run.status === "requesting") {
+      button.textContent = "Tarkistetaan osaa " + run.partNumber + "/" + total;
+      note.textContent = "Oikolukuehdotusta valmistellaan.";
+    } else if (run.status === "failed") {
+      button.textContent = "Yritä osaa " + run.partNumber + " uudelleen";
+      note.textContent = "Osan " + run.partNumber + " tarkistus epäonnistui. Uudelleenyritys käsittelee saman osan.";
+    } else {
+      button.textContent = run.partNumber === 1 ? "Aloita osasta 1" : "Jatka osaan " + run.partNumber;
+      note.textContent = "Seuraava osa tarkistetaan vasta, kun jatkat.";
+    }
+    button.disabled = state.taskRunning || Boolean(state.suggestion) || run.status === "requesting" || run.status === "review";
+  }
+
+  function updateTaskInteractionState() {
+    const locked = state.taskRunning || Boolean(state.suggestion);
+    const chapter = currentChapter();
+    const hasChapter = Boolean(chapter);
+    const editor = $("manuscript-editor");
+    editor.setAttribute("contenteditable", String(hasChapter && !locked));
+    $("chapter-title-input").disabled = !hasChapter || locked;
+    $("chapter-prev").disabled = locked || state.chapterIndex <= 0;
+    $("chapter-next").disabled = locked
+      || !state.project
+      || state.chapterIndex >= state.project.chapters.length - 1;
+    $("chapter-slider").disabled = locked || !state.project || state.project.chapters.length < 2;
+    $("insert-chapter-break").disabled = locked || !state.project;
+    $("delete-current-chapter").disabled = locked
+      || !hasChapter
+      || state.project.chapters.length <= 1
+      || state.saving;
+    $("save-btn").disabled = locked;
+    $("block-format").disabled = locked || !hasChapter;
+    document.querySelectorAll("[data-command]").forEach((button) => {
+      button.disabled = locked || !hasChapter;
+    });
+    document.querySelectorAll("[data-task-scope]").forEach((button) => {
+      button.disabled = locked
+        || (button.dataset.taskScope === "selection" && (!state.selectedText || state.selectionTooLong));
+    });
+    document.querySelectorAll(".task-card, .saved-prompt-run").forEach((button) => {
+      button.disabled = locked;
+    });
+    $("accept-suggestion").disabled = state.taskRunning
+      || Boolean(currentSuggestionItem()?.accepted);
+    $("reject-suggestion").disabled = state.taskRunning;
+    $("accept-all-suggestions").disabled = state.taskRunning;
+    renderProofreadChapterRun();
+  }
+
   function setTaskScope(scope) {
+    if (keepOpenTaskSuggestion()) return;
     if (scope === "selection" && !state.selectedText) {
-      toast("Valitse ensin tekstiä editorista.");
+      toast(state.selectionTooLong
+        ? "Valinta on liian pitkä. Valitse enintään 12 000 merkkiä."
+        : "Valitse ensin tekstiä editorista.");
       scope = "chapter";
     }
+    if (state.taskScope !== scope && currentProofreadChapterRun()) cancelProofreadChapterRun();
     state.taskScope = scope;
     document.querySelectorAll("[data-task-scope]").forEach((button) => {
       button.classList.toggle("is-active", button.dataset.taskScope === scope);
     });
+    updateTaskInteractionState();
   }
 
   function splitLongText(text, maxChars) {
@@ -1035,16 +1386,265 @@
     return results;
   }
 
+  async function waitForEditorSave() {
+    window.clearTimeout(state.saveTimer);
+    state.saveTimer = null;
+    const waitUntilIdle = async () => {
+      const deadline = Date.now() + 65000;
+      while (state.saving) {
+        if (Date.now() >= deadline) {
+          throw new Error("Tallennus ei valmistunut ajoissa. Oikolukua ei aloitettu.");
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 75));
+      }
+    };
+    await waitUntilIdle();
+    if (state.dirty) await saveNow(false);
+    await waitUntilIdle();
+    if (state.dirty) {
+      throw new Error("Lukua ei saatu tallennettua. Oikolukua ei aloitettu.");
+    }
+  }
+
+  function advanceProofreadChapterRun(suggestion, paragraphs, nextCursor) {
+    const run = currentProofreadChapterRun();
+    if (!suggestion?.chapterRun || !run || run.id !== suggestion.chapterRun.id) {
+      return { inRun: false, hasMore: false };
+    }
+    const values = Array.isArray(paragraphs)
+      ? paragraphs.map((paragraph) => String(paragraph || ""))
+      : [];
+    const normalizedCursor = normalizedChapterCursor(values, nextCursor);
+    const nextSelection = chapterPartSelection(
+      values,
+      normalizedCursor,
+      PROOFREAD_CHAPTER_PART_MAX_CHARACTERS
+    );
+    run.chapterSnapshot = values.slice();
+    if (!normalizedCursor || !nextSelection) {
+      run.status = "complete";
+      run.nextCursor = null;
+      run.partNumber = suggestion.chapterRun.partNumber;
+      run.totalParts = suggestion.chapterRun.partNumber;
+      renderProofreadChapterRun();
+      return { inRun: true, hasMore: false };
+    }
+    run.nextCursor = normalizedCursor;
+    run.partNumber = suggestion.chapterRun.partNumber + 1;
+    run.totalParts = (run.partNumber - 1) + countChapterParts(
+      values,
+      PROOFREAD_CHAPTER_PART_MAX_CHARACTERS,
+      normalizedCursor
+    );
+    run.status = "ready";
+    renderProofreadChapterRun();
+    return { inRun: true, hasMore: true };
+  }
+
+  async function generateNextProofreadChapterPart(task) {
+    if (state.taskRunning) return;
+    if (state.suggestion) return keepOpenTaskSuggestion();
+    if (!state.project?.id || !currentChapter()) {
+      toast("Valitse käsikirjoitus ja oikoluettava luku ensin.");
+      return;
+    }
+
+    let run = currentProofreadChapterRun();
+    if (run?.status === "review") return keepOpenTaskSuggestion();
+    if (run?.status === "requesting") return;
+    if (run?.status === "complete") {
+      cancelProofreadChapterRun();
+      run = null;
+    }
+
+    const requestProjectId = String(state.project.id);
+    const requestChapterIndex = state.chapterIndex;
+    const existingRunId = run?.id || null;
+    const localParagraphs = (currentChapter().paragraphs || [])
+      .map((paragraph) => String(paragraph || ""));
+    state.taskRunning = true;
+    showTaskProgress(task.title, 1);
+    $("task-progress-note").textContent = "Varmistetaan luvun tallennus ja ajantasaisuus…";
+    updateTaskInteractionState();
+
+    try {
+      await waitForEditorSave();
+      if (
+        String(state.project?.id || "") !== requestProjectId
+        || state.chapterIndex !== requestChapterIndex
+      ) {
+        throw new Error("Luku vaihtui ennen oikoluvun aloittamista.");
+      }
+
+      const latest = await api("/projects/" + encodeURIComponent(requestProjectId));
+      if (
+        String(state.project?.id || "") !== requestProjectId
+        || state.chapterIndex !== requestChapterIndex
+      ) {
+        throw new Error("Luku vaihtui ajantasaisuustarkistuksen aikana.");
+      }
+      const latestChapter = latest?.chapters?.[requestChapterIndex];
+      if (!latestChapter) {
+        cancelProofreadChapterRun();
+        throw new Error("Oikoluettavaa lukua ei enää löytynyt.");
+      }
+      const paragraphs = (latestChapter.paragraphs || [])
+        .map((paragraph) => String(paragraph || ""));
+
+      if (run && (
+        run.id !== existingRunId
+        || !paragraphSnapshotsMatch(run.chapterSnapshot, paragraphs)
+        || !paragraphSnapshotsMatch(localParagraphs, paragraphs)
+      )) {
+        rememberProject(latest, false);
+        state.chapterIndex = Math.min(requestChapterIndex, (latest.chapters || []).length - 1);
+        state.dirty = false;
+        cancelProofreadChapterRun();
+        renderEditor();
+        throw new Error("Luku muuttui oikoluvun aikana. Ajantasainen teksti ladattiin; aloita luvun oikoluku uudelleen.");
+      }
+
+      rememberProject(latest, false);
+      state.chapterIndex = requestChapterIndex;
+      state.dirty = false;
+      if (!run) {
+        renderEditor();
+        const nextCursor = normalizedChapterCursor(paragraphs, { paragraph: 0, offset: 0 });
+        const totalParts = countChapterParts(
+          paragraphs,
+          PROOFREAD_CHAPTER_PART_MAX_CHARACTERS,
+          nextCursor
+        );
+        if (!nextCursor || !totalParts) {
+          throw new Error("Luvussa ei ole oikoluettavaa tekstiä.");
+        }
+        run = {
+          id: ++state.proofreadChapterRunRevision,
+          taskId: "proofread",
+          projectId: latest.id,
+          chapterIndex: requestChapterIndex,
+          partNumber: 1,
+          totalParts,
+          nextCursor,
+          chapterSnapshot: paragraphs.slice(),
+          status: "ready"
+        };
+        state.proofreadChapterRun = run;
+      }
+
+      const selection = chapterPartSelection(
+        paragraphs,
+        run.nextCursor,
+        PROOFREAD_CHAPTER_PART_MAX_CHARACTERS
+      );
+      if (!selection) {
+        run.status = "complete";
+        run.nextCursor = null;
+        renderProofreadChapterRun();
+        return;
+      }
+
+      const runId = run.id;
+      const partNumber = run.partNumber;
+      const totalParts = run.totalParts;
+      const requestChapterSnapshot = paragraphs.slice();
+      run.status = "requesting";
+      renderProofreadChapterRun();
+      $("task-progress-note").textContent = "Oikoluetaan luvun osaa " + partNumber + "/" + totalParts + "…";
+      const response = await api("/edit", jsonOptions("POST", {
+        text: selection.text,
+        prompt: chapterContextPrompt(task.prompt, requestChapterIndex)
+          + "\n\nKäsittelet nyt luvun osaa " + partNumber + "/" + totalParts
+          + ". Palauta vain tämän osan oikoluettu teksti. Älä lisää kommentteja tai käsittele osan ulkopuolista tekstiä.",
+        purpose: "write_edit",
+        temperature: 0.25
+      }));
+      const activeRun = currentProofreadChapterRun();
+      if (
+        !activeRun
+        || activeRun.id !== runId
+        || activeRun.status !== "requesting"
+        || String(state.project?.id || "") !== requestProjectId
+        || state.chapterIndex !== requestChapterIndex
+      ) {
+        throw new Error("Aineisto vaihtui oikolukuehdotuksen luonnin aikana.");
+      }
+      const edited = String(response?.edited_text ?? "");
+      if (!edited.trim()) throw new Error("Mallilta ei saatu oikolukuehdotusta.");
+
+      activeRun.status = "review";
+      state.suggestion = {
+        mode: "proofread_chapter",
+        title: task.title + " · osa " + partNumber + "/" + totalParts,
+        chapterIndex: requestChapterIndex,
+        original: selection.text,
+        edited,
+        errors: [],
+        selection: Object.assign({}, selection),
+        chapterSnapshot: requestChapterSnapshot,
+        chapterRun: { id: runId, partNumber, totalParts }
+      };
+      $("task-progress-count").textContent = "1/1";
+      $("task-progress-bar").value = 1;
+      renderSuggestion();
+    } catch (error) {
+      const activeRun = currentProofreadChapterRun();
+      if (
+        activeRun
+        && (existingRunId === null || activeRun.id === existingRunId)
+        && activeRun.status !== "review"
+        && activeRun.status !== "complete"
+      ) {
+        activeRun.status = "failed";
+      }
+      renderProofreadChapterRun();
+      toast(error.message);
+    } finally {
+      state.taskRunning = false;
+      updateTaskInteractionState();
+      window.setTimeout(() => { $("task-progress").hidden = true; }, 900);
+    }
+  }
+
   async function runTask(task) {
     if (state.taskRunning) return;
     if (!state.project) return toast("Valitse käsikirjoitus ensin.");
+    if (state.suggestion) return keepOpenTaskSuggestion();
     const scope = state.taskScope;
+    if (scope === "selection" && state.selectionTooLong) {
+      return toast("Valinta on liian pitkä. Valitse enintään 12 000 merkkiä.");
+    }
     if (scope === "selection" && !state.selectedText) return toast("Valitse ensin tekstiä editorista.");
+    if (task.id === "proofread" && scope === "chapter") {
+      return generateNextProofreadChapterPart(task);
+    }
+    if (currentProofreadChapterRun()) cancelProofreadChapterRun();
+    const requestRange = scope === "selection" && state.selectedRange
+      ? state.selectedRange.cloneRange()
+      : null;
+    const requestSelectedText = state.selectedText;
+    const requestProjectId = String(state.project.id);
+    const requestChapterIndex = state.chapterIndex;
+    let requestChapterSnapshot = null;
     state.taskRunning = true;
     state.suggestion = null;
     renderSuggestion();
-    document.querySelectorAll(".task-card, .saved-prompt-run").forEach((button) => { button.disabled = true; });
+    updateTaskInteractionState();
     try {
+      if (scope === "selection") {
+        await waitForEditorSave();
+        if (
+          String(state.project?.id || "") !== requestProjectId
+          || state.chapterIndex !== requestChapterIndex
+          || !requestRange
+          || !$("manuscript-editor").contains(requestRange.commonAncestorContainer)
+          || requestRange.toString() !== requestSelectedText
+        ) {
+          throw new Error("Valittu tekstikohta muuttui tallennuksen aikana. Valitse kohta uudelleen.");
+        }
+        requestChapterSnapshot = (currentChapter()?.paragraphs || [])
+          .map((paragraph) => String(paragraph || ""));
+      }
       if (scope === "book") {
         const targets = state.project.chapters
           .map((chapter, index) => ({ chapter, index, text: chapterText(chapter) }))
@@ -1072,7 +1672,7 @@
         state.suggestion = { mode: "book", title: task.title, results };
         state.suggestionIndex = 0;
       } else {
-        const original = scope === "selection" ? state.selectedText : chapterText(currentChapter());
+        const original = scope === "selection" ? requestSelectedText : chapterText(currentChapter());
         if (!original.trim()) return toast("Valitussa kohteessa ei ole tekstiä.");
         showTaskProgress(task.title, 1);
         const result = await processTaskText(
@@ -1089,13 +1689,16 @@
           original,
           edited: result.text,
           errors: result.errors,
-          range: scope === "selection" && state.selectedRange ? state.selectedRange.cloneRange() : null
+          range: requestRange,
+          chapterSnapshot: requestChapterSnapshot
         };
       }
       renderSuggestion();
+    } catch (error) {
+      toast(error.message);
     } finally {
       state.taskRunning = false;
-      document.querySelectorAll(".task-card, .saved-prompt-run").forEach((button) => { button.disabled = false; });
+      updateTaskInteractionState();
       window.setTimeout(() => { $("task-progress").hidden = true; }, 900);
     }
   }
@@ -1115,6 +1718,7 @@
     const panel = $("suggestion-panel");
     if (!state.suggestion) {
       panel.hidden = true;
+      updateTaskInteractionState();
       return;
     }
     panel.hidden = false;
@@ -1135,10 +1739,12 @@
     $("suggestion-status").textContent = errors.length
       ? errors.length + " osaa jäi alkuperäiseen muotoon virheen vuoksi."
       : "Voit muokata ehdotusta ennen hyväksymistä.";
+    updateTaskInteractionState();
   }
 
-  function replaceSelectedRange(range, text) {
-    if (!range || !$("manuscript-editor").contains(range.commonAncestorContainer)) return false;
+  function replaceRangeInEditor(editor, range, expectedText, text) {
+    if (!editor || !range || !editor.contains(range.commonAncestorContainer)) return false;
+    if (range.toString() !== String(expectedText || "")) return false;
     const fragment = document.createDocumentFragment();
     String(text || "").split("\n").forEach((line, index, lines) => {
       fragment.appendChild(document.createTextNode(line));
@@ -1146,19 +1752,204 @@
     });
     range.deleteContents();
     range.insertNode(fragment);
-    $("manuscript-editor").normalize();
+    editor.normalize();
     return true;
   }
 
-  async function applySuggestionItem(item, mode) {
-    if (mode === "selection") {
-      if (!replaceSelectedRange(item.range, item.edited)) {
-        throw new Error("Valittu tekstikohta ei ole enää aktiivinen. Suorita tehtävä uudelleen.");
+  function replaceSelectedRange(range, expectedText, text) {
+    return replaceRangeInEditor($("manuscript-editor"), range, expectedText, text);
+  }
+
+  function nodePathWithinEditor(editor, node) {
+    if (!editor || !node || !editor.contains(node)) return null;
+    const path = [];
+    let current = node;
+    while (current !== editor) {
+      const parent = current.parentNode;
+      if (!parent) return null;
+      const index = Array.prototype.indexOf.call(parent.childNodes, current);
+      if (index < 0) return null;
+      path.unshift(index);
+      current = parent;
+    }
+    return path;
+  }
+
+  function nodeAtEditorPath(editor, path) {
+    let node = editor;
+    for (const index of path || []) {
+      node = node?.childNodes?.[index];
+      if (!node) return null;
+    }
+    return node;
+  }
+
+  function replacementParagraphsForRange(range, expectedText, replacement) {
+    const editor = $("manuscript-editor");
+    if (!range || !editor.contains(range.commonAncestorContainer)) {
+      throw new Error("Valittu tekstikohta ei ole enää aktiivinen. Suorita tehtävä uudelleen.");
+    }
+    const startPath = nodePathWithinEditor(editor, range.startContainer);
+    const endPath = nodePathWithinEditor(editor, range.endContainer);
+    if (!startPath || !endPath || range.toString() !== String(expectedText || "")) {
+      throw new Error("Valittu tekstikohta on muuttunut. Suorita tehtävä uudelleen.");
+    }
+    const clone = editor.cloneNode(true);
+    const startNode = nodeAtEditorPath(clone, startPath);
+    const endNode = nodeAtEditorPath(clone, endPath);
+    if (!startNode || !endNode) {
+      throw new Error("Valittua tekstikohtaa ei voitu kohdistaa turvallisesti.");
+    }
+    const cloneRange = document.createRange();
+    cloneRange.setStart(startNode, range.startOffset);
+    cloneRange.setEnd(endNode, range.endOffset);
+    if (!replaceRangeInEditor(clone, cloneRange, expectedText, replacement)) {
+      throw new Error("Valittua tekstikohtaa ei voitu kohdistaa turvallisesti.");
+    }
+    return editorParagraphsFromElement(clone);
+  }
+
+  function reloadSelectionFromCanonical(project, chapterIndex) {
+    state.suggestion = null;
+    rememberProject(project, false);
+    state.chapterIndex = Math.min(
+      chapterIndex,
+      Math.max(0, (project?.chapters || []).length - 1)
+    );
+    state.dirty = false;
+    if (state.taskScope === "selection") setTaskScope("chapter");
+    renderEditor();
+    renderSuggestion();
+  }
+
+  function selectionStaleReloadedError(message) {
+    const error = new Error(message);
+    error.selectionStaleReloaded = true;
+    return error;
+  }
+
+  async function applySelectionSuggestion(item) {
+    const projectId = String(state.project?.id || "");
+    const chapterIndex = item.chapterIndex;
+    const latest = await api("/projects/" + encodeURIComponent(projectId));
+    if (
+      String(state.project?.id || "") !== projectId
+      || state.chapterIndex !== chapterIndex
+      || state.suggestion !== item
+    ) {
+      throw new Error("Aineisto vaihtui ehdotuksen hyväksynnän aikana.");
+    }
+    const chapter = latest?.chapters?.[chapterIndex];
+    if (!chapter) {
+      reloadSelectionFromCanonical(latest, chapterIndex);
+      throw selectionStaleReloadedError(
+        "Valittua lukua ei enää löytynyt. Palvelimen ajantasainen käsikirjoitus ladattiin."
+      );
+    }
+    const canonicalParagraphs = (chapter.paragraphs || [])
+      .map((paragraph) => String(paragraph || ""));
+    if (!paragraphSnapshotsMatch(canonicalParagraphs, item.chapterSnapshot)) {
+      reloadSelectionFromCanonical(latest, chapterIndex);
+      throw selectionStaleReloadedError(
+        "Luku muuttui ehdotuksen luonnin jälkeen. Ajantasainen teksti ladattiin; valitse kohta uudelleen."
+      );
+    }
+    const localParagraphs = editorParagraphs();
+    if (!paragraphSnapshotsMatch(localParagraphs, item.chapterSnapshot)) {
+      throw new Error("Editorin teksti on muuttunut ehdotuksen luonnin jälkeen. Hylkää ehdotus ja tee se uudelleen.");
+    }
+    const replacement = replacementWithBoundaryWhitespace(item.original, item.edited);
+    const nextParagraphs = replacementParagraphsForRange(item.range, item.original, replacement);
+    const nextChapter = Object.assign({}, chapter, { paragraphs: nextParagraphs });
+    let saved;
+    try {
+      saved = await patchChapter(chapterIndex, nextChapter, canonicalParagraphs);
+    } catch (error) {
+      let refreshed = null;
+      try {
+        refreshed = await api("/projects/" + encodeURIComponent(projectId));
+      } catch (refreshError) {
+        refreshed = null;
       }
-      markDirty();
-      await saveNow(false);
-      clearSelectionContext(true);
-      return;
+      const refreshedChapter = refreshed?.chapters?.[chapterIndex];
+      const refreshedParagraphs = (refreshedChapter?.paragraphs || [])
+        .map((paragraph) => String(paragraph || ""));
+      if (
+        refreshed
+        && state.suggestion === item
+        && String(state.project?.id || "") === projectId
+        && state.chapterIndex === chapterIndex
+        && (
+          !refreshedChapter
+          || !paragraphSnapshotsMatch(refreshedParagraphs, canonicalParagraphs)
+        )
+      ) {
+        reloadSelectionFromCanonical(refreshed, chapterIndex);
+        throw selectionStaleReloadedError(
+          "Luku muuttui tallennuksen aikana. Palvelimen ajantasainen teksti ladattiin; valitse kohta uudelleen."
+        );
+      }
+      throw error;
+    }
+    rememberProject(saved);
+    state.chapterIndex = Math.min(chapterIndex, (saved.chapters || []).length - 1);
+    state.dirty = false;
+  }
+
+  async function applyProofreadChapterSuggestion(item) {
+    const run = currentProofreadChapterRun();
+    if (
+      !run
+      || run.status !== "review"
+      || !item.chapterRun
+      || run.id !== item.chapterRun.id
+    ) {
+      throw new Error("Oikolukuketju ei ole enää aktiivinen. Hylkää ehdotus ja aloita luku uudelleen.");
+    }
+    const projectId = String(state.project?.id || "");
+    const latest = await api("/projects/" + encodeURIComponent(projectId));
+    if (
+      String(state.project?.id || "") !== projectId
+      || state.chapterIndex !== item.chapterIndex
+      || currentProofreadChapterRun()?.id !== item.chapterRun.id
+    ) {
+      throw new Error("Aineisto vaihtui ehdotuksen hyväksynnän aikana.");
+    }
+    const chapter = latest?.chapters?.[item.chapterIndex];
+    if (!chapter) throw new Error("Oikoluettua lukua ei enää löytynyt.");
+    const paragraphs = (chapter.paragraphs || [])
+      .map((paragraph) => String(paragraph || ""));
+    if (!paragraphSnapshotsMatch(paragraphs, item.chapterSnapshot)) {
+      throw new Error("Luku on muuttunut ehdotuksen luonnin jälkeen. Hylkää ehdotus ja aloita luvun oikoluku uudelleen.");
+    }
+    if (selectionText(paragraphs, item.selection) !== item.original) {
+      throw new Error("Oikoluettava tekstikohta on muuttunut. Hylkää ehdotus ja tee se uudelleen.");
+    }
+    if (!String(item.edited || "").trim()) {
+      throw new Error("Ehdotus ei voi olla tyhjä.");
+    }
+
+    const replacement = replacementWithBoundaryWhitespace(item.original, item.edited);
+    const nextCursor = cursorAfterReplacement(paragraphs, item.selection, replacement);
+    const nextChapter = Object.assign({}, chapter, {
+      paragraphs: applyReplacement(paragraphs, item.selection, replacement)
+    });
+    const saved = await patchChapter(item.chapterIndex, nextChapter, paragraphs);
+    rememberProject(saved);
+    state.chapterIndex = Math.min(item.chapterIndex, (saved.chapters || []).length - 1);
+    state.dirty = false;
+    renderEditor();
+    const savedParagraphs = (saved.chapters?.[state.chapterIndex]?.paragraphs || [])
+      .map((paragraph) => String(paragraph || ""));
+    return advanceProofreadChapterRun(item, savedParagraphs, nextCursor);
+  }
+
+  async function applySuggestionItem(item, mode) {
+    if (mode === "proofread_chapter") {
+      return applyProofreadChapterSuggestion(item);
+    }
+    if (mode === "selection") {
+      return applySelectionSuggestion(item);
     }
     const chapter = state.project.chapters[item.chapterIndex];
     chapter.paragraphs = splitParagraphs(item.edited);
@@ -1169,18 +1960,36 @@
   }
 
   async function acceptCurrentSuggestion() {
-    if (!state.suggestion) return;
+    if (!state.suggestion || state.taskRunning) return;
     syncSuggestionTextarea();
     const item = currentSuggestionItem();
+    const mode = state.suggestion.mode;
+    state.taskRunning = true;
+    updateTaskInteractionState();
     $("suggestion-status").textContent = "Tallennetaan…";
     try {
-      await applySuggestionItem(item, state.suggestion.mode);
-      toast("Muutos tallennettu.");
-      if (state.suggestion.mode !== "book") state.suggestion = null;
+      const chapterProgress = await applySuggestionItem(item, mode)
+        || { inRun: false, hasMore: false };
+      if (mode !== "book") state.suggestion = null;
+      if (mode === "selection") {
+        if (state.taskScope === "selection") setTaskScope("chapter");
+        renderEditor();
+      }
       renderSuggestion();
+      if (chapterProgress.inRun && chapterProgress.hasMore) {
+        toast("Luvun osa hyväksyttiin ja tallennettiin. Jatka seuraavaan osaan.");
+        window.requestAnimationFrame(() => $("proofread-chapter-continue")?.focus({ preventScroll: true }));
+      } else if (chapterProgress.inRun) {
+        toast("Luvun viimeinen osa hyväksyttiin. Koko luku on käsitelty.");
+      } else {
+        toast("Muutos tallennettu.");
+      }
     } catch (error) {
-      $("suggestion-status").textContent = error.message;
+      if (!error.selectionStaleReloaded) $("suggestion-status").textContent = error.message;
       toast(error.message);
+    } finally {
+      state.taskRunning = false;
+      updateTaskInteractionState();
     }
   }
 
@@ -1206,8 +2015,64 @@
     }
   }
 
-  function rejectCurrentSuggestion() {
-    if (!state.suggestion) return;
+  async function rejectCurrentSuggestion() {
+    if (!state.suggestion || state.taskRunning) return;
+    if (state.suggestion.mode === "proofread_chapter") {
+      const suggestion = state.suggestion;
+      const projectId = String(state.project?.id || "");
+      const chapterIndex = suggestion.chapterIndex;
+      state.taskRunning = true;
+      updateTaskInteractionState();
+      $("suggestion-status").textContent = "Varmistetaan luvun ajantasaisuus…";
+      try {
+        const latest = await api("/projects/" + encodeURIComponent(projectId));
+        if (
+          state.suggestion !== suggestion
+          || String(state.project?.id || "") !== projectId
+          || state.chapterIndex !== chapterIndex
+        ) {
+          throw new Error("Aineisto vaihtui ehdotuksen hylkäyksen aikana.");
+        }
+        const chapter = latest?.chapters?.[chapterIndex];
+        const paragraphs = (chapter?.paragraphs || [])
+          .map((paragraph) => String(paragraph || ""));
+        if (!chapter || !paragraphSnapshotsMatch(paragraphs, suggestion.chapterSnapshot)) {
+          state.suggestion = null;
+          rememberProject(latest, false);
+          state.chapterIndex = Math.min(
+            chapterIndex,
+            Math.max(0, (latest?.chapters || []).length - 1)
+          );
+          state.dirty = false;
+          cancelProofreadChapterRun();
+          renderEditor();
+          renderSuggestion();
+          toast("Luku muuttui toisessa näkymässä. Ajantasainen teksti ladattiin; aloita luvun oikoluku uudelleen.");
+          return;
+        }
+        rememberProject(latest, false);
+        const chapterProgress = advanceProofreadChapterRun(
+          suggestion,
+          paragraphs,
+          cursorAfterSelection(paragraphs, suggestion.selection)
+        );
+        state.suggestion = null;
+        renderSuggestion();
+        if (chapterProgress.inRun && chapterProgress.hasMore) {
+          toast("Ehdotus hylättiin. Alkuperäinen osa säilyi; jatka seuraavaan osaan.");
+          window.requestAnimationFrame(() => $("proofread-chapter-continue")?.focus({ preventScroll: true }));
+        } else if (chapterProgress.inRun) {
+          toast("Viimeinen ehdotus hylättiin. Koko luku on käsitelty.");
+        }
+      } catch (error) {
+        if (state.suggestion === suggestion) $("suggestion-status").textContent = error.message;
+        toast(error.message);
+      } finally {
+        state.taskRunning = false;
+        updateTaskInteractionState();
+      }
+      return;
+    }
     if (state.suggestion.mode !== "book") {
       state.suggestion = null;
     } else {
@@ -1267,6 +2132,7 @@
       row.append(run, remove);
       container.appendChild(row);
     });
+    updateTaskInteractionState();
   }
 
   async function savePrompt(event) {
@@ -1320,20 +2186,6 @@
     localStorage.setItem(ASSISTANT_OPEN_KEY, String(!collapsed));
   }
 
-  function collapseContextMemorySections() {
-    const groups = Array.from(document.querySelectorAll("#notes-pane details.note-group"));
-    const focusedGroup = document.activeElement?.closest?.("#notes-pane details.note-group");
-    if (focusedGroup?.open) focusedGroup.querySelector("summary")?.focus();
-    groups.forEach((group) => {
-      group.open = false;
-    });
-  }
-
-  function handleParentMessage(event) {
-    if (event.source !== window.parent || event.origin !== window.location.origin) return;
-    if (event.data?.type === "skriptlab:write-editor-opened") collapseContextMemorySections();
-  }
-
   function bindEvents() {
     $("notes-toggle").addEventListener("click", () => toggleNotes());
     $("notes-close").addEventListener("click", () => toggleNotes(false));
@@ -1354,6 +2206,10 @@
     $("delete-current-chapter").addEventListener("click", deleteCurrentChapter);
 
     $("manuscript-editor").addEventListener("input", () => {
+      if (currentProofreadChapterRun()?.status === "ready") {
+        cancelProofreadChapterRun();
+        toast("Luvun oikolukuketju lopetettiin, koska tekstiä muokattiin.");
+      }
       markDirty();
       updateHeaderCounter();
     });
@@ -1403,6 +2259,9 @@
     $("reject-suggestion").addEventListener("click", rejectCurrentSuggestion);
     $("accept-suggestion").addEventListener("click", acceptCurrentSuggestion);
     $("accept-all-suggestions").addEventListener("click", acceptAllSuggestions);
+    $("proofread-chapter-continue").addEventListener("click", () => {
+      generateNextProofreadChapterPart(TASKS.proofread);
+    });
 
     $("new-prompt-toggle").addEventListener("click", () => { $("prompt-form").hidden = false; $("prompt-title").focus(); });
     $("prompt-cancel").addEventListener("click", () => { $("prompt-form").reset(); $("prompt-form").hidden = true; });
@@ -1411,8 +2270,6 @@
     document.querySelectorAll("[data-mobile-target]").forEach((button) => {
       button.addEventListener("click", () => setMobilePanel(button.dataset.mobileTarget));
     });
-
-    window.addEventListener("message", handleParentMessage);
 
     window.addEventListener("beforeunload", () => {
       if (state.dirty) syncEditorToState();
@@ -1434,7 +2291,6 @@
   }
 
   async function boot() {
-    collapseContextMemorySections();
     bindEvents();
     if (localStorage.getItem(NOTES_OPEN_KEY) === "false") $("workspace-shell").classList.add("notes-collapsed");
     if (localStorage.getItem(ASSISTANT_OPEN_KEY) === "false") $("workspace-shell").classList.add("assistant-collapsed");
@@ -1471,6 +2327,20 @@
       setLoading(false);
     }
   }
+
+  window.SkriptLabWriteEditorTestHooks = {
+    paragraphModel,
+    selectionText,
+    normalizedChapterCursor,
+    safeParagraphCut,
+    chapterPartSelection,
+    cursorAfterSelection,
+    cursorAfterReplacement,
+    countChapterParts,
+    applyReplacement,
+    replacementWithBoundaryWhitespace,
+    paragraphSnapshotsMatch
+  };
 
   document.addEventListener("DOMContentLoaded", boot);
 })();
