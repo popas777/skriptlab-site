@@ -612,6 +612,52 @@ textarea:focus-visible,
     margin-top: 11px;
 }
 
+.ti-chapter-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    margin-top: 10px;
+    padding: 12px;
+    border: 1px solid var(--ti-line);
+    border-radius: 8px;
+    background: var(--ti-surface-soft);
+}
+
+.ti-chapter-controls h3 {
+    margin: 0;
+    font: 600 12px / 1.3 var(--ti-heading-font);
+}
+
+.ti-chapter-controls p {
+    margin: 4px 0 0;
+    color: var(--ti-muted);
+    font-size: 10px;
+    line-height: 1.45;
+}
+
+.ti-chapter-progressbar {
+    height: 4px;
+    margin-top: 9px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--ti-violet) 14%, transparent);
+}
+
+.ti-chapter-progressbar span {
+    display: block;
+    width: 0;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--ti-violet);
+    transition: width 180ms ease;
+}
+
+.ti-chapter-controls .ti-button {
+    min-height: 36px;
+    white-space: nowrap;
+}
+
 .ti-inspector-divider {
     height: 1px;
     margin: 20px 0;
@@ -997,5 +1043,13 @@ textarea:focus-visible,
 
     .ti-inspector-actions p {
         grid-column: auto;
+    }
+
+    .ti-chapter-controls {
+        grid-template-columns: 1fr;
+    }
+
+    .ti-chapter-controls .ti-button {
+        width: 100%;
     }
 }

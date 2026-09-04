@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tekstin/käännöksen parantelu · SkriptLab</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="tekstin-parantelu.css?v=1">
+    <link rel="stylesheet" href="tekstin-parantelu.css?v=2">
 </head>
 <body>
     <main class="ti-app" aria-labelledby="ti-title">
@@ -184,8 +184,28 @@
 
                     <button id="ti-generate" class="ti-button ti-button-primary ti-generate-button" type="button" disabled>
                         <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m12 3 1.35 4.15L17.5 8.5l-4.15 1.35L12 14l-1.35-4.15L6.5 8.5l4.15-1.35z"></path><path d="m18.5 14 .75 2.25 2.25.75-2.25.75L18.5 20l-.75-2.25L15.5 17l2.25-.75z"></path></svg>
-                        Luo ehdotus
+                        Luo ehdotus valinnasta
                     </button>
+
+                    <section id="ti-chapter-controls" class="ti-chapter-controls" aria-labelledby="ti-chapter-controls-title">
+                        <div>
+                            <h3 id="ti-chapter-controls-title">Koko luvun parantelu</h3>
+                            <p id="ti-chapter-progress" role="status" aria-live="polite" aria-atomic="true">Enintään 12 000 merkin luku käsitellään kerralla. Pitkä luku jaetaan kappalerajoilla osiin.</p>
+                            <div
+                                id="ti-chapter-progressbar"
+                                class="ti-chapter-progressbar"
+                                role="progressbar"
+                                aria-label="Luvun parantelun eteneminen"
+                                aria-valuemin="0"
+                                aria-valuemax="1"
+                                aria-valuenow="0"
+                                aria-valuetext="Ei aloitettu"
+                            ><span></span></div>
+                        </div>
+                        <button id="ti-chapter-generate" class="ti-button ti-button-secondary" type="button" aria-describedby="ti-chapter-progress" disabled>
+                            Paranna koko luku
+                        </button>
+                    </section>
 
                     <div class="ti-inspector-divider"></div>
 
@@ -236,6 +256,6 @@
 
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=4"></script>
-    <script src="tekstin-parantelu.js?v=1"></script>
+    <script src="tekstin-parantelu.js?v=2"></script>
 </body>
 </html>

@@ -5,6 +5,8 @@
     const API_BASE = String(rootConfig.API_BASE_URL || "").replace(/\/$/, "") + "/api";
     const ACTIVE_PROJECT_KEY = "skriptlab_active_project_id";
     const MODE_KEY = "skriptlab_text_improvement_mode";
+    const MANUAL_SELECTION_MAX_CHARACTERS = 12000;
+    const CHAPTER_PART_MAX_CHARACTERS = 12000;
     const $ = (id) => document.getElementById(id);
     const storedUser = (() => {
         try {
@@ -37,6 +39,8 @@
         segmentIndex: 0,
         translationSelection: null,
         suggestion: null,
+        chapterRun: null,
+        chapterRunRevision: 0,
         busy: false,
         busyReturnFocus: null,
         focusAfterBusy: null,
@@ -361,11 +365,142 @@
         return selection;
     }
 
+    function normalizedChapterCursor(paragraphs, cursor) {
+        const values = Array.isArray(paragraphs)
+            ? paragraphs.map((value) => String(value || ""))
+            : [];
+        let paragraph = Math.max(0, Number(cursor?.paragraph) || 0);
+        let offset = Math.max(0, Number(cursor?.offset) || 0);
+        while (paragraph < values.length) {
+            offset = Math.min(offset, values[paragraph].length);
+            if (values[paragraph].slice(offset).trim()) return { paragraph, offset };
+            paragraph += 1;
+            offset = 0;
+        }
+        return null;
+    }
+
+    function safeParagraphCut(text, startOffset, maxCharacters) {
+        const value = String(text || "");
+        const start = Math.max(0, Math.min(Number(startOffset) || 0, value.length));
+        const limit = Math.max(1, Number(maxCharacters) || 1);
+        if (value.length - start <= limit) return value.length;
+        const candidate = value.slice(start, start + limit);
+        const minimumUsefulCut = Math.floor(limit * 0.7);
+        let match;
+        let usefulCut = 0;
+        const sentenceBoundary = /[.!?…]["'”’»)]*(?:\s+|$)/g;
+        while ((match = sentenceBoundary.exec(candidate))) {
+            const matchEnd = match.index + match[0].length;
+            if (matchEnd >= minimumUsefulCut) usefulCut = matchEnd;
+        }
+        const whitespace = /\s+/g;
+        if (!usefulCut) {
+            while ((match = whitespace.exec(candidate))) {
+                const matchEnd = match.index + match[0].length;
+                if (matchEnd >= minimumUsefulCut) usefulCut = matchEnd;
+            }
+        }
+        let cut = start + (usefulCut || limit);
+        const previousCode = value.charCodeAt(cut - 1);
+        const nextCode = value.charCodeAt(cut);
+        if (
+            previousCode >= 0xD800 && previousCode <= 0xDBFF
+            && nextCode >= 0xDC00 && nextCode <= 0xDFFF
+        ) cut -= 1;
+        if (cut <= start) {
+            const firstCodePoint = value.codePointAt(start);
+            return start + (firstCodePoint > 0xFFFF ? 2 : 1);
+        }
+        return cut;
+    }
+
+    function chapterPartSelection(paragraphs, cursor, maxCharacters) {
+        const values = Array.isArray(paragraphs)
+            ? paragraphs.map((value) => String(value || ""))
+            : [];
+        const limit = Math.max(1, Number(maxCharacters) || CHAPTER_PART_MAX_CHARACTERS);
+        const start = normalizedChapterCursor(values, cursor);
+        if (!start) return null;
+
+        const firstText = values[start.paragraph];
+        const firstRemaining = firstText.length - start.offset;
+        let endParagraph = start.paragraph;
+        let endOffset = firstText.length;
+        let used = firstRemaining;
+
+        if (firstRemaining > limit) {
+            endOffset = safeParagraphCut(firstText, start.offset, limit);
+        } else {
+            while (endParagraph + 1 < values.length) {
+                const nextText = values[endParagraph + 1];
+                const nextLength = 2 + nextText.length;
+                if (used + nextLength > limit) break;
+                used += nextLength;
+                endParagraph += 1;
+                endOffset = nextText.length;
+            }
+        }
+
+        const selection = {
+            startParagraph: start.paragraph,
+            endParagraph,
+            startOffset: start.offset,
+            endOffset,
+        };
+        selection.text = selectionText(values, selection);
+        return selection.text.trim() ? selection : null;
+    }
+
+    function cursorAfterSelection(paragraphs, selection) {
+        const values = Array.isArray(paragraphs)
+            ? paragraphs.map((value) => String(value || ""))
+            : [];
+        if (!selection || !values.length) return null;
+        const endParagraph = Math.max(0, Math.min(selection.endParagraph, values.length - 1));
+        const endOffset = Math.max(0, Math.min(selection.endOffset, values[endParagraph].length));
+        return normalizedChapterCursor(values, endOffset < values[endParagraph].length
+            ? { paragraph: endParagraph, offset: endOffset }
+            : { paragraph: endParagraph + 1, offset: 0 });
+    }
+
+    function cursorAfterReplacement(paragraphs, selection, replacement) {
+        const values = Array.isArray(paragraphs)
+            ? paragraphs.map((value) => String(value || ""))
+            : [];
+        if (!selection || !values.length) return null;
+        const startParagraph = Math.max(0, Math.min(selection.startParagraph, values.length - 1));
+        const startOffset = Math.max(0, Math.min(selection.startOffset, values[startParagraph].length));
+        const replacementParagraphs = paragraphModel(replacement).paragraphs;
+        return {
+            paragraph: startParagraph + replacementParagraphs.length - 1,
+            offset: (replacementParagraphs.length === 1 ? startOffset : 0)
+                + String(replacementParagraphs[replacementParagraphs.length - 1] || "").length,
+        };
+    }
+
+    function countChapterParts(paragraphs, maxCharacters, startCursor) {
+        let count = 0;
+        let cursor = normalizedChapterCursor(
+            paragraphs,
+            startCursor || { paragraph: 0, offset: 0 }
+        );
+        const safetyLimit = Math.max(1, (Array.isArray(paragraphs) ? paragraphs.length : 0) * 2 + 10000);
+        while (cursor && count < safetyLimit) {
+            const selection = chapterPartSelection(paragraphs, cursor, maxCharacters);
+            if (!selection) break;
+            count += 1;
+            cursor = cursorAfterSelection(paragraphs, selection);
+            if (!cursor) break;
+        }
+        return count;
+    }
+
     function firstUsefulSelection(paragraphs) {
         const index = Math.max(0, paragraphs.findIndex((paragraph) => String(paragraph || "").trim()));
         const selection = selectionForWholeParagraph(paragraphs, index);
-        if (selection.text.length > 12000) {
-            selection.endOffset = 12000;
+        if (selection.text.length > MANUAL_SELECTION_MAX_CHARACTERS) {
+            selection.endOffset = MANUAL_SELECTION_MAX_CHARACTERS;
             selection.text = selectionText(paragraphs, selection);
         }
         return selection;
@@ -513,22 +648,136 @@
         state.suggestion = null;
     }
 
+    function keepOpenSuggestionForReview() {
+        if (!state.suggestion) return false;
+        toast("Hyväksy tai hylkää avoin ehdotus ennen tekstin, luvun tai välilehden vaihtamista.");
+        window.requestAnimationFrame(() => $("ti-suggestion-text")?.focus({ preventScroll: true }));
+        return true;
+    }
+
+    function cancelChapterRun() {
+        state.chapterRunRevision += 1;
+        state.chapterRun = null;
+    }
+
+    function currentChapterRun() {
+        const run = state.chapterRun;
+        if (!run || state.mode !== "normal") return null;
+        if (
+            String(run.projectId || "") !== String(state.project?.id || "")
+            || run.chapterIndex !== state.chapterIndex
+        ) return null;
+        return run;
+    }
+
+    function paragraphSnapshotsMatch(left, right) {
+        const first = Array.isArray(left) ? left.map((value) => String(value || "")) : [];
+        const second = Array.isArray(right) ? right.map((value) => String(value || "")) : [];
+        return first.length === second.length
+            && first.every((paragraph, index) => paragraph === second[index]);
+    }
+
+    function chapterHasImprovementText() {
+        return state.mode === "normal"
+            && normalParagraphs().some((paragraph) => paragraph.trim());
+    }
+
+    function updateChapterProgressBar(run) {
+        const progressbar = $("ti-chapter-progressbar");
+        const fill = progressbar.querySelector("span");
+        const maximum = Math.max(1, Number(run?.totalParts) || 1);
+        const completed = run?.status === "complete"
+            ? maximum
+            : Math.max(0, Math.min(maximum, (Number(run?.partNumber) || 1) - 1));
+        progressbar.setAttribute("aria-valuemax", String(maximum));
+        progressbar.setAttribute("aria-valuenow", String(completed));
+        progressbar.setAttribute(
+            "aria-valuetext",
+            run
+                ? (run.status === "complete"
+                    ? "Luku käsitelty"
+                    : completed + " / " + maximum + " osaa käsitelty")
+                : "Ei aloitettu"
+        );
+        fill.style.width = ((completed / maximum) * 100) + "%";
+    }
+
+    function renderChapterControls() {
+        const controls = $("ti-chapter-controls");
+        const button = $("ti-chapter-generate");
+        const progress = $("ti-chapter-progress");
+        const available = state.mode === "normal" && Boolean(currentChapter());
+        controls.hidden = !available;
+        if (!available) {
+            updateChapterProgressBar(null);
+            return;
+        }
+
+        const run = currentChapterRun();
+        updateChapterProgressBar(run);
+        if (!run) {
+            if (!chapterHasImprovementText()) {
+                button.textContent = "Luvussa ei ole tekstiä";
+                progress.textContent = "Valittu luku on tyhjä, joten sille ei voi luoda parannusehdotusta.";
+                return;
+            }
+            button.textContent = "Paranna koko luku";
+            progress.textContent = "Lyhyt luku käsitellään kerralla. Yli 12 000 merkin luku jaetaan kappalerajoilla osiin.";
+            return;
+        }
+        if (run.status === "complete") {
+            button.textContent = "Paranna luku uudelleen";
+            progress.textContent = run.totalParts === 1
+                ? "Luku on käsitelty."
+                : "Luvun kaikki " + run.totalParts + " osaa on käsitelty.";
+            return;
+        }
+        if (run.status === "review") {
+            button.textContent = "Käsittele ehdotus ensin";
+            progress.textContent = "Luvun osa " + run.partNumber + " / " + run.totalParts + " odottaa hyväksyntää tai hylkäystä.";
+            return;
+        }
+        if (run.status === "requesting") {
+            button.textContent = "Luodaan osaa " + run.partNumber + " / " + run.totalParts;
+            progress.textContent = "Luvun osan " + run.partNumber + " / " + run.totalParts + " ehdotusta valmistellaan.";
+            return;
+        }
+        button.textContent = run.partNumber === 1
+            ? "Yritä osaa 1 uudelleen"
+            : "Jatka osaan " + run.partNumber;
+        progress.textContent = "Luvun osa " + run.partNumber + " / " + run.totalParts + " on valmis paranneltavaksi.";
+    }
+
     function updateActionStates() {
         const selection = currentSelection();
         const hasSelection = Boolean(selection?.text?.trim());
-        $("ti-generate").disabled = state.busy || !hasSelection;
-        $("ti-previous").disabled = state.busy || !canMove(-1);
-        $("ti-next").disabled = state.busy || !canMove(1);
-        $("ti-project-select").disabled = state.busy;
-        $("ti-translation-project-select").disabled = state.busy || !state.canUseTranslations;
-        $("ti-translation-select").disabled = state.busy || !state.canUseTranslations || !state.translations.length;
+        const chapterRun = currentChapterRun();
+        const reviewing = Boolean(state.suggestion);
+        $("ti-generate").disabled = state.busy
+            || !hasSelection
+            || reviewing
+            || chapterRun?.status === "requesting"
+            || chapterRun?.status === "review";
+        $("ti-chapter-generate").disabled = state.busy
+            || state.mode !== "normal"
+            || !currentChapter()
+            || !chapterHasImprovementText()
+            || Boolean(state.suggestion)
+            || chapterRun?.status === "requesting"
+            || chapterRun?.status === "review";
+        $("ti-previous").disabled = state.busy || reviewing || !canMove(-1);
+        $("ti-next").disabled = state.busy || reviewing || !canMove(1);
+        $("ti-project-select").disabled = state.busy || reviewing;
+        $("ti-translation-project-select").disabled = state.busy || reviewing || !state.canUseTranslations;
+        $("ti-translation-select").disabled = state.busy || reviewing || !state.canUseTranslations || !state.translations.length;
         document.querySelectorAll("[data-ti-mode]").forEach((button) => {
             button.disabled = state.busy
+                || reviewing
                 || (button.dataset.tiMode === "translation" && !state.canUseTranslations);
         });
-        $("ti-import-button").disabled = state.busy;
-        $("ti-bilingual-button").disabled = state.busy || !state.canImportBilingual;
-        $("ti-empty-bilingual-button").disabled = state.busy || !state.canImportBilingual;
+        $("ti-import-button").disabled = state.busy || reviewing;
+        $("ti-bilingual-button").disabled = state.busy || reviewing || !state.canImportBilingual;
+        $("ti-empty-bilingual-button").disabled = state.busy || reviewing || !state.canImportBilingual;
         const editedSuggestion = state.suggestion ? $("ti-suggestion-text").value.trim() : "";
         $("ti-accept").disabled = state.busy || !state.suggestion || !editedSuggestion;
         $("ti-reject").disabled = state.busy || !state.suggestion;
@@ -559,12 +808,16 @@
         const button = $("ti-use-keyboard-selection");
         const status = $("ti-keyboard-selection-status");
         const length = keyboardSelectionLength();
-        button.disabled = state.busy || textarea.disabled || length < 1 || length > 12000;
+        button.disabled = state.busy
+            || Boolean(state.suggestion)
+            || textarea.disabled
+            || length < 1
+            || length > MANUAL_SELECTION_MAX_CHARACTERS;
         if (textarea.disabled) {
             status.textContent = "Valitse ensin kappale tekstistä.";
         } else if (!length) {
             status.textContent = "Ei tarkkaa valintaa. Valitse sana tai virke Vaihto + nuolinäppäimillä.";
-        } else if (length > 12000) {
+        } else if (length > MANUAL_SELECTION_MAX_CHARACTERS) {
             status.textContent = "Valinta on " + length + " merkkiä. Enimmäispituus on 12 000 merkkiä.";
         } else {
             const chosen = textarea.value.slice(textarea.selectionStart, textarea.selectionEnd);
@@ -601,14 +854,20 @@
     function renderInspector() {
         const selection = currentSelection();
         const isTranslation = state.mode === "translation";
+        const chapterRun = currentChapterRun();
+        const chapterSuggestion = state.suggestion?.chapterRun;
         $("ti-inspector-title").textContent = isTranslation
             ? "Paranna valittua käännöstä"
-            : "Paranna valittua kohtaa";
+            : (chapterSuggestion
+                ? "Luvun osa " + chapterSuggestion.partNumber + " / " + chapterSuggestion.totalParts
+                : "Paranna valittua kohtaa");
         $("ti-instructions").placeholder = isTranslation
             ? "Esim. tee suomesta luontevampaa säilyttäen merkitys ja sävy"
             : "Esim. tiivistä, kirkasta rytmiä tai säilytä puhekielinen ääni";
         $("ti-selection-help").textContent = selection?.text
-            ? wordCount(selection.text) + " sanaa valittuna. Voit maalata tai rajata näppäimistöllä lyhyemmän kohdan."
+            ? (chapterRun
+                ? wordCount(selection.text) + " sanaa luvun osassa " + chapterRun.partNumber + " / " + chapterRun.totalParts + "."
+                : wordCount(selection.text) + " sanaa valittuna. Voit maalata tai rajata näppäimistöllä lyhyemmän kohdan.")
             : (isTranslation
                 ? "Valitse bilingual ja parannettava käännöskohta."
                 : "Valitse tekstistä sana, virke tai kappale.");
@@ -625,6 +884,7 @@
             $("ti-reason").textContent = state.suggestion.reason
                 || "Ehdotus noudattaa antamaasi lisäohjetta ja säilyttää kohdan merkityksen.";
         }
+        renderChapterControls();
         renderKeyboardSelection();
         updateActionStates();
     }
@@ -707,7 +967,7 @@
         const targetModel = paragraphModel(translationTextForChunk(chunk));
         const targetParagraphs = targetModel.paragraphs;
         if (!state.translationSelection || !selectionTextFromParagraphModel(targetModel, state.translationSelection).trim()) {
-            state.translationSelection = boundedSelectionFromParagraphModel(targetModel, 12000);
+            state.translationSelection = boundedSelectionFromParagraphModel(targetModel, MANUAL_SELECTION_MAX_CHARACTERS);
         } else {
             state.translationSelection.text = selectionTextFromParagraphModel(targetModel, state.translationSelection);
         }
@@ -870,6 +1130,7 @@
     async function loadProject(projectId, options) {
         const settings = options || {};
         const requestRevision = ++state.projectLoadRevision;
+        cancelChapterRun();
         if (!projectId) {
             state.translationLoadRevision += 1;
             state.project = null;
@@ -961,6 +1222,8 @@
             toast("Käännöksen parantelu vaatii käännöstyötilan käyttöoikeuden.");
             return;
         }
+        if (state.mode !== next && keepOpenSuggestionForReview()) return;
+        if (state.mode !== next) cancelChapterRun();
         state.mode = next;
         localStorage.setItem(MODE_KEY, next);
         clearSuggestion();
@@ -996,6 +1259,8 @@
 
     function moveUnit(direction) {
         if (!canMove(direction)) return;
+        if (keepOpenSuggestionForReview()) return;
+        cancelChapterRun();
         clearSuggestion();
         if (state.mode === "translation") {
             state.segmentIndex += direction;
@@ -1014,6 +1279,7 @@
     }
 
     function handleReaderSelection(mode, event) {
+        if (keepOpenSuggestionForReview()) return;
         const reader = mode === "translation" ? $("ti-target-reader") : $("ti-normal-reader");
         const paragraphs = mode === "translation" ? translationParagraphs() : normalParagraphs();
         let nextSelection = selectionFromReader(reader, paragraphs);
@@ -1030,10 +1296,11 @@
             );
         }
         if (!nextSelection?.text) return;
-        if (nextSelection.text.length > 12000) {
+        if (nextSelection.text.length > MANUAL_SELECTION_MAX_CHARACTERS) {
             toast("Valitse enintään 12 000 merkkiä kerrallaan.");
             return;
         }
+        cancelChapterRun();
         if (mode === "translation") state.translationSelection = nextSelection;
         else state.normalSelection = nextSelection;
         clearSuggestion();
@@ -1045,6 +1312,10 @@
 
     function handleReaderKeyboardSelection(mode, event) {
         if (!event || !["Enter", " ", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+        if (keepOpenSuggestionForReview()) {
+            event.preventDefault();
+            return;
+        }
         const reader = mode === "translation" ? $("ti-target-reader") : $("ti-normal-reader");
         const paragraph = event.target?.closest?.("[data-ti-paragraph]");
         if (!paragraph || !reader.contains(paragraph)) return;
@@ -1066,11 +1337,12 @@
                 selection
             );
         }
-        if (selection.text.length > 12000) {
-            selection.endOffset = selection.startOffset + 12000;
+        if (selection.text.length > MANUAL_SELECTION_MAX_CHARACTERS) {
+            selection.endOffset = selection.startOffset + MANUAL_SELECTION_MAX_CHARACTERS;
             selection.text = selectionText(paragraphs, selection);
             toast("Kappaleesta valittiin ensimmäiset 12 000 merkkiä.");
         }
+        cancelChapterRun();
         if (mode === "translation") state.translationSelection = selection;
         else state.normalSelection = selection;
         clearSuggestion();
@@ -1079,6 +1351,7 @@
     }
 
     function applyKeyboardSelection() {
+        if (keepOpenSuggestionForReview()) return;
         const textarea = $("ti-keyboard-selection-text");
         const mode = textarea.dataset.tiMode;
         const paragraphIndex = Number(textarea.dataset.tiParagraph);
@@ -1104,11 +1377,12 @@
         } else {
             selection.text = selectionText(paragraphs, selection);
         }
-        if (!selection.text || selection.text.length > 12000) {
+        if (!selection.text || selection.text.length > MANUAL_SELECTION_MAX_CHARACTERS) {
             updateKeyboardSelectionStatus();
             toast(selection.text ? "Valitse enintään 12 000 merkkiä kerrallaan." : "Valitse tekstikentästä ensin sana tai virke.");
             return;
         }
+        cancelChapterRun();
         if (mode === "translation") state.translationSelection = selection;
         else state.normalSelection = selection;
         clearSuggestion();
@@ -1135,7 +1409,153 @@
         );
     }
 
-    async function generateSuggestion() {
+    function revealNormalSelection(selection) {
+        if (!selection) return;
+        window.requestAnimationFrame(() => {
+            $("ti-normal-reader")
+                .querySelector(`[data-ti-paragraph="${selection.startParagraph}"]`)
+                ?.scrollIntoView({ block: "center", behavior: "auto" });
+        });
+    }
+
+    function advanceChapterRun(suggestion, paragraphs, nextCursor) {
+        const run = currentChapterRun();
+        if (!suggestion?.chapterRun || !run || run.id !== suggestion.chapterRun.id) {
+            return { inRun: false, hasMore: false };
+        }
+        const normalizedCursor = normalizedChapterCursor(paragraphs, nextCursor);
+        const nextSelection = chapterPartSelection(
+            paragraphs,
+            normalizedCursor,
+            CHAPTER_PART_MAX_CHARACTERS
+        );
+        if (!normalizedCursor || !nextSelection) {
+            run.status = "complete";
+            run.nextCursor = null;
+            run.totalParts = suggestion.chapterRun.partNumber;
+            run.partNumber = suggestion.chapterRun.partNumber;
+            return { inRun: true, hasMore: false };
+        }
+        run.nextCursor = normalizedCursor;
+        run.partNumber = suggestion.chapterRun.partNumber + 1;
+        run.totalParts = (run.partNumber - 1) + countChapterParts(
+            paragraphs,
+            CHAPTER_PART_MAX_CHARACTERS,
+            normalizedCursor
+        );
+        run.status = "ready";
+        state.normalSelection = nextSelection;
+        return { inRun: true, hasMore: true };
+    }
+
+    async function generateNextChapterSuggestion() {
+        if (state.mode !== "normal" || !state.project?.id || !currentChapter()) {
+            toast("Valitse ensin paranneltava luku.");
+            return;
+        }
+
+        let run = currentChapterRun();
+        if (!run || run.status === "complete") {
+            cancelChapterRun();
+            const paragraphs = normalParagraphs();
+            const totalParts = countChapterParts(paragraphs, CHAPTER_PART_MAX_CHARACTERS);
+            const nextCursor = normalizedChapterCursor(paragraphs, { paragraph: 0, offset: 0 });
+            if (!totalParts || !nextCursor) {
+                renderInspector();
+                toast("Luvussa ei ole paranneltavaa tekstiä.");
+                return;
+            }
+            run = {
+                id: ++state.chapterRunRevision,
+                projectId: state.project.id,
+                chapterIndex: state.chapterIndex,
+                partNumber: 1,
+                totalParts,
+                nextCursor,
+                status: "ready",
+            };
+            state.chapterRun = run;
+        }
+        if (run.status === "review") {
+            toast("Hyväksy tai hylkää nykyinen ehdotus ennen jatkamista.");
+            return;
+        }
+
+        const runId = run.id;
+        run.status = "requesting";
+        renderInspector();
+        setStatus("Tarkistetaan luvun ajantasaisuutta");
+        let latest;
+        try {
+            latest = await api("/projects/" + encodeURIComponent(state.project.id));
+        } catch (error) {
+            const activeRun = currentChapterRun();
+            if (activeRun?.id === runId) activeRun.status = "ready";
+            renderInspector();
+            setStatus("Luvun tarkistus epäonnistui");
+            toast(error.message);
+            return;
+        }
+        const activeRun = currentChapterRun();
+        if (!activeRun || activeRun.id !== runId || activeRun.status !== "requesting") return;
+        const latestChapter = latest?.chapters?.[run.chapterIndex];
+        if (!latestChapter) {
+            cancelChapterRun();
+            renderAll();
+            setStatus("Lukua ei enää löytynyt");
+            toast("Valittua lukua ei enää löytynyt. Valitse paranneltava luku uudelleen.");
+            return;
+        }
+        const paragraphs = (latestChapter.paragraphs || []).map((paragraph) => String(paragraph || ""));
+        if (!paragraphSnapshotsMatch(normalParagraphs(), paragraphs)) {
+            rememberProject(latest, false);
+            state.chapterIndex = Math.min(run.chapterIndex, (latest.chapters || []).length - 1);
+            state.normalSelection = null;
+            cancelChapterRun();
+            clearSuggestion();
+            renderAll();
+            setStatus("Luku muuttui · aloita luvun parantelu uudelleen");
+            toast("Luku muuttui toisessa näkymässä. Päivitetty teksti ladattiin; aloita luvun parantelu uudelleen.");
+            return;
+        }
+        rememberProject(latest, false);
+        const selection = chapterPartSelection(
+            paragraphs,
+            run.nextCursor,
+            CHAPTER_PART_MAX_CHARACTERS
+        );
+        if (!selection) {
+            run.status = "complete";
+            run.nextCursor = null;
+            renderInspector();
+            return;
+        }
+        state.normalSelection = selection;
+        clearSuggestion();
+        renderMode();
+        revealNormalSelection(selection);
+        await generateSuggestion({
+            chapterRun: {
+                id: run.id,
+                partNumber: run.partNumber,
+                totalParts: run.totalParts,
+            },
+        });
+    }
+
+    async function generateSuggestion(options) {
+        const chapterRunRequest = options?.chapterRun || null;
+        if (state.suggestion) {
+            keepOpenSuggestionForReview();
+            return;
+        }
+        if (state.busy) return;
+        const activeChapterRun = currentChapterRun();
+        if (!chapterRunRequest && activeChapterRun?.status === "requesting") {
+            toast("Odota, että luvun osan ehdotus valmistuu.");
+            return;
+        }
+        if (!chapterRunRequest && activeChapterRun) cancelChapterRun();
         const selection = currentSelection();
         if (!selection?.text?.trim()) {
             toast("Valitse ensin parannettava tekstikohta.");
@@ -1149,6 +1569,7 @@
         const requestSegmentIndex = state.segmentIndex;
         const requestChunk = isTranslation ? currentChunk() : null;
         const requestTranslationId = isTranslation ? state.translation?.id || null : null;
+        const requestChapterSnapshot = isTranslation ? null : normalParagraphs();
         const context = isTranslation ? contextForTranslationSelection() : contextForNormalSelection();
         const sourceText = isTranslation ? sourceTextForChunk(requestChunk).slice(0, 30000) : "";
         setBusy(true, isTranslation ? "Verrataan käännöstä alkutekstiin…" : "Muotoillaan uutta versiota…");
@@ -1170,10 +1591,16 @@
                 || (isTranslation && (
                     state.segmentIndex !== requestSegmentIndex
                     || String(state.translation?.id || "") !== String(requestTranslationId || "")
+                ))
+                || (chapterRunRequest && (
+                    currentChapterRun()?.id !== chapterRunRequest.id
+                    || currentChapterRun()?.status !== "requesting"
                 ));
             if (sourceChanged) {
                 throw new Error("Aineisto vaihtui ehdotuksen luonnin aikana. Tee ehdotus uudelleen nykyiseen kohtaan.");
             }
+            const activeRun = chapterRunRequest ? currentChapterRun() : null;
+            if (activeRun) activeRun.status = "review";
             state.suggestion = {
                 mode: requestMode,
                 original: requestSelection.text,
@@ -1187,12 +1614,17 @@
                 segmentIndex: requestSegmentIndex,
                 rawChunkIndex: requestChunk?._tiRawIndex ?? requestSegmentIndex,
                 translationId: requestTranslationId,
+                chapterRun: chapterRunRequest,
+                chapterSnapshot: requestChapterSnapshot,
             };
             renderInspector();
             state.focusAfterBusy = $("ti-suggestion-text");
             setStatus("Ehdotus valmis · hyväksy tai hylkää");
         } catch (error) {
-            state.focusAfterBusy = $("ti-generate");
+            const activeRun = chapterRunRequest ? currentChapterRun() : null;
+            if (activeRun?.id === chapterRunRequest?.id) activeRun.status = "ready";
+            renderInspector();
+            state.focusAfterBusy = chapterRunRequest ? $("ti-chapter-generate") : $("ti-generate");
             setStatus("Ehdotuksen luominen epäonnistui");
             toast(error.message);
         } finally {
@@ -1206,6 +1638,12 @@
         const chapter = latest?.chapters?.[suggestion.chapterIndex];
         if (!chapter) throw new Error("Valittua lukua ei enää löytynyt.");
         const paragraphs = (chapter.paragraphs || []).map((paragraph) => String(paragraph || ""));
+        if (
+            Array.isArray(suggestion.chapterSnapshot)
+            && !paragraphSnapshotsMatch(paragraphs, suggestion.chapterSnapshot)
+        ) {
+            throw new Error("Luku on muuttunut ehdotuksen luonnin jälkeen. Hylkää ehdotus ja luo se uudelleen ajantasaisesta tekstistä.");
+        }
         const current = selectionText(paragraphs, suggestion.selection);
         if (current !== suggestion.original) {
             throw new Error("Tekstikohta on muuttunut ehdotuksen luonnin jälkeen. Päivitä näkymä ja tee ehdotus uudelleen.");
@@ -1213,6 +1651,9 @@
         const editedReplacement = $("ti-suggestion-text").value;
         if (!editedReplacement.trim()) throw new Error("Ehdotus ei voi olla tyhjä.");
         const replacement = replacementWithBoundaryWhitespace(suggestion.original, editedReplacement);
+        const chapterContinuationCursor = suggestion.chapterRun
+            ? cursorAfterReplacement(paragraphs, suggestion.selection, replacement)
+            : null;
         const nextChapter = Object.assign({}, chapter, {
             paragraphs: applyReplacement(paragraphs, suggestion.selection, replacement),
         });
@@ -1226,7 +1667,13 @@
         rememberProject(saved, true);
         state.project = saved;
         state.chapterIndex = Math.min(suggestion.chapterIndex, (saved.chapters || []).length - 1);
+        if (suggestion.chapterRun) {
+            const savedParagraphs = (saved.chapters?.[state.chapterIndex]?.paragraphs || [])
+                .map((paragraph) => String(paragraph || ""));
+            return advanceChapterRun(suggestion, savedParagraphs, chapterContinuationCursor);
+        }
         state.normalSelection = null;
+        return { inRun: false, hasMore: false };
     }
 
     async function acceptTranslationSuggestion(suggestion) {
@@ -1271,14 +1718,29 @@
         setBusy(true, "Tallennetaan hyväksyttyä muutosta…");
         setStatus("Tallennetaan muutosta");
         try {
-            if (suggestion.mode === "translation") await acceptTranslationSuggestion(suggestion);
-            else await acceptNormalSuggestion(suggestion);
+            let chapterProgress = { inRun: false, hasMore: false };
+            if (suggestion.mode === "translation") {
+                await acceptTranslationSuggestion(suggestion);
+            } else {
+                chapterProgress = await acceptNormalSuggestion(suggestion);
+            }
             clearSuggestion();
             renderAll();
             const reader = suggestion.mode === "translation" ? $("ti-target-reader") : $("ti-normal-reader");
-            state.focusAfterBusy = reader.querySelector('[tabindex="0"]') || reader;
-            setStatus("Muutos tallennettu");
-            toast("Muutos hyväksyttiin ja tallennettiin.");
+            state.focusAfterBusy = chapterProgress.inRun
+                ? $("ti-chapter-generate")
+                : (reader.querySelector('[tabindex="0"]') || reader);
+            if (chapterProgress.inRun && chapterProgress.hasMore) {
+                revealNormalSelection(state.normalSelection);
+                setStatus("Luvun osa tallennettu · jatka seuraavaan osaan");
+                toast("Luvun osa hyväksyttiin ja tallennettiin. Jatka seuraavaan osaan.");
+            } else if (chapterProgress.inRun) {
+                setStatus("Koko luku käsitelty");
+                toast("Luvun viimeinen osa hyväksyttiin. Koko luku on käsitelty.");
+            } else {
+                setStatus("Muutos tallennettu");
+                toast("Muutos hyväksyttiin ja tallennettiin.");
+            }
         } catch (error) {
             state.focusAfterBusy = $("ti-suggestion-text");
             setStatus("Tallennus epäonnistui");
@@ -1290,15 +1752,37 @@
 
     function rejectSuggestion() {
         if (!state.suggestion) return;
+        const suggestion = state.suggestion;
+        const chapterProgress = suggestion.chapterRun
+            ? advanceChapterRun(
+                suggestion,
+                normalParagraphs(),
+                cursorAfterSelection(normalParagraphs(), suggestion.selection)
+            )
+            : { inRun: false, hasMore: false };
         clearSuggestion();
-        renderInspector();
-        setStatus("Ehdotus hylätty · alkuperäinen teksti säilyi");
-        toast("Ehdotus hylättiin. Tekstiä ei muutettu.");
-        $("ti-generate").focus({ preventScroll: true });
+        renderMode();
+        if (chapterProgress.inRun && chapterProgress.hasMore) {
+            revealNormalSelection(state.normalSelection);
+            setStatus("Luvun osa hylätty · jatka seuraavaan osaan");
+            toast("Ehdotus hylättiin. Alkuperäinen osa säilyi; voit jatkaa seuraavaan osaan.");
+        } else if (chapterProgress.inRun) {
+            setStatus("Koko luku käsitelty");
+            toast("Viimeinen ehdotus hylättiin. Koko luku on käsitelty.");
+        } else {
+            setStatus("Ehdotus hylätty · alkuperäinen teksti säilyi");
+            toast("Ehdotus hylättiin. Tekstiä ei muutettu.");
+        }
+        if (chapterProgress.inRun) {
+            $("ti-chapter-generate").focus({ preventScroll: true });
+        } else {
+            $("ti-generate").focus({ preventScroll: true });
+        }
     }
 
     async function importProjectFile(file) {
         if (!file) return;
+        cancelChapterRun();
         const form = new FormData();
         form.append("file", file);
         setBusy(true, "Tuodaan tiedostoa käsikirjoitukseksi…");
@@ -1333,6 +1817,7 @@
             toast("Bilingual-tuonti vaatii käännöstyötilan käyttöoikeuden.");
             return;
         }
+        cancelChapterRun();
         const form = new FormData();
         form.append("file", file);
         form.append("source_language", "auto");
@@ -1443,7 +1928,8 @@
                 generateSuggestion();
             }
         });
-        $("ti-generate").addEventListener("click", generateSuggestion);
+        $("ti-generate").addEventListener("click", () => generateSuggestion());
+        $("ti-chapter-generate").addEventListener("click", generateNextChapterSuggestion);
         $("ti-suggestion-text").addEventListener("input", (event) => {
             if (state.suggestion) state.suggestion.edited = event.target.value;
             updateActionStates();
@@ -1503,6 +1989,10 @@
         paragraphModel,
         paragraphModelFromParagraphs,
         contextAroundSelection,
+        chapterPartSelection,
+        cursorAfterSelection,
+        cursorAfterReplacement,
+        countChapterParts,
         selectionText,
         selectionTextFromParagraphModel,
         applyReplacement,
