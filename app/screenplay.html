@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="screenplay.css?v=3">
+  <link rel="stylesheet" href="screenplay.css?v=4">
 </head>
 <body>
   <main class="screenplay-app" id="screenplay-app" data-active-view="world" aria-labelledby="screenplay-title">
@@ -32,14 +32,17 @@
       <button id="screenplay-world-tab" class="is-active" type="button" role="tab" aria-selected="true" aria-controls="screenplay-world-panel" data-screenplay-view="world">
         <span>1</span>Maailma
       </button>
+      <button id="screenplay-library-tab" type="button" role="tab" aria-selected="false" aria-controls="screenplay-library-panel" data-screenplay-view="library">
+        <span>2</span>Kirjasto
+      </button>
       <button id="screenplay-scenes-tab" type="button" role="tab" aria-selected="false" aria-controls="screenplay-scenes-panel" data-screenplay-view="scenes">
-        <span>2</span>Kohtaukset
+        <span>3</span>Kohtaukset
       </button>
       <button id="screenplay-preview-tab" type="button" role="tab" aria-selected="false" aria-controls="screenplay-preview-panel" data-screenplay-view="preview">
-        <span>3</span>Esikatselu
+        <span>4</span>Esikatselu
       </button>
       <button id="screenplay-export-tab" type="button" role="tab" aria-selected="false" aria-controls="screenplay-export-panel" data-screenplay-view="export">
-        <span>4</span>Vie
+        <span>5</span>Vie
       </button>
     </nav>
 
@@ -58,6 +61,10 @@
     </section>
 
     <div class="screenplay-workspace" id="screenplay-workspace" hidden>
+      <section class="workflow-guide" aria-label="Työn eteneminen">
+        <div><p class="eyebrow">Seuraava askel</p><strong id="screenplay-next-step"></strong><p id="screenplay-progress-summary"></p></div>
+        <button class="secondary-action" id="screenplay-next-action" type="button">Jatka</button>
+      </section>
       <section class="workspace-panel world-panel" id="screenplay-world-panel" role="tabpanel" aria-labelledby="screenplay-world-tab" data-screenplay-panel="world">
         <header class="column-heading">
           <div><span class="column-number">01</span><h2>Maailma</h2></div>
@@ -121,7 +128,29 @@
             <p class="prompt-note">Kaikki mallille lähetettävät englanninkieliset promptit näkyvät kokonaisina ja niitä voi muokata.</p>
           </section>
 
-          <div class="world-entities" id="screenplay-world-entities" hidden>
+        </div>
+      </section>
+
+      <section class="workspace-panel library-panel" id="screenplay-library-panel" role="tabpanel" aria-labelledby="screenplay-library-tab" data-screenplay-panel="library" hidden aria-hidden="true">
+        <header class="column-heading">
+          <div><span class="column-number">02</span><h2>Hahmot ja paikat</h2></div>
+          <p>Yksi yhteinen pääkuva. Sama hahmo ja maailma kohtauksesta toiseen.</p>
+        </header>
+        <div class="library-intro">
+          <div>
+            <p>Valitse hahmoille ja paikoille pääkuvat, jotka ohjaavat uusia kohtauskuvia.</p>
+            <details class="library-tips"><summary>Vinkit yhtenäiseen lopputulokseen</summary><p>Määritä hahmolle kasvot, hiukset, ikä ja tunnusomainen asu; paikalle arkkitehtuuri, maasto ja värimaailma. Luo ja tarkista tärkeimpien hahmojen pääkuvat ennen kohtauksia. Pidä tyyli ja kuvamalli samoina, mutta vaihtele kuvakulmia ja toimintaa.</p><p>Pääkuvan vaihtaminen vaikuttaa tuleviin generointeihin. Jo luodut kohtauskuvat säilyvät ennallaan; voit päivittää ne Esikatselussa.</p></details>
+          </div>
+          <label class="field" for="screenplay-library-image-model"><span>Kirjaston kuvamalli</span><select id="screenplay-library-image-model" data-image-model-select disabled><option value="">Ladataan kuvamalleja…</option></select></label>
+        </div>
+        <div class="library-toolbar">
+          <label class="field" for="screenplay-library-search"><span>Etsi kirjastosta</span><input id="screenplay-library-search" type="search" placeholder="Nimi, rooli tai kuvaus…"></label>
+          <label class="field" for="screenplay-library-filter"><span>Näytä</span><select id="screenplay-library-filter"><option value="all">Kaikki</option><option value="character">Hahmot</option><option value="location">Paikat ja maisemat</option><option value="missing">Pääkuva puuttuu</option></select></label>
+          <button class="secondary-action" type="button" data-add-entity="character">+ Lisää hahmo</button>
+          <button class="secondary-action" type="button" data-add-entity="location">+ Lisää paikka</button>
+        </div>
+        <p class="prompt-note" id="screenplay-library-summary" role="status"></p>
+        <div class="world-entities" id="screenplay-world-entities">
             <section class="entity-section" id="screenplay-characters-section" aria-labelledby="screenplay-characters-title">
               <div class="section-heading"><div><p class="eyebrow">Jatkuvuus</p><h3 id="screenplay-characters-title">Hahmot <span id="screenplay-character-count">0</span></h3></div></div>
               <div class="entity-list" id="screenplay-character-list"></div>
@@ -130,13 +159,12 @@
               <div class="section-heading"><div><p class="eyebrow">Maisemat ja tilat</p><h3 id="screenplay-locations-title">Paikat <span id="screenplay-location-count">0</span></h3></div></div>
               <div class="entity-list" id="screenplay-location-list"></div>
             </section>
-          </div>
         </div>
       </section>
 
       <section class="workspace-panel scenes-panel" id="screenplay-scenes-panel" role="tabpanel" aria-labelledby="screenplay-scenes-tab" data-screenplay-panel="scenes" hidden aria-hidden="true">
         <header class="column-heading">
-          <div><span class="column-number">02</span><h2>Kohtaukset</h2></div>
+          <div><span class="column-number">03</span><h2>Kohtaukset</h2></div>
           <p id="screenplay-scenes-summary">Valitse luku, generoi kohtaukset ja viimeistele promptit.</p>
         </header>
         <div class="source-warning" id="screenplay-source-warning" hidden>
@@ -188,13 +216,14 @@
                 <div class="prompt-actions"><button class="quiet-action" type="button" data-copy-target="screenplay-scene-image-prompt">Kopioi kuvaprompti</button></div>
                 <label class="prompt-field" for="screenplay-scene-video-prompt"><span>Video prompt <b>EN</b></span><textarea id="screenplay-scene-video-prompt" rows="8" maxlength="2000" lang="en" spellcheck="false" placeholder="Describe camera movement, subject motion and timing in English. Do not ask for readable text."></textarea></label>
                 <div class="prompt-actions"><button class="quiet-action" type="button" data-copy-target="screenplay-scene-video-prompt">Kopioi videoprompti</button></div>
-                <div class="compiled-prompts">
+                <details class="compiled-prompts">
+                  <summary>Valmiit kokonaiset promptit ulkoiseen työkaluun</summary>
                   <label class="prompt-field" for="screenplay-compiled-image-prompt"><span>Valmis kuvaprompti <b>EN</b></span><textarea id="screenplay-compiled-image-prompt" rows="10" lang="en" spellcheck="false" readonly></textarea></label>
                   <div class="prompt-actions"><button class="quiet-action" type="button" data-copy-target="screenplay-compiled-image-prompt">Kopioi valmis kuvaprompti</button></div>
                   <label class="prompt-field" for="screenplay-compiled-video-prompt"><span>Valmis videoprompti <b>EN</b></span><textarea id="screenplay-compiled-video-prompt" rows="10" lang="en" spellcheck="false" readonly></textarea></label>
                   <div class="prompt-actions"><button class="quiet-action" type="button" data-copy-target="screenplay-compiled-video-prompt">Kopioi valmis videoprompti</button></div>
                   <p class="prompt-note">Valmiit promptit kootaan näkyvistä tyyli-, jatkuvuus- ja kohtauskentistä. Ne päivittyvät heti ja sisältyvät ZIP-vientiin.</p>
-                </div>
+                </details>
               </section>
             </article>
           </section>
@@ -206,6 +235,7 @@
                 <label class="field" for="screenplay-scene-location"><span>Kohtauksen paikka</span><select id="screenplay-scene-location"></select></label>
                 <div class="field" role="group" aria-labelledby="screenplay-scene-characters-label"><span id="screenplay-scene-characters-label">Kohtauksen hahmot</span><div class="character-choices" id="screenplay-scene-characters"></div></div>
                 <p class="prompt-note">Paikka ja hahmot esivalitaan kohtauksen sisällön perusteella. Voit vaihtaa valintoja ennen kuvan tai videon generointia.</p>
+                <p class="reference-status" id="screenplay-reference-status" role="status"></p>
                 <div class="selected-references" id="screenplay-selected-references"></div>
               </div>
             </details>
@@ -221,7 +251,7 @@
               <label class="field" for="screenplay-scene-asset-select"><span>Käytä olemassa olevaa kuvaa</span><select id="screenplay-scene-asset-select"><option value="">Ei valittua kuvaa</option></select></label>
               <p class="without-text-note"><strong>Ilman tekstiä.</strong> Asetus tulee Maailma-vaiheesta ja tallentuu tuotantoon.</p>
               <label class="prompt-field" for="screenplay-image-request-prompt"><span>Kuvamallille lähetettävä prompti <b>EN · max 2000</b></span><textarea id="screenplay-image-request-prompt" rows="10" lang="en" spellcheck="false" readonly></textarea></label>
-              <p class="prompt-note">Tämä on täsmälleen sisäiselle kuvamallille lähetettävä, 2 000 merkkiin sovitettu prompti. Yllä näkyvä pidempi valmis kuvaprompti säilyy ZIP-vientiä varten.</p>
+              <p class="prompt-note">API:lle lähetettävä käyttäjäprompti (enintään 2 000 merkkiä). Palvelin lisää luvun lähdetekstin, analyysin ja projektimuistin sekä kirjastosta valitut kuvaviitteet. Pidempi valmis prompti säilyy ZIP-vientiä varten.</p>
               <div class="asset-frame" id="screenplay-scene-asset" aria-live="polite">
                 <div class="asset-empty"><span aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M7 10h34v28H7zM12 32l8-9 6 6 4-4 6 7M31 17h.01"/></svg></span><strong>Ei vielä generoitua kuvaa</strong><p>Tässä näytetään vain palvelimelle tallennettu oikea kuva-assetti.</p></div>
               </div>
@@ -233,7 +263,7 @@
 
       <section class="workspace-panel preview-panel" id="screenplay-preview-panel" role="tabpanel" aria-labelledby="screenplay-preview-tab" data-screenplay-panel="preview" hidden aria-hidden="true">
         <header class="column-heading">
-          <div><span class="column-number">03</span><h2>Kohtausten esikatselu</h2></div>
+          <div><span class="column-number">04</span><h2>Kohtausten esikatselu</h2></div>
           <p>Vertaa kohtauskuvia, generoi vaihtoehtoja ja valitse vientiin käytettävä kuva.</p>
         </header>
         <section class="preview-toolbar" aria-labelledby="screenplay-preview-settings-title">
@@ -255,7 +285,7 @@
 
       <section class="workspace-panel export-panel" id="screenplay-export-panel" role="tabpanel" aria-labelledby="screenplay-export-tab" data-screenplay-panel="export" hidden aria-hidden="true">
         <header class="column-heading">
-          <div><span class="column-number">04</span><h2>Vie tuotantoon</h2></div>
+          <div><span class="column-number">05</span><h2>Vie tuotantoon</h2></div>
           <p>Lataa yksi kohtaus tai koko elokuvan aineisto ulkoiseen työkaluun.</p>
         </header>
         <div class="export-workbench">
@@ -272,8 +302,8 @@
             <button class="secondary-action" id="screenplay-export-scene" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 20h14"/></svg>Lataa kohtauspaketti (.zip)</button>
           </section>
           <section class="project-export" id="screenplay-project-export" aria-labelledby="screenplay-project-export-title">
-            <div class="section-heading"><div><p class="eyebrow">Koko tuotanto</p><h3 id="screenplay-project-export-title">Kaikki kohtaukset</h3></div></div>
-            <p>ZIP sisältää manifestin JSON- ja Markdown-muodossa, kaikki promptit sekä palvelimelle tallennetut hahmo-, paikka- ja kohtauskuvat. Puuttuvia kuvia ei korvata paikkamerkeillä.</p>
+            <div class="section-heading"><div><p class="eyebrow">Koko tuotanto</p><h3 id="screenplay-project-export-title">Kirjasto ja kaikki kohtaukset</h3></div></div>
+            <p>ZIP sisältää kaikki promptit, hahmo-, paikka- ja kohtauskuvat sekä kohtauskohtaisen viitekuvaluettelon ja käyttöohjeen. Voit viedä pelkän kirjaston jo ennen kohtausten luontia. Puuttuvia kuvia ei korvata paikkamerkeillä.</p>
             <button class="primary-action" id="screenplay-export-all" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 20h14"/></svg>Lataa koko tuotantopaketti (.zip)</button>
           </section>
         </div>
@@ -290,6 +320,11 @@
           <input type="text" maxlength="180" data-entity-field="name">
         </label>
       </div>
+      <p class="entity-status" data-entity-status></p>
+      <button class="quiet-action entity-view-image" type="button" data-entity-view-image>Avaa pääkuva isona</button>
+      <div class="entity-usage" data-entity-usage aria-label="Kohtaukset joissa käytössä"></div>
+      <details class="entity-details">
+      <summary>Kuvaus ja yhtenäisyysohjeet</summary>
       <label class="field">
         <span>Kuvaus</span>
         <textarea rows="3" maxlength="2000" data-entity-field="description"></textarea>
@@ -299,16 +334,16 @@
         <input type="text" maxlength="500" data-entity-field="role">
       </label>
       <label class="field">
-        <span>Visuaalinen kuvaus</span>
-        <textarea rows="3" maxlength="2000" data-entity-field="visual_description"></textarea>
+        <span>Pysyvä ulkoasu ja tuntomerkit</span>
+        <textarea rows="3" maxlength="2000" data-entity-field="visual_description" placeholder="Hahmo: ikä, kasvot, hiukset, asu. Paikka: rakennukset, maasto, materiaalit, värit."></textarea>
       </label>
       <label class="prompt-field">
         <span>Image prompt <b>EN</b></span>
         <textarea rows="6" maxlength="4000" lang="en" spellcheck="false" data-entity-field="image_prompt"></textarea>
       </label>
       <label class="prompt-field">
-        <span>Continuity prompt <b>EN</b></span>
-        <textarea rows="5" maxlength="4000" lang="en" spellcheck="false" data-entity-field="continuity_prompt"></textarea>
+        <span>Mitä ei saa muuttaa · Continuity prompt <b>EN</b></span>
+        <textarea rows="5" maxlength="4000" lang="en" spellcheck="false" data-entity-field="continuity_prompt" placeholder="Keep the same face, hairstyle, age and signature outfit in every shot…"></textarea>
       </label>
       <label class="field">
         <span data-entity-asset-label>Olemassa oleva kuva</span>
@@ -318,6 +353,8 @@
         <span>Kuvamallille lähetettävä prompti <b>EN · max 2000</b></span>
         <textarea rows="8" lang="en" spellcheck="false" data-entity-request-prompt readonly></textarea>
       </label>
+      <p class="prompt-note">Tyhjä prompti muodostetaan kuvauksista. Omat promptimuokkaukset säilytetään. Nykyinen pääkuva toimii myös uuden version kuvaviitteenä.</p>
+      </details>
       <div class="entity-actions">
         <button class="quiet-action" type="button" data-entity-copy>Kopioi promptit</button>
         <button class="secondary-action" type="button" data-entity-generate>Generoi kuva</button>
@@ -325,12 +362,17 @@
     </article>
   </template>
 
+  <dialog id="screenplay-image-dialog" aria-labelledby="screenplay-image-dialog-title">
+    <div class="section-heading"><h2 id="screenplay-image-dialog-title">Kirjaston pääkuva</h2><button class="secondary-action" id="screenplay-image-dialog-close" type="button">Sulje</button></div>
+    <div class="asset-frame" id="screenplay-image-dialog-asset"></div>
+  </dialog>
+
   <script src="config.js?v=1"></script>
   <script>
     const API_BASE_URL = (window.SKRIPTLAB_CONFIG && window.SKRIPTLAB_CONFIG.API_BASE_URL) || "http://127.0.0.1:8000";
     const apiUrl = path => `${API_BASE_URL}${path}`;
   </script>
   <script src="auth.js?v=4"></script>
-  <script src="screenplay.js?v=4"></script>
+  <script src="screenplay.js?v=5"></script>
 </body>
 </html>

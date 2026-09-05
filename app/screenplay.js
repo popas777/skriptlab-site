@@ -27,6 +27,7 @@
     assets: new Map(),
     assetRequests: new Map(),
     previewAssetObserver: null,
+    libraryAssetObserver: null,
     selectedChapterId: null,
     selectedSceneId: null,
     activeView: 'world',
@@ -60,6 +61,10 @@
       'screenplay-save-state', 'screenplay-save-label', 'screenplay-notice',
       'screenplay-notice-text', 'screenplay-notice-action', 'screenplay-project-empty',
       'screenplay-workspace', 'screenplay-world-panel', 'screenplay-scenes-panel',
+      'screenplay-library-panel', 'screenplay-library-search', 'screenplay-library-filter',
+      'screenplay-library-summary', 'screenplay-next-step', 'screenplay-progress-summary',
+      'screenplay-next-action', 'screenplay-reference-status',
+      'screenplay-image-dialog', 'screenplay-image-dialog-title', 'screenplay-image-dialog-asset', 'screenplay-image-dialog-close',
       'screenplay-preview-panel', 'screenplay-export-panel', 'screenplay-text-model', 'screenplay-world-image-model',
       'screenplay-text-model-retry',
       'screenplay-style-hint', 'screenplay-adaptation-goal', 'screenplay-without-text',
@@ -544,6 +549,7 @@
         use_analysis: requestBody.use_analysis === true,
         use_project_memory: requestBody.use_project_memory === true,
         without_text: requestBody.without_text !== false,
+        ...(Array.isArray(requestBody.reference_images) ? { reference_images: deepClone(requestBody.reference_images) } : {}),
       },
     };
   }
@@ -667,8 +673,9 @@
   }
 
   function setActiveView(view, options = {}) {
-    const next = ['world', 'scenes', 'preview', 'export'].includes(view) ? view : 'world';
+    const next = ['world', 'library', 'scenes', 'preview', 'export'].includes(view) ? view : 'world';
     if (next !== 'preview') disconnectPreviewAssetObserver();
+    if (next !== 'library') state.libraryAssetObserver?.disconnect();
     state.activeView = next;
     elements['screenplay-app'].dataset.activeView = next;
     document.querySelectorAll('[data-screenplay-view]').forEach((button) => {
@@ -683,6 +690,7 @@
       panel.setAttribute('aria-hidden', String(!active));
     });
     if (next === 'preview') renderPreview();
+    if (next === 'library') { renderWorldEntities(); syncControls(); }
     if (next === 'export') renderExport();
     if (options.focus) byId(`screenplay-${next}-tab`)?.focus();
     if (options.scroll) window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -715,7 +723,6 @@
     elements['screenplay-without-text'].checked = manifest.without_text !== false;
     const visible = hasWorld();
     elements['screenplay-style-section'].hidden = !visible;
-    elements['screenplay-world-entities'].hidden = !visible;
     elements['screenplay-project-name'].textContent = manifest.title || `Projekti ${state.projectId}`;
   }
 
@@ -920,18 +927,127 @@
       populateAssetSelect(select, assetIdForEntity(kind, entity), kind);
       card.querySelector('[data-entity-request-prompt]').value = entityImageRequestPrompt(kind, entity);
       const thumb = card.querySelector('[data-entity-asset]');
-      renderAsset(thumb, assetIdForEntity(kind, entity), entity.name, true);
+      thumb.dataset.assetId = assetIdForEntity(kind, entity) || '';
+      thumb.dataset.assetLabel = entity.name;
+      compactAssetFallback(thumb, entity.name);
+      if (state.libraryAssetObserver) state.libraryAssetObserver.observe(thumb);
+      else renderAsset(thumb, assetIdForEntity(kind, entity), entity.name, true);
+      updateEntityCardStatus(card, kind, entity);
+      const usage = card.querySelector('[data-entity-usage]');
+      const scenes = entityScenes(kind, entity.id);
+      scenes.forEach((scene) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'quiet-action';
+        button.dataset.openScene = scene.id;
+        button.textContent = `${Number(scene.order) + 1}. ${scene.title}`;
+        usage.appendChild(button);
+      });
+      if (!scenes.length) usage.textContent = 'Ei vielä liitetty kohtauksiin';
       container.appendChild(fragment);
     });
   }
 
   function renderWorldEntities() {
+    const openIds = new Set([...document.querySelectorAll('.entity-details[open]')].map((details) => details.closest('[data-entity-id]').dataset.entityId));
+    state.libraryAssetObserver?.disconnect();
+    state.libraryAssetObserver = null;
+    if (state.activeView !== 'library') {
+      elements['screenplay-character-list'].replaceChildren();
+      elements['screenplay-location-list'].replaceChildren();
+      return;
+    }
+    if (typeof window.IntersectionObserver === 'function') {
+      state.libraryAssetObserver = new window.IntersectionObserver((entries, observer) => {
+        entries.forEach(({ target, isIntersecting }) => {
+          if (!isIntersecting) return;
+          observer.unobserve(target);
+          if (target.isConnected && state.activeView === 'library') renderAsset(target, positiveInteger(target.dataset.assetId), target.dataset.assetLabel, true);
+        });
+      }, { rootMargin: '200px' });
+    }
     const characters = state.manifest?.characters || [];
     const locations = state.manifest?.locations || [];
     elements['screenplay-character-count'].textContent = String(characters.length);
     elements['screenplay-location-count'].textContent = String(locations.length);
-    renderEntityList('character', characters, elements['screenplay-character-list']);
-    renderEntityList('location', locations, elements['screenplay-location-list']);
+    const query = elements['screenplay-library-search'].value.trim().toLocaleLowerCase('fi');
+    const filter = elements['screenplay-library-filter'].value;
+    const visible = (kind, entity) => (!query || [entity.name, entity.role, entity.description, entity.visual_description].join(' ').toLocaleLowerCase('fi').includes(query))
+      && (filter === 'all' || filter === kind || (filter === 'missing' && !assetIdForEntity(kind, entity)));
+    const visibleCharacters = characters.filter((item) => visible('character', item));
+    const visibleLocations = locations.filter((item) => visible('location', item));
+    renderEntityList('character', visibleCharacters, elements['screenplay-character-list']);
+    renderEntityList('location', visibleLocations, elements['screenplay-location-list']);
+    elements['screenplay-characters-section'].hidden = !visibleCharacters.length;
+    elements['screenplay-locations-section'].hidden = !visibleLocations.length;
+    const shown = visibleCharacters.length + visibleLocations.length;
+    elements['screenplay-library-summary'].textContent = shown
+      ? `${shown} korttia · Avaa kortin ohjeet muokataksesi ulkoasua, promptia tai pääkuvaa.`
+      : characters.length + locations.length ? 'Haulla ei löytynyt kortteja. Vaihda hakua tai suodatinta.' : 'Kirjasto on vielä tyhjä. Luo maailma kirjan analyysistä tai lisää oma hahmo tai paikka.';
+    document.querySelectorAll('.entity-details').forEach((details) => { details.open = openIds.has(details.closest('[data-entity-id]').dataset.entityId); });
+  }
+
+  function entityScenes(kind, id) {
+    return (state.manifest?.scenes || []).filter((scene) => kind === 'character' ? scene.character_ids.includes(id) : scene.location_id === id);
+  }
+
+  function updateEntityCardStatus(card, kind, entity) {
+    const hasImage = Boolean(assetIdForEntity(kind, entity));
+    card.querySelector('[data-entity-status]').textContent = `${hasImage ? 'Pääkuva valittu' : 'Pääkuva puuttuu'} · ${entityScenes(kind, entity.id).length} kohtausta`;
+    card.querySelector('[data-entity-status]').classList.toggle('is-ready', hasImage);
+    card.querySelector('[data-entity-generate]').textContent = hasImage ? 'Uusi versio pääkuvasta' : 'Luo pääkuva';
+    card.querySelector('[data-entity-view-image]').hidden = !hasImage;
+  }
+
+  function openLibraryEntity(kind, id) {
+    elements['screenplay-library-search'].value = '';
+    elements['screenplay-library-filter'].value = kind;
+    setActiveView('library');
+    const card = [...document.querySelectorAll('[data-entity-id]')].find((item) => item.dataset.entityId === id && item.dataset.entityKind === kind);
+    if (card) {
+      card.querySelector('details').open = true;
+      card.querySelector('[data-entity-field="name"]').focus();
+      card.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  }
+
+  function addLibraryEntity(kind) {
+    if (!state.manifest || state.operationActive || state.imageBusy || state.pendingImageRequest || state.conflict) return;
+    const collection = kind === 'character' ? state.manifest.characters : state.manifest.locations;
+    if (collection.length >= 64) { setNotice('Kirjastoon mahtuu enintään 64 hahmoa ja 64 paikkaa.', 'warning'); return; }
+    const entity = {
+      id: `${kind}-${createClientRequestId()}`, name: kind === 'character' ? 'Uusi hahmo' : 'Uusi paikka',
+      description: '', visual_description: '', continuity_prompt: '', image_prompt: '',
+      continuity_prompt_source: 'manual', image_prompt_source: 'manual',
+      ...(kind === 'character' ? { role: '' } : {}),
+    };
+    collection.push(entity);
+    renderManifestFields();
+    renderSceneAssignments(selectedScene());
+    markDirty();
+    openLibraryEntity(kind, entity.id);
+    document.activeElement?.select?.();
+  }
+
+  function renderWorkflow() {
+    if (!state.manifest) return;
+    const characters = state.manifest.characters;
+    const locations = state.manifest.locations;
+    const scenes = state.manifest.scenes;
+    const charReady = characters.filter((item) => item.reference_asset_id).length;
+    const placeReady = locations.filter((item) => item.background_asset_id).length;
+    const sceneReady = scenes.filter((item) => item.keyframe_asset_id).length;
+    let next = ['world', 'Luo kirjan pohjalta yhteinen maailma.', 'Luo maailma'];
+    if (hasWorld()) {
+      if (charReady + placeReady < characters.length + locations.length) next = ['library', 'Viimeistele kirjaston puuttuvat pääkuvat.', 'Avaa puuttuvat kuvat'];
+      else if (!scenes.length) next = ['scenes', 'Valitse luku ja rakenna ensimmäiset kohtaukset.', 'Luo kohtauksia'];
+      else if (sceneReady < scenes.length) next = ['preview', 'Luo ja vertaile puuttuvat kohtauskuvat.', 'Avaa esikatselu'];
+      else next = ['export', 'Tarkista kuvien jatkuvuus esikatselussa ja lataa valmis aineisto.', 'Siirry vientiin'];
+    }
+    elements['screenplay-next-step'].textContent = next[1];
+    elements['screenplay-next-action'].textContent = next[2];
+    elements['screenplay-next-action'].dataset.nextView = next[0];
+    elements['screenplay-progress-summary'].textContent = `Hahmokuvat ${charReady}/${characters.length} · Paikkakuvat ${placeReady}/${locations.length} · Kohtauskuvat ${sceneReady}/${scenes.length}`;
   }
 
   function renderChapters() {
@@ -1046,6 +1162,7 @@
       .filter(Boolean);
     const location = referencedLocation(scene);
     if (location?.continuity_prompt) continuity.push(location.continuity_prompt);
+    if (scene.continuity_note) continuity.push(scene.continuity_note);
     if (continuity.length) sections.push(`CONTINUITY\n${continuity.map((value) => `- ${value}`).join('\n')}`);
     const raw = purpose === 'video' ? scene.video_prompt : scene.image_prompt;
     if (raw) sections.push(`${purpose === 'video' ? 'SCENE MOTION' : 'SCENE KEYFRAME'}\n${raw}`);
@@ -1059,11 +1176,13 @@
   function limitedImageRequest(contextSections, primarySection) {
     const guard = state.manifest?.without_text !== false ? NO_TEXT_GUARD : '';
     const tailBudget = IMAGE_PROMPT_LIMIT - (guard ? guard.length + 2 : 0);
-    const primary = stringValue(primarySection).slice(0, Math.max(0, tailBudget)).trim();
+    const primary = stringValue(primarySection).slice(0, contextSections.filter(Boolean).length ? Math.min(1200, tailBudget) : Math.max(0, tailBudget)).trim();
     const tail = [primary, guard].filter(Boolean);
     const tailText = tail.join('\n\n');
     const prefixBudget = Math.max(0, IMAGE_PROMPT_LIMIT - tailText.length - (tailText ? 2 : 0));
-    const context = contextSections.filter(Boolean).join('\n\n').slice(0, prefixBudget).trim();
+    const sections = contextSections.filter(Boolean);
+    const perSection = Math.max(0, Math.floor((prefixBudget - Math.max(0, sections.length - 1) * 2) / Math.max(1, sections.length)));
+    const context = sections.map((section) => section.slice(0, perSection).trim()).filter(Boolean).join('\n\n');
     return [context, tailText].filter(Boolean).join('\n\n').slice(0, IMAGE_PROMPT_LIMIT).trim();
   }
 
@@ -1075,8 +1194,30 @@
     const continuity = referencedCharacters(scene).map((character) => character.continuity_prompt).filter(Boolean);
     const location = referencedLocation(scene);
     if (location?.continuity_prompt) continuity.push(location.continuity_prompt);
+    if (scene.continuity_note) contexts.push(`SCENE CONTINUITY\n${scene.continuity_note}`);
     if (continuity.length) contexts.push(`CONTINUITY\n${continuity.map((value) => `- ${value}`).join('\n')}`);
     return limitedImageRequest(contexts, `SCENE KEYFRAME\n${scene.image_prompt || ''}`);
+  }
+
+  function imageReferences(kind, entity) {
+    const entries = kind === 'scene'
+      ? [...referencedCharacters(entity).map((item) => ['character', item]), ...(referencedLocation(entity) ? [['location', referencedLocation(entity)]] : [])]
+      : [[kind, entity]];
+    const byAsset = new Map();
+    entries.forEach(([entryKind, item]) => {
+      const id = assetIdForEntity(entryKind, item);
+      if (!id) return;
+      const label = `${entryKind === 'character' ? 'Character identity' : 'Location and landscape'}: ${item.name}`;
+      byAsset.set(id, { asset_id: id, label: stringValue(byAsset.has(id) ? `${byAsset.get(id).label}; ${label}` : label, 240) });
+    });
+    return [...byAsset.values()];
+  }
+
+  function imageReferenceIssue(references, model) {
+    if (!references.length) return '';
+    if (model?.provider !== 'gemini' || model.model_name.startsWith('imagen-')) return 'Valitse Gemini-kuvamalli: valittu malli ei tue kirjaston kuvaviitteitä.';
+    const limit = model.model_name.startsWith('gemini-3') ? 14 : 3;
+    return references.length > limit ? `Kohtauksessa on ${references.length} kuvaviitettä. Valittu malli tukee ${limit} kuvaa; valitse Gemini 3 -kuvamalli tai vähennä kohtauksen hahmoja.` : '';
   }
 
   function renderCompiledPrompts(scene = selectedScene()) {
@@ -1097,6 +1238,13 @@
     const note = document.createElement('small');
     note.textContent = kind === 'character' ? (entity.role || 'Hahmo') : 'Paikka';
     copy.append(title, note);
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.className = 'quiet-action';
+    edit.dataset.openLibraryKind = kind;
+    edit.dataset.openLibraryId = entity.id;
+    edit.textContent = assetIdForEntity(kind, entity) ? 'Avaa kirjastossa' : 'Lisää pääkuva';
+    copy.appendChild(edit);
     card.append(media, copy);
     renderAsset(media, assetIdForEntity(kind, entity), entity.name, true);
     return card;
@@ -1108,6 +1256,14 @@
     const location = referencedLocation(scene);
     if (location) container.appendChild(createReferenceCard('location', location));
     referencedCharacters(scene).forEach((character) => container.appendChild(createReferenceCard('character', character)));
+    const expected = referencedCharacters(scene).length + (location ? 1 : 0);
+    const ready = referencedCharacters(scene).filter((item) => item.reference_asset_id).length + (location?.background_asset_id ? 1 : 0);
+    const references = imageReferences('scene', scene);
+    const model = state.imageModels.find((item) => imageModelValue(item) === selectedImageModelValue());
+    const issue = imageReferenceIssue(references, model);
+    elements['screenplay-reference-status'].textContent = !scene ? '' : issue || (expected
+      ? `${ready}/${expected} pääkuvaa valmiina. ${ready < expected ? 'Puuttuville käytetään tekstikuvausta. Lisää pääkuvat kirjastossa parantaaksesi yhtenäisyyttä.' : 'Kuvaviitteet lähetetään Gemini-mallille yhdessä promptin kanssa.'}`
+      : 'Ei valittuja hahmoja tai paikkaa. Kuva luodaan kohtauspromptin perusteella.');
     if (!container.children.length) {
       const note = document.createElement('p');
       note.className = 'prompt-note';
@@ -1370,6 +1526,7 @@
     updateProjectVisibility();
     if (!state.projectId || !state.manifest) return;
     renderManifestFields();
+    renderWorkflow();
     renderWorldEntities();
     renderChapters();
     renderSceneList();
@@ -1415,6 +1572,7 @@
       if ([...select.options].some((option) => option.value === value)) select.value = value;
     });
     syncImageSizes();
+    renderSelectedReferences(selectedScene());
   }
 
   function syncImageSizes() {
@@ -1590,6 +1748,7 @@
     const busy = state.operationActive || state.imageBusy || pendingImage;
     const documentLocked = state.operationActive || state.imageBusy || pendingImage || state.conflict;
     const hasTextModel = Boolean(state.textModels.length && selectedTextModelValue());
+    document.querySelectorAll('[data-add-entity]').forEach((button) => { button.disabled = !state.manifest || documentLocked; });
     [
       'screenplay-style-hint', 'screenplay-adaptation-goal', 'screenplay-without-text',
       'screenplay-manifest-title', 'screenplay-logline', 'screenplay-synopsis',
@@ -1629,7 +1788,7 @@
       field.disabled = documentLocked || state.imageBusy;
     });
     elements['screenplay-export-scene'].disabled = !elements['screenplay-export-scene-select']?.value || busy || state.dirty || state.conflict;
-    elements['screenplay-export-all'].disabled = !(state.manifest?.scenes?.length) || busy || state.dirty || state.conflict;
+    elements['screenplay-export-all'].disabled = !(state.manifest?.scenes?.length || state.manifest?.characters?.length || state.manifest?.locations?.length) || busy || state.dirty || state.conflict;
     document.querySelectorAll('[data-entity-generate]').forEach((button) => {
       const card = button.closest('[data-entity-kind]');
       const entity = entityFromCard(card);
@@ -1651,6 +1810,7 @@
     window.clearTimeout(state.saveTimer);
     state.saveTimer = window.setTimeout(() => { flushSave(); }, SAVE_DELAY_MS);
     renderExport();
+    renderWorkflow();
   }
 
   async function flushSave() {
@@ -1789,9 +1949,20 @@
     entity[field] = element.value;
     if (field === 'image_prompt') entity.image_prompt_source = 'manual';
     if (field === 'continuity_prompt') entity.continuity_prompt_source = 'manual';
+    if (['name', 'description', 'visual_description', 'role'].includes(field)) {
+      if (entity.image_prompt_source !== 'manual') {
+        entity.image_prompt = automaticEntityImagePrompt(card.dataset.entityKind, entity);
+        card.querySelector('[data-entity-field="image_prompt"]').value = entity.image_prompt;
+      }
+      if (entity.continuity_prompt_source !== 'manual') {
+        entity.continuity_prompt = automaticEntityContinuityPrompt(card.dataset.entityKind, entity);
+        card.querySelector('[data-entity-field="continuity_prompt"]').value = entity.continuity_prompt;
+      }
+    }
     if (field === 'name') {
       const thumb = card.querySelector('[data-entity-asset]');
       if (!assetIdForEntity(card.dataset.entityKind, entity)) compactAssetFallback(thumb, entity.name);
+      renderSceneAssignments(selectedScene());
     }
     if (selectedScene()?.character_ids?.includes(entity.id) || selectedScene()?.location_id === entity.id) {
       renderSelectedReferences(selectedScene());
@@ -2142,6 +2313,9 @@
       }
 
       selectedModelLabel = selectedModel.display_name || selectedModel.model_name;
+      const references = imageReferences(kind, scene || entity);
+      const referenceIssue = imageReferenceIssue(references, selectedModel);
+      if (referenceIssue) { setNotice(referenceIssue, 'warning'); return; }
       const clientRequestId = createClientRequestId();
       const requestBody = {
         client_request_id: clientRequestId,
@@ -2164,6 +2338,7 @@
         use_analysis: true,
         use_project_memory: true,
         without_text: state.manifest.without_text !== false,
+        ...(references.length ? { reference_images: references } : {}),
       };
       pendingRecord = {
         projectId,
@@ -2389,6 +2564,9 @@
     window.clearTimeout(state.saveTimer);
     disconnectPreviewAssetObserver();
     state.loadController = null;
+    state.libraryAssetObserver?.disconnect();
+    state.libraryAssetObserver = null;
+    elements['screenplay-image-dialog']?.close();
     state.saveController = null;
     state.generationController = null;
     state.imageController = null;
@@ -2491,6 +2669,34 @@
   }
 
   function bindEvents() {
+    elements['screenplay-image-dialog-close'].addEventListener('click', () => elements['screenplay-image-dialog'].close());
+    elements['screenplay-library-search'].addEventListener('input', () => { renderWorldEntities(); syncControls(); });
+    elements['screenplay-library-filter'].addEventListener('change', () => { renderWorldEntities(); syncControls(); });
+    elements['screenplay-next-action'].addEventListener('click', (event) => {
+      const view = event.currentTarget.dataset.nextView;
+      if (view === 'library') {
+        elements['screenplay-library-search'].value = '';
+        elements['screenplay-library-filter'].value = 'missing';
+      }
+      setActiveView(view, { focus: true, scroll: true });
+      if (view === 'world') elements['screenplay-generate-world'].focus();
+    });
+    document.addEventListener('click', (event) => {
+      const add = event.target.closest('[data-add-entity]');
+      if (add) addLibraryEntity(add.dataset.addEntity);
+      const reference = event.target.closest('[data-open-library-kind]');
+      if (reference) openLibraryEntity(reference.dataset.openLibraryKind, reference.dataset.openLibraryId);
+      const usage = event.target.closest('[data-open-scene]');
+      if (usage) {
+        const scene = state.manifest?.scenes.find((item) => item.id === usage.dataset.openScene);
+        if (!scene) return;
+        state.selectedSceneId = scene.id;
+        state.selectedChapterId = positiveInteger(scene.source.chapter_id) || state.chapters.find((item) => item.custom_id === scene.source.chapter_custom_id)?.id || state.selectedChapterId;
+        renderChapters(); renderSceneList(); renderSceneEditor();
+        setActiveView('scenes', { scroll: true });
+        elements['screenplay-scene-title'].focus();
+      }
+    });
     elements['screenplay-notice-action'].addEventListener('click', () => state.noticeAction?.());
     elements['screenplay-text-model-retry'].addEventListener('click', retryTextModels);
     elements['screenplay-open-video'].addEventListener('click', () => {
@@ -2506,7 +2712,7 @@
       button.addEventListener('keydown', (event) => {
         if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
         event.preventDefault();
-        const tabs = ['world', 'scenes', 'preview', 'export'];
+        const tabs = ['world', 'library', 'scenes', 'preview', 'export'];
         const current = tabs.indexOf(state.activeView);
         let nextView;
         if (event.key === 'Home') nextView = tabs[0];
@@ -2575,7 +2781,13 @@
     elements['screenplay-scene-characters'].addEventListener('change', () => {
       const scene = selectedScene();
       if (!scene) return;
-      scene.character_ids = [...elements['screenplay-scene-characters'].querySelectorAll('input:checked')].map((input) => input.value);
+      const selectedIds = [...elements['screenplay-scene-characters'].querySelectorAll('input:checked')].map((input) => input.value);
+      if (selectedIds.length > 16) {
+        renderSceneAssignments(scene);
+        setNotice('Yhdessä kohtauksessa voi olla enintään 16 hahmoa.', 'warning');
+        return;
+      }
+      scene.character_ids = selectedIds;
       scene.assignments_initialized = true;
       renderSelectedReferences(scene);
       renderCompiledPrompts(scene);
@@ -2663,7 +2875,9 @@
       const key = card.dataset.entityKind === 'character' ? 'reference_asset_id' : 'background_asset_id';
       if (assetId) entity[key] = assetId;
       else delete entity[key];
+      card.querySelector('[data-entity-asset]').dataset.assetId = assetId || '';
       renderAsset(card.querySelector('[data-entity-asset]'), assetId, entity.name, true);
+      updateEntityCardStatus(card, card.dataset.entityKind, entity);
       renderSelectedReferences(selectedScene());
       markDirty();
     });
@@ -2671,6 +2885,12 @@
       const card = event.target.closest('[data-entity-kind]');
       if (!card) return;
       const entity = entityFromCard(card);
+      if (event.target.closest('[data-entity-view-image]')) {
+        elements['screenplay-image-dialog-title'].textContent = entity.name;
+        renderAsset(elements['screenplay-image-dialog-asset'], assetIdForEntity(card.dataset.entityKind, entity), entity.name);
+        elements['screenplay-image-dialog'].showModal();
+        return;
+      }
       if (event.target.closest('[data-entity-copy]')) {
         copyText(entityPrompt(entity));
       } else {

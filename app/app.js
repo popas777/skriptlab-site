@@ -27814,7 +27814,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             document.getElementById('screenplay-studio-frame'),
             'screenplay.html',
             'screenplayProjectId',
-            '2'
+            '3'
         );
     }
 
