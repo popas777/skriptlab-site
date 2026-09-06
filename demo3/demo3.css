@@ -31,6 +31,8 @@ p { line-height: 1.65; }
 .experience { max-width: 1920px; margin: auto; min-height: 100svh; display: flex; flex-direction: column; padding: 0 clamp(24px,3.2vw,64px); overflow-x: clip; }
 .site-header { height: 88px; display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-shrink: 0; position: relative; z-index: 10; border-bottom: 1px solid var(--soft-line); }
 .brand { font: 44px/1 var(--serif); letter-spacing: -.04em; text-decoration: none; }
+.brand, .brand:hover { color: var(--ink); }
+.brand-accent { color: var(--gold); }
 .header-nav { display: flex; align-items: center; gap: clamp(24px,3.3vw,50px); }
 .header-nav>button:not(.icon-button) { font-size: 14px; background: none; padding: 12px 0; }
 .theme-button { display: inline-flex; align-items: center; gap: 9px; }
