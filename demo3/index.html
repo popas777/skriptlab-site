@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="fi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Teksti on vasta alku. | SkriptLab Demo 3</title>
+  <meta name="description" content="Astu tarinan maailmaan. Tutki kolmiulotteisesti, kuinka käsikirjoituksen yhteinen konteksti kulkee kieliin, ääneen, kuviin ja uusiin muotoihin.">
+  <meta name="theme-color" content="#08120f">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self'; img-src 'self' data:; media-src 'self'; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <link rel="canonical" href="https://skriptlab.com/demo3/">
+  <meta property="og:title" content="Teksti on vasta alku. — SkriptLab">
+  <meta property="og:description" content="Yksi käsikirjoitus. Yhteinen ymmärrys. Kokonaisia maailmoja.">
+  <meta property="og:image" content="https://skriptlab.com/demo3/assets/story-world.webp">
+  <meta property="og:url" content="https://skriptlab.com/demo3/">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='4' fill='%2308120f'/%3E%3Ctext x='11' y='29' fill='%23d2b77d' font-family='serif' font-size='30'%3ES%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/demo2/fonts.css">
+  <link rel="stylesheet" href="/demo3/demo3.css">
+  <link rel="preload" as="image" href="/demo3/assets/story-world.webp">
+  <script type="module" src="/demo3/app.js"></script>
+</head>
+<body data-phase="0">
+  <a class="skip-link" href="#main">Siirry sisältöön</a>
+  <div class="experience">
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="SkriptLab etusivulle">SkriptLab</a>
+      <nav class="header-nav" aria-label="Demon navigaatio">
+        <a href="/demo/">Demo 01</a>
+        <a href="/demo2/">Demo 02</a>
+        <button type="button" id="about-open">Tietoa demosta</button>
+        <button type="button" id="motion-toggle" class="icon-button" aria-label="Pysäytä liike" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12M15 6v12"/></svg></button>
+      </nav>
+    </header>
+
+    <main id="main" tabindex="-1">
+      <div class="visual" id="visual">
+        <div class="hero-art" id="hero-art"><img src="/demo3/assets/story-world.webp" width="1254" height="1254" alt="Leijuvan kirjan sivut avautuvat vihreäksi oveksi, jonka takana hohtaa valoisa puutarha." fetchpriority="high"></div>
+        <div class="scene-host" id="scene-host" aria-label="Tarinan kolmiulotteinen merkitysverkko"></div>
+        <p class="scene-hint" aria-hidden="true" hidden>Liikuta näkymää. Seuraa merkitystä.</p>
+      </div>
+
+      <section class="act act-intro" id="act-0" aria-labelledby="intro-title">
+        <div class="intro-copy">
+          <h1 id="intro-title">Teksti on vasta<br><em>alku.</em></h1>
+          <p class="intro-description">Kun ymmärrät tarinan, voit avata siitä kokonaisia maailmoja.</p>
+          <button class="primary-button" type="button" data-go="1">Avaa tarinan maailma <svg viewBox="0 0 32 24" aria-hidden="true"><path d="M2 12h27M22 5l7 7-7 7"/></svg></button>
+          <p class="work-credit">H. G. Wells · Ovi muurissa</p>
+        </div>
+      </section>
+
+      <section class="act act-context" id="act-1" aria-labelledby="context-title" hidden>
+        <div class="act-heading">
+          <h2 id="context-title" tabindex="-1">Tekstin sisällä<br><em>on maailma.</em></h2>
+          <p>Tutki henkilöitä, paikkoja ja merkityksiä. Jokainen havainto kulkee tarinan mukana.</p>
+        </div>
+        <article class="detail context-detail" id="context-detail" aria-label="Valitun kontekstin tiedot"></article>
+        <button class="text-button next-button" type="button" data-go="2">Avaa mahdollisuudet <svg viewBox="0 0 32 24" aria-hidden="true"><path d="M2 12h27M22 5l7 7-7 7"/></svg></button>
+      </section>
+
+      <section class="act act-output" id="act-2" aria-labelledby="output-title" hidden>
+        <div class="act-heading">
+          <h2 id="output-title" tabindex="-1">Yksi ymmärrys.<br>Rajattomasti <em>muotoja.</em></h2>
+          <p>Kieli vaihtuu. Muoto muuttuu. Tarinan ydin säilyy.</p>
+        </div>
+        <article class="detail output-detail" id="output-detail" aria-label="Valitun muodon esimerkki"></article>
+        <button class="text-button next-button" type="button" data-go="1">Tutki yhteistä kontekstia <svg viewBox="0 0 32 24" aria-hidden="true"><path d="M2 12h27M22 5l7 7-7 7"/></svg></button>
+      </section>
+      <noscript><p class="no-script">Kolmiulotteisen verkon tutkiminen tarvitsee JavaScriptin. <a href="/demo/">Tutustu tarinaan ensimmäisessä demossa.</a></p></noscript>
+    </main>
+
+    <nav class="act-rail" aria-label="Tarinan vaiheet">
+      <button type="button" data-go="0" aria-current="step"><span class="act-number">01</span><span>Käsikirjoitus</span></button>
+      <button type="button" data-go="1"><span class="act-number">02</span><span>Konteksti</span></button>
+      <button type="button" data-go="2"><span class="act-number">03</span><span>Mahdollisuudet</span></button>
+    </nav>
+    <footer class="site-footer"><span>Valmisteltu, interaktiivinen esimerkki.</span><span>Palvelu on tällä hetkellä tauolla.</span></footer>
+  </div>
+  <p class="sr-only" role="status" aria-live="polite" aria-atomic="true" id="status"></p>
+
+  <dialog id="about-dialog" aria-labelledby="about-title">
+    <button type="button" class="icon-button dialog-close" id="about-close" aria-label="Sulje tietoa demosta"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+    <p class="output-caption">SKRIPTLAB / DEMO 03</p>
+    <h2 id="about-title">Ymmärryksestä<br><em>uusiin muotoihin.</em></h2>
+    <p>Kun henkilöt, paikat, suhteet, aikatasot ja sävy ymmärretään, sama konteksti voi ohjata kaikkea teoksen jalostusta. Tekijä tarkistaa tulkinnat ja päättää lopputuloksesta.</p>
+    <p>Tämä on valmisteltu esimerkki H. G. Wellsin novellista <cite>Ovi muurissa</cite>. Valinnat avaavat esimerkkisisältöjä. Ne eivät lähetä käsikirjoitusta tai käynnistä uutta tekoälytuotantoa.</p>
+    <p>Kuvat ovat tekoälykuvituksia, äänet koneääninäytteitä ja video kuvan animaatio. Virtuaalimaailman tuottaminen on tulevaisuuden visio. Sivun merkitysverkko on vuorovaikutteinen 3D-näkymä.</p>
+    <p>Voit valita vaiheen alareunasta, tutkia verkon kohteita myös Tab- ja Enter-näppäimillä ja pysäyttää liikkeen yläkulmasta.</p>
+    <div class="about-links"><a href="https://www.gutenberg.org/ebooks/456">Esimerkin alkuteos <span aria-hidden="true">↗</span></a><a href="/luottamus.html">Tietosuoja</a></div>
+    <p class="output-note">Palvelu on tällä hetkellä tauolla. Demo on avoimesti tutustuttavissa.</p>
+  </dialog>
+</body>
+</html>
