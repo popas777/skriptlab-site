@@ -2,13 +2,17 @@ import * as THREE from './vendor/three.module.min.js';
 
 // Three.js r180 is served locally; this scene makes no network requests.
 const GOLD = 0xd2b77d;
+const PALETTES = {
+  dark: { background: 0x08120f, line: GOLD, filament: GOLD, astrolabe: 0xf0d7a0, node: 0xe0bf77, halo: 0xe5c98d, letter: GOLD, sparkle: 0xffe8b6, emissive: 0x4b3817 },
+  light: { background: 0xf5f3ed, line: 0x8a682f, filament: 0x315847, astrolabe: 0x8a682f, node: 0x8a682f, halo: 0x143329, letter: 0x143329, sparkle: 0x8a682f, emissive: 0x143329 },
+};
 const CONTEXT = [
   ['wallace', 'Lionel Wallace', -1.88, 1.12, 0.28],
   ['redmond', 'Redmond', 1.70, 1.45, -0.15],
   ['door', 'Vihreä ovi', 2.13, -0.18, 0.48],
-  ['garden', 'Puutarha', 1.12, -1.66, -0.12],
+  ['garden', 'Lumottu puutarha', 1.12, -1.66, -0.12],
   ['longing', 'Kaipaus', -1.22, -1.57, 0.25],
-  ['memory', 'Muisti', -2.18, -0.25, -0.10],
+  ['memory', 'Muisti & epävarmuus', -2.18, -0.25, -0.10],
 ];
 const OUTPUTS = [
   ['translation', 'Kielet', 0.00, 1.96, 0.02],
@@ -16,7 +20,7 @@ const OUTPUTS = [
   ['book', 'Kirja', 2.21, -0.04, -0.12],
   ['video', 'Video', 1.60, -1.40, 0.23],
   ['campaign', 'Kampanja', 0.02, -1.94, 0.02],
-  ['world', 'Maailma', -1.79, -1.31, -0.18],
+  ['world', '3D-maailma', -1.79, -1.31, -0.18],
   ['audio', 'Ääni', -1.90, 1.06, 0.19],
 ];
 
@@ -56,7 +60,8 @@ function makeGlowTexture() {
 
 function makeLetterTexture(letter) {
   return makeTexture((context, width, height) => {
-    context.fillStyle = '#d2b77d';
+    // White glyphs can be tinted by the current palette without rebuilding textures.
+    context.fillStyle = '#ffffff';
     context.font = 'italic 74px Georgia, serif';
     context.textAlign = 'center';
     context.textBaseline = 'middle';
@@ -84,6 +89,8 @@ export function createScene(container, { onNodeSelect = () => {}, onReady = () =
   if (!(container instanceof HTMLElement)) throw new TypeError('A scene container is required.');
 
   let phase = 0;
+  let theme = 'dark';
+  let compact = false;
   let selected = '';
   let disposed = false;
   let lostContext = false;
@@ -169,7 +176,8 @@ export function createScene(container, { onNodeSelect = () => {}, onReady = () =
   textures.add(dustTexture);
 
   // Lights affect only the tiny gold spheres; the field and filaments stay unlit.
-  scene.add(new THREE.HemisphereLight(0xf3dfae, 0x263c30, 1.7));
+  const hemisphereLight = new THREE.HemisphereLight(0xf3dfae, 0x263c30, 1.7);
+  scene.add(hemisphereLight);
   const keyLight = new THREE.DirectionalLight(0xffefc9, 3.2);
   keyLight.position.set(-3, 4, 7);
   scene.add(keyLight);
@@ -204,6 +212,7 @@ export function createScene(container, { onNodeSelect = () => {}, onReady = () =
   for (let index = 0; index < 7; index++) {
     const dot = new THREE.Sprite(markerMaterial);
     dot.scale.setScalar(index % 3 === 0 ? 0.115 : 0.065);
+    dot.userData.baseScale = dot.scale.x;
     dot.userData.angle = index * 0.91;
     orbitSparkles.add(dot);
   }
@@ -264,6 +273,7 @@ export function createScene(container, { onNodeSelect = () => {}, onReady = () =
   const particleCount = window.innerWidth <= 760 ? 280 : 620;
   const particlePositions = new Float32Array(particleCount * 3);
   const particleColors = new Float32Array(particleCount * 3);
+  const particleBrightness = new Float32Array(particleCount);
   for (let index = 0; index < particleCount; index++) {
     const distance = 1.18 + random() * 3.75;
     const angle = random() * Math.PI * 2;
@@ -271,6 +281,7 @@ export function createScene(container, { onNodeSelect = () => {}, onReady = () =
     particlePositions[index * 3 + 1] = Math.sin(angle) * distance * 0.82;
     particlePositions[index * 3 + 2] = (random() - 0.5) * 4;
     const brightness = 0.55 + random() * 0.45;
+    particleBrightness[index] = brightness;
     particleColors[index * 3] = brightness;
     particleColors[index * 3 + 1] = brightness * 0.83;
     particleColors[index * 3 + 2] = brightness * 0.53;
@@ -289,7 +300,8 @@ export function createScene(container, { onNodeSelect = () => {}, onReady = () =
     return texture;
   });
   for (let index = 0; index < 25; index++) {
-    const material = remember(new THREE.SpriteMaterial({ map: letterTextures[index % alphabet.length], color: 0xffffff, transparent: true, opacity: 0.12 + random() * 0.2, depthWrite: false }));
+    const material = remember(new THREE.SpriteMaterial({ map: letterTextures[index % alphabet.length], color: GOLD, transparent: true, opacity: 0.12 + random() * 0.2, depthWrite: false }));
+    material.userData.baseOpacity = material.opacity;
     const letter = new THREE.Sprite(material);
     const angle = random() * Math.PI * 2;
     const distance = 1.35 + random() * 2.4;
@@ -304,9 +316,11 @@ export function createScene(container, { onNodeSelect = () => {}, onReady = () =
   const outputGroup = new THREE.Group();
   graph.add(contextGroup, outputGroup);
   const nodeObjects = new Map();
+  const nodePins = new Map();
   const nodeMaterials = new Map();
   const nodeHalos = new Map();
   const lineMaterials = new Map();
+  const neighbourMaterials = [];
 
   function addGraph(definitions, group) {
     for (const [id, , x, y, z] of definitions) {
@@ -325,6 +339,7 @@ export function createScene(container, { onNodeSelect = () => {}, onReady = () =
       anchor.add(halo);
       group.add(anchor);
       nodeObjects.set(id, anchor);
+      nodePins.set(id, pin);
       nodeMaterials.set(id, haloMaterial);
       nodeHalos.set(id, halo);
 
@@ -342,14 +357,76 @@ export function createScene(container, { onNodeSelect = () => {}, onReady = () =
       const geometry = remember(new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(a[2], a[3], a[4]), new THREE.Vector3(b[2], b[3], b[4]),
       ]));
-      group.add(new THREE.Line(geometry, remember(new THREE.LineBasicMaterial({ color: GOLD, transparent: true, opacity: 0.085, depthWrite: false }))));
+      const material = remember(new THREE.LineBasicMaterial({ color: GOLD, transparent: true, opacity: 0.085, depthWrite: false }));
+      neighbourMaterials.push(material);
+      group.add(new THREE.Line(geometry, material));
     }
   }
   addGraph(CONTEXT, contextGroup);
   addGraph(OUTPUTS, outputGroup);
 
+  function updateAppearance() {
+    const palette = PALETTES[theme];
+    const light = theme === 'light';
+    const connectionBoost = compact ? (light ? 1.7 : 1.5) : 1;
+    renderer?.setClearColor(palette.background, 0);
+    hemisphereLight.color.setHex(light ? 0xffffff : 0xf3dfae);
+    hemisphereLight.groundColor.setHex(light ? 0x677c68 : 0x263c30);
+    hemisphereLight.intensity = light ? 2.3 : 1.7;
+    keyLight.color.setHex(light ? 0xfff6e8 : 0xffefc9);
+    keyLight.intensity = light ? 2.1 : 3.2;
+    nodeGold.color.setHex(palette.node);
+    nodeGold.emissive.setHex(palette.emissive);
+    nodeGold.emissiveIntensity = light ? 0.05 : 0.22;
+    nodeGold.metalness = light ? 0.2 : 0.55;
+    nodeGold.roughness = light ? 0.48 : 0.32;
+    for (const ring of rings.children) {
+      if (!ring.isLine) continue;
+      ring.material.color.setHex(palette.line);
+      ring.material.opacity = Math.min(0.9, ring.material.userData.baseOpacity * (light ? 1.28 : 1) * (compact ? 0.72 * connectionBoost : 1));
+    }
+    filaments.material.color.setHex(palette.filament);
+    filaments.material.opacity = light ? (compact ? 0.24 : 0.31) : 0.36;
+    astrolabeMaterial.color.setHex(palette.astrolabe);
+    astrolabeMaterial.opacity = light ? 0.65 : 0.58;
+    for (const material of nodeMaterials.values()) material.color.setHex(palette.halo);
+    for (const pin of nodePins.values()) pin.scale.setScalar(compact ? 1.6 : 1);
+    for (const marker of astrolabeMarkers) marker.scale.setScalar(0.64 * (compact ? 1.6 : 1));
+    for (const sparkle of orbitSparkles.children) sparkle.scale.setScalar(sparkle.userData.baseScale * (compact ? 1.6 : 1));
+    for (const material of lineMaterials.values()) material.color.setHex(palette.line);
+    for (const material of neighbourMaterials) {
+      material.color.setHex(palette.line);
+      material.opacity = (light ? 0.2 : 0.085) * connectionBoost;
+    }
+    markerMaterial.color.setHex(palette.sparkle);
+    markerMaterial.map = light ? dustTexture : glowTexture;
+    markerMaterial.blending = light ? THREE.NormalBlending : THREE.AdditiveBlending;
+    markerMaterial.opacity = compact ? 0.65 : 0.8;
+    markerMaterial.needsUpdate = true;
+    particleMaterial.blending = light ? THREE.NormalBlending : THREE.AdditiveBlending;
+    particleMaterial.opacity = light ? (compact ? 0.24 : 0.55) : (compact ? 0.38 : 0.9);
+    particleMaterial.size = light ? 0.044 : 0.038;
+    particleMaterial.needsUpdate = true;
+    const lightParticle = new THREE.Color(0x315847);
+    for (let index = 0; index < particleCount; index++) {
+      const brightness = particleBrightness[index];
+      particleColors[index * 3] = light ? lightParticle.r * brightness : brightness;
+      particleColors[index * 3 + 1] = light ? lightParticle.g * brightness : brightness * 0.83;
+      particleColors[index * 3 + 2] = light ? lightParticle.b * brightness : brightness * 0.53;
+    }
+    particleGeometry.attributes.color.needsUpdate = true;
+    particleGeometry.setDrawRange(0, compact ? Math.min(particleCount, 105) : particleCount);
+    letterCloud.children.forEach((letter, index) => {
+      letter.visible = !compact || index < 8;
+      letter.material.color.setHex(palette.letter);
+      letter.material.opacity = letter.material.userData.baseOpacity * (light ? 1.25 : 1) * (compact ? 0.6 : 1);
+    });
+    core.scale.setScalar(compact ? 0.59 : 1);
+  }
+
   function updateLabels() {
     const definitions = phase === 1 ? CONTEXT : phase === 2 ? OUTPUTS : [];
+    const positions = [];
     for (const [id, button] of buttons) {
       const active = definitions.some((entry) => entry[0] === id);
       button.hidden = !active;
@@ -360,18 +437,56 @@ export function createScene(container, { onNodeSelect = () => {}, onReady = () =
         const entry = definitions.find((definition) => definition[0] === id);
         const x = clamp(50 + entry[2] * 17, 14, 86);
         const y = clamp(49 - entry[3] * 17, 12, 87);
-        button.style.left = `${x}%`;
-        button.style.top = `${y}%`;
+        positions.push({ button, x: x / 100 * width, y: y / 100 * height });
       } else {
         nodeObjects.get(id).getWorldPosition(projected);
         projected.project(camera);
         // Reserve a label-sized gutter so every control stays inside narrow containers.
         const gutter = Math.min(width * 0.19, id === 'wallace' ? 83 : 65);
         const x = clamp((projected.x * 0.5 + 0.5) * width, gutter, width - gutter);
-        const y = clamp((-projected.y * 0.5 + 0.5) * height + 26, 26, height - 26);
-        button.style.left = `${x.toFixed(1)}px`;
-        button.style.top = `${y.toFixed(1)}px`;
+        const y = clamp((-projected.y * 0.5 + 0.5) * height + (compact ? 19 : 26), 26, height - 26);
+        positions.push({ button, x, y });
       }
+    }
+    // The compact map still exposes the full set of native button controls.
+    // Resolve their actual text bounds, including fallback mode and orbit drag,
+    // instead of hiding labels or allowing one button to obscure another.
+    if (compact) {
+      for (const position of positions) {
+        position.halfWidth = Math.max(22, position.button.offsetWidth / 2) + 3;
+        position.halfHeight = Math.max(22, position.button.offsetHeight / 2) + 2;
+        position.x = clamp(position.x, position.halfWidth, Math.max(position.halfWidth, width - position.halfWidth));
+        position.y = clamp(position.y, position.halfHeight, Math.max(position.halfHeight, height - position.halfHeight));
+      }
+      for (let pass = 0; pass < 8; pass++) {
+        let overlap = false;
+        for (let a = 0; a < positions.length; a++) {
+          for (let b = a + 1; b < positions.length; b++) {
+            const first = positions[a];
+            const second = positions[b];
+            const overlapX = first.halfWidth + second.halfWidth - Math.abs(second.x - first.x);
+            const overlapY = first.halfHeight + second.halfHeight - Math.abs(second.y - first.y);
+            if (overlapX <= 0 || overlapY <= 0) continue;
+            overlap = true;
+            // Prefer a small horizontal separation so the labels stay beneath
+            // their corresponding spheres and keep the expanded hit area useful.
+            if (overlapX < overlapY) {
+              const direction = second.x >= first.x ? 1 : -1;
+              first.x = clamp(first.x - direction * (overlapX / 2 + 1), first.halfWidth, width - first.halfWidth);
+              second.x = clamp(second.x + direction * (overlapX / 2 + 1), second.halfWidth, width - second.halfWidth);
+            } else {
+              const direction = second.y >= first.y ? 1 : -1;
+              first.y = clamp(first.y - direction * (overlapY / 2 + 1), first.halfHeight, height - first.halfHeight);
+              second.y = clamp(second.y + direction * (overlapY / 2 + 1), second.halfHeight, height - second.halfHeight);
+            }
+          }
+        }
+        if (!overlap) break;
+      }
+    }
+    for (const { button, x, y } of positions) {
+      button.style.left = `${x.toFixed(1)}px`;
+      button.style.top = `${y.toFixed(1)}px`;
     }
   }
 
@@ -414,9 +529,12 @@ export function createScene(container, { onNodeSelect = () => {}, onReady = () =
     contextGroup.visible = phase === 1;
     outputGroup.visible = phase === 2;
     graph.scale.setScalar(0.97 + phaseBlend * 0.016);
-    for (const [id, material] of nodeMaterials) material.opacity = id === selected ? 0.95 : 0.43;
-    for (const [id, halo] of nodeHalos) halo.scale.setScalar(id === selected ? 1.17 : 1);
-    for (const [id, material] of lineMaterials) material.opacity = id === selected ? 0.64 : 0.18;
+    for (const [id, material] of nodeMaterials) material.opacity = id === selected ? 0.95 : theme === 'light' ? 0.7 : 0.43;
+    for (const [id, halo] of nodeHalos) halo.scale.setScalar((id === selected ? 1.17 : 1) * (compact ? 1.6 : 1));
+    for (const [id, material] of lineMaterials) {
+      const opacity = id === selected ? (theme === 'light' ? 0.86 : 0.64) : (theme === 'light' ? 0.32 : 0.18);
+      material.opacity = Math.min(0.94, opacity * (compact ? (theme === 'light' ? 1.7 : 1.5) : 1));
+    }
     scene.updateMatrixWorld();
     camera.updateMatrixWorld();
     if (renderer && !lostContext) renderer.render(scene, camera);
@@ -435,7 +553,12 @@ export function createScene(container, { onNodeSelect = () => {}, onReady = () =
     height = Math.max(1, rectangle.height);
     camera.aspect = width / height;
     // Keep the whole constellation in the short dimension, including its labels.
-    baseCameraZ = Math.max(8.5, 8.25 / Math.min(camera.aspect, 1));
+    // A small, nearly square inspector map needs extra room for the outer rings
+    // and all seven labels. Container dimensions, rather than viewport width,
+    // determine the fit during the parent's expand/collapse transition.
+    baseCameraZ = compact
+      ? 10.8 / Math.min(camera.aspect, 1)
+      : Math.max(8.5, 8.25 / Math.min(camera.aspect, 1));
     camera.position.z = baseCameraZ * (phase === 0 ? 1.035 : phase === 1 ? 1.015 : 1);
     camera.updateProjectionMatrix();
     renderer?.setSize(width, height, false);
@@ -472,6 +595,24 @@ export function createScene(container, { onNodeSelect = () => {}, onReady = () =
     }
     lastTime = 0;
     invalidate();
+  }
+
+  function setTheme(value) {
+    theme = value === 'light' ? 'light' : 'dark';
+    root.dataset.theme = theme;
+    updateAppearance();
+    // Render once immediately even when animation is disabled.
+    if (frame) cancelAnimationFrame(frame);
+    frame = 0;
+    render();
+  }
+
+  function setCompact(enabled) {
+    compact = Boolean(enabled);
+    root.dataset.compact = String(compact);
+    root.classList.toggle('is-compact', compact);
+    updateAppearance();
+    resize();
   }
 
   function onPointerDown(event) {
@@ -560,8 +701,11 @@ export function createScene(container, { onNodeSelect = () => {}, onReady = () =
     root.remove();
   }
 
+  root.dataset.theme = theme;
+  root.dataset.compact = String(compact);
+  updateAppearance();
   setPhase(0);
   resize();
   queueMicrotask(() => { if (!disposed) onReady({ webgl: Boolean(renderer) }); });
-  return { setPhase, setSelected, setMotion, dispose };
+  return { setPhase, setSelected, setMotion, setTheme, setCompact, dispose };
 }

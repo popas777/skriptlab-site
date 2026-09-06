@@ -126,10 +126,6 @@ export function contextFooter(ids) {
   return `<div class="context-links" aria-label="Tämän version taustalla oleva konteksti"><span>Perustuu kontekstiin</span>${ids.filter((id) => Object.hasOwn(contexts, id)).map((id) => `<button type="button" data-context="${escapeHTML(id)}">${escapeHTML(contexts[id].name)} <span aria-hidden="true">↗</span></button>`).join('')}</div>`;
 }
 
-function heading(caption, title) {
-  return `<p class="output-caption">${escapeHTML(caption)}</p><h3 class="output-title">${escapeHTML(title)}</h3>`;
-}
-
 function choices(data, selected, attribute, label) {
   return `<div class="language-tabs" role="group" aria-label="${escapeHTML(label)}">${Object.entries(data).map(([id, item]) => `<button type="button" class="output-control${id === selected ? ' is-active' : ''}" data-${attribute}="${escapeHTML(id)}" aria-pressed="${id === selected}">${escapeHTML(item.name || item.label)}</button>`).join('')}</div>`;
 }
@@ -142,7 +138,7 @@ export function renderOutput(id, { language = 'fi', audioLanguage = 'fi', campai
   if (id === 'translation') {
     const lang = Object.hasOwn(translations, language) ? language : 'fi';
     const item = translations[lang];
-    return `${heading('KIELET / VALMISTELTU ESIMERKKI', meta.title)}
+    return `<h3 class="sample-title">Vertaa kieliversioita</h3>
       ${choices(translations, lang, 'language', 'Käännöksen kieli')}
       <p class="output-caption translation-status">${escapeHTML(item.label)}</p>
       <p class="translation-text" lang="${lang}">${escapeHTML(item.text)}</p>
@@ -152,27 +148,26 @@ export function renderOutput(id, { language = 'fi', audioLanguage = 'fi', campai
   if (id === 'audio') {
     const lang = Object.hasOwn(voices, audioLanguage) ? audioLanguage : 'fi';
     const voice = voices[lang];
-    return `${heading('ÄÄNI / VALMISTELTU KONEÄÄNINÄYTE', meta.title)}
+    return `<h3 class="sample-title">Kuuntele esimerkki</h3>
       ${choices(voices, lang, 'audio-language', 'Ääninäytteen kieli')}
-      <p class="output-body">Redmond kertoo Wallacen muistosta. Ääni säilyttää kertojan harkinnan ja tarinan epävarmuuden.</p>
       <audio class="output-audio" controls preload="none" src="${escapeHTML(voice.src)}" aria-label="${escapeHTML(voice.label)}">Selaimesi ei tue äänisoitinta. <a href="${escapeHTML(voice.src)}">Avaa ääninäyte</a>.</audio>
       <details class="output-details"><summary>Ääninäytteen teksti</summary><p class="output-body audio-transcript" lang="${voice.lang}">${escapeHTML(voice.transcript)}</p></details>${footer}`;
   }
 
   if (id === 'illustration') {
-    return `${heading('KUVITUS / VALMISTELTU ESIMERKKI', meta.title)}
-      <img class="output-media illustration-preview" src="/demo/assets/door-landscape.webp" alt="Valmisteltu kuvitustulkinta vihreästä ovesta valkoisessa muurissa" width="1672" height="941" loading="lazy">
+    return `<h3 class="sample-title">Katso kuvitusesimerkki</h3>
+      <figure class="sample-figure"><img class="output-media illustration-preview" src="/demo/assets/door-landscape.webp" alt="Valmisteltu kuvitustulkinta vihreästä ovesta valkoisessa muurissa" width="1672" height="941" loading="lazy"><figcaption>Valmisteltu kuvitusesimerkki</figcaption></figure>
       <details class="output-details"><summary>Mikä kontekstissa ohjaa kuvaa?</summary><p class="output-body">Valkoinen muuri ja vihreä ovi tulevat tekstistä. Taiteellinen suunta: lempeä valo ja kutsuva puutarha välittävät kotiintuloa. Pantterien tulee tuntua turvallisilta. Nämä ovat kuvituksen ohjeita, eivät väite kuvan jokaisesta yksityiskohdasta.</p></details>${footer}`;
   }
 
   if (id === 'book') {
-    return `${heading('KIRJA / TAITTOKONSEPTI', meta.title)}
-      <div class="book-preview"><div class="book-cover"><span>H. G. WELLS</span><strong>Ovi<br>muurissa</strong><span>NOVELLI</span></div><div class="book-page"><span class="output-caption">I</span><p>Eräänä luottamuksellisena iltana, vajaat kolme kuukautta sitten, Lionel Wallace kertoi minulle tämän tarinan muurissa olevasta ovesta.</p></div></div>
+    return `<h3 class="sample-title">Tutustu tekstikatkelmaan</h3>
+      <figure class="book-excerpt"><blockquote><p>Eräänä luottamuksellisena iltana, vajaat kolme kuukautta sitten, Lionel Wallace kertoi minulle tämän tarinan muurissa olevasta ovesta.</p></blockquote><figcaption>H. G. Wells · <cite>Ovi muurissa</cite> · osa I</figcaption></figure>
       <a class="output-control output-download" href="/demo/assets/ovi-muurissa-katkelma.txt" download="ovi-muurissa-katkelma.txt">Lataa tekstikatkelma <span aria-hidden="true">↓</span></a>${footer}`;
   }
 
   if (id === 'video') {
-    return `${heading('VIDEO / KOKEELLINEN ESIMERKKI', meta.title)}
+    return `<h3 class="sample-title">Katso videokokeilu</h3>
       <video class="output-media output-video" controls playsinline preload="metadata" poster="/demo/assets/door-landscape.webp" aria-label="Vihreä ovi, kahdeksan sekunnin äänetön kuva-animaatio"><source src="/demo/assets/door-scene.mp4" type="video/mp4"><track kind="captions" src="/demo/assets/door-scene.vtt" srclang="fi" label="Suomi" default>Selaimesi ei tue videosoitinta. <a href="/demo/assets/door-scene.mp4">Avaa video</a>.</video>
       <p class="output-note">8 sekunnin äänetön kuva-animaatio. Valmisteltu kokeilu: kuvan liike rakentuu oven ja puutarhan motiiville.</p>${footer}`;
   }
@@ -180,15 +175,14 @@ export function renderOutput(id, { language = 'fi', audioLanguage = 'fi', campai
   if (id === 'campaign') {
     const key = Object.hasOwn(campaigns, campaign) ? campaign : 'social';
     const item = campaigns[key];
-    return `${heading('KAMPANJA / VALMISTELLUT LUONNOKSET', meta.title)}
+    return `<h3 class="sample-title">Kokeile kampanjatekstejä</h3>
       ${choices(campaigns, key, 'campaign', 'Kampanjatekstin muoto')}
       <div class="campaign-copy" aria-live="polite"><h4>${escapeHTML(item.title)}</h4><p class="output-body">${escapeHTML(item.text)}</p></div>${footer}`;
   }
 
   const key = Object.hasOwn(hotspots, hotspot) ? hotspot : 'path';
   const point = hotspots[key];
-  return `${heading('3D-MAAILMA / TULEVAISUUDEN KONSEPTI', meta.title)}
-    <div class="world-preview"><img class="output-media" src="/demo/assets/garden.webp" alt="Valmisteltu kuvitustulkinta lumotusta puutarhasta" width="1536" height="1024" loading="lazy"></div>
+  return `<h3 class="sample-title">Tutki maailman lähtökohtia</h3>
     ${choices(hotspots, key, 'world', 'Tutki puutarhan kontekstia')}
     <p class="output-body world-description" aria-live="polite"><strong>${escapeHTML(point.title)}.</strong> ${escapeHTML(point.description)}</p>
     <p class="output-note">Visio: sama konteksti voisi ohjata kokonaisen tutkittavan maailman generointia.</p>${footer}`;

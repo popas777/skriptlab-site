@@ -19,26 +19,19 @@
   <link rel="preload" as="image" href="/demo3/assets/story-world.webp">
   <script type="module" src="/demo3/app.js"></script>
 </head>
-<body data-phase="0">
+<body data-phase="0" data-detail="false">
   <a class="skip-link" href="#main">Siirry sisältöön</a>
   <div class="experience">
     <header class="site-header">
       <a class="brand" href="/" aria-label="SkriptLab etusivulle">SkriptLab</a>
       <nav class="header-nav" aria-label="Demon navigaatio">
-        <a href="/demo/">Demo 01</a>
-        <a href="/demo2/">Demo 02</a>
         <button type="button" id="about-open">Tietoa demosta</button>
+        <button type="button" id="theme-toggle" class="theme-button" aria-label="Vaihda vaaleaan teemaan" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.4 1.4m11.2 11.2L19 19M5 19l1.4-1.4M17.6 6.4 19 5"/></svg><span>Vaalea</span></button>
         <button type="button" id="motion-toggle" class="icon-button" aria-label="Pysäytä liike" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12M15 6v12"/></svg></button>
       </nav>
     </header>
 
     <main id="main" tabindex="-1">
-      <div class="visual" id="visual">
-        <div class="hero-art" id="hero-art"><img src="/demo3/assets/story-world.webp" width="1254" height="1254" alt="Leijuvan kirjan sivut avautuvat vihreäksi oveksi, jonka takana hohtaa valoisa puutarha." fetchpriority="high"></div>
-        <div class="scene-host" id="scene-host" aria-label="Tarinan kolmiulotteinen merkitysverkko"></div>
-        <p class="scene-hint" aria-hidden="true" hidden>Liikuta näkymää. Seuraa merkitystä.</p>
-      </div>
-
       <section class="act act-intro" id="act-0" aria-labelledby="intro-title">
         <div class="intro-copy">
           <h1 id="intro-title">Teksti on vasta<br><em>alku.</em></h1>
@@ -52,6 +45,7 @@
         <div class="act-heading">
           <h2 id="context-title" tabindex="-1">Tekstin sisällä<br><em>on maailma.</em></h2>
           <p>Tutki henkilöitä, paikkoja ja merkityksiä. Jokainen havainto kulkee tarinan mukana.</p>
+          <p class="selection-prompt">Valitse kohde kartalta ja avaa sen kuvallinen esittely.</p>
         </div>
         <article class="detail context-detail" id="context-detail" aria-label="Valitun kontekstin tiedot"></article>
         <button class="text-button next-button" type="button" data-go="2">Avaa mahdollisuudet <svg viewBox="0 0 32 24" aria-hidden="true"><path d="M2 12h27M22 5l7 7-7 7"/></svg></button>
@@ -61,11 +55,19 @@
         <div class="act-heading">
           <h2 id="output-title" tabindex="-1">Yksi ymmärrys.<br>Rajattomasti <em>muotoja.</em></h2>
           <p>Kieli vaihtuu. Muoto muuttuu. Tarinan ydin säilyy.</p>
+          <p class="selection-prompt">Valitse muoto kartalta ja tutustu sen mahdollisuuksiin.</p>
         </div>
         <article class="detail output-detail" id="output-detail" aria-label="Valitun muodon esimerkki"></article>
         <button class="text-button next-button" type="button" data-go="1">Tutki yhteistä kontekstia <svg viewBox="0 0 32 24" aria-hidden="true"><path d="M2 12h27M22 5l7 7-7 7"/></svg></button>
       </section>
-      <noscript><p class="no-script">Kolmiulotteisen verkon tutkiminen tarvitsee JavaScriptin. <a href="/demo/">Tutustu tarinaan ensimmäisessä demossa.</a></p></noscript>
+      <div class="visual" id="visual">
+        <h2 class="map-title" id="map-title">Tutki kontekstia</h2>
+        <div class="hero-art" id="hero-art"><img src="/demo3/assets/story-world.webp" width="1254" height="1254" alt="Leijuvan kirjan sivut avautuvat vihreäksi oveksi, jonka takana hohtaa valoisa puutarha." fetchpriority="high"></div>
+        <div class="scene-host" id="scene-host" aria-label="Tarinan kolmiulotteinen merkitysverkko"></div>
+        <div class="map-tools"><p class="scene-hint">Valitse toinen kohde kartalta.</p><button type="button" class="outline-button" data-overview><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7m0-7-8 8M3 14v7h7m-7 0 8-8"/></svg>Suurenna kartta</button></div>
+      </div>
+
+      <noscript><p class="no-script">Kartan ja kuvallisten esittelyjen tutkiminen tarvitsee JavaScriptin. <a href="/">SkriptLabin etusivulle.</a></p></noscript>
     </main>
 
     <nav class="act-rail" aria-label="Tarinan vaiheet">
