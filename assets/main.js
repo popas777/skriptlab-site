@@ -19,14 +19,14 @@ const pageKey = window.location.pathname.includes("/legal/")
 const metaTranslations = {
   home: {
     fi: {
-      title: "SkriptLab - kontekstitietoinen kirjoitusalusta",
-      description: "SkriptLab on kontekstitietoinen kirjoitusalusta tekstille ja analyysille, kuvitukselle ja taitolle, audiolle ja käännöksille.",
+      title: "SkriptLab - kontekstitietoinen alusta tekstin jalostukseen",
+      description: "SkriptLab on kontekstitietoinen alusta tekstin jalostukseen. Teksti ja analyysi, kuvitus ja taitto, audio ja käännökset.",
       ogTitle: "SkriptLab",
       ogDescription: "Teksti valmiiksi helpommin. Teksti ja analyysi, kuvitus ja taitto, audio ja käännökset — samasta kontekstista."
     },
     en: {
-      title: "SkriptLab - context-aware writing platform",
-      description: "SkriptLab is a context-aware writing platform for text and analysis, illustration and layout, audio and translations.",
+      title: "SkriptLab - context-aware platform for refining text",
+      description: "SkriptLab is a context-aware platform for refining text. Text and analysis, illustration and layout, audio and translations.",
       ogTitle: "SkriptLab",
       ogDescription: "Finish your text more easily. Text and analysis, illustration and layout, audio and translations — all drawing from the same context."
     }
@@ -124,7 +124,7 @@ const commonTranslations = [
   { selector: ".hero-links a[href='prosessi.html']", fi: "Työnkulku", en: "Workflow" },
   { selector: ".hero-links a[href='luottamus.html']", fi: "Tietosuoja", en: "Privacy" },
   { selector: ".hero-links a[href='hinnat.html']", fi: "Hinnoittelu", en: "Pricing" },
-  { selector: ".footer-brand p", fi: "Kontekstitietoinen kirjoitusalusta tekstille ja analyysille, kuvitukselle ja taitolle, audiolle ja käännöksille.", en: "A context-aware writing platform for text and analysis, illustration and layout, audio and translations." },
+  { selector: ".footer-brand p", fi: "Kontekstitietoinen alusta tekstin jalostukseen. Teksti ja analyysi, kuvitus ja taitto, audio ja käännökset.", en: "A context-aware platform for refining text. Text and analysis, illustration and layout, audio and translations." },
   { selector: ".footer-top .footer-col:nth-child(2) h2", fi: "Tuote", en: "Product" },
   { selector: ".footer-top .footer-col:nth-child(2) a:nth-of-type(1)", fi: "Ominaisuudet", en: "Features" },
   { selector: ".footer-top .footer-col:nth-child(2) a:nth-of-type(2)", fi: "Työnkulku", en: "Workflow" },
@@ -162,7 +162,7 @@ const commonTranslations = [
 
 const pageTranslations = {
   home: [
-    { selector: ".eyebrow", fi: "Kontekstitietoinen kirjoitusalusta", en: "Context-aware writing platform" },
+    { selector: ".eyebrow", fi: "Kontekstitietoinen alusta tekstin jalostukseen", en: "Context-aware platform for refining text" },
     { selector: ".hero-promise", fi: "Teksti valmiiksi helpommin.", en: "Finish your text more easily." },
     { selector: ".hero-sub", fi: "Teksti ja analyysi, kuvitus ja taitto, audio ja käännökset — samasta kontekstista.", en: "Text and analysis, illustration and layout, audio and translations — all drawing from the same context." },
     {
