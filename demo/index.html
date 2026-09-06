@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="fi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Yksi käsikirjoitus. Kokonainen maailma. | SkriptLab Demo</title>
+  <meta name="description" content="Avaa H. G. Wellsin Ovi muurissa ja tutki, miten käsikirjoituksen hahmot, paikat ja merkitykset kulkevat käännöksiin, ääneen, kuviin ja uusiin maailmoihin.">
+  <meta name="theme-color" content="#faf7f2">
+  <meta property="og:title" content="Yksi käsikirjoitus. Kokonainen maailma. — SkriptLab">
+  <meta property="og:description" content="Interaktiivinen matka tekstistä tarinan kontekstiin ja uusiin tuotantoihin. H. G. Wells: Ovi muurissa.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://skriptlab.com/demo/">
+  <meta property="og:image" content="https://skriptlab.com/demo/assets/green-door.webp">
+  <link rel="canonical" href="https://skriptlab.com/demo/">
+  <link rel="icon" href="/demo/assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@400;450;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/demo/demo.css">
+  <script src="/demo/story-data.js" defer></script>
+  <script src="/demo/demo.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Siirry sisältöön</a>
+  <header class="header">
+    <a class="wordmark" href="/" aria-label="SkriptLab etusivulle">Skript<span>Lab</span></a>
+    <nav aria-label="Demon navigaatio">
+      <a href="#tarina">Tarina</a><a href="#konteksti">Konteksti</a><a href="#mahdollisuudet">Mahdollisuudet</a>
+    </nav>
+    <a class="button outline header-home" href="/">SkriptLab <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18 18 6M6 6h12v12"/></svg></a>
+  </header>
+
+  <main id="main">
+    <section class="hero wrap" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <h1 id="hero-title">Yksi käsikirjoitus.<br>Kokonainen <em>maailma.</em></h1>
+        <p>Hahmot, paikat ja merkitykset. Kun tarinan konteksti kulkee mukana, sama teos saa uusia kieliä, ääniä ja muotoja.</p>
+        <a class="button primary" href="#tarina">Avaa tarinan ovi <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6"/></svg></a>
+        <small>Interaktiivinen esimerkki · H. G. Wells, <i>Ovi muurissa</i></small>
+      </div>
+      <figure class="hero-image">
+        <img src="/demo/assets/green-door.webp" srcset="/demo/assets/green-door-small.webp 640w, /demo/assets/green-door.webp 1254w" sizes="(max-width: 760px) 92vw, 50vw" width="1254" height="1254" alt="Vihreä ovi valkoisessa muurissa avautuu valoisaan puutarhaan. Muurilla kasvaa punaista villiviiniä." fetchpriority="high">
+        <figcaption>Valkoinen muuri. Vihreä ovi. Rajaton tarina.</figcaption>
+      </figure>
+    </section>
+
+    <nav class="journey wrap" aria-label="Tarinan matka">
+      <a href="#tarina"><span class="step-number">01</span><span><strong>Käsikirjoitus</strong><small>Lähtökohta ja ydin.</small></span><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M10 32 30 8M14 28c-3-12 5-19 20-23-1 16-8 25-20 23ZM18 24l-1-8m6 2 7-1"/></svg></a>
+      <a href="#konteksti"><span class="step-number">02</span><span><strong>Konteksti</strong><small>Maailma, joka kantaa tarinaa.</small></span><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="15"/><ellipse cx="20" cy="20" rx="7" ry="15"/><path d="M5 20h30M9 10c7 5 15 5 22 0M9 30c7-5 15-5 22 0"/></svg></a>
+      <a href="#mahdollisuudet"><span class="step-number">03</span><span><strong>Uudet muodot</strong><small>Sama tarina. Uusia ilmentymiä.</small></span><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 10c-5-3-11-3-16-2v25c6-2 11-1 16 2 5-3 10-4 16-2V8c-5-1-11-1-16 2Zm0 0v25"/></svg></a>
+    </nav>
+
+    <section class="source-section wrap section" id="tarina" aria-labelledby="source-title">
+      <div class="source-intro">
+        <span class="section-number">01 / KÄSIKIRJOITUS</span>
+        <h2 id="source-title">Kaikki alkaa tekstistä.</h2>
+        <p>Valmis kirja, keskeneräinen käsikirjoitus tai ensimmäinen luku. Teksti on yhteinen lähtökohta kaikelle, mitä siitä syntyy.</p>
+        <p>Tässä esimerkissä avaamme H. G. Wellsin novellin <i lang="en">The Door in the Wall</i> ja sen suomennoksen <i>Ovi muurissa</i>.</p>
+        <button class="button primary" id="load-story" type="button">Lataa esimerkkikäsikirjoitus <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 16v4h14v-4"/></svg></button>
+        <p class="micro">Valmiiksi valmisteltu demo. Painike avaa esimerkkiaineiston; se ei lähetä tiedostoa tai käynnistä uutta AI-analyysiä.</p>
+        <div class="import-status" id="import-status" role="status" aria-live="polite"></div>
+        <a class="text-link" id="continue-context" href="#konteksti" hidden>Pura tarinan konteksti <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6"/></svg></a>
+      </div>
+      <article class="manuscript intro-manuscript" aria-label="Katkelma suomennoksesta">
+        <div class="document-meta"><span>H. G. WELLS</span><span>NOVELLI · I–IV</span></div>
+        <h3>Ovi muurissa</h3><div class="gold-rule"></div>
+        <p>Eräänä luottamuksellisena iltana, vajaat kolme kuukautta sitten, Lionel Wallace kertoi minulle tämän tarinan muurissa olevasta ovesta. Ja silloin ajattelin, että ainakin hänelle itselleen se oli tosi.</p>
+        <p>Hän ei muistanut, miten valvonta oli pettänyt niin, että hän oli päässyt lähtemään, eikä reittiä, jota hän oli kulkenut West Kensingtonin kaduilla. Kaikki se oli haalistunut muistissa niin, ettei sitä saanut enää kirkastumaan. Mutta <mark>valkoinen muuri</mark> ja <mark>vihreä ovi</mark> erottuivat aivan selvinä.</p>
+        <footer>Kaksi katkelmaa suomennoksen osasta I</footer>
+      </article>
+    </section>
+
+    <section class="context-section section" id="konteksti" aria-labelledby="context-title">
+      <div class="wrap">
+        <span class="section-number">02 / KONTEKSTI</span>
+        <h2 id="context-title">Tekstin sisällä on maailma.</h2>
+        <p class="section-intro">Tutki, mitä tarinasta tunnistetaan ja miksi se merkitsee. Valitse kartalta henkilö, paikka tai teema.</p>
+        <div class="context-workspace">
+          <article class="manuscript source-evidence" aria-label="Valitun kontekstin lähdekatkelma">
+            <h3>Ovi muurissa</h3><p class="source-byline">H. G. Wells · <span id="quote-part">I</span></p><div class="gold-rule"></div>
+            <blockquote id="context-quote">Mutta <mark>valkoinen muuri</mark> ja <mark>vihreä ovi</mark> erottuivat aivan selvinä.</blockquote>
+            <p class="source-label">Suora katkelma suomennoksesta</p>
+            <a href="#tarina" class="micro">Takaisin käsikirjoitukseen</a>
+          </article>
+          <div class="map-column">
+            <div class="context-map" role="group" aria-label="Tarinan kontekstikartta">
+              <svg class="map-lines" viewBox="0 0 500 430" preserveAspectRatio="none" aria-hidden="true"><path data-edge="wallace" d="M250 215C250 110 108 150 108 62"/><path data-edge="redmond" d="M250 215C250 110 392 150 392 62"/><path data-edge="garden" d="M250 215H98"/><path class="selected" data-edge="door" d="M250 215H402"/><path data-edge="longing" d="M250 215C250 320 108 275 108 364"/><path data-edge="memory" d="M250 215C250 320 392 275 392 364"/></svg>
+              <div class="map-center"><span>Tarinan<br>konteksti</span></div>
+              <button class="map-node node-wallace" data-context="wallace" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="6" r="3"/><path d="M4 21v-3a8 8 0 0 1 16 0v3Z"/></svg>Lionel Wallace<span class="node-dot"></span></button>
+              <button class="map-node node-redmond" data-context="redmond" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="6" r="3"/><path d="M4 21v-3a8 8 0 0 1 16 0v3Z"/></svg>Redmond<span class="node-dot"></span></button>
+              <button class="map-node node-garden" data-context="garden" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22V8M12 15C4 15 3 10 3 5c6 0 9 4 9 10Zm0-3c7 0 9-6 9-10-6 0-9 3-9 10Z"/></svg>Puutarha<span class="node-dot"></span></button>
+              <button class="map-node node-door" data-context="door" type="button" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 22V3l13-2v22L4 21M17 3h4v19M13 11v3"/></svg>Vihreä ovi<span class="node-dot"></span></button>
+              <button class="map-node node-longing interpretation" data-context="longing" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21S2 14 2 7a5 5 0 0 1 10-1 5 5 0 0 1 10 1c0 7-10 14-10 14Z"/></svg>Kaipaus<span class="node-dot"></span></button>
+              <button class="map-node node-memory interpretation" data-context="memory" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c-3-2-6-2-10-1v17c4-1 7-1 10 1 3-2 6-2 10-1V4c-4-1-7-1-10 1Zm0 0v17"/></svg>Muisti<span class="node-dot"></span></button>
+            </div>
+            <div class="map-legend"><span><i></i>Tekstistä tunnistettu</span><span><i class="gold"></i>Teemallinen tulkinta</span></div>
+          </div>
+          <aside class="context-inspector" id="context-inspector" aria-live="polite" aria-atomic="true">
+            <span class="section-number" id="context-kind">PAIKKA & MOTIIVI</span>
+            <h3 id="context-name">Vihreä ovi</h3>
+            <p id="context-description">Valkoisessa muurissa oleva ovi yhdistää arjen ja lumotun puutarhan. Sama näky palaa Wallacen elämän eri vaiheissa.</p>
+            <div class="carry"><span>Säilyy mukana</span><p id="context-carry">Vihreä väri. Valkoinen muuri. Oven toistuminen valintojen hetkillä.</p></div>
+            <p class="micro" id="context-nuance">Tulkinta: ovi toimii myös mahdollisuuden ja kaipauksen kuvana.</p>
+          </aside>
+        </div>
+        <div class="context-bottom"><div><h3>Lähde ja tulkinta erottuvat.</h3><p>Konteksti kokoaa havainnot, suhteet, aikatasot ja tyylin. Kirjallinen tulkinta jää tarkistettavaksi: tekijä hyväksyy ja täydentää sitä.</p></div><a class="button outline" href="#mahdollisuudet">Katso, mitä tästä syntyy <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6"/></svg></a></div>
+      </div>
+    </section>
+
+    <section class="outputs-section section wrap" id="mahdollisuudet" aria-labelledby="outputs-title">
+      <span class="section-number">03 / UUDET MUODOT</span>
+      <h2 id="outputs-title">Sama tarina. Uusia maailmoja.</h2>
+      <p class="section-intro">Valitse muoto ja näe, miten yhteinen konteksti ohjaa lopputulosta.</p>
+      <div class="output-tabs" role="tablist" aria-label="Tarinan tuotantomuodot">
+        <button type="button" role="tab" id="tab-languages" aria-controls="panel-languages" aria-selected="false" tabindex="-1" data-output="languages">Kielet</button>
+        <button type="button" role="tab" id="tab-audio" aria-controls="panel-audio" aria-selected="false" tabindex="-1" data-output="audio">Äänet</button>
+        <button type="button" role="tab" id="tab-images" aria-controls="panel-images" aria-selected="true" tabindex="0" data-output="images">Kuvat</button>
+        <button type="button" role="tab" id="tab-video" aria-controls="panel-video" aria-selected="false" tabindex="-1" data-output="video">Videot</button>
+        <button type="button" role="tab" id="tab-campaign" aria-controls="panel-campaign" aria-selected="false" tabindex="-1" data-output="campaign">Kampanjat</button>
+        <button type="button" role="tab" id="tab-book" aria-controls="panel-book" aria-selected="false" tabindex="-1" data-output="book">Valmis kirja</button>
+        <button type="button" role="tab" id="tab-world" aria-controls="panel-world" aria-selected="false" tabindex="-1" data-output="world">Virtuaalimaailma</button>
+      </div>
+
+      <div class="output-panel" role="tabpanel" id="panel-images" aria-labelledby="tab-images" tabindex="0">
+        <figure class="output-visual"><img src="/demo/assets/door-landscape.webp" width="1672" height="941" loading="lazy" alt="Tarinan vihreä ovi ja valkoinen muuri meripihkanvärisessä valossa."><figcaption>AI-kuvitus tätä demoa varten · Ovi muurissa</figcaption></figure>
+        <div class="output-copy"><span class="section-number">KUVAESIMERKKI</span><h3>Tarinan tunnelma näkyväksi.</h3><p>Sama konteksti ohjaa jokaista kuvallista tulkintaa. Valkoinen muuri, vihreä ovi ja meripihkan valo luovat tunnistettavan maailman, jossa tarinan tunnelma säilyy muodosta toiseen.</p><dl class="context-list"><dt>Mukana kontekstista</dt><dd><b>Paikka</b> · West Kensington</dd><dd><b>Värit</b> · valkoinen, vihreä, meripihka</dd><dd><b>Tunnelma</b> · kaipaus ja ihme</dd></dl><p class="feature-state">Sovelluksessa: kannet, kuvitus ja hahmojen kuvalliset viitteet.</p><a class="text-link context-jump" href="#konteksti" data-select-context="door">Jäljitä vihreään oveen <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H4m6-6-6 6 6 6"/></svg></a></div>
+      </div>
+
+      <div class="output-panel" role="tabpanel" id="panel-languages" aria-labelledby="tab-languages" tabindex="0" hidden>
+        <div class="translation-visual">
+          <div class="language-tools"><label for="translation-language">Kohdekieli</label><select id="translation-language"><option value="fi">Suomi</option><option value="sv">Svenska</option><option value="de">Deutsch</option></select></div>
+          <div class="translation-source"><small>ALKUTEKSTI · ENGLISH</small><p lang="en">But the white wall and the green door stood out quite distinctly.</p></div>
+          <div class="translation-target"><small id="translation-label">SUOMENNOS · PROJEKTIN TEKSTI</small><p id="translation-text" lang="fi">Mutta valkoinen muuri ja vihreä ovi erottuivat aivan selvinä.</p></div>
+          <p class="micro" id="translation-note">Katkelma paikallisen käännösprojektin tarkistetusta suomennoksesta.</p>
+        </div>
+        <div class="output-copy"><span class="section-number">KÄÄNNÖSESIMERKKI</span><h3>Merkitys ylittää kielirajan.</h3><p>Käännös tarvitsee sanojen lisäksi tietoa siitä, kuka puhuu, mitä muistetaan ja mikä saa jäädä avoimeksi. Nimet, toistuvat kuvat ja kertojan sävy kulkevat mukana.</p><dl class="context-list"><dt>Mukana kontekstista</dt><dd><b>Termit</b> · green door → vihreä ovi</dd><dd><b>Kertoja</b> · hillitty, tarkkaileva Redmond</dd><dd><b>Rakenne</b> · aikuinen muistelee lapsuutta</dd></dl><p class="feature-state">Sovelluksessa: käännösversiot, termistö ja käännöksen tarkistus.</p><a class="text-link context-jump" href="#konteksti" data-select-context="redmond">Tutki kertojan kontekstia <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H4m6-6-6 6 6 6"/></svg></a></div>
+      </div>
+
+      <div class="output-panel" role="tabpanel" id="panel-audio" aria-labelledby="tab-audio" tabindex="0" hidden>
+        <div class="audio-visual"><span class="section-number">OVI MUURISSA · ÄÄNINÄYTE</span><h3>Kuule tarinan ääni.</h3><div class="voice-options" role="group" aria-label="Ääninäytteen kieli"><button type="button" data-voice="fi" aria-pressed="true">Suomeksi</button><button type="button" data-voice="en" aria-pressed="false">Englanniksi</button></div><blockquote id="audio-transcript">Eräänä luottamuksellisena iltana, vajaat kolme kuukautta sitten, Lionel Wallace kertoi minulle tämän tarinan muurissa olevasta ovesta. Ja silloin ajattelin, että ainakin hänelle itselleen se oli tosi.</blockquote><audio id="story-audio" controls preload="none" src="/demo/assets/narrator-fi.m4a" aria-label="Ovi muurissa, suomenkielinen koneääninäyte"></audio><p class="micro">Ennalta tuotettu koneääninäyte havainnollistaa kielenvaihtoa. Se ei ole sovelluksen äänenlaadun vertailunäyte.</p></div>
+        <div class="output-copy"><span class="section-number">ÄÄNIESIMERKKI</span><h3>Kertojan ääni. Hahmon tunne.</h3><p>Redmond kertoo harkitusti. Wallace pysähtyy, muistelee ja kaipaa. Puhujat, repliikit ja tunnetila antavat lähtökohdan lukutavalle, tauotukselle ja ääniohjaukselle.</p><dl class="context-list"><dt>Mukana kontekstista</dt><dd><b>Puhuja</b> · Redmond tai Wallace</dd><dd><b>Ohjaus</b> · vakava, verkkainen kerronta</dd><dd><b>Tunne</b> · muisto ja kaipaus</dd></dl><p class="feature-state">Sovelluksessa: äänikäsikirjoitus ja äänituotanto. Mallit ja käyttöoikeudet vaikuttavat saatavuuteen.</p><a class="text-link context-jump" href="#konteksti" data-select-context="wallace">Tutki Wallacen ääntä <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H4m6-6-6 6 6 6"/></svg></a></div>
+      </div>
+
+      <div class="output-panel" role="tabpanel" id="panel-video" aria-labelledby="tab-video" tabindex="0" hidden>
+        <figure class="output-visual video-visual"><video controls playsinline preload="none" poster="/demo/assets/door-landscape.webp" aria-label="Kahdeksan sekunnin kuvasta animoitu ovikohtaus"><source src="/demo/assets/door-scene.mp4" type="video/mp4"><track kind="captions" src="/demo/assets/door-scene.vtt" srclang="fi" label="Suomi" default></video><figcaption>Kuvasta animoitu esimerkki · 8 s · äänetön</figcaption><div class="shot-strip"><span><b>00–03 s</b> Valkoinen muuri</span><span><b>03–06 s</b> Lähesty ovea</span><span><b>06–08 s</b> Valo kutsuu</span></div></figure>
+        <div class="output-copy"><span class="section-number">VIDEOESIMERKKI</span><h3>Kohtauksesta liikkeeksi.</h3><p>Käsikirjoituksesta syntyy kohtaus, kohtauksesta kuvakäsikirjoitus ja siitä ohjeet kuvalle ja liikkeelle. Oven tunnistettava ilme ja tarinan rauhallinen rytmi ohjaavat myös videota.</p><dl class="context-list"><dt>Mukana kontekstista</dt><dd><b>Kohtaus</b> · oven ensimmäinen kohtaaminen</dd><dd><b>Kamera</b> · rauhallinen lähestyminen</dd><dd><b>Tunnelma</b> · kutsuva, arvoituksellinen</dd></dl><p class="feature-state experimental">Kokeiluvaiheessa: käsikirjoitus, kuvakäsikirjoitus ja lyhyet videotuotannot. Näyte on kuvan animaatio, ei AI-videomallin tuotos.</p></div>
+      </div>
+
+      <div class="output-panel" role="tabpanel" id="panel-campaign" aria-labelledby="tab-campaign" tabindex="0" hidden>
+        <div class="campaign-visual"><div class="campaign-art"><img src="/demo/assets/green-door-small.webp" width="640" height="640" loading="lazy" alt="Vihreä ovi kampanjan kuvituksena."></div><div class="campaign-text"><small>H. G. WELLS · OVI MUURISSA</small><h3 id="campaign-headline">Entä jos olisit avannut oven?</h3><p id="campaign-text">Yksi lapsuuden muisto. Elämän mittainen kaipaus. Astu H. G. Wellsin arvoituksellisen novellin maailmaan.</p></div><div class="campaign-options" role="group" aria-label="Kampanjan kanava"><button type="button" data-campaign="social" aria-pressed="true">Some</button><button type="button" data-campaign="backcover" aria-pressed="false">Takakansi</button><button type="button" data-campaign="newsletter" aria-pressed="false">Uutiskirje</button></div></div>
+        <div class="output-copy"><span class="section-number">KAMPANJAESIMERKKI</span><h3>Teoksen oma ääni tavoittaa.</h3><p>Esittely, somejulkaisu tai kampanjan ydinviesti voi rakentua samoista teemoista. Muoto ja pituus vaihtuvat kanavan mukana; tarinan lupaus pysyy tunnistettavana.</p><dl class="context-list"><dt>Mukana kontekstista</dt><dd><b>Ydinviesti</b> · menetetty mahdollisuus</dd><dd><b>Kuvamaailma</b> · vihreä ovi</dd><dd><b>Sävy</b> · arvoitus ilman loppuratkaisun paljastamista</dd></dl><p class="feature-state">Sovelluksessa: kampanjasuunnittelu, kanavatekstit ja kirjan esittelysivu. Tässä valmiiksi kirjoitetut esimerkit.</p><a class="text-link context-jump" href="#konteksti" data-select-context="longing">Jäljitä kampanjan teemaan <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H4m6-6-6 6 6 6"/></svg></a></div>
+      </div>
+
+      <div class="output-panel" role="tabpanel" id="panel-book" aria-labelledby="tab-book" tabindex="0" hidden>
+        <div class="book-visual"><article class="book-page"><span>H. G. WELLS</span><h3>Ovi muurissa</h3><div class="gold-rule"></div><small>I</small><p>Eräänä luottamuksellisena iltana, vajaat kolme kuukautta sitten, Lionel Wallace kertoi minulle tämän tarinan muurissa olevasta ovesta. Ja silloin ajattelin, että ainakin hänelle itselleen se oli tosi.</p><span class="page-number">1</span></article><a class="text-link" href="/demo/assets/ovi-muurissa-katkelma.txt" download>Lataa tekstikatkelma <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 16v4h14v-4"/></svg></a></div>
+        <div class="output-copy"><span class="section-number">TAITTOESIMERKKI</span><h3>Tekstistä lukijan käsiin.</h3><p>Editointi, oikoluku, kansi, oheisaineistot ja taitto kokoavat teoksen julkaisua varten. Käsikirjoituksen osat ja käännös muodostavat yhden hallittavan kokonaisuuden.</p><dl class="context-list"><dt>Mukana kontekstista</dt><dd><b>Rakenne</b> · novellin neljä osaa I–IV</dd><dd><b>Kieli</b> · tarkistettu suomennos</dd><dd><b>Kokonaisuus</b> · teksti, kuvat ja oheisaineistot</dd></dl><p class="feature-state">Sovelluksessa: editointi, oikoluku, oheisaineistot sekä PDF- ja EPUB-taittovedokset. Demo näyttää sivun ja ladattavan TXT-katkelman.</p></div>
+      </div>
+
+      <div class="output-panel world-panel" role="tabpanel" id="panel-world" aria-labelledby="tab-world" tabindex="0" hidden>
+        <figure class="world-visual"><div class="world-scene"><img src="/demo/assets/garden.webp" width="1536" height="1024" loading="lazy" alt="Lumottu puutarha, marmorireunainen käytävä ja kaksi täplikästä pantteria leikkimässä pallolla."><button class="hotspot hotspot-path" type="button" data-hotspot="path" aria-label="Tutki puutarhan käytävää" aria-pressed="true">1</button><button class="hotspot hotspot-panthers" type="button" data-hotspot="panthers" aria-label="Tutki puutarhan panttereita" aria-pressed="false">2</button><button class="hotspot hotspot-light" type="button" data-hotspot="light" aria-label="Tutki puutarhan valoa" aria-pressed="false">3</button></div><figcaption>Interaktiivinen maailmakonsepti · AI-kuvitus · ei valmis 3D-ympäristö</figcaption><div class="hotspot-caption" aria-live="polite"><b id="hotspot-title">1 · Marmorireunainen käytävä</b><p id="hotspot-description">Lähteen pitkä, leveä käytävä muuttuu tilan kulkureitiksi. Kukkapenkkien reunat ohjaavat katsetta ja liikkumista.</p></div></figure>
+        <div class="output-copy"><span class="section-number">TULEVAISUUDEN SUUNTA</span><h3>Tarina, johon voi astua.</h3><p>Kun paikat, henkilöt ja maailman säännöt on kuvattu, ne voisivat toimia pohjana tutkittavalle virtuaaliympäristölle, vuorovaikutteiselle kohtaukselle tai tarinalliselle pelille.</p><dl class="context-list"><dt>Mukana kontekstista</dt><dd><b>Tilat</b> · puutarha, käytävä ja muuri</dd><dd><b>Toimijat</b> · lempeät, kesyt pantterit</dd><dd><b>Kokemus</b> · ihme ja kotiintulon tunne</dd></dl><p class="feature-state future">Tulevaisuusvisio. Virtuaaliympäristöjen generointi ei ole nykyinen SkriptLab-toiminto. Tutki tässä kuvan kolmea kohtaa.</p></div>
+      </div>
+      <noscript><p class="noscript-note">Näet kuvitusesimerkin ilman JavaScriptiä. Ota JavaScript käyttöön tutkiaksesi kontekstikarttaa ja muita tuotantomuotoja.</p></noscript>
+    </section>
+
+    <section class="future-band"><div class="wrap"><h2>Entä jos tarinaan<br>voisi astua?</h2><p>Tulevaisuuden suunta<br>Virtuaaliympäristöt</p><button class="button light-outline" type="button" id="explore-future">Tutki tulevaisuusvisiota <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6"/></svg></button></div></section>
+
+    <section class="about-demo wrap" aria-labelledby="about-title"><div><h2 id="about-title">Yhteinen konteksti. Tekijän päätökset.</h2><p>Demo havainnollistaa SkriptLabin työnkulkua valmiilla esimerkeillä. Nykyiset työkalut, kokeiluvaiheen tuotannot ja tulevaisuuden suunta on merkitty erikseen. Käyttöoikeus, valitut mallit ja palvelun saatavuus vaikuttavat toimintoihin.</p></div><div><h3>Esimerkin lähde</h3><p>H. G. Wells: <i lang="en">The Door in the Wall</i>. Katkelmat ovat teoksen suomennoksesta <i>Ovi muurissa</i>. Kontekstitekstit ovat demoa varten koottuja havaintoja ja tulkintoja.</p><a href="https://www.gutenberg.org/cache/epub/456/pg456-images.html#chap01" target="_blank" rel="noopener noreferrer">Lue englanninkielinen alkuteos <span aria-hidden="true">↗</span></a></div></section>
+  </main>
+  <footer class="footer wrap"><a class="wordmark" href="/">Skript<span>Lab</span></a><p>Palvelu on tällä hetkellä tauolla.<br><span>Demo on tutustuttavissa ilman kirjautumista.</span></p><a href="/luottamus">Tietosuoja</a><small>© 2026 SkriptLab</small></footer>
+</body>
+</html>
