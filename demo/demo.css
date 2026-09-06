@@ -6,6 +6,7 @@
   --green-dark:#193b2d;
   --muted:#6d7166;
   --gold:#a47a3c;
+  --brand-amber:#c17f3a;
   --line:#d5cfc4;
   --highlight:#e2eadb;
   --serif:'Cormorant Garamond',Georgia,serif;
@@ -187,6 +188,7 @@ small,.micro {
   white-space:nowrap;
 }
 .wordmark span {
+  color:var(--brand-amber);
   font-weight:400;
 }
 .header nav {
@@ -560,11 +562,26 @@ small,.micro {
   padding:25px 0 20px 30px;
   min-height:420px;
 }
+.context-art {
+  margin-bottom:24px;
+}
+.context-art img {
+  width:100%;
+  height:auto;
+  aspect-ratio:3/2;
+  object-fit:cover;
+  border-radius:2px;
+  background:var(--green-dark);
+}
+.context-art figcaption {
+  font-size:10px;
+  line-height:1.6;
+}
 .context-inspector h3 {
   font-size:44px;
   margin:23px 0;
 }
-.context-inspector>p {
+.context-details>p {
   font-size:16px;
   color:#555b51;
   line-height:1.85;
@@ -724,6 +741,26 @@ figcaption {
   font-size:12px;
   margin-top:12px;
 }
+.illustrated-example {
+  min-width:0;
+}
+.production-art {
+  margin-bottom:20px;
+}
+.production-art img {
+  width:100%;
+  height:auto;
+  aspect-ratio:3/2;
+  object-fit:cover;
+  border-radius:2px;
+}
+.production-art figcaption {
+  font-size:11px;
+}
+.illustrated-example .translation-visual,
+.illustrated-example .audio-visual {
+  min-height:0;
+}
 .translation-visual {
   background:var(--white);
   border:1px solid var(--line);
@@ -831,13 +868,14 @@ figcaption {
   background:var(--white);
 }
 .campaign-art {
-  height:240px;
+  aspect-ratio:3/2;
   overflow:hidden;
 }
 .campaign-art img {
   width:100%;
   height:100%;
-  object-position:center 41%;
+  object-fit:cover;
+  object-position:center;
 }
 .campaign-text {
   padding:25px 32px;
@@ -1133,7 +1171,7 @@ figcaption {
   .context-inspector h3 {
     font-size:36px;
   }
-  .context-inspector>p {
+  .context-details>p {
     font-size:13px;
   }
   .carry p {
@@ -1217,26 +1255,14 @@ figcaption {
     border-top:1px solid var(--line);
     padding:25px 0 0;
   }
-  .context-inspector .section-number {
-    grid-column:1;
-    margin:0;
+  .context-art {
+    margin-bottom:0;
   }
   .context-inspector h3 {
-    grid-column:1;
     margin:15px 0;
   }
-  .context-inspector>p {
-    grid-column:1;
-  }
   .context-inspector .carry {
-    grid-column:2;
-    grid-row:1/4;
-    margin:0;
-    padding:0;
-    border:0;
-  }
-  .context-inspector .micro {
-    grid-column:2;
+    margin-top:20px;
   }
   .source-evidence {
     min-height:355px;
@@ -1518,10 +1544,13 @@ figcaption {
     grid-column:auto;
     padding-top:22px;
   }
+  .context-art {
+    margin-bottom:24px;
+  }
   .context-inspector h3 {
     font-size:38px;
   }
-  .context-inspector>p {
+  .context-details>p {
     font-size:14px;
   }
   .context-inspector .carry {
@@ -1621,9 +1650,6 @@ figcaption {
   }
   .campaign-text h3 {
     font-size:36px;
-  }
-  .campaign-art {
-    height:250px;
   }
   .book-visual {
     padding:25px;

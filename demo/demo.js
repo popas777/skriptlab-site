@@ -33,6 +33,8 @@
     if (!context) return;
     $$('[data-context]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.context === key)));
     $$('[data-edge]').forEach((edge) => edge.classList.toggle('selected', edge.dataset.edge === key));
+    $('#context-image').alt = context.imageAlt;
+    $('#context-image').src = context.image;
     $('#context-name').textContent = context.name;
     $('#context-kind').textContent = context.kind;
     $('#context-description').textContent = context.description;

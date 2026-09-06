@@ -4,6 +4,8 @@
 window.SkriptLabDemo = Object.freeze({
   contexts: {
     door: {
+      image: "/demo/assets/context-door.webp",
+      imageAlt: "Suorakulmainen vihreä puuovi valkoisessa kivimuurissa, punaisia köynnöksiä ja raosta näkyvä lämmin puutarha.",
       name: 'Vihreä ovi', kind: 'PAIKKA & MOTIIVI', part: 'I',
       quote: 'Mutta valkoinen muuri ja vihreä ovi erottuivat aivan selvinä.',
       highlights: ['valkoinen muuri', 'vihreä ovi'],
@@ -12,6 +14,8 @@ window.SkriptLabDemo = Object.freeze({
       nuance: 'Tulkinta: ovi toimii myös mahdollisuuden ja kaipauksen kuvana.'
     },
     wallace: {
+      image: "/demo/assets/context-wallace.webp",
+      imageAlt: "Kuvitustulkinta aikuisesta Lionel Wallacesta mietteliäänä lontoolaisen työhuoneen ikkunan äärellä.",
       name: 'Lionel Wallace', kind: 'HENKILÖ & ÄÄNI', part: 'I',
       quote: 'Jokin, mikä vie elämästä valon, täyttää minut kaipauksella …',
       highlights: ['kaipauksella'],
@@ -20,6 +24,8 @@ window.SkriptLabDemo = Object.freeze({
       nuance: 'Ääniohjeen tulkinta: harkittu puhe saa murtua taukoihin. Lapsuusmuisto ei muuta kertojaa lapseksi.'
     },
     redmond: {
+      image: "/demo/assets/context-redmond.webp",
+      imageAlt: "Kuvitustulkinta Redmondista kirjoituspöydän äärellä, lämpimän lampun valossa ja yöllinen Lontoo ikkunan takana.",
       name: 'Redmond', kind: 'KERTOJA & NÄKÖKULMA', part: 'I',
       quote: 'Ja silloin ajattelin, että ainakin hänelle itselleen se oli tosi.',
       highlights: ['ainakin hänelle itselleen'],
@@ -28,6 +34,8 @@ window.SkriptLabDemo = Object.freeze({
       nuance: 'Käännöksessä ja äänessä on säilytettävä varaus: kertoja ei vahvista puutarhan todellisuutta.'
     },
     garden: {
+      image: "/demo/assets/context-garden.webp",
+      imageAlt: "Valoisa puutarha, pitkä marmorireunainen käytävä ja kaksi rauhallisesti lepäävää täplikästä pantteria.",
       name: 'Lumottu puutarha', kind: 'PAIKKA & TUNNELMA', part: 'I',
       quote: 'Tunsin vahvasti tulleeni kotiin',
       highlights: ['tulleeni kotiin'],
@@ -36,6 +44,8 @@ window.SkriptLabDemo = Object.freeze({
       nuance: 'Kuvassa ja tilassa pantterien tehtävä on viestiä turvallisuutta. Uhkaava petokohtaus muuttaisi tekstin merkitystä.'
     },
     longing: {
+      image: "/demo/assets/context-longing.webp",
+      imageAlt: "Yksinäinen aikuinen hahmo Lontoon katujen haarautumiskohdassa ja kultainen puutarhan häivähdys harmaan kaupungin laidalla.",
       name: 'Kaipaus', kind: 'TEEMA · TULKINTA', part: 'I',
       quote: 'Oi, vie minut takaisin puutarhaani! Vie minut takaisin puutarhaani!',
       highlights: ['takaisin puutarhaani'],
@@ -44,6 +54,8 @@ window.SkriptLabDemo = Object.freeze({
       nuance: 'Tämä on teemallinen tulkinta. Se voi ohjata kampanjan ydinviestiä ilman, että tarinan loppua paljastetaan.'
     },
     memory: {
+      image: "/demo/assets/context-memory.webp",
+      imageAlt: "Läpikuultavien paperikerrosten päälle limittyviä Lontoon, puutarhan ja vihreän oven kuvafragmentteja.",
       name: 'Muisti & epävarmuus', kind: 'AIKATASOT · TULKINTA', part: 'I',
       quote: 'Olen saattanut lisätä siihen jotakin, olen saattanut muuttaa sitä; en tiedä …',
       highlights: ['en tiedä'],
