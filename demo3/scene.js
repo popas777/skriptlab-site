@@ -12,7 +12,7 @@ const CONTEXT = [
   ['door', 'Vihreä ovi', 2.13, -0.18, 0.48],
   ['garden', 'Lumottu puutarha', 1.12, -1.66, -0.12],
   ['longing', 'Kaipaus', -1.22, -1.57, 0.25],
-  ['memory', 'Muisti & epävarmuus', -2.18, -0.25, -0.10],
+  ['memory', 'Teemat', -2.18, -0.25, -0.10],
 ];
 const OUTPUTS = [
   ['translation', 'Kielet', 0.00, 1.96, 0.02],

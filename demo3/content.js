@@ -43,7 +43,7 @@ export const contexts = {
     nuance: 'Teemallinen tulkinta voi ohjata kampanjan ydinviestiä ilman, että tarinan loppua paljastetaan.',
   },
   memory: {
-    name: 'Muisti & epävarmuus', kind: 'AIKATASOT · TULKINTA', part: 'I',
+    name: 'Teemat', kind: 'AIKATASOT · TULKINTA', part: 'I',
     quote: 'Olen saattanut lisätä siihen jotakin, olen saattanut muuttaa sitä; en tiedä …',
     description: 'Redmond kertoo Wallacen kertomaa muistoa. Lapsen kokemus, aikuisen muisti ja kehyskertojan arvio ovat eri tasoja.',
     carry: 'Muiston kerroksellisuus. Epävarmat yksityiskohdat. Avoin suhde todellisuuteen.',
