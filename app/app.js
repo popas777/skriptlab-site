@@ -787,7 +787,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     const fullWorkspaceRoles = new Set(['admin', 'test_user']);
-    const writerViews = new Set(['view-kirjani', 'view-analyysi', 'view-skill', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-oikoluku', 'view-kuvitus', 'view-notebooklm', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-julkaisupaketti', 'view-audio', 'view-video', 'view-viimeistely', 'view-korjaukset']);
+    const writerViews = new Set(['view-kirjani', 'view-analyysi', 'view-skill', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-oikoluku', 'view-kuvitus', 'view-notebooklm', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-julkaisupaketti', 'view-audio', 'view-video', 'view-3d-studio', 'view-viimeistely', 'view-korjaukset']);
     const betaCoreViews = new Set([...writerViews, 'view-monikielinen-julkaisu', 'view-markkinointi']);
     const translatorViews = new Set([
         ...betaCoreViews,
@@ -795,7 +795,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         'view-kaannostyotila',
         'view-kaannoksen-viimeistely'
     ]);
-    const biographyViews = new Set(['view-kirjani', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-ai-tyonkulku', 'view-viimeistely', 'view-korjaukset', 'view-elamakerta', 'view-oikoluku', 'view-kuvitus', 'view-notebooklm', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-markkinointi', 'view-audio', 'view-video', 'view-julkaisupaketti', 'view-julkaise']);
+    const biographyViews = new Set(['view-kirjani', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-ai-tyonkulku', 'view-viimeistely', 'view-korjaukset', 'view-elamakerta', 'view-oikoluku', 'view-kuvitus', 'view-notebooklm', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-markkinointi', 'view-audio', 'view-video', 'view-3d-studio', 'view-julkaisupaketti', 'view-julkaise']);
     const accessModuleViews = {
         manuscripts: ['view-kirjani'],
         analysis: ['view-analyysi'],
@@ -821,6 +821,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         marketing: ['view-markkinointi'],
         audio: ['view-audio'],
         video: ['view-video'],
+        world_studio: ['view-3d-studio'],
         contracts: ['view-sopimukset'],
         timeline: ['view-aikajana'],
         versions: ['view-viimeistely'],
@@ -5138,6 +5139,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         'view-kaannokset',
         'view-audio',
         'view-video',
+        'view-3d-studio',
         'view-julkaisupaketti',
         'view-monikielinen-julkaisu'
     ];
@@ -5308,6 +5310,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         deactivateElamakertaFrame(activeNavViewId);
         syncElamakertaWorkspace(activeNavViewId);
         currentViewId = activeNavViewId;
+        document.getElementById('world-studio-frame')?.contentWindow?.postMessage({ type: 'skriptlab:world-studio-active', active: currentViewId === 'view-3d-studio' }, window.location.origin);
         autoHideSidebarForView(currentViewId);
         syncLongOperationTimersForView(currentViewId);
 
@@ -5333,6 +5336,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         if (viewId === 'view-video') {
             refreshVideoFrame();
+        }
+        if (viewId === 'view-3d-studio') {
+            refreshWorldStudioFrame();
         }
         if (viewId === 'view-skill') {
             refreshSkillFrame();
@@ -21506,6 +21512,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             refreshTuotantoFrame(currentViewId);
         }
         if (currentViewId === 'view-video') refreshVideoFrame();
+        if (currentViewId === 'view-3d-studio') refreshWorldStudioFrame();
         if (currentViewId === 'view-skill') refreshSkillFrame();
         if (currentViewId === 'view-notebooklm') refreshNotebookLMFrame();
         refreshLibraryFrame();
@@ -21627,6 +21634,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         if (!options.skipVideoFrameRefresh && currentViewId === 'view-video') {
             refreshVideoFrame();
         }
+        if (currentViewId === 'view-3d-studio') refreshWorldStudioFrame();
         if (!options.skipSkillFrameRefresh && currentViewId === 'view-skill') {
             refreshSkillFrame();
         }
@@ -27822,6 +27830,23 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             'animationProjectId',
             '1'
         );
+    }
+
+    function refreshWorldStudioFrame() {
+        const frame = document.getElementById('world-studio-frame');
+        if (!frame) return;
+        const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
+        if (frame.dataset.worldProjectId === String(projectId) && frame.dataset.moduleSourceKey) {
+            frame.contentWindow?.postMessage({
+                type: 'skriptlab:world-studio-project-changed',
+                projectId: projectId || null,
+                active: currentViewId === 'view-3d-studio'
+            }, window.location.origin);
+            return;
+        }
+        const params = new URLSearchParams({ project: String(projectId), v: '1' });
+        frame.dataset.worldProjectId = String(projectId);
+        updateEmbeddedModuleFrame(frame, 'world-studio.html', params);
     }
 
     function refreshSkillFrame() {

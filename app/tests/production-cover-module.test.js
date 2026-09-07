@@ -42,6 +42,6 @@ test('returning to Taitto refreshes covers while boot avoids a duplicate request
 test('main workspace cache versions expose the new embedded Taitto code', () => {
   assert.match(indexHtml, /tuotanto\.html\?module=aineistot&tab=aineistot&v=18/);
   assert.match(indexHtml, /tuotanto\.html\?module=taitto&tab=taitto&v=18/);
-  assert.match(indexHtml, /<script src="app\.js\?v=221"><\/script>/);
+  assert.match(indexHtml, /<script src="app\.js\?v=223"><\/script>/);
   assert.match(appJs, /params\.set\('v', '18'\);\s*updateEmbeddedModuleFrame\(frame, 'tuotanto\.html', params\)/);
 });

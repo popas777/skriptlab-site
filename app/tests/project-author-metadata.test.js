@@ -255,7 +255,7 @@ test('author-flow assets use one current cache-busted manuscript bundle', () => 
   assert.ok(manuscriptSources.every((source) => (
     new URL(source, 'https://example.test/').searchParams.get('v') === '31'
   )));
-  assert.match(indexHtml, /<script src="app\.js\?v=221"><\/script>/);
+  assert.match(indexHtml, /<script src="app\.js\?v=223"><\/script>/);
   assert.match(manuscriptHtml, /href="manuskripti\.css\?v=14"/);
   assert.match(manuscriptHtml, /src="manuskripti\.js\?v=36"/);
 

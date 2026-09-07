@@ -180,7 +180,7 @@ test('cross-tab synchronization merges only timeline data into the active manusc
 });
 
 test('whole-project saves keep the server timeline authoritative in local state', () => {
-  assert.match(indexHtml, /app\.js\?v=221/);
+  assert.match(indexHtml, /app\.js\?v=223/);
   assert.match(appJs, /Object\.prototype\.hasOwnProperty\.call\(savedAnalysis, 'publishing_timeline'\)/);
   assert.match(appJs, /mergedAnalysis\.publishing_timeline = savedAnalysis\.publishing_timeline/);
   assert.match(appJs, /delete mergedAnalysis\.publishing_timeline/);

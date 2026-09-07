@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f1e8">
+  <title>3D-studio – SkriptLab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="world-studio.css?v=1">
+</head>
+<body>
+  <main class="world-app">
+    <header class="app-header">
+      <div><h1>3D-studio</h1><p>Teoksen maailmasta tutkittavaksi luonnokseksi.</p></div>
+      <div class="project-meta"><strong id="world-project-name">Valitse teos</strong><span id="world-save-state" role="status" aria-live="polite">Ladataan…</span></div>
+    </header>
+    <nav class="workspace-tabs" role="tablist" aria-label="3D-studion välilehdet">
+      <button id="world-demo-tab" type="button" role="tab" aria-selected="true" aria-controls="world-demo-panel" data-tab="demo">Demo</button>
+      <button id="world-files-tab" type="button" role="tab" aria-selected="false" aria-controls="world-files-panel" tabindex="-1" data-tab="files">Tiedostot <span id="world-file-count" hidden></span></button>
+    </nav>
+    <div class="notice" id="world-notice" role="status" aria-live="polite"><span id="world-notice-text">Ladataan 3D-studiota…</span><button id="world-retry" type="button" hidden>Yritä uudelleen</button></div>
+    <section class="project-empty" id="world-project-empty" hidden><div class="empty-cube" aria-hidden="true">◇</div><h2>Jokainen maailma alkaa tekstistä</h2><p>Valitse ensin kirja tai tekstiprojekti SkriptLabissa. Voit käyttää sen kontekstimuistia tai liittää oman tekstikatkelman.</p><a class="button primary" href="index.html" target="_top">Avaa tekstini</a></section>
+    <div id="world-workspace" hidden>
+      <section id="world-demo-panel" role="tabpanel" aria-labelledby="world-demo-tab">
+        <div class="demo-workbench">
+          <aside class="settings-rail" id="world-demo-settings"></aside>
+          <div class="world-result">
+            <div class="world-stage" id="world-stage">
+              <div id="world-canvas" class="world-canvas" aria-label="Maailman 3D-näkymä"></div>
+              <div class="stage-toolbar" id="world-stage-toolbar" hidden><span id="world-stage-title">Maailman luonnos</span><button id="world-reset-camera" class="secondary small" type="button">Palauta näkymä</button></div>
+              <div class="stage-empty" id="world-demo-empty"><svg viewBox="0 0 80 80" width="72" height="72" fill="none" aria-hidden="true"><path d="M40 8 68 24v32L40 72 12 56V24L40 8Z M12 24l28 16 28-16M40 40v32" stroke="currentColor" stroke-width="1.5"/><path d="m26 32 28-16M26 48l28 16" stroke="currentColor" stroke-width="1" opacity=".3"/></svg><h2>Astutaan teoksen maailmaan</h2><p>Luo tekstistä kevyt 3D-luonnos.<br>Voit kiertää näkymää ja tutkia sen kohteita.</p></div>
+              <div class="stage-empty stage-error" id="world-render-error" role="status" hidden><h2>3D-näkymä ei avautunut</h2><p id="world-render-error-text"></p><button id="world-retry-render" class="secondary" type="button">Yritä avata näkymä</button><button class="quiet" data-go-tab="files" type="button">Jatka tiedostoihin →</button></div>
+              <div class="stage-loading" id="world-stage-loading" hidden><span class="spinner" aria-hidden="true"></span><span>Rakennetaan maailman luonnosta…</span></div>
+            </div>
+            <p class="navigation-help">Hiiri: kierrä · Rulla: zoomaa · Oikea hiiripainike: siirrä · WASD / nuolet: liiku näkymän ollessa valittuna</p>
+            <section class="entities-section" id="world-entities-section" hidden>
+              <div class="section-heading"><h2>Maailman kohteet</h2><span id="world-entity-count"></span></div>
+              <p id="world-description" class="muted"></p>
+              <div class="entities-workbench"><div id="world-entity-list" class="entity-list" aria-label="Valitse maailman kohde"></div><article class="entity-detail" id="world-entity-detail"><h3>Valitse kohde</h3><p>Valitse kohde näkymästä tai luettelosta nähdäksesi sen yhteyden teokseen.</p></article></div>
+            </section>
+          </div>
+        </div>
+      </section>
+      <section id="world-files-panel" role="tabpanel" aria-labelledby="world-files-tab" hidden>
+        <div class="files-workbench">
+          <section class="file-builder">
+            <h2>Vie maailma seuraavaan työkaluun</h2><p class="muted">Luo tarvitsemasi tiedostot. Voit ladata ne erikseen tai koota kaiken yhdeksi paketiksi.</p>
+            <div id="world-files-settings" class="files-source-settings" hidden></div>
+            <p class="source-note" id="world-files-source"></p>
+            <fieldset id="world-file-types" class="file-types"><legend class="sr-only">Valitse luotavat tiedostot</legend>
+              <label class="file-choice"><input type="checkbox" name="file-kind" value="world" checked><span><strong>Maailman tiedot</strong><small>Kohteet, lähteet ja luonnoksen rakenne</small></span><span class="format">JSON</span></label>
+              <label class="file-choice"><input type="checkbox" name="file-kind" value="locations" checked><span><strong>Paikat</strong><small>Ympäristöt ja niiden kuvaukset</small></span><span class="format">CSV</span></label>
+              <label class="file-choice"><input type="checkbox" name="file-kind" value="characters"><span><strong>Henkilöt</strong><small>Teoksesta tunnistetut henkilöhahmot</small></span><span class="format">CSV</span></label>
+              <label class="file-choice"><input type="checkbox" name="file-kind" value="brief" checked><span><strong>Mallinnusohje</strong><small>Maailman kuvaukset ja toteutusohjeet</small></span><span class="format">MD</span></label>
+              <label class="file-choice"><input type="checkbox" name="file-kind" value="scene"><span><strong>3D-näkymä</strong><small>Muokattava ympäristö yksinkertaisina muotoina</small></span><span class="format">glTF</span></label>
+              <label class="file-choice"><input type="checkbox" name="file-kind" value="unreal"><span><strong>Unreal-tuontiskripti</strong><small>Kokoaa tilaluonnoksen Unreal Editorissa</small></span><span class="format">PY</span></label>
+            </fieldset>
+            <button id="world-create-files" class="primary wide" type="button">Luo valitut tiedostot</button>
+            <p class="help">3D-näkymä on tilaluonnos. Unreal-skriptin mukana tulee käyttöohje; sen käyttö edellyttää editorin Python-tukea.</p>
+          </section>
+          <section class="file-collection"><div class="section-heading"><h2>Ladattavat tiedostot</h2><span id="world-files-total"></span></div><p class="muted">Tiedostot säilyvät tässä projektissa.</p>
+            <div class="files-empty" id="world-files-empty"><svg width="42" height="48" viewBox="0 0 42 48" fill="none" aria-hidden="true"><path d="M9 2h16l10 10v33H9V2Z M25 2v11h10M16 23h12M16 30h12M16 37h8" stroke="currentColor" stroke-width="1.5"/></svg><h3>Valitse, mitä viet mukanasi</h3><p>Luomasi tiedostot ilmestyvät tähän. Voit tarkistaa niiden sisällön ennen lataamista.</p></div>
+            <div id="world-file-list" class="file-list"></div>
+            <p class="stale-note" id="world-stale-note" hidden>Osa tiedostoista perustuu aiempaan luonnokseen. Ne säilyvät ladattavina; luo tarvittaessa uudet versiot.</p>
+          </section>
+        </div>
+        <div class="zip-footer"><p id="world-zip-summary">Luo ensin tiedostoja pakettia varten.</p><button id="world-download-zip" class="primary" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg>Lataa ZIP-paketti</button></div>
+      </section>
+    </div>
+    <section id="world-source-settings" hidden>
+      <h2>Maailman lähtökohta</h2><p id="world-source-summary" class="muted">Kirjan teksti ja kontekstimuisti</p>
+      <form id="world-generate-form">
+        <label class="field"><span>Lähde</span><select id="world-source-mode"><option value="project">Valittu teos ja kontekstimuisti</option><option value="text">Oma tekstikatkelma</option></select></label>
+        <label class="field" id="world-source-text-field" hidden><span>Tekstikatkelma</span><textarea id="world-source-text" rows="7" maxlength="30000" placeholder="Liitä tähän kuvaus teoksen paikasta tai maailman tapahtumista."></textarea><small>Enintään 30 000 merkkiä. Lähdekatkelmat säilyvät luonnoksessa; liitä teksti uudelleen, jos luot siitä uuden demon myöhemmin.</small></label>
+        <label class="field"><span>Sovituksen lisäohje</span><textarea id="world-instructions" rows="4" maxlength="2000" placeholder="Esimerkiksi sataman vanhat puutalot ja majakan yksinäinen tunnelma."></textarea><small>Toiveet liitetään mallinnusohjeeseen. Säädä demon ympäristö ja valaistus alta.</small></label>
+        <label class="field"><span>Ympäristö</span><select id="world-biome"><option value="auto">Päättele tekstistä</option><option value="village">Kylä</option><option value="forest">Metsä</option><option value="coast">Rannikko</option><option value="city">Kaupunki</option><option value="interior">Sisätila</option><option value="desert">Aavikko</option><option value="snow">Talvimaisema</option></select></label>
+        <label class="field"><span>Valaistus</span><select id="world-time-of-day"><option value="day">Päivä</option><option value="sunset">Iltavalo</option><option value="night">Yö</option></select></label>
+        <button id="world-generate" class="primary wide" type="submit">Luo demo</button>
+        <p class="help">Sijainnit ja mittasuhteet ovat luonnosehdotuksia. Kohteiden yhteys tekstiin näkyy niiden tiedoissa.</p>
+        <p id="world-replace-note" class="help" hidden>Uusi luonti korvaa nykyisen demon. Aiemmin luodut tiedostot säilyvät.</p>
+      </form>
+    </section>
+  </main>
+  <dialog id="world-preview" aria-labelledby="world-preview-title"><header><h2 id="world-preview-title">Tiedoston sisältö</h2><button id="world-close-preview" class="secondary small" type="button">Sulje</button></header><p id="world-preview-note" class="help"></p><pre id="world-preview-content"></pre></dialog>
+  <script src="config.js?v=1"></script>
+  <script>const API_BASE_URL = (window.SKRIPTLAB_CONFIG && window.SKRIPTLAB_CONFIG.API_BASE_URL) || 'http://127.0.0.1:8000'; const apiUrl = path => `${API_BASE_URL}${path}`;</script>
+  <script src="auth.js?v=4"></script>
+  <script type="module" src="world-studio.js?v=1"></script>
+</body>
+</html>
