@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=118">
+    <link rel="stylesheet" href="styles.css?v=119">
     <link rel="stylesheet" href="workflow-studio.css?v=2">
     <link rel="stylesheet" href="correction-reprints.css?v=1">
     <link rel="stylesheet" href="timeline.css?v=1">
@@ -2974,6 +2974,7 @@
                         <button class="active" id="video-workspace-video-tab" type="button" role="tab" aria-selected="true" aria-controls="video-workspace-video-panel" data-video-workspace-tab="video">Videostudio</button>
                         <button id="video-workspace-shorts-tab" type="button" role="tab" aria-selected="false" aria-controls="video-workspace-shorts-panel" data-video-workspace-tab="shorts" tabindex="-1">Shorts-studio</button>
                         <button id="video-workspace-screenplay-tab" type="button" role="tab" aria-selected="false" aria-controls="video-workspace-screenplay-panel" data-video-workspace-tab="screenplay" tabindex="-1">Käsikirjoitus</button>
+                        <button id="video-workspace-animation-tab" type="button" role="tab" aria-selected="false" aria-controls="video-workspace-animation-panel" data-video-workspace-tab="animation" tabindex="-1">Animaatiostudio</button>
                     </div>
                     <div class="video-workspace-panel" id="video-workspace-video-panel" role="tabpanel" aria-labelledby="video-workspace-video-tab">
                         <iframe
@@ -2998,9 +2999,12 @@
                             id="screenplay-studio-frame"
                             class="video-studio-frame screenplay-studio-frame"
                             title="Elokuvakäsikirjoitus"
-                            src="screenplay.html?v=3"
+                            src="screenplay.html?v=4"
                             loading="lazy"
                         ></iframe>
+                    </div>
+                    <div class="video-workspace-panel" id="video-workspace-animation-panel" role="tabpanel" aria-labelledby="video-workspace-animation-tab" hidden>
+                        <iframe id="animation-studio-frame" class="video-studio-frame animation-studio-frame" title="Animaatiostudio" src="animation.html?v=1" loading="lazy"></iframe>
                     </div>
                 </div>
             </div>
@@ -4442,7 +4446,7 @@
     <script src="workflow-studio.js?v=5"></script>
     <script src="correction-reprints.js?v=1"></script>
     <script src="demo-terminology.js?v=1"></script>
-    <script src="app.js?v=221"></script>
+    <script src="app.js?v=222"></script>
     <script src="timeline.js?v=1"></script>
 </body>
 </html>

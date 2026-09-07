@@ -5104,7 +5104,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const sidebarNav = navShowMoreButton?.closest('.sidebar-nav');
     const views = document.querySelectorAll('.view-section');
     const videoWorkspaceTabs = Array.from(document.querySelectorAll('[data-video-workspace-tab]'));
-    const videoWorkspaceTabNames = ['video', 'shorts', 'screenplay'];
+    const videoWorkspaceTabNames = ['video', 'shorts', 'screenplay', 'animation'];
     const savedVideoWorkspaceTab = localStorage.getItem('skriptlab_video_workspace_tab');
     setVideoWorkspaceTab(videoWorkspaceTabNames.includes(savedVideoWorkspaceTab) ? savedVideoWorkspaceTab : 'video', {
         persist: false,
@@ -27814,7 +27814,13 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             document.getElementById('screenplay-studio-frame'),
             'screenplay.html',
             'screenplayProjectId',
-            '3'
+            '4'
+        );
+        refreshEmbeddedVideoFrame(
+            document.getElementById('animation-studio-frame'),
+            'animation.html',
+            'animationProjectId',
+            '1'
         );
     }
 

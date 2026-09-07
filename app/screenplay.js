@@ -57,7 +57,7 @@
 
   function collectElements() {
     [
-      'screenplay-app', 'screenplay-open-video', 'screenplay-project-name',
+      'screenplay-app', 'screenplay-open-video', 'screenplay-open-animation', 'screenplay-project-name',
       'screenplay-save-state', 'screenplay-save-label', 'screenplay-notice',
       'screenplay-notice-text', 'screenplay-notice-action', 'screenplay-project-empty',
       'screenplay-workspace', 'screenplay-world-panel', 'screenplay-scenes-panel',
@@ -1789,6 +1789,7 @@
     });
     elements['screenplay-export-scene'].disabled = !elements['screenplay-export-scene-select']?.value || busy || state.dirty || state.conflict;
     elements['screenplay-export-all'].disabled = !(state.manifest?.scenes?.length || state.manifest?.characters?.length || state.manifest?.locations?.length) || busy || state.dirty || state.conflict;
+    elements['screenplay-open-animation'].disabled = !state.projectId || busy || state.conflict;
     document.querySelectorAll('[data-entity-generate]').forEach((button) => {
       const card = button.closest('[data-entity-kind]');
       const entity = entityFromCard(card);
@@ -2669,6 +2670,15 @@
   }
 
   function bindEvents() {
+    elements['screenplay-open-animation'].addEventListener('click', async () => {
+      if (state.dirty && !(await flushSave())) return;
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'skriptlab:video-workspace-tab', tab: 'animation' }, window.location.origin);
+      } else {
+        const query = state.projectId ? `?project=${encodeURIComponent(state.projectId)}` : '';
+        window.location.assign(`animation.html${query}`);
+      }
+    });
     elements['screenplay-image-dialog-close'].addEventListener('click', () => elements['screenplay-image-dialog'].close());
     elements['screenplay-library-search'].addEventListener('input', () => { renderWorldEntities(); syncControls(); });
     elements['screenplay-library-filter'].addEventListener('change', () => { renderWorldEntities(); syncControls(); });
