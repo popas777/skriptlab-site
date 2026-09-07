@@ -8,6 +8,16 @@
   const TERMINAL_JOB_STATES = new Set(['ready', 'failed']);
   const IMAGE_MIME_PATTERN = /^data:image\/(?:png|jpe?g|webp);base64,[a-z0-9+/]+=*$/i;
   const NO_TEXT_GUARD = 'No visible text, letters, subtitles, captions, logos, or watermarks.';
+  const WORLD_STYLES = {
+    film: 'Live-action cinematic realism. Believable human proportions, natural materials and practical lighting, restrained colors and coherent production design. Keep character identities, wardrobe and locations consistent across all scenes.',
+    animation: 'Hand-drawn 2D animation. Expressive clean linework, clear silhouettes, soft cel shading and richly painted backgrounds. Define repeatable character proportions, faces, costumes and a cohesive color palette. All character, location and scene references must be animated illustrations, not live-action photographs.',
+    three_d: 'Stylized 3D animation. Soft sculpted shapes, expressive recognizable faces, tactile materials and gentle global illumination. Define repeatable character proportions, costumes, environments and a cohesive palette. Use the same stylized 3D visual language for characters, locations and every scene; not photorealistic live action.',
+    anime: 'Anime-inspired 2D animation. Precise expressive linework, controlled cel shading, carefully painted environments and cinematic compositions. Consistent character model sheets, facial features, age, proportions and wardrobe. Use a unified illustrated visual language throughout, without imitating a specific artist or franchise.',
+    children: 'Warm children’s storybook illustration. Friendly rounded shapes, expressive faces, clear readable silhouettes, gentle lighting and a harmonious inviting palette. Consistent character designs and softly illustrated environments. This is a visual treatment: preserve the book’s actual events and character identities; do not invent or rewrite plot facts.',
+    watercolor: 'Hand-painted watercolor illustration. Translucent pigments, delicate paper grain, soft edges and a restrained cohesive palette. Preserve clear character silhouettes and repeatable facial features, proportions, costumes and location layouts. All references and scenes share the same illustrated medium, not photographic realism.',
+    comic: 'Graphic-novel illustration. Confident ink contours, controlled flat colors, subtle halftone and expressive light and shadow. Consistent faces, proportions, wardrobe and environment design. Each scene is a single continuous illustration, without panels or speech bubbles. Do not imitate a specific artist or franchise.',
+    custom: '',
+  };
   const JOB_STORAGE_PREFIX = 'skriptlab_screenplay_job_v1_';
   const IMAGE_REQUEST_STORAGE_PREFIX = 'skriptlab_screenplay_image_request_v1_';
   const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -67,7 +77,7 @@
       'screenplay-image-dialog', 'screenplay-image-dialog-title', 'screenplay-image-dialog-asset', 'screenplay-image-dialog-close',
       'screenplay-preview-panel', 'screenplay-export-panel', 'screenplay-text-model', 'screenplay-world-image-model',
       'screenplay-text-model-retry',
-      'screenplay-style-hint', 'screenplay-adaptation-goal', 'screenplay-without-text',
+      'screenplay-world-style', 'screenplay-style-hint', 'screenplay-adaptation-goal', 'screenplay-without-text',
       'screenplay-generate-world', 'screenplay-style-section', 'screenplay-manifest-title',
       'screenplay-logline', 'screenplay-synopsis', 'screenplay-style-prompt',
       'screenplay-cinematography-prompt', 'screenplay-aspect-ratio',
@@ -203,6 +213,8 @@
       synopsis: '',
       aspect_ratio: '16:9',
       without_text: true,
+      generation_style: 'film',
+      generation_style_hint: '',
       visual_style_prompt: '',
       cinematography_prompt: '',
       visual_style_prompt_source: 'manual',
@@ -286,6 +298,8 @@
       synopsis: stringValue(source.synopsis, 12000),
       aspect_ratio: ratio,
       without_text: source.without_text !== false,
+      generation_style: Object.hasOwn(WORLD_STYLES, source.generation_style) ? source.generation_style : 'film',
+      generation_style_hint: stringValue(source.generation_style_hint, 700),
       visual_style_prompt: stringValue(source.visual_style_prompt, 4000),
       cinematography_prompt: stringValue(source.cinematography_prompt, 2000),
       visual_style_prompt_source: normalizePromptSource(source.visual_style_prompt_source),
@@ -313,8 +327,8 @@
       entity?.description ? `Story context: ${stringValue(entity.description, 1200)}` : '',
     ].filter(Boolean).join('\n');
     const direction = kind === 'character'
-      ? 'Create a consistent cinematic character reference portrait for a short-film adaptation. Show one clearly identifiable person in a natural, neutral pose with readable facial features, realistic anatomy, and wardrobe suitable for continuity across later shots.'
-      : 'Create a cinematic environment reference frame for a short-film adaptation. Establish the location clearly with repeatable geography, architecture, materials, light, weather, season, and colour palette for continuity across later shots.';
+      ? 'Create a consistent character reference portrait in the world bible’s visual medium. Show one clearly identifiable character in a neutral pose with readable facial features, repeatable proportions, and wardrobe suitable for continuity across later shots. For animation or illustration, keep the stylized character design rather than photographic realism.'
+      : 'Create an environment reference frame in the world bible’s visual medium. Establish the location clearly with repeatable geography, architecture, materials, light, weather, season, and colour palette for continuity across later shots.';
     return [
       direction,
       'Use the source context only for narrative and visual facts; do not render the context as written text in the image.',
@@ -332,7 +346,7 @@
     ].filter(Boolean).join('\n');
     const direction = purpose === 'video'
       ? `Create a ${duration}-second cinematic shot for this short-film scene. Describe continuous subject movement, camera movement, pacing, environmental motion, and a clear final frame. Preserve the story facts and avoid adding new events.`
-      : 'Create a cinematic opening keyframe for this short-film scene. Depict one decisive, filmable moment with clear subject placement, environment, lighting, depth, and emotional focus. Preserve the story facts and avoid adding new events.';
+      : 'Create an opening keyframe for this scene in the world bible’s visual medium, including stylized animation or illustration when requested. Depict one decisive moment with clear subject placement, environment, lighting, depth, and emotional focus. Preserve the story facts and avoid adding new events.';
     const maximum = purpose === 'video' ? 2000 : 4000;
     return [
       direction,
@@ -716,6 +730,8 @@
     setFieldValue(elements['screenplay-manifest-title'], manifest.title);
     setFieldValue(elements['screenplay-logline'], manifest.logline);
     setFieldValue(elements['screenplay-synopsis'], manifest.synopsis);
+    setFieldValue(elements['screenplay-world-style'], manifest.generation_style);
+    setFieldValue(elements['screenplay-style-hint'], manifest.generation_style_hint);
     setFieldValue(elements['screenplay-style-prompt'], manifest.visual_style_prompt);
     setFieldValue(elements['screenplay-cinematography-prompt'], manifest.cinematography_prompt);
     setFieldValue(elements['screenplay-aspect-ratio'], manifest.aspect_ratio);
@@ -1750,7 +1766,7 @@
     const hasTextModel = Boolean(state.textModels.length && selectedTextModelValue());
     document.querySelectorAll('[data-add-entity]').forEach((button) => { button.disabled = !state.manifest || documentLocked; });
     [
-      'screenplay-style-hint', 'screenplay-adaptation-goal', 'screenplay-without-text',
+      'screenplay-world-style', 'screenplay-style-hint', 'screenplay-adaptation-goal', 'screenplay-without-text',
       'screenplay-manifest-title', 'screenplay-logline', 'screenplay-synopsis',
       'screenplay-style-prompt', 'screenplay-cinematography-prompt', 'screenplay-aspect-ratio',
       'screenplay-chapter-select', 'screenplay-scene-count', 'screenplay-replace-scenes',
@@ -2738,6 +2754,20 @@
       button.addEventListener('click', () => setActiveView(button.dataset.openView, { scroll: true }));
     });
     elements['screenplay-generate-world'].addEventListener('click', () => startGeneration('world'));
+    elements['screenplay-world-style'].addEventListener('change', (event) => {
+      if (!state.manifest || state.operationActive || state.conflict) return;
+      const style = event.currentTarget.value;
+      if (!Object.hasOwn(WORLD_STYLES, style)) return;
+      state.manifest.generation_style = style;
+      state.manifest.generation_style_hint = WORLD_STYLES[style];
+      setFieldValue(elements['screenplay-style-hint'], WORLD_STYLES[style]);
+      markDirty();
+    });
+    elements['screenplay-style-hint'].addEventListener('input', (event) => {
+      if (!state.manifest || state.operationActive || state.conflict) return;
+      state.manifest.generation_style_hint = stringValue(event.currentTarget.value, 700);
+      markDirty();
+    });
     elements['screenplay-generate-chapter'].addEventListener('click', () => startGeneration('chapter'));
     elements['screenplay-generate-scene-image'].addEventListener('click', (event) => generateImageFor('scene', null, event.currentTarget));
     elements['screenplay-export-scene'].addEventListener('click', () => downloadExport(elements['screenplay-export-scene-select'].value));

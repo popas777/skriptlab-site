@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="animation.css?v=2">
+  <link rel="stylesheet" href="animation.css?v=3">
 </head>
 <body>
   <main class="animation-app" id="animation-app">
@@ -37,13 +37,14 @@
             <label class="field"><span>Kohtauksen nimi</span><input id="animation-scene-title" data-scene-field="title" maxlength="180"></label>
             <div class="image-choices" id="animation-image-choices"><label class="compact-check"><input id="animation-use-styled" type="checkbox" data-scene-field="use_styled_image">Käytä tyyliteltyä kuvaa</label><span id="animation-image-status" class="help"></span></div>
             <div class="motion-stage" id="animation-motion-stage"><div id="animation-stage-image" class="stage-image"></div><span class="focus-marker" id="animation-focus-marker" aria-hidden="true"></span><div class="stage-caption" id="animation-stage-caption"></div><p class="stage-empty" id="animation-stage-empty">Ladataan kuvaa…</p></div>
-            <div class="preview-controls"><button class="secondary" id="animation-preview-motion" type="button" aria-pressed="false">▶ Kokeile liikettä</button><span class="help">Liikehahmotelma. Lopullinen kuva, puhe ja teksti tarkistetaan valmiista MP4:stä.</span></div>
+            <div class="caption-controls" id="animation-caption-controls" hidden><button class="quiet" id="animation-caption-previous" type="button" aria-label="Edellinen tekstijakso">←</button><span id="animation-caption-count" role="status" aria-live="off"></span><button class="quiet" id="animation-caption-next" type="button" aria-label="Seuraava tekstijakso">→</button></div>
+            <div class="preview-controls"><button class="secondary" id="animation-preview-motion" type="button" aria-pressed="false">▶ Kokeile liikettä ja tekstiä</button><span class="help">Liike- ja tekstihahmotelma ilman ääntä. Lopullinen rivitys ja puheen mukainen ajoitus tarkistetaan valmiista MP4:stä.</span></div>
             <p class="help" id="animation-focus-help">Klikkaa kuvasta kohde, johon zoomaus suuntautuu, tai säädä kohdistusta alta.</p>
             <div class="field-pair"><label class="field"><span>Liike</span><select id="animation-scene-motion" data-scene-field="motion"><option value="zoom_in">Hidas lähestyminen</option><option value="zoom_out">Hidas loitontuminen</option><option value="pan_left">Liuku vasemmalle</option><option value="pan_right">Liuku oikealle</option><option value="still">Paikallaan</option></select></label><label class="field"><span>Kesto ilman puhetta (sekuntia)</span><input id="animation-scene-duration" data-scene-field="duration_s" type="number" min="2" max="60" step="0.5"></label></div>
             <div class="range-field"><label for="animation-scene-zoom">Liikkeen voimakkuus <output id="animation-zoom-value">8 %</output></label><input id="animation-scene-zoom" data-scene-field="zoom_percent" type="range" min="0" max="20" step="1"></div>
             <details class="advanced-controls"><summary>Tarkka kohdistus</summary><div class="field-pair"><div class="range-field"><label for="animation-focus-x">Vaakasijainti <output id="animation-focus-x-value">50 %</output></label><input id="animation-focus-x" data-scene-field="focus_x" type="range" min="0" max="1" step="0.01"></div><div class="range-field"><label for="animation-focus-y">Pystysijainti <output id="animation-focus-y-value">50 %</output></label><input id="animation-focus-y" data-scene-field="focus_y" type="range" min="0" max="1" step="0.01"></div></div><button class="quiet" id="animation-center-focus" type="button">Keskitä kohde</button></details>
             <label class="field narration-field"><span>Kertojateksti <small id="animation-text-count">0 / 800</small></span><textarea id="animation-scene-text" data-scene-field="text" rows="5" maxlength="800" placeholder="Kirjoita teksti tai luo puuttuvat kertojatekstit alla. Sama teksti puhutaan ja näytetään kuvan päällä."></textarea></label>
-            <p class="help">Teksti pysyy kuvan päällä koko kohtauksen ajan. Puhetta käytettäessä kohtaus kestää vähintään puheen loppuun.</p>
+            <p class="help">Kuvassa näkyy enintään kaksi tekstiriviä kerrallaan. Koko teksti näytetään vaihtuvina jaksoina. MP4:ssä jaksot ajoitetaan tekstin pituuden ja puheen keston perusteella, eivät sanatarkasti. Ilman puhetta ne jaetaan kohtauksen kestolle; varaa pitkälle tekstille riittävästi lukuaikaa.</p>
           </section>
         </div>
         <section class="batch-bar" id="animation-text-batch"><div><h3>Kertojatekstit valmiiksi</h3><p id="animation-text-batch-summary">Luo lyhyet kertojatekstit käsikirjoituksen pohjalta. Voit muokata jokaista tekstiä itse.</p></div><label class="field"><span>Tekstimalli</span><select id="animation-text-model"><option value="">Ladataan malleja…</option></select></label><label class="compact-check"><input id="animation-replace-text" type="checkbox">Kirjoita myös olemassa olevat tekstit uudelleen</label><button class="primary" id="animation-generate-text" type="button">Luo puuttuvat kertojatekstit</button></section>
@@ -62,6 +63,6 @@
   <script src="config.js?v=1"></script>
   <script>const API_BASE_URL = (window.SKRIPTLAB_CONFIG && window.SKRIPTLAB_CONFIG.API_BASE_URL) || "http://127.0.0.1:8000"; const apiUrl = path => `${API_BASE_URL}${path}`;</script>
   <script src="auth.js?v=4"></script>
-  <script src="animation.js?v=1"></script>
+  <script src="animation.js?v=2"></script>
 </body>
 </html>

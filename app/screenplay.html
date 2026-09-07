@@ -87,9 +87,23 @@
               <select id="screenplay-world-image-model" data-image-model-select disabled><option value="">Ladataan kuvamalleja…</option></select>
             </label>
             <p class="prompt-note">Oletuksena käytetään mallirekisterin samaa suositeltua Gemini-kuvamallia kuin kansien generoinnissa. Voit vaihtaa mallin ennen kuvan luontia.</p>
+            <label class="field" for="screenplay-world-style">
+              <span>Maailman visuaalinen tyyli</span>
+              <select id="screenplay-world-style" aria-describedby="screenplay-world-style-help">
+                <option value="film">Elokuva · realistinen</option>
+                <option value="animation">Animaatio · piirretty 2D</option>
+                <option value="three_d">Animaatio · pehmeä 3D</option>
+                <option value="anime">Anime</option>
+                <option value="children">Lapset · lämmin satukirja</option>
+                <option value="watercolor">Vesivärimaalaus</option>
+                <option value="comic">Sarjakuva</option>
+                <option value="custom">Oma tyyli</option>
+              </select>
+            </label>
+            <p class="prompt-note" id="screenplay-world-style-help">Valitse tyyli ja paina ”Luo tai päivitä maailma”. Ohje ohjaa uusia hahmo-, paikka- ja kohtausprompteja ja tallentuu projektiin. Aiemmat kuvat ja käsin muokatut promptit säilyvät; päivitä ne tarvittaessa erikseen.</p>
             <label class="prompt-field" for="screenplay-style-hint">
-              <span>Style direction <b>EN</b></span>
-              <textarea id="screenplay-style-hint" rows="5" maxlength="700" lang="en" spellcheck="false" placeholder="Optional: grounded Nordic realism, muted autumn palette, natural light…"></textarea>
+              <span>Muokattava tyyliohje <b>EN</b></span>
+              <textarea id="screenplay-style-hint" rows="5" maxlength="700" lang="en" spellcheck="false" placeholder="Describe the visual style in English, or select a preset above. An empty direction keeps the existing world style."></textarea>
             </label>
             <label class="field" for="screenplay-adaptation-goal">
               <span>Sovituksen tavoite</span>
@@ -375,6 +389,6 @@
     const apiUrl = path => `${API_BASE_URL}${path}`;
   </script>
   <script src="auth.js?v=4"></script>
-  <script src="screenplay.js?v=6"></script>
+  <script src="screenplay.js?v=7"></script>
 </body>
 </html>

@@ -28,6 +28,47 @@
   const batchScenes = () => enabledScenes().filter((scene) => !state.selected.size || state.selected.has(scene.id));
   const imageId = (scene) => positive(scene?.use_styled_image !== false && scene?.styled_asset_id ? scene.styled_asset_id : scene?.source_asset_id);
   const json = (body) => ({ headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const captionPreview = { pages: [], index: 0 };
+
+  function captionPages(text, measure, maxWidth) {
+    const lines = [];
+    for (const paragraph of String(text).split('\n')) {
+      let line = '';
+      for (const word of paragraph.split(/\s+/).filter(Boolean)) {
+        const candidate = line ? `${line} ${word}` : word;
+        if (measure(candidate) <= maxWidth) { line = candidate; continue; }
+        if (line) { lines.push(line); line = ''; }
+        for (const character of word) {
+          if (line && measure(line + character) > maxWidth) { lines.push(line); line = ''; }
+          line += character;
+        }
+      }
+      if (line) lines.push(line);
+    }
+    const pages = [];
+    for (let index = 0; index < lines.length; index += 2) pages.push(lines.slice(index, index + 2).join('\n'));
+    return pages;
+  }
+
+  function captionPageAt(pages, progress) {
+    const weights = pages.map((page) => Math.max(1, Array.from(page.replace(/\s/g, '')).length));
+    const target = clamp(progress, 0, 1) * weights.reduce((sum, weight) => sum + weight, 0);
+    let end = 0;
+    for (let index = 0; index < weights.length; index += 1) {
+      end += weights[index];
+      if (target < end) return index;
+    }
+    return Math.max(0, pages.length - 1);
+  }
+
+  function showCaptionPage(index) {
+    captionPreview.index = clamp(index, 0, Math.max(0, captionPreview.pages.length - 1));
+    el('stage-caption').textContent = captionPreview.pages[captionPreview.index] || '';
+    el('caption-controls').hidden = !captionPreview.pages.length;
+    el('caption-count').textContent = `Tekstijakso ${captionPreview.index + 1} / ${captionPreview.pages.length}`;
+    el('caption-previous').disabled = !captionPreview.index;
+    el('caption-next').disabled = captionPreview.index >= captionPreview.pages.length - 1;
+  }
 
   function errorText(payload, fallback) {
     const detail = payload?.detail;
@@ -172,6 +213,7 @@
     document.querySelectorAll('[data-view]').forEach((button) => { const active = button.dataset.view === view; button.setAttribute('aria-selected', String(active)); button.tabIndex = active ? 0 : -1; });
     document.querySelectorAll('[data-panel]').forEach((panel) => { panel.hidden = panel.dataset.panel !== view; });
     stopPreview();
+    if (view === 'scenes') updatePreview();
     if (focus) el(`${view}-tab`).focus({ preventScroll: true });
   }
 
@@ -303,8 +345,15 @@
     el('focus-marker').style.left = `${scene.focus_x * 100}%`;
     el('focus-marker').style.top = `${scene.focus_y * 100}%`;
     el('focus-marker').hidden = !imageId(scene) || scene.motion === 'still';
-    el('stage-caption').textContent = state.manifest.show_text ? scene.text : '';
     el('stage-caption').dataset.position = state.manifest.text_position;
+    const caption = el('stage-caption');
+    const style = getComputedStyle(caption);
+    const context = document.createElement('canvas').getContext('2d');
+    context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    // Measure the stage even when an empty caption has display:none.
+    const width = stage.clientWidth * .86 - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - 4;
+    captionPreview.pages = state.manifest.show_text && width > 0 ? captionPages(scene.text, (text) => context.measureText(text).width, width) : [];
+    showCaptionPage(0);
     el('text-count').textContent = `${scene.text.length} / 800`;
     el('zoom-value').textContent = `${scene.zoom_percent} %`;
     el('focus-x-value').textContent = `${Math.round(scene.focus_x * 100)} %`;
@@ -312,18 +361,25 @@
   }
 
   function stopPreview() {
-    clearTimeout(state.previewTimer); state.playing = false;
+    clearInterval(state.previewTimer); state.playing = false;
     el('motion-stage').classList.remove('is-playing');
-    el('preview-motion').textContent = '▶ Kokeile liikettä';
+    el('preview-motion').textContent = '▶ Kokeile liikettä ja tekstiä';
     el('preview-motion').setAttribute('aria-pressed', 'false');
   }
 
   function previewMotion() {
     if (state.playing) { stopPreview(); return; }
     state.playing = true;
+    showCaptionPage(0);
     el('motion-stage').classList.add('is-playing');
     el('preview-motion').textContent = '■ Pysäytä'; el('preview-motion').setAttribute('aria-pressed', 'true');
-    state.previewTimer = setTimeout(stopPreview, (Number(currentScene()?.duration_s) || 8) * 1000);
+    const start = performance.now();
+    const duration = (Number(currentScene()?.duration_s) || 8) * 1000;
+    state.previewTimer = setInterval(() => {
+      const progress = Math.min(1, (performance.now() - start) / duration);
+      showCaptionPage(captionPageAt(captionPreview.pages, progress));
+      if (progress >= 1) stopPreview();
+    }, 80);
   }
 
   function renderBatchSummary() {
@@ -394,7 +450,7 @@
     const needsText = state.manifest?.narration_enabled || state.manifest?.show_text;
     el('render').disabled = isLocked || !included.length || included.some((scene) => !imageId(scene) || (needsText && !scene.text.trim())) || (state.manifest?.narration_enabled && (!state.options?.configured || !el('tts-model').value));
     el('retry-speech').disabled = el('render').disabled;
-    el('preview-motion').disabled = !imageId(currentScene()) || currentScene()?.motion === 'still';
+    el('preview-motion').disabled = !imageId(currentScene());
     el('reload-models').disabled = state.loading || state.busy;
     el('load-video').disabled = state.downloading;
     el('cancel-job').hidden = !ACTIVE.has(state.job?.status) || Boolean(state.job?.cancel_requested);
@@ -599,7 +655,7 @@
         if (input.value === 'original') { scenes().forEach((scene) => { scene.use_styled_image = false; }); renderSceneList(); renderEditor(); }
       }
       if (key === 'title') el('project-name').textContent = input.value || `Kirjaprojekti ${state.projectId}`;
-      markDirty(); updatePreview(); renderBatchSummary(); renderResult();
+      stopPreview(); markDirty(); updatePreview(); renderBatchSummary(); renderResult();
     }));
     document.querySelectorAll('[data-scene-field]').forEach((input) => input.addEventListener('input', () => {
       const scene = currentScene(); if (!scene || locked()) return;
@@ -617,6 +673,9 @@
     });
     el('center-focus').addEventListener('click', () => { const scene = currentScene(); if (!scene || locked()) return; scene.focus_x = .5; scene.focus_y = .5; el('focus-x').value = .5; el('focus-y').value = .5; stopPreview(); markDirty(); updatePreview(); });
     el('preview-motion').addEventListener('click', previewMotion);
+    el('caption-previous').addEventListener('click', () => { stopPreview(); showCaptionPage(captionPreview.index - 1); });
+    el('caption-next').addEventListener('click', () => { stopPreview(); showCaptionPage(captionPreview.index + 1); });
+    window.addEventListener('resize', () => { stopPreview(); updatePreview(); });
     el('scene-list').addEventListener('change', (event) => { if (!event.target.dataset.batchSelect || locked()) return; if (event.target.checked) state.selected.add(event.target.dataset.batchSelect); else state.selected.delete(event.target.dataset.batchSelect); renderSceneList(); });
     el('scene-list').addEventListener('click', (event) => {
       const select = event.target.closest('[data-select-scene]');
