@@ -51,6 +51,8 @@
   const projectProgressPreviewCache = new Map();
   let projectProgressPreviewShowTimer = null;
   let projectProgressPreviewHideTimer = null;
+  let analysisActiveTab = "overview";
+  let sheetReturnFocus = null;
   let sheetContext = null;     // { type: "chapter"|"analysis", ... }
   const params = new URLSearchParams(window.location.search);
   const requestedStep = params.get("step") || "";
@@ -80,7 +82,7 @@
     setText(".home-lead", "Tuo tekstisi ja käynnistä kokonaisanalyysi.");
     setText("#view-project .eyebrow", "Tekstiprojekti");
     setText("#view-kasikirjoitus h2", "Teksti");
-    setText("#view-analyysi .step-intro", "Tekoäly lukee koko tekstin, tuottaa kokonaisarvion ja kokoaa samalla karkean kontekstimuistin työtilan käyttöön. Pitkä teksti käsitellään osissa.");
+    setText("#view-analyysi .step-intro", "Arvio, tekstin tietopohja ja metatiedot syntyvät yhdellä analyysiajolla. Päivität analyysin itse silloin, kun haluat.");
   }
   const allowedModuleKeys = Array.isArray(authUser?.allowed_modules)
     ? new Set(authUser.allowed_modules.map((key) => String(key || "")))
@@ -113,7 +115,11 @@
     ["genre", "Genre"],
     ["library_class", "Kirjastoluokka"],
     ["thema_classes", "Thema-luokat"],
-    ["onix", "ONIX-avainsanat"],
+    ["language", "Tekstin kieli"],
+    ["original_language", "Alkuperäiskieli"],
+    ["work_type", "Teostyyppi"],
+    ["keywords", "Avainsanat"],
+    ["themes", "Teemat"],
     ["cover_prompt", "Kansikuvakuvaus"],
     ["cover_prompts", "Kansikuvavaihtoehdot"],
   ];
@@ -548,7 +554,7 @@
       hasModule("publication_package") ? api("/projects/" + projectId + "/publication-package/readiness") : skipped,
       canLoadTranslations ? api("/projects/" + projectId + "/translations") : skipped,
       hasModule("audio") ? api("/audio/productions/latest?project_id=" + encodeURIComponent(projectId)) : skipped,
-      hasModule("development_editing") ? api("/projects/" + projectId + "/knowledge") : skipped,
+      (hasModule("analysis") || hasModule("development_editing")) ? api("/projects/" + projectId + "/knowledge") : skipped,
     ]);
     return {
       misc: misc.status === "fulfilled" && Array.isArray(misc.value) ? misc.value : [],
@@ -570,7 +576,7 @@
         publication: !hasModule("publication_package") || publication.status === "fulfilled",
         translations: !canLoadTranslations || translations.status === "fulfilled",
         audio: !hasModule("audio") || audio.status === "fulfilled",
-        knowledge: !hasModule("development_editing") || knowledge.status === "fulfilled",
+        knowledge: !(hasModule("analysis") || hasModule("development_editing")) || knowledge.status === "fulfilled",
       },
     };
   }
@@ -1567,65 +1573,213 @@
 
   /* ------------------------------------------------------------ analyysi */
 
+  const KNOWLEDGE_LABELS = {
+    character: "Henkilö", relationship: "Henkilösuhde", location: "Paikka", event: "Tapahtuma",
+    scene: "Kohtaus", term: "Termi", theme: "Teema", concept: "Käsite", claim: "Väite",
+    source: "Lähde", narrative: "Kerronta ja jatkuvuus", summary: "Yhteenveto",
+    fact: "Fakta", timeline: "Aikajana",
+  };
+  const KNOWLEDGE_FIELDS = {
+    characters: "Henkilöt", relationships: "Henkilösuhteet", places: "Paikat",
+    key_events: "Tapahtumat", scenes: "Kohtaukset", glossary: "Sanasto", themes: "Teemat",
+    concepts: "Käsitteet", claims: "Väitteet", sources: "Lähteet", narrative: "Kerronta ja jatkuvuus",
+  };
+
+  function analysisFieldProposal(field, title) {
+    const analysis = project.analysis || {};
+    const proposal = document.createElement("div"); proposal.className = "warnings";
+    proposal.innerHTML = '<p><strong>' + escapeHtml(title) + '</strong></p><div class="result-text">'
+      + escapeHtml(String(analysis.analysis_suggestions[field] || "Tyhjä tieto")) + '</div>';
+    [["Säilytä oma", analysis[field]], ["Käytä ehdotusta", analysis.analysis_suggestions[field]]].forEach(([label, value]) => {
+      const button = document.createElement("button"); button.type = "button"; button.className = "btn btn-ghost"; button.textContent = label;
+      button.addEventListener("click", async () => {
+        try { working(true, "Tallennetaan…"); await apiPatchMetadata(project.id, { [field]: value }); await refreshWorkflowStatus(); }
+        catch (error) { toast(error.message); } finally { working(false); }
+      }); proposal.appendChild(button);
+    });
+    return proposal;
+  }
+
+  function activeKnowledgeItems() {
+    return (projectStageAssets.knowledge || []).filter((item) =>
+      item.status !== "draft" && !item.details?.superseded
+    );
+  }
+
+  function selectAnalysisTab(name, focus = false) {
+    analysisActiveTab = name;
+    document.querySelectorAll("[data-analysis-tab]").forEach((button) => {
+      const selected = button.dataset.analysisTab === name;
+      button.setAttribute("aria-selected", String(selected));
+      button.tabIndex = selected ? 0 : -1;
+      $("analysis-panel-" + button.dataset.analysisTab).hidden = !selected;
+      if (focus && selected) button.focus();
+    });
+    if (name === "knowledge") renderAnalysisKnowledge();
+  }
+
+  function renderAnalysisKnowledge() {
+    const items = activeKnowledgeItems();
+    const search = $("analysis-knowledge-search").value.trim().toLocaleLowerCase("fi");
+    const kind = $("analysis-knowledge-kind").value;
+    const visible = items.filter((item) => (!kind || (item.details?.semantic_type || item.item_type) === kind)
+      && (!search || (item.title + " " + item.content + " " + (item.details?.aliases || []).join(" ")).toLocaleLowerCase("fi").includes(search)));
+    const verified = items.filter((item) => item.status === "verified").length;
+    $("analysis-knowledge-count").textContent = `${visible.length} / ${items.length} tietoa · ${verified} vahvistettua · ${items.length - verified} tarkistettavaa`;
+    $("analysis-materialize").hidden = items.some((item) => item.details?.analysis_field) || !hasSavedAnalysis(project.analysis) || demoMode;
+    const list = $("analysis-knowledge-list");
+    list.innerHTML = "";
+    Object.keys(project.analysis?.analysis_suggestions || {}).filter((field) => KNOWLEDGE_FIELDS[field]).forEach((field) => {
+      list.appendChild(analysisFieldProposal(field, KNOWLEDGE_FIELDS[field] + ": uuden analyysin ehdotus. Oma korjauksesi on säilytetty."));
+    });
+    if (!visible.length) {
+      const empty = document.createElement("p"); empty.className = "empty";
+      empty.textContent = items.length ? "Hakuehtoja vastaavia tietoja ei löytynyt." : "Tietokortteja ei vielä ole. Voit muodostaa kortit tallennetusta analyysistä ilman uutta tekoälyajoa.";
+      list.appendChild(empty);
+      return;
+    }
+    visible.forEach((item) => {
+      const details = item.details || {};
+      const kind = details.semantic_type || item.item_type;
+      const card = document.createElement("details");
+      card.className = "analysis-section knowledge-card";
+      card.dataset.knowledgeId = String(item.id);
+      const status = item.status === "verified" ? "Vahvistettu" : "Tarkistettava";
+      card.innerHTML = '<summary><span>' + escapeHtml(item.title) + '<small>' + escapeHtml(KNOWLEDGE_LABELS[kind] || "Tieto")
+        + '</small></span><span class="knowledge-status' + (item.status === "verified" ? ' is-verified' : '') + '">' + status + '</span></summary>'
+        + '<div class="section-body"><div class="result-text">' + escapeHtml(item.content) + '</div></div>';
+      const body = card.querySelector(".section-body");
+      const note = document.createElement("p");
+      note.className = "hint";
+      note.textContent = details.user_modified ? "Käyttäjän korjaus säilyy myös uudessa analyysissä."
+        : details.certainty === "stated" ? "Ilmaistu lähdetekstissä. Vahvista tulkinta tarkistettuasi sen."
+        : "Tarkistettava tulkinta tai aiemmasta analyysistä poimittu tieto.";
+      body.appendChild(note);
+      if (details.aliases?.length) {
+        const aliases = document.createElement("p"); aliases.className = "hint";
+        aliases.textContent = "Muut nimimuodot: " + details.aliases.join(", "); body.appendChild(aliases);
+      }
+      (details.source_refs || []).forEach((ref) => {
+        if (!ref || !ref.quote) return;
+        const source = document.createElement("details");
+        source.className = "knowledge-source";
+        const location = ref.chapter_title || ref.source_label || "Analyysin lähde";
+        source.innerHTML = '<summary>' + escapeHtml(location) + (Number.isInteger(ref.paragraph_index) ? ' · kappale ' + (ref.paragraph_index + 1) : '')
+          + '</summary><blockquote>' + escapeHtml(ref.quote) + '</blockquote>';
+        body.appendChild(source);
+      });
+      if (!(details.source_refs || []).length) {
+        const missing = document.createElement("p");
+        missing.className = "hint";
+        missing.textContent = "Lähdekatkelmaa ei ole tallennettu tähän tietoon.";
+        body.appendChild(missing);
+      }
+      const actions = document.createElement("div");
+      actions.className = "knowledge-actions";
+      const edit = document.createElement("button");
+      edit.type = "button"; edit.className = "btn btn-ghost"; edit.textContent = "Muokkaa";
+      edit.addEventListener("click", () => openKnowledgeSheet(item));
+      const verify = document.createElement("button");
+      verify.type = "button"; verify.className = "btn btn-ghost";
+      verify.textContent = item.status === "verified" ? "Merkitse tarkistettavaksi" : "Vahvista tieto";
+      verify.addEventListener("click", () => saveKnowledgeAction(item, { status: item.status === "verified" ? "needs_review" : "verified" }));
+      actions.append(edit, verify); body.appendChild(actions);
+      if (details.pending_analysis || details.pending_removal) {
+        const pending = document.createElement("div");
+        pending.className = "warnings";
+        pending.innerHTML = '<p><strong>Uuden analyysin ehdotus</strong></p><div class="result-text">'
+          + escapeHtml(details.pending_analysis?.content || "Uusi analyysi ei löytänyt tätä tietoa. Nykyinen tietosi on säilytetty.") + '</div>';
+        [ ["keep", "Säilytä oma tieto"], ["accept", details.pending_removal ? "Poista käytöstä" : "Käytä uutta ehdotusta"] ].forEach(([action, label]) => {
+          const button = document.createElement("button");
+          button.type = "button"; button.className = "btn btn-ghost"; button.textContent = label;
+          button.addEventListener("click", () => saveKnowledgeAction(item, {action}, true));
+          pending.appendChild(button);
+        });
+        body.appendChild(pending);
+      }
+      list.appendChild(card);
+    });
+  }
+
   function renderAnalysis() {
     const analysis = project.analysis || {};
     const container = $("analysis-sections");
-    container.innerHTML = "";
-    const memoryItems = (projectStageAssets.knowledge || []).filter((item) =>
-      item.details?.source === "analysis" && item.details?.auto_generated
-    );
-    const memorySummary = $("analysis-memory-summary");
-    memorySummary.hidden = memoryItems.length === 0;
-    $("analysis-memory-summary-text").textContent = demoUiText(memoryItems.length
-      ? `Analyysi loi ${memoryItems.length} tarkistettavaa tietokorttia. Editorin avustin käyttää niitä heti; voit tarkentaa niitä valinnaisessa kehityseditointiosiossa.`
-      : "");
-    const analysisSections = visibleAnalysisSections();
-    const metaSections = visibleMetaSections();
-    const hasAny = analysisSections.concat(metaSections).some(([field]) => analysis[field]);
+    const meta = $("analysis-meta-sections");
+    container.innerHTML = ""; meta.innerHTML = "";
+    const items = activeKnowledgeItems();
+    const hasAny = hasSavedAnalysis(analysis) || items.length > 0;
     $("analysis-empty").hidden = hasAny;
-
-    restoreActiveAnalysisJob();
-
-    if (!hasAny) {
-      applyShowcaseTerminology($("view-analyysi"));
-      return;
+    $("analysis-tabs").hidden = !hasAny;
+    $("analysis-memory-summary").hidden = !hasAny;
+    $("btn-run-analysis").textContent = hasAny ? "✦ Päivitä analyysi" : "✦ Aja analyysi";
+    const counts = Object.entries(KNOWLEDGE_LABELS).map(([kind, label]) => {
+      const count = items.filter((item) => (item.details?.semantic_type || item.item_type) === kind).length;
+      return count ? `${label}: ${count}` : "";
+    }).filter(Boolean);
+    $("analysis-memory-summary-text").textContent = counts.length ? counts.join(" · ") : "Tallennettu analyysi on käytettävissä. Avaa tietopohja tarkistaaksesi sen tiedot.";
+    const run = analysis.analysis_run;
+    $("analysis-run-info").hidden = !run?.created_at;
+    if (run?.created_at) {
+      const date = new Date(run.created_at);
+      $("analysis-run-info").textContent = "Analysoitu " + (Number.isNaN(date.getTime()) ? run.created_at : date.toLocaleString("fi-FI"))
+        + " · " + Number(run.source_chars || 0).toLocaleString("fi-FI") + " merkkiä. Uusi ajo käynnistyy vain pyynnöstäsi.";
     }
-
+    const coverage = analysis.analysis_coverage;
+    const notice = $("analysis-coverage");
+    const preserved = analysis.analysis_latest_attempt?.preserved_previous;
+    notice.hidden = !coverage && !preserved && !analysis.analysis_warnings;
+    notice.innerHTML = "";
+    if (preserved) notice.textContent = "Viimeisin uusinta jäi osittaiseksi. Aiempi analyysi ja tietopohja ovat edelleen käytössä.";
+    else if (coverage) notice.textContent = `Käsitelty ${coverage.units_completed} / ${coverage.units_total} osaa · lähdekatkelma tallennettu ${coverage.items_with_evidence} tietoon.`;
+    if (analysis.analysis_warnings || preserved) {
+      const warnings = document.createElement("details");
+      warnings.innerHTML = '<summary>Näytä käsittelyhuomiot</summary><p class="result-text">'
+        + escapeHtml(preserved ? analysis.analysis_latest_attempt?.data?.analysis_warnings || "Uusinta ei kattanut kaikkia ydinosioita." : analysis.analysis_warnings) + '</p>';
+      notice.appendChild(warnings);
+    }
+    restoreActiveAnalysisJob();
     const buildSection = ([field, label], open) => {
       const details = document.createElement("details");
-      details.className = "analysis-section";
-      if (open) details.open = true;
-      const value = String(analysis[field] || "");
-      details.innerHTML =
-        "<summary>" + escapeHtml(label) + "</summary>" +
-        '<div class="section-body"><div class="result-text">' + escapeHtml(value || "–") + "</div></div>";
+      details.className = "analysis-section"; details.open = open;
+      details.innerHTML = '<summary>' + escapeHtml(label) + '</summary><div class="section-body"><div class="result-text">'
+        + escapeHtml(String(analysis[field] || "Tietoa ei ole vielä tallennettu.")) + '</div></div>';
+      const body = details.querySelector(".section-body");
       const edit = document.createElement("button");
-      edit.type = "button";
-      edit.className = "edit-link";
-      edit.textContent = "Muokkaa";
-      edit.addEventListener("click", () => openAnalysisSheet(field, label));
-      details.querySelector(".section-body").appendChild(edit);
+      edit.type = "button"; edit.className = "edit-link"; edit.textContent = "Muokkaa";
+      edit.addEventListener("click", () => openAnalysisSheet(field, label)); body.appendChild(edit);
+      if (Object.prototype.hasOwnProperty.call(analysis.analysis_suggestions || {}, field)) {
+        body.appendChild(analysisFieldProposal(field, "Uusi ehdotus — oma korjauksesi on säilytetty"));
+      }
       return details;
     };
-
-    analysisSections.forEach((section, i) => container.appendChild(buildSection(section, i === 0)));
-
-    if (metaSections.length) {
-      const metaHeading = document.createElement("h3");
-      metaHeading.className = "list-title";
-      metaHeading.style.margin = "18px 0 10px";
-      metaHeading.textContent = showcaseDemoMode || analysis.demo_profile === "showcase_demo" ? "Tekstin tiedot" : "Metatiedot";
-      container.appendChild(metaHeading);
-      metaSections.forEach((section) => container.appendChild(buildSection(section, false)));
-    }
-
-    if (analysis.analysis_warnings) {
-      const warn = document.createElement("div");
-      warn.className = "warnings";
-      warn.textContent = analysis.analysis_warnings;
-      container.appendChild(warn);
-    }
+    visibleAnalysisSections().filter(([field]) => !["glossary", "marketing_short", "marketing_long", "backcover"].includes(field))
+      .forEach((section, i) => container.appendChild(buildSection(section, i === 0)));
+    visibleMetaSections().concat(visibleAnalysisSections().filter(([field]) => ["marketing_short", "marketing_long", "backcover"].includes(field)))
+      .forEach((section) => meta.appendChild(buildSection(section, false)));
+    $("analysis-open-product-info").hidden = !hasModule("product_info");
+    selectAnalysisTab(analysisActiveTab);
     applyShowcaseTerminology($("view-analyysi"));
+  }
+
+  function openKnowledgeSheet(item) {
+    sheetContext = { type: "knowledge", item };
+    $("sheet-title").textContent = item.title;
+    $("sheet-title-field").hidden = true;
+    $("sheet-text-label").textContent = "Tietokortin sisältö";
+    $("sheet-textarea").value = item.content || "";
+    openSheet();
+  }
+
+  async function saveKnowledgeAction(item, payload, decision = false) {
+    try {
+      working(true, "Tallennetaan tietopohjaa…");
+      const path = "/projects/" + project.id + "/knowledge/" + item.id + (decision ? "/analysis-decision" : "");
+      await api(path, jsonOptions(decision ? "POST" : "PATCH", { ...payload, expected_content: item.content }));
+      await refreshWorkflowStatus();
+      toast("Tietopohja päivitetty myös jatkomoduulien käyttöön.");
+      return true;
+    } catch (error) { toast(error.message); return false; }
+    finally { working(false); }
   }
 
   function openAnalysisSheet(field, label) {
@@ -1642,14 +1796,13 @@
     try {
       working(true, "Tallennetaan…");
       project = await apiPatchMetadata(project.id, { [field]: $("sheet-textarea").value });
-      renderAnalysis();
-      renderProject();
-      toast("Tallennettu.");
+      await refreshWorkflowStatus();
+      toast("Tallennettu. Tietopohja on päivitetty.");
+      closeSheet();
     } catch (error) {
       toast(error.message);
     } finally {
       working(false);
-      closeSheet();
     }
   }
 
@@ -1847,10 +2000,10 @@
             renderAnalysis();
             renderProject();
             const memoryCount = (projectStageAssets.knowledge || []).filter((item) =>
-              item.details?.source === "analysis" && item.details?.auto_generated
+              item.details?.source === "analysis" && !item.details?.superseded && item.status !== "draft"
             ).length;
             toast(job.status === "partial"
-              ? `Analyysi valmistui osittain. Kontekstimuistissa on ${memoryCount} luonnosta.`
+              ? (job.message || `Analyysi valmistui osittain. Tietopohjassa on ${memoryCount} tietoa.`)
               : `Analyysi valmis. Kontekstimuistiin luotiin ${memoryCount} luonnosta.`);
           }
           return;
@@ -1975,6 +2128,7 @@
   /* ------------------------------------------------------------ arkki */
 
   function openSheet() {
+    sheetReturnFocus = document.activeElement;
     $("sheet-backdrop").hidden = false;
     $("edit-sheet").hidden = false;
     $("sheet-textarea").focus();
@@ -1984,6 +2138,8 @@
     $("sheet-backdrop").hidden = true;
     $("edit-sheet").hidden = true;
     sheetContext = null;
+    if (sheetReturnFocus?.isConnected) sheetReturnFocus.focus();
+    else $("analysis-tab-" + analysisActiveTab)?.focus();
   }
 
   /* ------------------------------------------------------------ käynnistys */
@@ -2051,6 +2207,35 @@
     $("f-title").addEventListener("input", scheduleProjectInfoSave);
     $("f-author").addEventListener("input", scheduleProjectInfoSave);
 
+    document.querySelectorAll("[data-analysis-tab]").forEach((button, index, buttons) => {
+      button.addEventListener("click", () => selectAnalysisTab(button.dataset.analysisTab));
+      button.addEventListener("keydown", (event) => {
+        if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+        event.preventDefault();
+        const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1
+          : (index + (event.key === "ArrowRight" ? 1 : -1) + buttons.length) % buttons.length;
+        selectAnalysisTab(buttons[next].dataset.analysisTab, true);
+      });
+    });
+    $("analysis-open-knowledge").addEventListener("click", () => selectAnalysisTab("knowledge", true));
+    $("analysis-knowledge-search").addEventListener("input", renderAnalysisKnowledge);
+    $("analysis-knowledge-kind").addEventListener("change", renderAnalysisKnowledge);
+    $("analysis-open-product-info").addEventListener("click", () => notifyParent("skriptlab:open-module", { viewId: "view-tuotetiedot" }));
+    $("analysis-materialize").addEventListener("click", async () => {
+      try {
+        working(true, "Muodostetaan kortit tallennetusta analyysistä…");
+        await api("/projects/" + project.id + "/analysis/knowledge", jsonOptions("POST", {}));
+        await refreshWorkflowStatus();
+      } catch (error) { toast(error.message); } finally { working(false); }
+    });
+    $("edit-sheet").addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && $("working").hidden) { event.preventDefault(); closeSheet(); }
+      if (event.key === "Tab") {
+        const controls = Array.from($("edit-sheet").querySelectorAll("button, input, textarea")).filter((item) => !item.disabled && item.getClientRects().length);
+        if (event.shiftKey && document.activeElement === controls[0]) { event.preventDefault(); controls.at(-1)?.focus(); }
+        else if (!event.shiftKey && document.activeElement === controls.at(-1)) { event.preventDefault(); controls[0]?.focus(); }
+      }
+    });
     $("btn-run-analysis").addEventListener("click", runAnalysis);
     $("btn-open-development").addEventListener("click", () => {
       notifyParent("skriptlab:open-module", { viewId: "view-kehityseditointi" });
@@ -2068,7 +2253,9 @@
     $("sheet-save").addEventListener("click", () => {
       if (!sheetContext) return;
       if (sheetContext.type === "chapter") saveChapterSheet();
-      else saveAnalysisSheet();
+      else if (sheetContext.type === "knowledge") {
+        saveKnowledgeAction(sheetContext.item, { content: $("sheet-textarea").value }).then((saved) => { if (saved) closeSheet(); });
+      } else saveAnalysisSheet();
     });
   }
 

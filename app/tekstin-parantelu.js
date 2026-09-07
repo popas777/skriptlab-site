@@ -1620,6 +1620,8 @@
         try {
             const result = await api("/proofread/improve-selection", jsonOptions("POST", {
                 text: requestSelection.text,
+                project_id: Number(requestProjectId) || null,
+                chapter_id: isTranslation ? null : state.project?.chapters?.[state.chapterIndex]?.id || null,
                 instructions: $("ti-instructions").value.trim(),
                 source_text: sourceText,
                 context_before: context.before,

@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="manuskripti.css?v=13">
+<link rel="stylesheet" href="manuskripti.css?v=14">
 </head>
 <body>
 
@@ -95,7 +95,7 @@
     </div>
   </header>
   <div class="step-body">
-    <p class="step-intro">Tekoäly lukee koko käsikirjoituksen, tuottaa toimitusanalyysin ja kokoaa samalla karkean kontekstimuistin editorin käyttöön. Pitkä teksti käsitellään osissa.</p>
+    <p class="step-intro">Arvio, teoksen tietopohja ja metatiedot syntyvät yhdellä analyysiajolla. Päivität analyysin itse silloin, kun haluat.</p>
 
     <div class="progress-card" id="analysis-progress" hidden>
       <p class="progress-label" id="analysis-progress-label">Analyysi jonossa…</p>
@@ -105,13 +105,38 @@
     </div>
 
     <div class="progress-card analysis-memory-card" id="analysis-memory-summary" hidden>
-      <p class="progress-label">Kontekstimuistin luonnos</p>
+      <p class="progress-label">Teoksen tietopohja</p>
       <p class="hint" id="analysis-memory-summary-text"></p>
+      <button class="edit-link" id="analysis-open-knowledge" type="button">Tarkista tietopohja</button>
     </div>
 
     <div class="empty" id="analysis-empty">Analyysiä ei ole vielä ajettu.</div>
 
-    <div id="analysis-sections"></div>
+    <p class="hint" id="analysis-run-info" hidden></p>
+    <div id="analysis-coverage" class="analysis-coverage" hidden></div>
+    <div class="analysis-tabs" id="analysis-tabs" role="tablist" aria-label="Analyysin sisältö" hidden>
+      <button type="button" id="analysis-tab-overview" role="tab" aria-selected="true" aria-controls="analysis-panel-overview" data-analysis-tab="overview">Arvio</button>
+      <button type="button" id="analysis-tab-knowledge" role="tab" aria-selected="false" aria-controls="analysis-panel-knowledge" tabindex="-1" data-analysis-tab="knowledge">Tietopohja</button>
+      <button type="button" id="analysis-tab-metadata" role="tab" aria-selected="false" aria-controls="analysis-panel-metadata" tabindex="-1" data-analysis-tab="metadata">Metatiedot</button>
+    </div>
+    <div id="analysis-panel-overview" role="tabpanel" aria-labelledby="analysis-tab-overview">
+      <div id="analysis-sections"></div>
+    </div>
+    <div id="analysis-panel-knowledge" role="tabpanel" aria-labelledby="analysis-tab-knowledge" hidden>
+      <p class="hint">Vahvista oikeat tiedot ja korjaa tarvittaessa. Tietopohja tukee editoria, käännöksiä, oikolukua, grafiikkaa ja muita teoksen työkaluja.</p>
+      <div class="knowledge-tools">
+        <label class="field"><span class="field-label">Hae tietopohjasta</span><input id="analysis-knowledge-search" type="search" placeholder="Nimi, paikka tai tapahtuma"></label>
+        <label class="field"><span class="field-label">Tietoryhmä</span><select id="analysis-knowledge-kind"><option value="">Kaikki tiedot</option><option value="character">Henkilöt</option><option value="relationship">Henkilösuhteet</option><option value="location">Paikat</option><option value="event">Tapahtumat</option><option value="scene">Kohtaukset</option><option value="term">Sanasto</option><option value="theme">Teemat</option><option value="concept">Käsitteet</option><option value="claim">Väitteet</option><option value="source">Lähteet</option><option value="narrative">Kerronta ja jatkuvuus</option><option value="summary">Yhteenvedot</option></select></label>
+      </div>
+      <p class="hint" id="analysis-knowledge-count" role="status" aria-live="polite"></p>
+      <button type="button" class="btn btn-ghost" id="analysis-materialize" hidden>Näytä vanhan analyysin tiedot kortteina</button>
+      <div id="analysis-knowledge-list"></div>
+    </div>
+    <div id="analysis-panel-metadata" role="tabpanel" aria-labelledby="analysis-tab-metadata" hidden>
+      <p class="hint">Luokitukset ja julkaisukuvaukset ovat tarkistettavia ehdotuksia. Tuotetiedot kokoaa varsinaiset julkaisutiedot ja ONIX-tiedot.</p>
+      <div id="analysis-meta-sections"></div>
+      <button type="button" class="btn btn-ghost" id="analysis-open-product-info">Avaa tuotetiedot</button>
+    </div>
   </div>
   <footer class="step-actions">
     <button class="btn btn-ai" id="btn-run-analysis">✦ Aja analyysi</button>
@@ -215,6 +240,6 @@
   })();
 </script>
   <script src="demo-terminology.js?v=1"></script>
-  <script src="manuskripti.js?v=35"></script>
+  <script src="manuskripti.js?v=36"></script>
 </body>
 </html>
