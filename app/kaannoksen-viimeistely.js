@@ -1487,6 +1487,7 @@
     }
 
     async function setMode(mode, focusTab) {
+    if (mode === "translation" && typeof window !== "undefined" && window.SkriptLabBookAccess && !window.SkriptLabBookAccess.guardTab("translation.run")) return;
         const next = mode === "translation" ? "translation" : "text";
         if (next !== state.mode && keepOpenReviewForDecision()) return;
         if (next !== state.mode) cancelUnitRun();

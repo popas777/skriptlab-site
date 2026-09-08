@@ -208,6 +208,7 @@
   }
 
   function setView(view, focus = false) {
+    if (view !== 'scenes' && typeof window !== "undefined" && window.SkriptLabBookAccess && !window.SkriptLabBookAccess.guardTab("module.video")) return;
     if (!['scenes', 'style', 'output'].includes(view)) return;
     state.view = view;
     document.querySelectorAll('[data-view]').forEach((button) => { const active = button.dataset.view === view; button.setAttribute('aria-selected', String(active)); button.tabIndex = active ? 0 : -1; });

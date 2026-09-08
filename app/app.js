@@ -937,7 +937,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         { key: 'onix', label: 'ONIX-metadata' }
     ];
     const translationAnalysisKeys = ['glossary', 'style', 'synopsis', 'chapter_analysis'];
-    const canSeeAnalysisMetadata = currentUser && currentUser.role !== 'kirjailija';
+    const canSeeAnalysisMetadata = Boolean(currentUser);
 
     const logoutLink = document.getElementById('logout-link');
     const adminLink = document.getElementById('admin-link');
@@ -5107,7 +5107,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const videoWorkspaceTabs = Array.from(document.querySelectorAll('[data-video-workspace-tab]'));
     const videoWorkspaceTabNames = ['video', 'shorts', 'screenplay', 'animation'];
     const savedVideoWorkspaceTab = localStorage.getItem('skriptlab_video_workspace_tab');
-    setVideoWorkspaceTab(videoWorkspaceTabNames.includes(savedVideoWorkspaceTab) ? savedVideoWorkspaceTab : 'video', {
+    setVideoWorkspaceTab('video', {
         persist: false,
         refresh: false
     });
@@ -5165,14 +5165,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function isViewAllowed(viewId) {
         viewId = canonicalViewId(viewId);
-        if (showcaseDemoMode && showcaseDemoHiddenViews.has(viewId)) return false;
-        if (canSeeAllModules) return true;
-        const groupViews = customAccessViews();
-        if (groupViews) return groupViews.has(viewId);
-        if (currentUser && currentUser.role === 'kirjailija') return writerViews.has(viewId);
-        if (currentUser && currentUser.role === 'kaantaja') return translatorViews.has(viewId);
-        if (currentUser && currentUser.role === 'elamakerta') return biographyViews.has(viewId);
-        return betaCoreViews.has(viewId);
+        // Module discovery is shared by every plan. Server action entitlements
+        // and the common access client decide what can actually be performed.
+        return Object.values(accessModuleViews).some(viewIds => viewIds.includes(viewId));
     }
 
     navItems.forEach(item => {
@@ -5181,20 +5176,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             item.hidden = true;
         }
     });
-    if (showcaseDemoMode) {
-        const navMenu = document.getElementById('nav-menu');
-        const showcaseViews = new Set(showcaseDemoNavOrder);
-        navItems.forEach(item => {
-            const viewId = item.getAttribute('data-view');
-            item.hidden = !showcaseViews.has(viewId) || !isViewAllowed(viewId);
-            item.classList.remove('module-overflow-hidden');
-            if (viewId === 'view-audio') item.textContent = 'Audio';
-        });
-        showcaseDemoNavOrder.forEach(viewId => {
-            const item = navMenu?.querySelector(`li[data-view="${viewId}"]`);
-            if (item) navMenu.appendChild(item);
-        });
-    }
     configureShowcaseDemoUi();
     document.body.classList.remove('access-pending');
     document.getElementById('access-loading-screen')?.setAttribute('aria-hidden', 'true');
@@ -5401,6 +5382,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         syncTopBarContextForView(currentViewId);
         updateHelpAgentContext();
+        document.dispatchEvent(new CustomEvent('skriptlab:module-open', { detail: { viewId: currentViewId } }));
     }
 
     function persistPendingModuleEdits(nextViewId) {
@@ -5408,7 +5390,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             saveWriterDeskText(false);
         }
         if (currentViewId === 'view-kehityseditointi' && nextViewId !== 'view-kehityseditointi') {
-            saveDevelopmentEditingEdits(false);
+            const advancedDevelopment = document.getElementById('book-basic-advanced-development');
+            if (!advancedDevelopment || !advancedDevelopment.hidden) saveDevelopmentEditingEdits(false);
         }
     }
 
@@ -8294,6 +8277,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     function setGraphicsTab(panelId = 'graphics-panel-cover', options = {}) {
+        if (panelId !== 'graphics-panel-cover' && !window.SkriptLabBookAccess.accessDecision(window.SkriptLabBookAccess.getSnapshot(), 'module.cover_illustration').allowed) {
+            window.SkriptLabBookAccess.showUpgrade('module.cover_illustration'); return;
+        }
         const nextPanelId = graphicsTabPanels.some(panel => panel.id === panelId)
             ? panelId
             : 'graphics-panel-cover';
@@ -10332,6 +10318,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 	    }
 
 	    function showMarketingPanel(panelId, focus = false) {
+    if (panelId !== 'marketing-campaign-panel' && typeof window !== "undefined" && window.SkriptLabBookAccess && !window.SkriptLabBookAccess.guardTab("module.marketing")) return;
 	        const panelIds = ['marketing-campaign-panel', 'marketing-html-panel'];
 	        const selectedPanelId = panelIds.includes(panelId) ? panelId : panelIds[0];
 	        document.querySelectorAll('.marketing-workspace-tab').forEach(tab => {
@@ -10352,6 +10339,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 	    }
 
 	    function showMarketingCampaignPanel(panelId, focus = false) {
+    if (panelId !== 'marketing-campaign-plan-panel' && typeof window !== "undefined" && window.SkriptLabBookAccess && !window.SkriptLabBookAccess.guardTab("module.marketing")) return;
 	        const panelIds = [
 	            'marketing-campaign-plan-panel',
 	            'marketing-campaign-preview-panel',
@@ -19613,6 +19601,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     }
 
     async function showAudioWorkspacePanel(panelId) {
+        if (panelId !== 'audio-production-panel' && !(await window.SkriptLabBookAccess.ensure('module.audio'))) return false;
         const preparationPanel = document.getElementById('audio-preparation-panel');
         const leavingDirtyPreparation = panelId !== 'audio-preparation-panel'
             && audioScriptPreparationDirty
@@ -22492,6 +22481,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     }
 
     function showFinnishTranslationPanel(panelId) {
+    if (panelId !== 'suomentaja-create-panel' && typeof window !== "undefined" && window.SkriptLabBookAccess && !window.SkriptLabBookAccess.guardTab("module.translations")) return;
         document.querySelectorAll('.suomentaja-panel').forEach(panel => {
             panel.classList.toggle('hidden', panel.id !== panelId);
         });
@@ -22591,6 +22581,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     }
 
     function showTranslationWorkspacePanel(panelId) {
+    if (panelId !== 'translation-workspace-translate-panel' && typeof window !== "undefined" && window.SkriptLabBookAccess && !window.SkriptLabBookAccess.guardTab("module.translation_workspace")) return;
         document.querySelectorAll('.translation-workspace-panel').forEach(panel => {
             panel.classList.toggle('hidden', panel.id !== panelId);
         });
@@ -27765,6 +27756,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     }
 
     function setVideoWorkspaceTab(tab, options = {}) {
+    if (tab !== 'video' && typeof window !== "undefined" && window.SkriptLabBookAccess && !window.SkriptLabBookAccess.guardTab("module.video")) return;
         const selectedTab = videoWorkspaceTabNames.includes(tab) ? tab : 'video';
         const tabs = document.getElementById('video-workspace-tabs');
         if (!tabs) return;
@@ -28161,6 +28153,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     }
 
     function showBiographyPanel(panelId) {
+    if (panelId !== 'bio-goal-panel' && typeof window !== "undefined" && window.SkriptLabBookAccess && !window.SkriptLabBookAccess.guardTab("module.biography")) return;
         document.querySelectorAll('.biography-panel').forEach(panel => {
             panel.classList.toggle('hidden', panel.id !== panelId);
         });
@@ -29549,6 +29542,29 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             });
         });
     }
+
+
+    window.SkriptLabBasicHooks = {
+        openModule,
+        audioPayload: () => audioProductionPayload({ includeSegments: false }),
+        reloadGraphics: () => initializeGraphicsWorkspace(),
+        reloadProject: async () => {
+            if (!window.manuscriptData?.id) return;
+            const response = await apiFetch(`/api/projects/${window.manuscriptData.id}`);
+            if (response.ok) setActiveManuscript(await response.json());
+        },
+        flush: async () => {
+            const editor = document.getElementById('kirjoita-editoi-frame')?.contentWindow?.SkriptLabWriteEditor;
+            if (editor && Number(editor.projectId()) === Number(window.manuscriptData?.id)) await editor.flush();
+            await flushPendingManuscriptEdits();
+            // Embedded editors persist their own changes. Fetch their saved state
+            // before production so the shell cannot overwrite a newer chapter.
+            if (window.manuscriptData?.id) {
+                const response = await apiFetch(`/api/projects/${window.manuscriptData.id}`);
+                if (response.ok) setActiveManuscript(await response.json());
+            }
+        }
+    };
 
     {
         loadUsage();

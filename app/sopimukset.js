@@ -649,6 +649,7 @@
   }
 
   function showPanel(panelId, options = {}) {
+    if (panelId !== "contracts-decision-panel" && typeof window !== "undefined" && window.SkriptLabBookAccess && !window.SkriptLabBookAccess.guardTab("module.contracts")) return;
     const target = byId(panelId);
     if (!target) return;
     state.activePanel = panelId;

@@ -687,6 +687,7 @@
   }
 
   function setActiveView(view, options = {}) {
+    if (view !== 'world' && typeof window !== "undefined" && window.SkriptLabBookAccess && !window.SkriptLabBookAccess.guardTab("module.video")) return;
     const next = ['world', 'library', 'scenes', 'preview', 'export'].includes(view) ? view : 'world';
     if (next !== 'preview') disconnectPreviewAssetObserver();
     if (next !== 'library') state.libraryAssetObserver?.disconnect();

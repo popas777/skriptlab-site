@@ -68,6 +68,7 @@ function placeSourceForm() {
 }
 
 function setTab(tab, focus = false) {
+    if (tab !== 'demo' && typeof window !== "undefined" && window.SkriptLabBookAccess && !window.SkriptLabBookAccess.guardTab("module.world_studio")) return;
   state.tab = tab === 'files' ? 'files' : 'demo';
   for (const name of ['demo', 'files']) {
     const active = name === state.tab;

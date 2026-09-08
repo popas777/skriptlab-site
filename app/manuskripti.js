@@ -125,11 +125,8 @@
   ];
 
   function visibleAnalysisSections() {
-    return ANALYSIS_SECTIONS.filter(([field]) => {
-      if (["marketing_short", "marketing_long"].includes(field)) return hasModule("marketing");
-      if (field === "backcover") return hasModule("product_info") || hasModule("marketing");
-      return true;
-    }).map(([field, label]) => [field, demoUiText(label)]);
+    // Previously generated results remain visible on the same first tab for every plan.
+    return ANALYSIS_SECTIONS.map(([field, label]) => [field, demoUiText(label)]);
   }
 
   function visibleMetaSections() {
@@ -546,7 +543,7 @@
     };
     const skipped = Promise.resolve({ skipped: true });
     const canLoadTranslations = hasModule("translations") || hasModule("multilingual_publication");
-    const [misc, covers, graphics, layout, publication, translations, audio, knowledge] = await Promise.allSettled([
+    const [misc, covers, graphics, layout, publication, translations, audio, knowledge, simpleProduction] = await Promise.allSettled([
       hasModule("support_materials") ? api("/projects/" + projectId + "/misc-assets") : skipped,
       hasModule("cover_illustration") ? api("/projects/" + projectId + "/cover-images") : skipped,
       hasModule("cover_illustration") ? api("/projects/" + projectId + "/graphic-assets?limit=1") : skipped,
@@ -555,6 +552,7 @@
       canLoadTranslations ? api("/projects/" + projectId + "/translations") : skipped,
       hasModule("audio") ? api("/audio/productions/latest?project_id=" + encodeURIComponent(projectId)) : skipped,
       (hasModule("analysis") || hasModule("development_editing")) ? api("/projects/" + projectId + "/knowledge") : skipped,
+      api("/projects/" + projectId + "/basic-production/state"),
     ]);
     return {
       misc: misc.status === "fulfilled" && Array.isArray(misc.value) ? misc.value : [],
@@ -567,13 +565,14 @@
       audio: audio.status === "fulfilled" && audio.value && typeof audio.value === "object"
         ? audio.value : null,
       knowledge: knowledge.status === "fulfilled" && Array.isArray(knowledge.value) ? knowledge.value : [],
+      simpleProduction: simpleProduction.status === "fulfilled" ? simpleProduction.value : null,
       versionCount: 0,
       availability: {
         misc: !hasModule("support_materials") || misc.status === "fulfilled",
         covers: !hasModule("cover_illustration") || covers.status === "fulfilled",
         graphics: !hasModule("cover_illustration") || graphics.status === "fulfilled",
         layout: !hasModule("book_layout") || layout.status === "fulfilled",
-        publication: !hasModule("publication_package") || publication.status === "fulfilled",
+        publication: simpleProduction.status === "fulfilled" || !hasModule("publication_package") || publication.status === "fulfilled",
         translations: !canLoadTranslations || translations.status === "fulfilled",
         audio: !hasModule("audio") || audio.status === "fulfilled",
         knowledge: !(hasModule("analysis") || hasModule("development_editing")) || knowledge.status === "fulfilled",
@@ -1357,7 +1356,7 @@
       { id: "kehityseditointi", name: "Kehityspalaute", desc: developmentDescription,
         status: projectStageStatus(developmentDone, developmentStarted), moduleView: "view-kehityseditointi" },
       { id: "oikoluku", name: "Oikoluku ja viimeistely", desc: "Kielenhuolto ja viimeistelty versio",
-        status: projectStageStatus(proofreadDone, proofreadStarted), moduleView: "view-oikoluku" },
+        status: projectStageStatus(proofreadDone, proofreadStarted || Boolean(stageAssets.simpleProduction?.latest_proofread)), moduleView: "view-kaannoksen-viimeistely" },
       { id: "kansi", name: "Kansi ja grafiikka", desc: "Kansi, kuvamaailma ja infografiikat",
         status: projectStageStatus(hasFullCoverAssets(stageAssets), hasCoverAssets(stageAssets) || hasGraphicAssets(stageAssets) || coverPromptStarted), moduleView: "view-kuvitus" },
       { id: "oheisaineistot", name: "Oheisaineistot", desc: showcaseDemo ? "Hakemistot, lähdeluettelo ja täydentävät aineistot" : "Copysivu, hakemistot ja lähdeluettelo",
@@ -1368,8 +1367,8 @@
         status: projectStageStatus(translationDone, translations.length > 0), moduleView: "view-kaannokset" },
       { id: "audio", name: "Audio", desc: "Äänikirjaversio ja tuotannon tila",
         status: projectStageStatus(audio.done, audio.active), moduleView: "view-audio" },
-      { id: "julkaisupaketti", name: "Tiedostopaketti", desc: showcaseDemo ? "Lukittu lähde ja koottu tiedostopaketti" : "Lukittu lähde ja toimituspaketti",
-        status: projectStageStatus(Boolean(stageAssets.publication?.latest_package), false), moduleView: "view-julkaisupaketti" },
+      { id: "julkaisupaketti", name: "Julkaisu", desc: "E-kirja ja äänikirja omaan SkriptLab-kirjastoon",
+        status: projectStageStatus(stageAssets.simpleProduction?.latest_publication?.status === "completed", Boolean(stageAssets.simpleProduction?.latest_publication)), moduleView: "view-julkaisupaketti" },
       { id: "monikielinen", name: "Kieliversiot", desc: "Käännös ja tarkastettu kieliversio",
         status: projectStageStatus(translationDone, translations.length > 0), moduleView: "view-monikielinen-julkaisu" },
       { id: "markkinointi", name: "Kampanjastudio", desc: "Konsepti, kanavatekstit ja kampanjapaketti",
@@ -1389,7 +1388,7 @@
       kasikirjoitus: "write_edit",
       analyysi: "analysis",
       kehityseditointi: "development_editing",
-      oikoluku: "proofread",
+      oikoluku: "translation_finishing",
       kansi: "cover_illustration",
       oheisaineistot: "support_materials",
       taitto: "book_layout",
@@ -1400,7 +1399,7 @@
       markkinointi: "marketing",
     };
     return steps
-      .filter((step) => hasModule(stageModuleKeys[step.id]))
+      .filter((step) => Boolean(stageModuleKeys[step.id]))
       .map((step) => unavailableStepIds.has(step.id)
         ? { ...step, status: "unavailable", statusLabel: "Tieto ei saatavilla" }
         : step)
@@ -1607,6 +1606,10 @@
   }
 
   function selectAnalysisTab(name, focus = false) {
+    if (name !== "overview" && window.SkriptLabBookAccess
+        && !window.SkriptLabBookAccess.accessDecision(window.SkriptLabBookAccess.getSnapshot(), "module.analysis").allowed) {
+      window.SkriptLabBookAccess.showUpgrade("module.analysis"); return;
+    }
     analysisActiveTab = name;
     document.querySelectorAll("[data-analysis-tab]").forEach((button) => {
       const selected = button.dataset.analysisTab === name;
@@ -2146,11 +2149,11 @@
 
   function bindEvents() {
     document.querySelectorAll('[data-goto="analyysi"]').forEach((button) => {
-      button.hidden = !hasModule("analysis");
+      button.hidden = false;
     });
-    $("btn-run-analysis").hidden = !hasModule("analysis");
-    $("btn-open-development").hidden = !hasModule("development_editing");
-    $("btn-open-editor").hidden = !hasModule("write_edit");
+    $("btn-run-analysis").hidden = false;
+    $("btn-open-development").hidden = false;
+    $("btn-open-editor").hidden = false;
     $("btn-upload").addEventListener("click", () => $("file-input").click());
     $("file-input").addEventListener("change", async (event) => {
       const file = event.target.files[0];
@@ -2196,7 +2199,7 @@
     document.querySelectorAll("[data-goto]").forEach((btn) =>
       btn.addEventListener("click", () => {
         const target = btn.dataset.goto;
-        if (target === "analyysi" && !hasModule("analysis")) return;
+        // First module screens remain discoverable; AI actions are checked separately.
         if (target === "library") renderLibrary();
         if (target === "project") renderProject();
         if (["kasikirjoitus", "analyysi", "rakenne"].includes(target)) renderStepView(target);

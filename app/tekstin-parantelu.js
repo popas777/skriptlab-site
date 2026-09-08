@@ -799,8 +799,7 @@
         $("ti-translation-select").disabled = state.busy || reviewing || !state.canUseTranslations || !state.translations.length;
         document.querySelectorAll("[data-ti-mode]").forEach((button) => {
             button.disabled = state.busy
-                || reviewing
-                || (button.dataset.tiMode === "translation" && !state.canUseTranslations);
+                || reviewing;
         });
         $("ti-import-button").disabled = state.busy || reviewing;
         $("ti-bilingual-button").disabled = state.busy || reviewing || !state.canImportBilingual;
@@ -1252,6 +1251,7 @@
     }
 
     async function setMode(mode, focusTab) {
+    if (mode === "translation" && typeof window !== "undefined" && window.SkriptLabBookAccess && !window.SkriptLabBookAccess.guardTab("translation.run")) return;
         const next = mode === "translation" ? "translation" : "normal";
         if (next === "translation" && !state.canUseTranslations) {
             toast("Käännöksen parantelu vaatii käännöstyötilan käyttöoikeuden.");
@@ -2159,5 +2159,13 @@
         translationChunks,
     };
 
+    document.addEventListener("skriptlab:access", event => {
+        const access = event.detail;
+        const modules = access?.allowed_modules || [];
+        state.canUseTranslations = modules.includes("translations") || modules.includes("translation_workspace")
+            || access?.actions?.["translation.run"]?.allowed === true;
+        state.canImportBilingual = modules.includes("translation_workspace");
+        renderAll();
+    });
     initialize();
 })();

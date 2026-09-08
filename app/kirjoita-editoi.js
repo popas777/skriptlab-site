@@ -1194,6 +1194,7 @@
   }
 
   function setAssistantTab(name) {
+    if (name !== "chat" && typeof window !== "undefined" && window.SkriptLabBookAccess && !window.SkriptLabBookAccess.guardTab("module.write_edit")) return;
     document.querySelectorAll(".assistant-tab").forEach((button) => {
       const active = button.dataset.assistantTab === name;
       button.classList.toggle("is-active", active);
@@ -2435,6 +2436,17 @@
       setLoading(false);
     }
   }
+
+  window.SkriptLabWriteEditor = {
+    projectId: () => state.project?.id || null,
+    async flush() {
+      const deadline = Date.now() + 30000;
+      while (state.saving && Date.now() < deadline) await new Promise(resolve => window.setTimeout(resolve, 50));
+      if (state.saving) throw new Error("Editorin tallennus on vielä kesken. Yritä hetken kuluttua uudelleen.");
+      if (state.dirty) await saveNow(false);
+      if (state.dirty || state.saving) throw new Error("Tallenna editorin muutokset ennen tuotannon käynnistämistä.");
+    }
+  };
 
   window.SkriptLabWriteEditorTestHooks = {
     paragraphModel,
