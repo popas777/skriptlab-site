@@ -796,6 +796,14 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         'view-kaannoksen-viimeistely'
     ]);
     const biographyViews = new Set(['view-kirjani', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-ai-tyonkulku', 'view-viimeistely', 'view-korjaukset', 'view-elamakerta', 'view-oikoluku', 'view-kuvitus', 'view-notebooklm', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-markkinointi', 'view-audio', 'view-video', 'view-3d-studio', 'view-julkaisupaketti', 'view-julkaise']);
+    const basicHiddenViews = new Set(['view-skill', 'view-notebooklm']);
+    const basicCoreViews = new Set([
+        'view-kirjani', 'view-analyysi', 'view-kehityseditointi',
+        'view-kirjoita-editoi', 'view-mobiilieditori', 'view-oikoluku',
+        'view-kaannoksen-viimeistely', 'view-kuvitus', 'view-oheisaineistot',
+        'view-taitto', 'view-tuotetiedot', 'view-julkaisupaketti',
+        'view-audio', 'view-viimeistely', 'view-kirjasto'
+    ]);
     const accessModuleViews = {
         manuscripts: ['view-kirjani'],
         analysis: ['view-analyysi'],
@@ -5165,9 +5173,36 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function isViewAllowed(viewId) {
         viewId = canonicalViewId(viewId);
+        if (isBasicNavigation() && basicHiddenViews.has(viewId)) return false;
         // Module discovery is shared by every plan. Server action entitlements
         // and the common access client decide what can actually be performed.
         return Object.values(accessModuleViews).some(viewIds => viewIds.includes(viewId));
+    }
+
+    function isBasicNavigation() {
+        const access = window.SkriptLabBookAccess?.getSnapshot();
+        return (access?.plan_key || currentUser?.access_plan_key) === 'writer_basic';
+    }
+    function decorateModuleNavigation() {
+        const basic = isBasicNavigation();
+        document.body.classList.toggle('basic-navigation', basic);
+        const legend = document.getElementById('module-menu-legend');
+        if (legend) legend.hidden = !basic;
+        navItems.forEach(item => {
+            const hidden = basic && basicHiddenViews.has(item.dataset.view);
+            if (hidden || item.dataset.basicHidden === 'true') item.hidden = hidden;
+            item.dataset.basicHidden = String(hidden);
+            const core = basic && basicCoreViews.has(item.dataset.view);
+            item.classList.toggle('module-core', core);
+            item.classList.toggle('module-addon', basic && !core && !hidden);
+            if (basic && !hidden) {
+                item.setAttribute('aria-describedby', core ? 'module-legend-core' : 'module-legend-addon');
+                item.title = core ? 'Perustyökalu · sisältyy Kirjailija-basiciin' : 'Lisäpalvelu · tutustu toimintoihin';
+            } else {
+                item.removeAttribute('aria-describedby');
+                item.removeAttribute('title');
+            }
+        });
     }
 
     navItems.forEach(item => {
@@ -5233,6 +5268,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         });
     }
     refreshModuleMenuOverflow();
+    decorateModuleNavigation();
+    document.addEventListener('skriptlab:access', () => {
+        decorateModuleNavigation();
+        refreshModuleMenuOverflow();
+        if (basicHiddenViews.has(currentViewId) && !isViewAllowed(currentViewId)) openModule('view-kirjani');
+    });
 
     function setBookTab(panelId = 'book-preview-tab') {
         document.querySelectorAll('.book-tab').forEach(button => {

@@ -2117,6 +2117,45 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 .sidebar nav li.active { background: rgba(121, 192, 255, 0.1); color: var(--accent-color); font-weight: 500; }
 .sidebar nav li.module-overflow-hidden { display: none !important; }
 
+.module-menu-legend {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px 14px;
+    margin: 0 8px 10px;
+    font-size: 11px;
+    line-height: 1.5;
+}
+.module-menu-legend[hidden] { display: none; }
+#module-legend-core { color: var(--text-primary); font-weight: 700; }
+#module-legend-addon { color: var(--text-secondary); }
+.basic-navigation .sidebar nav li.module-core {
+    color: var(--text-primary);
+    font-weight: 650;
+}
+.basic-navigation .sidebar nav li.module-addon {
+    color: var(--text-secondary);
+    font-weight: 400;
+}
+.basic-navigation .sidebar nav li.module-addon::after {
+    content: "+";
+    margin-left: 7px;
+    font-size: 12px;
+    font-weight: 500;
+}
+.basic-navigation .sidebar nav li:is(.module-core, .module-addon):hover {
+    color: var(--text-primary);
+}
+.basic-navigation .sidebar nav li:is(.module-core, .module-addon).active {
+    color: var(--accent-color);
+    font-weight: 650;
+    box-shadow: inset 3px 0 var(--accent-color);
+}
+.basic-navigation .sidebar nav li:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: -2px;
+}
+
 .sidebar-more-button {
     display: flex;
     flex: none;
