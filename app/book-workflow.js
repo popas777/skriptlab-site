@@ -375,7 +375,7 @@
   }
   function mountAdmin() {
     if (!location.pathname.endsWith("admin.html")) return;
-    const root = document.querySelector(".main-content") || document.querySelector("main") || document.body;
+    const root = $("admin-access-requests-host") || document.querySelector(".main-content") || document.querySelector("main") || document.body;
     const panel = document.createElement("section"); panel.className = "book-basic book-admin-access";
     panel.innerHTML = '<h2>Lisäpalvelupyynnöt ja käyttöoikeudet</h2><p>Myönnä kirjalle lisäkertoja tai avaa toiminto. Pyyntöihin ei liity automaattista maksua.</p><button id="book-admin-refresh" type="button">Päivitä pyynnöt</button><div id="book-admin-requests"></div><section class="book-basic-card"><h3>Myönnä käyttöoikeus</h3><div class="book-basic-grid"><label>Käyttäjän tunniste<input id="book-admin-user" type="number" min="1"></label><label>Teoksen tunniste (valinnainen)<input id="book-admin-project" type="number" min="1"></label><label>Toiminto<select id="book-admin-action"></select></label><label>Lisäkerrat<input id="book-admin-amount" type="number" min="1" value="1"></label></div><label class="book-basic-check"><input id="book-admin-unlimited" type="checkbox">Avaa toiminto ilman kertarajaa</label><label>Peruste<textarea id="book-admin-reason" rows="3" required placeholder="Esim. maksettu lisäpalvelu tai myyntiin perustuva painotaiton avaus."></textarea></label><button id="book-admin-grant" type="button">Myönnä käyttöoikeus</button></section>' + status("book-admin-status");
     root.append(panel);

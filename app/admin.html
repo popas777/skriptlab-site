@@ -13,17 +13,94 @@
             width: 100%;
             padding-top: 20px;
         }
-        .admin-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
+        .admin-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 6px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            background: var(--sidebar-bg);
         }
-        @media (max-width: 800px) {
-            .admin-grid { grid-template-columns: 1fr; }
+        .admin-tab {
+            flex: 1 1 auto;
+            min-height: 44px;
+            padding: 10px 16px;
+            border: 1px solid transparent;
+            border-radius: 9px;
+            background: transparent;
+            color: var(--text-secondary);
+            font: 500 14px/1.35 'Inter', sans-serif;
+            cursor: pointer;
         }
+        .admin-tab:hover {
+            background: rgba(16, 185, 129, 0.06);
+            color: var(--text-primary);
+        }
+        .admin-tab[aria-selected="true"] {
+            background: rgba(16, 185, 129, 0.12);
+            border-color: rgba(5, 150, 105, 0.3);
+            color: var(--ai-gradient-end);
+            font-weight: 600;
+        }
+        .admin-tab:focus-visible,
+        .admin-tab-panel:focus-visible {
+            outline: 2px solid var(--ai-gradient-end);
+            outline-offset: 3px;
+        }
+        .admin-tab-panel[hidden] { display: none; }
+        .admin-page .book-admin-access {
+            max-width: none;
+            margin: 0 0 24px;
+            padding: 24px;
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            background: var(--sidebar-bg);
+        }
+        .admin-page .book-admin-access h2 { font-size: 20px; }
         .admin-card {
+            min-width: 0;
             padding: 24px;
             border-radius: 16px;
+        }
+        .admin-section-description {
+            color: var(--text-secondary);
+            font-size: 13px;
+            line-height: 1.5;
+            margin-bottom: 16px;
+        }
+        .admin-status {
+            color: var(--text-secondary);
+            font-size: 13px;
+            min-height: 20px;
+            margin-bottom: 12px;
+        }
+        .admin-page .user-item { gap: 16px; }
+        .admin-page .user-info {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+        .admin-page .settings-row input,
+        .admin-page .settings-row select,
+        .admin-page .settings-row textarea { min-width: 0; max-width: 100%; }
+        .admin-page .user-access-group-select { max-width: 100%; }
+        .admin-page .top-bar { flex-shrink: 0; }
+        @media (max-width: 640px) {
+            .admin-container { padding-top: 8px; }
+            .admin-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .admin-tab { padding: 10px 8px; }
+            .admin-card { padding: 18px; }
+            .admin-page .book-admin-access { padding: 18px; }
+            .admin-page .user-item { align-items: flex-start; flex-wrap: wrap; }
+            .admin-page .user-item > div { min-width: 0; max-width: 100%; }
+            .admin-page .top-bar {
+                height: auto;
+                min-height: var(--topbar-height);
+                flex-wrap: wrap;
+                padding: 12px 16px;
+            }
+            .admin-page .top-bar-right { max-width: 100%; flex-wrap: wrap; }
         }
         .settings-row {
             display: flex;
@@ -72,7 +149,7 @@
             font-size: 12px;
             line-height: 1.5;
         }
-        
+
         .user-list {
             background: rgba(0,0,0,0.2);
             border-radius: 8px;
@@ -239,9 +316,9 @@
     </style>
 <link rel="stylesheet" href="book-access.css?v=1">
 <script src="book-access.js?v=1"></script>
-<script src="book-workflow.js?v=1" defer></script>
+<script src="book-workflow.js?v=2" defer></script>
 </head>
-<body>
+<body class="admin-page">
     <!-- Supistettu Top Bar ylläpitäjälle -->
     <nav class="top-bar glass-panel">
         <div class="top-bar-left">
@@ -255,206 +332,28 @@
 
     <main class="main-content">
         <div class="admin-container">
-            <div class="header" style="margin-bottom: 40px;">
+            <div class="header">
                 <div class="header-info">
                     <h2>Järjestelmänhallinta</h2>
-                    <p>Globaalien asetusten, API-avainten ja käyttäjätason projektioikeuksien määritys.</p>
+                    <p>Hallitse käyttäjiä, käyttöoikeuksia ja palvelun asetuksia.</p>
                 </div>
             </div>
 
-            <div class="admin-grid">
-                <!-- API Avainten hallinta -->
+            <div class="admin-tabs" role="tablist" aria-label="Järjestelmänhallinnan osiot">
+                <button type="button" class="admin-tab" id="admin-tab-users" role="tab" aria-controls="admin-panel-users" aria-selected="true" tabindex="0" data-admin-tab="users">Käyttäjät</button>
+                <button type="button" class="admin-tab" id="admin-tab-invites" role="tab" aria-controls="admin-panel-invites" aria-selected="false" tabindex="-1" data-admin-tab="invites">Kutsut</button>
+                <button type="button" class="admin-tab" id="admin-tab-access" role="tab" aria-controls="admin-panel-access" aria-selected="false" tabindex="-1" data-admin-tab="access">Käyttöoikeudet</button>
+                <button type="button" class="admin-tab" id="admin-tab-models" role="tab" aria-controls="admin-panel-models" aria-selected="false" tabindex="-1" data-admin-tab="models">Tekoälymallit</button>
+                <button type="button" class="admin-tab" id="admin-tab-feedback" role="tab" aria-controls="admin-panel-feedback" aria-selected="false" tabindex="-1" data-admin-tab="feedback">Palautteet</button>
+                <button type="button" class="admin-tab" id="admin-tab-system" role="tab" aria-controls="admin-panel-system" aria-selected="false" tabindex="-1" data-admin-tab="system">Järjestelmä</button>
+            </div>
+
+            <section class="admin-tab-panel" id="admin-panel-users" role="tabpanel" aria-labelledby="admin-tab-users" tabindex="0">
                 <div class="admin-card glass-panel">
-                    <h3 style="margin-bottom: 24px; color: var(--text-primary);">Tekoälyn mallit</h3>
-                    
-                    <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.5; margin-bottom: 24px;">
-                        API-avaimet asetetaan palvelimen ympäristömuuttujiin. Tässä näkymässä valitaan oletusmallit ja mallikohtainen käsittelyalue. EU-valinnan voi tehdä vain mallille, jolla on varmennettu alueellinen API-reitti.
-                    </p>
-                    
-                    <div class="settings-row">
-                        <label>Käytettävä tekstimallin oletus</label>
-                        <select id="default-model-select" style="padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; outline: none; margin-bottom: 12px;"></select>
-                    </div>
-
-                    <button id="save-model-btn" class="btn btn-primary">Tallenna oletusmalli</button>
-                    <p id="model-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
-
-                    <div class="settings-row" style="margin-top: 24px;">
-                        <label>Vaativat tekstitehtävät</label>
-                        <select id="analysis-structure-model-select" style="padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; outline: none; margin-bottom: 12px;"></select>
-                        <p style="color: var(--text-secondary); font-size: 12px; line-height: 1.5; margin-top: 0;">
-                            Tätä käytetään, kun analyysissa, toimitustyössä, oikoluvussa tai muussa vaativassa tekstitehtävässä ei voi valita mallia erikseen. Tehtäväkohtainen mallivalinta ohittaa tämän oletuksen.
-                        </p>
-                    </div>
-
-                    <button id="save-analysis-structure-model-btn" class="btn btn-secondary">Tallenna vaativien tehtävien malli</button>
-                    <p id="analysis-structure-model-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
-
-                    <div class="settings-row" style="margin-top: 24px;">
-                        <label>Käännöspromptin luonti</label>
-                        <select id="translation-guidelines-model-select" style="padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; outline: none; margin-bottom: 12px;"></select>
-                        <p style="color: var(--text-secondary); font-size: 12px; line-height: 1.5; margin-top: 0;">
-                            Tätä käytetään, kun käännösosiossa luodaan räätälöity käännösprompti mallikutsulla. Varsinainen käännösmalli valitaan edelleen käännösosiossa.
-                        </p>
-                    </div>
-
-                    <button id="save-translation-guidelines-model-btn" class="btn btn-secondary">Tallenna käännöspromptin malli</button>
-                    <p id="translation-guidelines-model-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
-
-                    <div class="settings-row" style="margin-top: 24px;">
-                        <label>Mallirekisteri</label>
-                        <div class="user-list" id="model-registry-list">
-                            <div class="user-item">
-                                <div class="user-info">
-                                    <h4>Ladataan malleja...</h4>
-                                    <p>Haetaan backendistä.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="admin-card glass-panel">
-                    <h3 style="margin-bottom: 24px; color: var(--text-primary);">Järjestelmän tila</h3>
-                    <div class="user-list" id="system-status-list">
-                        <div class="user-item">
-                            <div class="user-info">
-                                <h4>Ladataan tilaa...</h4>
-                                <p>Haetaan backendistä.</p>
-                            </div>
-                        </div>
-                    </div>
-                    <p id="system-status-message" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
-                </div>
-
-                <div class="admin-card glass-panel">
-                    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom: 20px;">
-                        <div>
-                            <h3 style="margin-bottom: 6px; color: var(--text-primary);">Palautteet</h3>
-                            <p style="color: var(--text-secondary); font-size: 13px;">Käyttäjien moduulikohtaiset palautteet.</p>
-                        </div>
-                        <button id="refresh-feedback-btn" class="btn btn-secondary" style="font-size: 12px;">Päivitä</button>
-                    </div>
-                    <div class="user-list feedback-list" id="feedback-list">
-                        <div class="user-item">
-                            <div class="user-info">
-                                <h4>Ladataan palautteita...</h4>
-                                <p>Haetaan backendistä.</p>
-                            </div>
-                        </div>
-                    </div>
-                    <p id="feedback-admin-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
-                </div>
-
-                <div class="admin-card glass-panel">
-                    <h3 style="margin-bottom: 12px; color: var(--text-primary);">Käyttöoikeusryhmät</h3>
-                    <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.5; margin-bottom: 20px;">
-                        Luo asiakas- tai pilottikohtaisia ryhmiä. Tekstini kuuluu aina mukaan, ja valitut moduulit tulevat sen lisäksi.
-                    </p>
-
-                    <div class="settings-row">
-                        <label>Ryhmän nimi</label>
-                        <input id="access-group-name" type="text" maxlength="120" placeholder="Esimerkiksi Kustantamon analyysipilotti">
-                    </div>
-                    <div class="settings-row">
-                        <label>Kuvaus</label>
-                        <textarea id="access-group-description" maxlength="500" placeholder="Kenelle ryhmä on tarkoitettu ja mitä sillä kokeillaan?"></textarea>
-                    </div>
-                    <div class="settings-row">
-                        <label>Sallitut moduulit</label>
-                        <div id="access-group-module-options" class="module-checkbox-grid"></div>
-                    </div>
-                    <button id="create-access-group-btn" class="btn btn-primary" type="button">Luo käyttöoikeusryhmä</button>
-                    <p id="access-group-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
-
-                    <div class="settings-row" style="margin-top:24px; margin-bottom:0;">
-                        <label>Luodut ryhmät</label>
-                        <div class="user-list" id="access-group-list">
-                            <div class="user-item"><div class="user-info"><h4>Ladataan ryhmiä...</h4></div></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="admin-card glass-panel">
-                    <h3 style="margin-bottom: 24px; color: var(--text-primary);">Kutsut & Käyttäjät</h3>
-                    
-                    <div class="settings-row">
-                        <label>Sähköposti</label>
-                        <input id="invite-email" type="text" inputmode="email" placeholder="nimi@example.com">
-                    </div>
-
-                    <div class="settings-row">
-                        <label>Rooli</label>
-                        <select id="invite-role" style="padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; outline: none;">
-                            <option value="kirjailija">Kirjailija</option>
-                            <option value="toimittaja">Toimittaja</option>
-                            <option value="kaantaja">Kääntäjä</option>
-                            <option value="elamakerta">Elämäkerta</option>
-                            <option value="org_admin">Org admin</option>
-                            <option value="test_user">Test user</option>
-                            <option value="admin">Admin</option>
-                        </select>
-                    </div>
-
-                    <div class="settings-row">
-                        <label>Käyttöoikeusryhmä</label>
-                        <select id="invite-access-group" style="padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-primary); font-family: inherit; outline: none;">
-                            <option value="">Roolin oletusoikeudet</option>
-                        </select>
-                    </div>
-
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                        <div class="settings-row">
-                            <label>Käyttökerrat</label>
-                            <input id="invite-max-uses" type="text" inputmode="numeric" value="1">
-                        </div>
-                        <div class="settings-row">
-                            <label>Voimassa päiviä</label>
-                            <input id="invite-days" type="text" inputmode="numeric" value="30">
-                        </div>
-                    </div>
-
-                    <div class="settings-row">
-                        <label style="display:flex; flex-direction:row; align-items:center; gap:8px; margin-bottom:0;">
-                            <input id="invite-send-email" type="checkbox" style="width:auto; padding:0;">
-                            Lähetä kutsukoodi sähköpostiin
-                        </label>
-                    </div>
-
-                    <div class="settings-row">
-                        <label>Sähköpostin otsikko</label>
-                        <input id="invite-email-subject" type="text" value="SkriptLab-kutsukoodi">
-                    </div>
-
-                    <div class="settings-row">
-                        <label>Saateteksti</label>
-                        <textarea id="invite-email-message">Hei,
-
-sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
-                    </div>
-                    
-                    <button id="create-invite-btn" class="btn btn-primary">Luo kutsu</button>
-                    <p id="invite-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
-                    <div id="new-invite-code" class="hidden" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.28); border-radius: 8px; padding: 12px; margin: 12px 0 24px;">
-                        <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px;">Kutsukoodi näytetään vain kerran.</p>
-                        <code id="invite-code-value" style="display:block; color: var(--text-primary); font-size: 15px; word-break: break-all;"></code>
-                        <a id="invite-mailto-link" class="btn btn-secondary hidden" href="#" style="display:inline-block; margin-top:10px; font-size:12px; padding:7px 10px;">Avaa sähköpostiohjelmassa</a>
-                    </div>
-
-                    <div class="settings-row" style="margin-top: 24px;">
-                        <label>Viimeisimmät kutsut</label>
-                        <div class="user-list" id="invite-list">
-                            <div class="user-item">
-                                <div class="user-info">
-                                    <h4>Ladataan kutsuja...</h4>
-                                    <p>Haetaan backendistä.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="settings-row" style="margin-top: 24px;">
-                        <label>Käyttäjät</label>
+                    <h3 style="margin-bottom: 8px; color: var(--text-primary);">Käyttäjät</h3>
+                    <p class="admin-section-description">Hallitse käyttäjien rooleja, käyttöoikeusryhmiä ja käyttörajoja.</p>
+                    <p id="admin-user-status" class="admin-status" role="status"></p>
+                    <div class="settings-row" style="margin-bottom: 0;">
                         <div class="user-list" id="admin-user-list">
                             <div class="user-item">
                                 <div class="user-info">
@@ -555,7 +454,209 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                         <p id="usage-limit-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
                     </div>
                 </div>
-            </div>
+            </section>
+
+            <section class="admin-tab-panel" id="admin-panel-invites" role="tabpanel" aria-labelledby="admin-tab-invites" tabindex="0" hidden>
+                <div class="admin-card glass-panel">
+                    <h3 style="margin-bottom: 24px; color: var(--text-primary);">Kutsut</h3>
+
+                    <div class="settings-row">
+                        <label>Sähköposti</label>
+                        <input id="invite-email" type="text" inputmode="email" placeholder="nimi@example.com">
+                    </div>
+
+                    <div class="settings-row">
+                        <label>Rooli</label>
+                        <select id="invite-role" style="padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; outline: none;">
+                            <option value="kirjailija">Kirjailija</option>
+                            <option value="toimittaja">Toimittaja</option>
+                            <option value="kaantaja">Kääntäjä</option>
+                            <option value="elamakerta">Elämäkerta</option>
+                            <option value="org_admin">Org admin</option>
+                            <option value="test_user">Test user</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+
+                    <div class="settings-row">
+                        <label>Käyttöoikeusryhmä</label>
+                        <select id="invite-access-group" style="padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-primary); font-family: inherit; outline: none;">
+                            <option value="">Roolin oletusoikeudet</option>
+                        </select>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="settings-row">
+                            <label>Käyttökerrat</label>
+                            <input id="invite-max-uses" type="text" inputmode="numeric" value="1">
+                        </div>
+                        <div class="settings-row">
+                            <label>Voimassa päiviä</label>
+                            <input id="invite-days" type="text" inputmode="numeric" value="30">
+                        </div>
+                    </div>
+
+                    <div class="settings-row">
+                        <label style="display:flex; flex-direction:row; align-items:center; gap:8px; margin-bottom:0;">
+                            <input id="invite-send-email" type="checkbox" style="width:auto; padding:0;">
+                            Lähetä kutsukoodi sähköpostiin
+                        </label>
+                    </div>
+
+                    <div class="settings-row">
+                        <label>Sähköpostin otsikko</label>
+                        <input id="invite-email-subject" type="text" value="SkriptLab-kutsukoodi">
+                    </div>
+
+                    <div class="settings-row">
+                        <label>Saateteksti</label>
+                        <textarea id="invite-email-message">Hei,
+
+sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
+                    </div>
+
+                    <button id="create-invite-btn" class="btn btn-primary">Luo kutsu</button>
+                    <p id="invite-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
+                    <div id="new-invite-code" class="hidden" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.28); border-radius: 8px; padding: 12px; margin: 12px 0 24px;">
+                        <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px;">Kutsukoodi näytetään vain kerran.</p>
+                        <code id="invite-code-value" style="display:block; color: var(--text-primary); font-size: 15px; word-break: break-all;"></code>
+                        <a id="invite-mailto-link" class="btn btn-secondary hidden" href="#" style="display:inline-block; margin-top:10px; font-size:12px; padding:7px 10px;">Avaa sähköpostiohjelmassa</a>
+                    </div>
+
+                    <div class="settings-row" style="margin-top: 24px;">
+                        <label>Viimeisimmät kutsut</label>
+                        <div class="user-list" id="invite-list">
+                            <div class="user-item">
+                                <div class="user-info">
+                                    <h4>Ladataan kutsuja...</h4>
+                                    <p>Haetaan backendistä.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <section class="admin-tab-panel" id="admin-panel-access" role="tabpanel" aria-labelledby="admin-tab-access" tabindex="0" hidden>
+                <div id="admin-access-requests-host"></div>
+                <div class="admin-card glass-panel">
+                    <h3 style="margin-bottom: 12px; color: var(--text-primary);">Käyttöoikeusryhmät</h3>
+                    <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.5; margin-bottom: 20px;">
+                        Luo asiakas- tai pilottikohtaisia ryhmiä. Tekstini kuuluu aina mukaan, ja valitut moduulit tulevat sen lisäksi.
+                    </p>
+
+                    <div class="settings-row">
+                        <label>Ryhmän nimi</label>
+                        <input id="access-group-name" type="text" maxlength="120" placeholder="Esimerkiksi Kustantamon analyysipilotti">
+                    </div>
+                    <div class="settings-row">
+                        <label>Kuvaus</label>
+                        <textarea id="access-group-description" maxlength="500" placeholder="Kenelle ryhmä on tarkoitettu ja mitä sillä kokeillaan?"></textarea>
+                    </div>
+                    <div class="settings-row">
+                        <label>Sallitut moduulit</label>
+                        <div id="access-group-module-options" class="module-checkbox-grid"></div>
+                    </div>
+                    <button id="create-access-group-btn" class="btn btn-primary" type="button">Luo käyttöoikeusryhmä</button>
+                    <p id="access-group-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
+
+                    <div class="settings-row" style="margin-top:24px; margin-bottom:0;">
+                        <label>Luodut ryhmät</label>
+                        <div class="user-list" id="access-group-list">
+                            <div class="user-item"><div class="user-info"><h4>Ladataan ryhmiä...</h4></div></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="admin-tab-panel" id="admin-panel-models" role="tabpanel" aria-labelledby="admin-tab-models" tabindex="0" hidden>
+                <div class="admin-card glass-panel">
+                    <h3 style="margin-bottom: 24px; color: var(--text-primary);">Tekoälyn mallit</h3>
+
+                    <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.5; margin-bottom: 24px;">
+                        API-avaimet asetetaan palvelimen ympäristömuuttujiin. Tässä näkymässä valitaan oletusmallit ja mallikohtainen käsittelyalue. EU-valinnan voi tehdä vain mallille, jolla on varmennettu alueellinen API-reitti.
+                    </p>
+
+                    <div class="settings-row">
+                        <label>Käytettävä tekstimallin oletus</label>
+                        <select id="default-model-select" style="padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; outline: none; margin-bottom: 12px;"></select>
+                    </div>
+
+                    <button id="save-model-btn" class="btn btn-primary">Tallenna oletusmalli</button>
+                    <p id="model-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
+
+                    <div class="settings-row" style="margin-top: 24px;">
+                        <label>Vaativat tekstitehtävät</label>
+                        <select id="analysis-structure-model-select" style="padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; outline: none; margin-bottom: 12px;"></select>
+                        <p style="color: var(--text-secondary); font-size: 12px; line-height: 1.5; margin-top: 0;">
+                            Tätä käytetään, kun analyysissa, toimitustyössä, oikoluvussa tai muussa vaativassa tekstitehtävässä ei voi valita mallia erikseen. Tehtäväkohtainen mallivalinta ohittaa tämän oletuksen.
+                        </p>
+                    </div>
+
+                    <button id="save-analysis-structure-model-btn" class="btn btn-secondary">Tallenna vaativien tehtävien malli</button>
+                    <p id="analysis-structure-model-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
+
+                    <div class="settings-row" style="margin-top: 24px;">
+                        <label>Käännöspromptin luonti</label>
+                        <select id="translation-guidelines-model-select" style="padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-primary); font-family: inherit; outline: none; margin-bottom: 12px;"></select>
+                        <p style="color: var(--text-secondary); font-size: 12px; line-height: 1.5; margin-top: 0;">
+                            Tätä käytetään, kun käännösosiossa luodaan räätälöity käännösprompti mallikutsulla. Varsinainen käännösmalli valitaan edelleen käännösosiossa.
+                        </p>
+                    </div>
+
+                    <button id="save-translation-guidelines-model-btn" class="btn btn-secondary">Tallenna käännöspromptin malli</button>
+                    <p id="translation-guidelines-model-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
+
+                    <div class="settings-row" style="margin-top: 24px;">
+                        <label>Mallirekisteri</label>
+                        <div class="user-list" id="model-registry-list">
+                            <div class="user-item">
+                                <div class="user-info">
+                                    <h4>Ladataan malleja...</h4>
+                                    <p>Haetaan backendistä.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="admin-tab-panel" id="admin-panel-feedback" role="tabpanel" aria-labelledby="admin-tab-feedback" tabindex="0" hidden>
+                <div class="admin-card glass-panel">
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom: 20px;">
+                        <div>
+                            <h3 style="margin-bottom: 6px; color: var(--text-primary);">Palautteet</h3>
+                            <p style="color: var(--text-secondary); font-size: 13px;">Käyttäjien moduulikohtaiset palautteet.</p>
+                        </div>
+                        <button id="refresh-feedback-btn" class="btn btn-secondary" style="font-size: 12px;">Päivitä</button>
+                    </div>
+                    <div class="user-list feedback-list" id="feedback-list">
+                        <div class="user-item">
+                            <div class="user-info">
+                                <h4>Ladataan palautteita...</h4>
+                                <p>Haetaan backendistä.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <p id="feedback-admin-status" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
+                </div>
+            </section>
+
+            <section class="admin-tab-panel" id="admin-panel-system" role="tabpanel" aria-labelledby="admin-tab-system" tabindex="0" hidden>
+                <div class="admin-card glass-panel">
+                    <h3 style="margin-bottom: 24px; color: var(--text-primary);">Järjestelmän tila</h3>
+                    <div class="user-list" id="system-status-list">
+                        <div class="user-item">
+                            <div class="user-info">
+                                <h4>Ladataan tilaa...</h4>
+                                <p>Haetaan backendistä.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <p id="system-status-message" style="color: var(--text-secondary); min-height: 20px; font-size: 13px; margin-top: 12px;"></p>
+                </div>
+            </section>
         </div>
     </main>
     <script src="config.js?v=1"></script>
@@ -573,6 +674,40 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
         if (currentUser && currentUser.role !== 'admin') {
             window.location.replace('index.html');
         }
+
+        const adminTabs = Array.from(document.querySelectorAll('[data-admin-tab]'));
+        const adminPanels = Array.from(document.querySelectorAll('.admin-tab-panel'));
+        const adminMain = document.querySelector('.main-content');
+
+        function selectAdminTab(key, { focus = false, updateHash = false } = {}) {
+            const selected = adminTabs.find(tab => tab.dataset.adminTab === key) || adminTabs[0];
+            const changed = selected.getAttribute('aria-selected') !== 'true';
+            adminTabs.forEach(tab => {
+                const active = tab === selected;
+                tab.setAttribute('aria-selected', String(active));
+                tab.tabIndex = active ? 0 : -1;
+            });
+            adminPanels.forEach(panel => {
+                panel.hidden = panel.id !== selected.getAttribute('aria-controls');
+            });
+            if (changed) adminMain.scrollTop = 0;
+            if (focus) selected.focus({ preventScroll: true });
+            if (updateHash) history.replaceState(history.state, '', `#${selected.dataset.adminTab}`);
+        }
+
+        adminTabs.forEach((tab, index) => {
+            tab.addEventListener('click', () => selectAdminTab(tab.dataset.adminTab, { updateHash: true }));
+            tab.addEventListener('keydown', (event) => {
+                if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+                event.preventDefault();
+                const nextIndex = event.key === 'Home' ? 0
+                    : event.key === 'End' ? adminTabs.length - 1
+                    : (index + (event.key === 'ArrowRight' ? 1 : -1) + adminTabs.length) % adminTabs.length;
+                selectAdminTab(adminTabs[nextIndex].dataset.adminTab, { focus: true, updateHash: true });
+            });
+        });
+        window.addEventListener('hashchange', () => selectAdminTab(window.location.hash.slice(1)));
+        selectAdminTab(window.location.hash.slice(1));
 
         const logoutLink = document.getElementById('admin-logout-link');
         if (logoutLink) {
@@ -613,6 +748,7 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
         const inviteMailtoLink = document.getElementById('invite-mailto-link');
         const inviteList = document.getElementById('invite-list');
         const adminUserList = document.getElementById('admin-user-list');
+        const adminUserStatus = document.getElementById('admin-user-status');
         const accessGroupName = document.getElementById('access-group-name');
         const accessGroupDescription = document.getElementById('access-group-description');
         const accessGroupModuleOptions = document.getElementById('access-group-module-options');
@@ -1139,7 +1275,7 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                 if (!res.ok) throw new Error(data.detail || 'Käyttäjien lataus epäonnistui.');
                 renderUsers(data);
             } catch (err) {
-                inviteStatus.textContent = err.message;
+                adminUserStatus.textContent = err.message;
             }
         }
 
@@ -1495,7 +1631,7 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
             const activeButton = event.target.closest('.toggle-user-active-btn');
             if (activeButton) {
                 activeButton.disabled = true;
-                inviteStatus.textContent = 'Päivitetään käyttäjää...';
+                adminUserStatus.textContent = 'Päivitetään käyttäjää...';
                 try {
                     const isActive = activeButton.dataset.active === 'true';
                     const res = await window.SkriptLabAuth.fetch(`/api/admin/users/${activeButton.dataset.id}`, {
@@ -1505,10 +1641,10 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                     });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.detail || 'Käyttäjän päivitys epäonnistui.');
-                    inviteStatus.textContent = `Käyttäjä ${data.email} päivitetty.`;
+                    adminUserStatus.textContent = `Käyttäjä ${data.email} päivitetty.`;
                     await loadUsers();
                 } catch (err) {
-                    inviteStatus.textContent = err.message;
+                    adminUserStatus.textContent = err.message;
                     activeButton.disabled = false;
                 }
                 return;
@@ -1523,7 +1659,7 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
             const accessSelect = event.target.closest('.user-access-group-select');
             if (accessSelect) {
                 accessSelect.disabled = true;
-                inviteStatus.textContent = 'Päivitetään käyttöoikeusryhmää...';
+                adminUserStatus.textContent = 'Päivitetään käyttöoikeusryhmää...';
                 try {
                     const res = await window.SkriptLabAuth.fetch(`/api/admin/users/${accessSelect.dataset.id}`, {
                         method: 'PATCH',
@@ -1532,10 +1668,10 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                     });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.detail || 'Käyttöoikeusryhmän päivitys epäonnistui.');
-                    inviteStatus.textContent = `Käyttäjän ${data.email} käyttöoikeusryhmä päivitetty.`;
+                    adminUserStatus.textContent = `Käyttäjän ${data.email} käyttöoikeusryhmä päivitetty.`;
                     await loadUsers();
                 } catch (err) {
-                    inviteStatus.textContent = err.message;
+                    adminUserStatus.textContent = err.message;
                     await loadUsers();
                 }
                 return;
@@ -1544,7 +1680,7 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
             const select = event.target.closest('.user-role-select');
             if (!select) return;
             select.disabled = true;
-            inviteStatus.textContent = 'Päivitetään käyttäjäroolia...';
+            adminUserStatus.textContent = 'Päivitetään käyttäjäroolia...';
             try {
                 const res = await window.SkriptLabAuth.fetch(`/api/admin/users/${select.dataset.id}`, {
                     method: 'PATCH',
@@ -1553,10 +1689,10 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.detail || 'Roolin päivitys epäonnistui.');
-                inviteStatus.textContent = `Käyttäjän ${data.email} rooli päivitetty.`;
+                adminUserStatus.textContent = `Käyttäjän ${data.email} rooli päivitetty.`;
                 await loadUsers();
             } catch (err) {
-                inviteStatus.textContent = err.message;
+                adminUserStatus.textContent = err.message;
                 await loadUsers();
             }
         });
