@@ -800,7 +800,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const basicCoreViews = new Set([
         'view-kirjani', 'view-analyysi', 'view-kehityseditointi',
         'view-kirjoita-editoi', 'view-mobiilieditori', 'view-oikoluku',
-        'view-kaannoksen-viimeistely', 'view-kuvitus', 'view-oheisaineistot',
+        'view-kaannoksen-viimeistely', 'view-kuvitus',
         'view-taitto', 'view-tuotetiedot', 'view-julkaisupaketti',
         'view-audio', 'view-viimeistely', 'view-kirjasto'
     ]);
@@ -5353,6 +5353,12 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             }
         });
         refreshModuleMenuOverflow();
+        if (moduleIntroductionVisible(viewId)) {
+            syncTopBarContextForView(currentViewId);
+            updateHelpAgentContext();
+            document.dispatchEvent(new CustomEvent('skriptlab:module-open', { detail: { viewId: currentViewId, preview: true } }));
+            return;
+        }
         if (['view-oheisaineistot', 'view-taitto'].includes(viewId)) {
             refreshTuotantoFrame(viewId);
         }
@@ -5426,6 +5432,11 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         document.dispatchEvent(new CustomEvent('skriptlab:module-open', { detail: { viewId: currentViewId } }));
     }
 
+    function moduleIntroductionVisible(viewId) {
+        const view = document.getElementById(viewId === 'view-kaannokset' ? 'view-suomentaja' : viewId);
+        return Boolean(view?.dataset.bookIntro && document.getElementById(view.dataset.bookIntro)?.hidden);
+    }
+
     function persistPendingModuleEdits(nextViewId) {
         if (currentViewId === 'view-tyopoyta' && nextViewId !== 'view-tyopoyta') {
             saveWriterDeskText(false);
@@ -5449,6 +5460,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             persistPendingModuleEdits(nextViewId);
             openModule(nextViewId);
             if (isMobileShell()) setSidebarDrawer(false);
+            if (moduleIntroductionVisible(nextViewId)) return;
             if (nextViewId === 'view-oheisaineistot') {
                 loadMiscAssetsForActiveProject(true);
             }
@@ -27746,7 +27758,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '6');
+        params.set('v', '7');
         const reloaded = updateEmbeddedModuleFrame(frame, 'tekstin-parantelu.html', params);
         if (!reloaded && frame.contentWindow) {
             frame.contentWindow.postMessage({
@@ -27763,7 +27775,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '9');
+        params.set('v', '10');
         const reloaded = updateEmbeddedModuleFrame(frame, 'kaannoksen-viimeistely.html', params);
         if (!reloaded && frame.contentWindow) {
             frame.contentWindow.postMessage({
@@ -27792,7 +27804,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         params.set('tab', nextTab);
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '18');
+        params.set('v', '19');
         updateEmbeddedModuleFrame(frame, 'tuotanto.html', params);
     }
 

@@ -8,10 +8,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="tuotanto.css?v=13">
-<link rel="stylesheet" href="book-access.css?v=1">
-<script src="book-access.js?v=1"></script>
-<script src="book-workflow.js?v=1" defer></script>
+<link rel="stylesheet" href="tuotanto.css?v=14">
+<link rel="stylesheet" href="book-access.css?v=2">
+<script src="book-access.js?v=2"></script>
+<script src="book-workflow.js?v=2" defer></script>
 </head>
 <body>
 
@@ -128,8 +128,10 @@
       <div class="tool-chips" id="tool-chips" role="radiogroup" aria-label="Aineistotyyppi"></div>
 
       <label class="field">
-        <span class="field-label">Lisäohjeet (valinnainen)</span>
-        <input type="text" id="misc-instructions" placeholder="Esim. vain päähenkilöt, enintään 15 kohtaa">
+        <span class="field-label">Lisätiedot ja ohjeet (valinnainen)</span>
+        <textarea id="misc-instructions" rows="7" maxlength="4000" aria-describedby="misc-instructions-help misc-instructions-count" placeholder="Kirjoita aineiston tarvitsemat tiedot ja toiveesi."></textarea>
+        <span class="hint" id="misc-instructions-help"></span>
+        <span class="hint misc-instructions-meta"><span id="misc-instructions-count">0 / 4 000 merkkiä</span><span id="misc-instructions-storage">Lisätiedot säilyvät tässä selaimessa teos- ja aineistotyyppikohtaisesti.</span></span>
       </label>
 
       <div class="row">
@@ -349,6 +351,6 @@
 </script>
 <script src="finnish-hyphenation.js?v=1"></script>
 <script src="demo-terminology.js?v=1"></script>
-<script src="tuotanto.js?v=18"></script>
+<script src="tuotanto.js?v=19"></script>
 </body>
 </html>

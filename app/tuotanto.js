@@ -527,6 +527,33 @@
 
   /* ------------------------------------------------------------ aineistot */
 
+  function instructionsStorageKey() {
+    let userId = "demo";
+    try { userId = JSON.parse(localStorage.getItem("skriptlab_auth_user") || "null")?.id || "demo"; } catch (_) { /* no cached user */ }
+    return `skriptlab:misc-instructions:${userId}:${resolveProjectId() || "none"}:${selectedTool}`;
+  }
+  function updateInstructionsCount() {
+    $("misc-instructions-count").textContent = `${$("misc-instructions").value.length.toLocaleString("fi-FI")} / 4 000 merkkiä`;
+  }
+  function saveInstructionsDraft() {
+    try { localStorage.setItem(instructionsStorageKey(), $("misc-instructions").value); }
+    catch (_) { $("misc-instructions-storage").textContent = "Selaintallennus ei ole käytettävissä. Kopioi lisätiedot talteen ennen sivulta poistumista."; }
+    updateInstructionsCount();
+  }
+  function loadInstructionsDraft() {
+    const input = $("misc-instructions");
+    try { input.value = localStorage.getItem(instructionsStorageKey()) || ""; } catch (_) { input.value = ""; }
+    const copyright = selectedTool === "copyright_page";
+    input.placeholder = copyright
+      ? "Julkaisija: …\nJulkaisuvuosi ja painos: …\nISBN (e-kirja / painettu kirja): …\nOikeudenhaltijat: …\nKansi, kuvitus, käännös, toimitus ja taitto: …\nPainopaikka ja muut maininnat: …"
+      : selectedTool === "bibliography" ? "Anna lähteiden tiedot, puuttuvat viitteet ja toivottu viittaustapa."
+      : "Kerro mukaan otettavat tai pois jätettävät kohteet, rajaus ja toivottu esitystapa.";
+    $("misc-instructions-help").textContent = copyright
+      ? "Voit antaa julkaisijan, vuoden, painoksen, ISBN-tunnukset, oikeudenhaltijat ja tekijöiden krediitit. Lisää myös mahdolliset luvat, lisenssit ja muut haluamasi maininnat. Täytä vain tiedossasi olevat tiedot."
+      : "Lisää aineiston taustatiedot ja rajaukset. Esimerkiksi henkilöhakemistoon voit pyytää vain päähenkilöt ja lähdeluetteloon antaa tarkat lähdetiedot.";
+    updateInstructionsCount();
+  }
+
   function renderToolChips() {
     const container = $("tool-chips");
     container.innerHTML = "";
@@ -537,7 +564,7 @@
       chip.textContent = label;
       chip.setAttribute("role", "radio");
       chip.setAttribute("aria-checked", String(kind === selectedTool));
-      chip.addEventListener("click", () => { selectedTool = kind; renderToolChips(); });
+      chip.addEventListener("click", () => { saveInstructionsDraft(); selectedTool = kind; loadInstructionsDraft(); renderToolChips(); });
       container.appendChild(chip);
     }
   }
@@ -611,7 +638,7 @@
       $("result-include").checked = true;
       const warnings = $("result-warnings");
       warnings.hidden = !(result.warnings || []).length;
-      warnings.textContent = (result.warnings || []).join("\n");
+      warnings.textContent = Array.isArray(result.warnings) ? result.warnings.join("\n") : result.warnings || "";
       openSheet("result-sheet");
     } catch (error) {
       toast(error.message);
@@ -1157,6 +1184,7 @@
     $("tab-kirja").addEventListener("click", () => switchTab("kirja"));
     $("tab-taitto").addEventListener("click", () => switchTab("taitto"));
 
+    $("misc-instructions").addEventListener("input", saveInstructionsDraft);
     $("btn-run-misc").addEventListener("click", runMiscTool);
     $("btn-save-result").addEventListener("click", savePendingResult);
     $("btn-discard-result").addEventListener("click", () => { pendingResult = null; closeSheets(); });
@@ -1223,6 +1251,7 @@
     applyPreviewSettings();
     updateOutputFormatSelection();
     resolveProjectId();
+    loadInstructionsDraft();
     projectTitle = cachedProjectTitle(projectId) || demoUiText("Käsikirjoitus");
     $("project-title").textContent = projectTitle;
     $("status-text").textContent = "Ladataan tietoja…";

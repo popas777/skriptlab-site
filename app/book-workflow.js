@@ -32,14 +32,14 @@
     finally { if (control) control.disabled = control.dataset.bookRunning === "true"; A.refresh(true); }
   }
   function cardIntro(title, copy) { return `<p class="book-basic-plan" data-access-plan></p><h2>${title}</h2><p class="book-basic-intro">${copy}</p>`; }
-  function wrap(root, name, advancedAction, content) {
+  function wrap(root, name, advancedAction, content, options = {}) {
     if (!root || root.dataset.bookBasicMounted) return null;
     root.dataset.bookBasicMounted = "true";
     const advanced = document.createElement("section"); advanced.id = "book-basic-advanced-" + name;
     advanced.className = "book-basic-panel"; advanced.hidden = true; advanced.setAttribute("role", "tabpanel");
     while (root.firstChild) advanced.append(root.firstChild);
     const tabs = document.createElement("div"); tabs.className = "book-basic-tabs"; tabs.setAttribute("role", "tablist"); tabs.setAttribute("aria-label", "Työkalut");
-    tabs.innerHTML = `<button type="button" role="tab" id="book-basic-tab-${name}" aria-selected="true" aria-controls="book-basic-${name}">${name === "cover" ? "Kansi" : name === "epub" ? "E-kirja" : name === "publish" ? "Julkaisu kirjastoon" : "Oikoluku"}</button><button type="button" role="tab" id="book-advanced-tab-${name}" aria-selected="false" aria-controls="${advanced.id}" tabindex="-1" data-access-action="${advancedAction}">Lisätyökalut</button>`;
+    tabs.innerHTML = `<button type="button" role="tab" id="book-basic-tab-${name}" aria-selected="true" aria-controls="book-basic-${name}">${options.title || (name === "cover" ? "Kansi" : name === "epub" ? "E-kirja" : name === "publish" ? "Julkaisu kirjastoon" : "Oikoluku")}</button><button type="button" role="tab" id="book-advanced-tab-${name}" aria-selected="false" aria-controls="${advanced.id}" tabindex="-1" data-access-action="${advancedAction}">${options.toolsTitle || "Lisätyökalut"}</button>`;
     const basic = document.createElement("section"); basic.className = "book-basic book-basic-panel"; basic.id = "book-basic-" + name; basic.setAttribute("role", "tabpanel"); basic.setAttribute("aria-labelledby", "book-basic-tab-" + name); basic.innerHTML = content;
     advanced.setAttribute("aria-labelledby", "book-advanced-tab-" + name);
     root.append(tabs, basic, advanced);
@@ -47,10 +47,53 @@
       if (advancedSelected && !(await A.ensure(advancedAction, { tab: true }))) return;
       basic.hidden = advancedSelected; advanced.hidden = !advancedSelected;
       tabs.querySelectorAll("button").forEach((tab, index) => { const active = index === Number(advancedSelected); tab.setAttribute("aria-selected", String(active)); tab.tabIndex = active ? 0 : -1; });
+      if (advancedSelected) options.onTools?.();
     };
     tabs.children[0].addEventListener("click", () => select(false)); tabs.children[1].addEventListener("click", () => select(true));
     tabs.addEventListener("keydown", event => { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return; event.preventDefault(); const items = Array.from(tabs.children); const current = items.indexOf(event.target); const index = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : (current + (event.key === "ArrowRight" ? 1 : -1) + items.length) % items.length; items[index].click(); items[index].focus(); });
+    document.addEventListener("skriptlab:access", () => {
+      if (!advanced.hidden && !A.tabAccessDecision(A.getSnapshot(), advancedAction).allowed) select(false);
+    });
     return basic;
+  }
+  function mountModuleIntroductions() {
+    const introductions = [
+      ["view-oheisaineistot", "support_materials", "Oheisaineistot", "Täydennä kirjaasi copysivulla, hakemistoilla ja lähdeluettelolla. Voit antaa taustatiedot, muokata luonnosta ja liittää valmiin aineiston kirjan taittoon."],
+      ["view-markkinointi", "marketing", "Markkinointi", "Valmistele kirjallesi esittelytekstejä ja kampanja-aineistoja teoksen omien tietojen pohjalta."],
+      ["view-suomentaja", "translations", "Räätälöidyt käännökset", "Työstä kirjasi käännöstä valitulla kielisuunnalla ja teoskohtaisilla ohjeilla."],
+      ["view-kaannostyotila", "translation_workspace", "Automaattikäännökset", "Muodosta kirjasta käännös ja seuraa sen valmistumista osissa."],
+      ["view-monikielinen-julkaisu", "multilingual_publication", "Kieliversiot", "Kokoa ja tarkista teoksen eri kieliversioiden julkaisuaineistot."],
+      ["view-ai-tyonkulku", "ai_workflow", "Työnkulkustudio", "Yhdistä tekstin käsittelyn vaiheita omaan työskentelyysi sopivaksi kokonaisuudeksi."],
+      ["view-elamakerta", "biography", "Elämäkerta", "Kokoa muistoja ja haastatteluja sekä työstä niistä elämäkerran käsikirjoitusta."],
+      ["view-video", "video", "Videostudio", "Valmistele teoksesi pohjalta käsikirjoituksia ja visuaalisia aineistoja videoihin."],
+      ["view-3d-studio", "world_studio", "3D-studio", "Hahmottele teoksen tapahtumapaikkoja ja maailmaa kolmiulotteisesti."],
+      ["view-julkaise", "publish", "Painatus ja kustantaminen", "Valmistele painetun kirjan tuotantoa ja sen tarvitsemia tietoja."],
+      ["view-sopimukset", "contracts", "Sopimukset", "Kokoa teoksen sopimuksiin liittyvät tiedot ja tarkasteltavat asiakirjat yhteen."],
+      ["view-aikajana", "timeline", "Aikajana", "Jäsennä teoksen tapahtumia ja niiden ajallisia yhteyksiä."],
+      ["view-korjaukset", "correction_reprints", "Korjaukset ja uusintapainokset", "Valmistele julkaistun teoksen korjaukset ja uuden painoksen aineistot."],
+      ["view-skill", "skill", "Skill", "Kokoa teoksen keskeiset tiedot ja ohjeet myöhempää työskentelyä varten."],
+      ["view-notebooklm", "notebooklm", "NotebookLM", "Työstä teoksen lähteitä ja muistiinpanoja NotebookLM-yhteyden avulla."]
+    ];
+    for (const [viewId, moduleKey, title, copy] of introductions) {
+      const root = $(viewId); if (!root) continue;
+      const name = "intro-" + moduleKey, action = "module." + moduleKey;
+      const navView = viewId === "view-suomentaja" ? "view-kaannokset" : viewId;
+      const basic = wrap(root, name, action,
+        `<h2>${title}</h2><p class="book-basic-intro">${copy}</p><p class="book-basic-usage" id="${name}-availability"></p><div class="book-basic-actions"><button type="button" id="${name}-open">Avaa työkalut</button></div>`,
+        { title: "Esittely", toolsTitle: "Työkalut", onTools: () => {
+          document.querySelector(`#nav-menu [data-view="${navView}"]`)?.click();
+        } });
+      if (!basic) continue;
+      root.dataset.bookIntro = "book-basic-advanced-" + name;
+      on(name + "-open", () => $("book-advanced-tab-" + name).click());
+      const update = () => {
+        const snapshot = A.getSnapshot();
+        const allowed = A.tabAccessDecision(snapshot, action).allowed;
+        $(name + "-open").textContent = !snapshot ? "Tarkista käyttöoikeus" : allowed ? "Avaa työkalut" : "Hanki lisäpalveluna";
+        $(name + "-availability").textContent = !snapshot ? "Käyttöoikeuksia ladataan…" : allowed ? "Työkalut ovat käytössäsi." : "Saat tämän moduulin käyttöösi lisäpalveluna.";
+      };
+      document.addEventListener("skriptlab:access", update); update();
+    }
   }
   async function loadState(force = false) {
     const id = A.projectId(); if (!id) return null;
@@ -362,7 +405,7 @@
   function mountPlan() {
     const root = $("usage-box") || $("view-library"); if (!root) return;
     const panel = document.createElement("div"); panel.className = "book-basic-card";
-    panel.innerHTML = '<p data-access-plan></p><p class="book-access-note">Samat perusnäkymät ovat käytössä kaikissa paketeissa. Lukitut toiminnot voi pyytää lisäpalveluina.</p>';
+    panel.innerHTML = '<p data-access-summary></p><p class="book-access-note">Lukitut toiminnot ja lisää kapasiteettia voi hankkia lisäpalveluna.</p>';
     root.prepend(panel);
     const analysisButton = $("btn-run-analysis");
     if (analysisButton) { const remaining = document.createElement("span"); remaining.className = "book-basic-usage"; remaining.dataset.accessUsage = "analysis.run"; analysisButton.after(remaining); }
@@ -406,10 +449,12 @@
     load().catch(error => tell("book-admin-status", error.message));
   }
   function init() {
-    mountCover(); mountEpub(); mountAudio(); mountPublish(); mountProofread(); mountDevelopment(); mountPlan(); mountUsageBadges(); mountAdmin();
+    mountCover(); mountEpub(); mountAudio(); mountPublish(); mountProofread(); mountDevelopment(); mountPlan(); mountUsageBadges(); mountAdmin(); mountModuleIntroductions();
     A.registerExisting(); A.decorate();
     document.addEventListener("skriptlab:module-open", event => {
-      A.refresh(true); handlers[event.detail?.viewId]?.();
+      A.refresh(true);
+      if (event.detail?.preview) return;
+      handlers[event.detail?.viewId]?.();
       const current = document.getElementById(event.detail?.viewId);
       current?.querySelectorAll("iframe").forEach(frame => frame.contentWindow?.postMessage({ type: "skriptlab:access-refresh" }, window.location.origin));
     });

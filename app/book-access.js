@@ -204,6 +204,11 @@
       element.textContent = !snapshot ? "Käyttöoikeuksia ladataan…" : !item ? "Lisäpalvelu" : item.limit == null ? (item.allowed ? "Sisältyy pakettiin" : "Lisäpalvelu")
         : `${item.remaining ?? 0}/${item.limit} käyttökertaa jäljellä${item.reserved ? " · työ käynnissä" : ""}`;
     });
+    doc.querySelectorAll("[data-access-summary]").forEach(element => {
+      element.textContent = !snapshot ? "Ladataan pakettia…" : snapshot.max_words
+        ? `Perustoiminnot käytössä enintään ${Number(snapshot.max_words).toLocaleString("fi-FI").replace(/\u00a0/g, " ")} sanan tekstille.`
+        : snapshot.plan_name;
+    });
     doc.querySelectorAll("[data-access-plan]").forEach(element => {
       element.textContent = snapshot ? `${snapshot.plan_name}${snapshot.max_words ? " · enintään " + Number(snapshot.max_words).toLocaleString("fi-FI") + " sanaa" : ""}` : "Ladataan pakettia…";
     });

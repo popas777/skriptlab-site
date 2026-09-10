@@ -1364,3 +1364,7 @@ details.mass-section .mass-body { padding: 0 14px 14px; }
 .file-card .file-info { flex: 1; min-width: 0; }
 .file-card .file-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-card .file-meta { font-size: 12px; color: var(--muste-45); }
+
+.misc-instructions-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 20px; margin-top: 8px; }
+#misc-instructions { min-height: 160px; line-height: 1.6; }
+#misc-instructions-help, .misc-instructions-meta { color: var(--muste-70); }

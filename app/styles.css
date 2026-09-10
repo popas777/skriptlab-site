@@ -5117,7 +5117,8 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     border-radius: 12px;
 }
 
-#view-oheisaineistot > :not(.tuotanto-frame),
+#view-oheisaineistot:not([data-book-intro]) > :not(.tuotanto-frame),
+#book-basic-advanced-intro-support_materials > :not(.tuotanto-frame),
 #view-taitto > :not(.tuotanto-frame) {
     display: none !important;
 }
