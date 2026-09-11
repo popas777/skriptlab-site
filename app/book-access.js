@@ -56,6 +56,7 @@
     }
     if (path === "/write-editor/chat" || path === "/proofread/improve-selection" || /\/text-improvement\//.test(path)) return body?.proofread_run_id ? null : "text.improve";
     if (/\/audio\/(?:gemini-tts-preview|tts-preview)$/.test(path)) return "audio.preview";
+    if (path === "/audio/narration-prompt") return "module.audio";
     if (path === "/audio/productions") return "audio.produce";
     if (/\/audio\/productions\/\d+\/parts\/\d+\/regenerate$/.test(path)) return "audio.repair";
     if (/^\/marketing\//.test(path) && !/\/context$/.test(path)) return "marketing.campaign";
@@ -267,7 +268,8 @@
       "#tab-kirja, #tab-taitto": "layout.print",
       "#audio-production-start-btn, #audio-production-batch-start-btn": "audio.produce",
       "#audio-production-chunks-toggle, #audio-production-script-open-btn": "module.audio",
-      "#audio-gemini-test-btn, #audio-test-voice-btn": "audio.preview",
+      "#audio-gemini-test-btn, #audio-test-voice-btn, #audio-narration-test-btn": "audio.preview",
+      "#audio-narration-suggest-btn": "module.audio",
       "#publication-package-build-btn": "module.publication_package", "#chat-send, [data-task], #ti-generate": "text.improve",
       "#ti-chapter-generate": "module.proofread",
       "#analysis-tab-knowledge, #analysis-tab-metadata, #analysis-open-knowledge": "module.analysis",

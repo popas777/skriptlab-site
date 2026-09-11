@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=122">
+    <link rel="stylesheet" href="styles.css?v=123">
     <link rel="stylesheet" href="workflow-studio.css?v=2">
     <link rel="stylesheet" href="correction-reprints.css?v=1">
     <link rel="stylesheet" href="timeline.css?v=1">
 <link rel="stylesheet" href="book-access.css?v=2">
-<script src="book-access.js?v=2"></script>
-<script src="book-workflow.js?v=2" defer></script>
+<script src="book-access.js?v=3"></script>
+<script src="book-workflow.js?v=3" defer></script>
 </head>
 <body class="access-pending">
     <div id="access-loading-screen" class="access-loading-screen" role="status" aria-live="polite">
@@ -3073,8 +3073,41 @@
                                 </div>
                             </div>
 
+                            <div class="audio-narration-panel" aria-labelledby="audio-narration-heading">
+                                <h4 id="audio-narration-heading">Ohjaa kerrontaa</h4>
+                                <p id="audio-narration-support">Valitse tuotantomalli nähdäksesi kerrontaohjeen tuen.</p>
+                                <label for="audio-production-prompt">Kerrontaohje (prompti)</label>
+                                <textarea id="audio-production-prompt" class="audio-preparation-production-prompt" rows="5" maxlength="4000" aria-describedby="audio-narration-support" placeholder="Esimerkiksi: Lue iltasatu lämpimästi, rauhallisesti ja pehmeällä äänellä. Pidä luontevat tauot ja vältä äkillisiä äänenvoimakkuuden muutoksia."></textarea>
+                                <div class="audio-narration-actions">
+                                    <button class="btn btn-secondary" id="audio-narration-save-btn" type="button" disabled>Tallenna ohje</button>
+                                    <button class="btn btn-secondary" id="audio-narration-test-btn" type="button" disabled>Testaa ohjetta omalla tekstillä</button>
+                                </div>
+                                <details class="audio-narration-helper">
+                                    <summary>Luo teokseen sopiva ehdotus</summary>
+                                    <p>Ehdotus hyödyntää teoksen tietoja ja tekstinäytteitä. Voit tarkistaa sen ennen käyttöönottoa.</p>
+                                    <div class="settings-row">
+                                        <label for="audio-narration-style">Kerronnan tyyli</label>
+                                        <select id="audio-narration-style">
+                                            <option value="auto">Teoksen mukaan</option>
+                                            <option value="bedtime">Iltasatu</option>
+                                            <option value="fiction">Kaunokirjallisuus</option>
+                                            <option value="nonfiction">Tietokirja</option>
+                                        </select>
+                                    </div>
+                                    <label for="audio-narration-instructions">Toive ehdotukselle</label>
+                                    <textarea id="audio-narration-instructions" rows="2" maxlength="2000" placeholder="Esimerkiksi: 4–7-vuotiaalle, turvallinen ja unelias tunnelma."></textarea>
+                                    <button class="btn btn-secondary" id="audio-narration-suggest-btn" type="button" disabled>Luo ehdotus</button>
+                                    <div id="audio-narration-suggestion-panel" class="hidden">
+                                        <label for="audio-narration-suggestion">Muokattava ehdotus</label>
+                                        <textarea id="audio-narration-suggestion" rows="5" maxlength="4000"></textarea>
+                                        <button class="btn btn-secondary" id="audio-narration-apply-btn" type="button">Ota ehdotus käyttöön</button>
+                                    </div>
+                                </details>
+                                <p id="audio-narration-status" role="status" aria-live="polite"></p>
+                            </div>
+
                             <div class="audio-production-preview-row">
-                                <button class="btn btn-secondary" id="audio-production-preview-btn" type="button" disabled>Kuuntele ääninäyte</button>
+                                <button class="btn btn-secondary" id="audio-production-preview-btn" type="button" disabled>Kuuntele äänen esittely</button>
                                 <span id="audio-production-voice-description">Valitse lukijaääni.</span>
                             </div>
                             <audio id="audio-production-voice-preview" class="audio-tts-player hidden" controls preload="none"></audio>
@@ -3290,7 +3323,7 @@
                             <div>
                                 <p class="audio-eyebrow">Teoskohtainen tuotanto-ohje</p>
                                 <h3>Äänikirjan tyyliprompti</h3>
-                                <p>Prompti välitetään audiotuotantoon erillisenä ohjeena. Tarkista sävy, rytmi, tauotus, dialogin käsittely ja tunnekaari; myös lähdetekstin rakenne ohjaa taukoja.</p>
+                                <p>Tämä valmistelussa luotu prompti toimii Geminin kerronnan pohjana. Tuota äänikirja -välilehden kerrontaohjeella voit korvata sen uudessa tuotannossa. Tarkista sävy, rytmi, tauotus ja dialogin käsittely.</p>
                             </div>
                             <span id="audio-preparation-updated" class="audio-preparation-updated">Ei vielä luotu</span>
                         </div>
@@ -4458,7 +4491,7 @@
     <script src="workflow-studio.js?v=5"></script>
     <script src="correction-reprints.js?v=1"></script>
     <script src="demo-terminology.js?v=1"></script>
-    <script src="app.js?v=225"></script>
+    <script src="app.js?v=226"></script>
     <script src="timeline.js?v=1"></script>
 </body>
 </html>

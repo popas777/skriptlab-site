@@ -270,6 +270,6 @@ test('instruction styling remains responsive and cachebusters load the new asset
         /\.app-wrapper\.mobile-simulate \.marketing-html-form textarea\s*\{\s*font-size:\s*16px;\s*\}/
     );
 
-    assert.match(indexSource, /href="styles\.css\?v=122"/);
-    assert.match(indexSource, /src="app\.js\?v=225"/);
+    assert.match(indexSource, /href="styles\.css\?v=123"/);
+    assert.match(indexSource, /src="app\.js\?v=226"/);
 });

@@ -245,7 +245,7 @@
       const text = $("book-audio-test-text").value.trim(); if (!text) throw new Error("Lisää testiteksti ensin.");
       const gemini = payload.provider === "gemini";
       const blob = await A.request(gemini ? "/audio/gemini-tts-preview" : "/audio/tts-preview", { method: "POST", blob: true,
-        body: { project_id: A.projectId(), text, model_id: payload.model_id, ...(gemini ? { voice_name: payload.voice_name || payload.voice_id } : { voice_id: payload.voice_id }), delivery: "natural" } });
+        body: { project_id: A.projectId(), text, model_id: payload.model_id, ...(gemini ? { voice_name: payload.voice_id, production_prompt: payload.production_prompt } : { voice_id: payload.voice_id }), delivery: "natural" } });
       if (previewUrl) URL.revokeObjectURL(previewUrl); previewUrl = URL.createObjectURL(blob);
       $("book-audio-player").src = previewUrl; $("book-audio-player").hidden = false;
       tell("book-audio-status", "Ääninäyte valmis. Kuuntele se ja vaihda ääntä tarvittaessa ennen koko kirjan luontia.");

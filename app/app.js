@@ -16394,6 +16394,183 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         elevenlabs: { running: false, startedAt: 0, timer: null }
     };
     let audioProductionModels = [];
+    const audioNarrationDrafts = new Map();
+    let audioNarrationRenderedProjectId = '';
+    let audioNarrationPreviewUrl = '';
+
+    function currentAudioNarrationDraft() {
+        const projectId = String(window.manuscriptData?.id || '');
+        if (!projectId) return null;
+        if (!audioNarrationDrafts.has(projectId)) {
+            const saved = audioDataFromAnalysis().narration || {};
+            audioNarrationDrafts.set(projectId, {
+                prompt: typeof saved.production_prompt === 'string' ? saved.production_prompt : null,
+                style: saved.style || 'auto', instructions: '', suggestion: '',
+                dirty: false, generating: false, saving: false, testing: false, status: '', error: false
+            });
+        }
+        return audioNarrationDrafts.get(projectId);
+    }
+
+    function audioNarrationPromptValue() {
+        return currentAudioNarrationDraft()?.prompt ?? audioProductionOptionsPayload?.production_prompt ?? '';
+    }
+
+    function renderAudioNarration() {
+        const draft = currentAudioNarrationDraft();
+        const projectId = String(window.manuscriptData?.id || '');
+        const changedProject = audioNarrationRenderedProjectId !== projectId;
+        const field = document.getElementById('audio-production-prompt');
+        if (!field) return;
+        audioNarrationRenderedProjectId = projectId;
+        if (changedProject) {
+            const player = document.getElementById('audio-production-voice-preview');
+            if (player) { player.pause(); player.removeAttribute('src'); player.classList.add('hidden'); }
+            if (audioNarrationPreviewUrl) URL.revokeObjectURL(audioNarrationPreviewUrl);
+            audioNarrationPreviewUrl = '';
+        }
+        const model = currentAudioProductionModel();
+        const supported = model?.supports_production_prompt === true;
+        const active = audioProductionIsActive();
+        const support = document.getElementById('audio-narration-support');
+        if (support) support.textContent = !model
+            ? 'Valitse tuotantomalli nähdäksesi kerrontaohjeen tuen.'
+            : supported
+                ? 'Ohje vaikuttaa lukutapaan testissä ja uudessa äänikirjassa. Voit ohjata sävyä, rytmiä, taukoja ja tunteita. Ohjetta ei lueta ääneen.'
+                : 'Tämä malli ei tue vapaata kerrontaohjetta tässä palvelussa. Valitse Gemini TTS käyttääksesi ohjetta. Ohje säilyy mallia vaihtaessa.';
+        if (active || changedProject || document.activeElement !== field) {
+            field.value = active && typeof audioProductionCurrent?.production_prompt === 'string'
+                ? audioProductionCurrent.production_prompt : draft ? audioNarrationPromptValue() : '';
+        }
+        field.disabled = !draft || active;
+        const locked = !draft || active;
+        for (const [id, key] of [['audio-narration-style', 'style'], ['audio-narration-instructions', 'instructions'], ['audio-narration-suggestion', 'suggestion']]) {
+            const control = document.getElementById(id);
+            if (!control) continue;
+            if (changedProject || document.activeElement !== control) control.value = draft?.[key] || (key === 'style' ? 'auto' : '');
+            control.disabled = locked || Boolean(draft?.generating);
+        }
+        const states = {
+            'audio-narration-save-btn': locked || !draft?.dirty || draft?.saving,
+            'audio-narration-suggest-btn': locked || draft?.generating,
+            'audio-narration-apply-btn': locked || !draft?.suggestion,
+            'audio-narration-test-btn': locked || !supported || !currentAudioProductionVoice() || draft?.testing
+        };
+        Object.entries(states).forEach(([id, disabled]) => {
+            const button = document.getElementById(id);
+            if (button) button.disabled = Boolean(disabled);
+        });
+        document.getElementById('audio-narration-suggestion-panel')?.classList.toggle('hidden', !draft?.suggestion);
+        const status = document.getElementById('audio-narration-status');
+        if (status) {
+            status.textContent = active ? 'Käynnissä oleva tuotanto ja sen osien korjaukset käyttävät tuotannon alussa tallennettua ohjetta.' : draft?.status || '';
+            status.classList.toggle('is-error', Boolean(draft?.error));
+        }
+    }
+
+    function setAudioNarrationStatus(draft, message, error = false) {
+        if (!draft) return;
+        draft.status = message;
+        draft.error = error;
+        if (draft === currentAudioNarrationDraft()) renderAudioNarration();
+    }
+
+    async function suggestAudioNarration() {
+        const draft = currentAudioNarrationDraft();
+        const projectId = window.manuscriptData?.id;
+        if (!draft || draft.generating || audioProductionIsActive()) return;
+        draft.generating = true;
+        setAudioNarrationStatus(draft, 'Luodaan teoksen tietojen ja tekstinäytteiden pohjalta kerrontaohjetta…');
+        try {
+            const response = await apiFetch('/api/audio/narration-prompt', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({project_id: projectId, style: draft.style, instructions: draft.instructions})
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok || data?.detail) throw new Error(data?.detail || 'Kerrontaohjeen ehdotus epäonnistui.');
+            if (!String(data?.production_prompt || '').trim()) throw new Error('Palvelin palautti tyhjän ehdotuksen.');
+            draft.suggestion = data.production_prompt;
+            setAudioNarrationStatus(draft, 'Ehdotus on valmis. Tarkista se ja valitse Ota ehdotus käyttöön.');
+            loadUsage();
+        } catch (error) {
+            setAudioNarrationStatus(draft, error.message || 'Ehdotuksen luominen epäonnistui.', true);
+        } finally {
+            draft.generating = false;
+            if (draft === currentAudioNarrationDraft()) renderAudioNarration();
+        }
+    }
+
+    async function saveAudioNarration() {
+        const draft = currentAudioNarrationDraft();
+        const project = window.manuscriptData;
+        if (!draft || !project?.id || draft.saving || audioProductionIsActive()) return;
+        const prompt = audioNarrationPromptValue();
+        if (draft.prompt === null) draft.prompt = prompt;
+        const style = draft.style;
+        const audio = {...audioDataFromAnalysis(), narration: {production_prompt: prompt, style, updated_at: new Date().toISOString()}};
+        draft.saving = true;
+        setAudioNarrationStatus(draft, 'Tallennetaan kerrontaohjetta…');
+        try {
+            const response = await apiFetch(`/api/projects/${project.id}/metadata`, {
+                method: 'PATCH', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({analysis: {audio}})
+            });
+            const saved = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(saved?.detail || 'Kerrontaohjeen tallennus epäonnistui.');
+            project.analysis = saved?.analysis || {...(project.analysis || {}), audio};
+            const listed = availableProjects.find(item => String(item.id) === String(project.id));
+            if (listed) listed.analysis = project.analysis;
+            draft.dirty = draft.prompt !== prompt || draft.style !== style;
+            if (String(window.manuscriptData?.id || '') === String(project.id)) {
+                window.manuscriptData.analysis = project.analysis;
+                markLocalManuscriptDraft(window.manuscriptData, Boolean(window.manuscriptData._db_sync_pending));
+            }
+            setAudioNarrationStatus(draft, draft.dirty ? 'Ohje tallennettu. Uusimmat muutokset ovat vielä tallentamatta.' : 'Kerrontaohje tallennettu teokselle.');
+        } catch (error) {
+            setAudioNarrationStatus(draft, error.message, true);
+        } finally {
+            draft.saving = false;
+            if (draft === currentAudioNarrationDraft()) renderAudioNarration();
+        }
+    }
+
+    async function testAudioNarration() {
+        const draft = currentAudioNarrationDraft();
+        const payload = audioProductionPayload({includeSegments: false});
+        const model = currentAudioProductionModel();
+        if (!draft || draft.testing || !payload || !model?.supports_production_prompt || audioProductionIsActive()) return;
+        const text = firstAudioSampleText(700);
+        if (!text) { setAudioNarrationStatus(draft, 'Valitusta osiosta ei löytynyt kuunneltavaa tekstiä.', true); return; }
+        draft.testing = true;
+        setAudioNarrationStatus(draft, 'Luodaan lyhyt äänitesti valitusta osiosta tällä kerrontaohjeella…');
+        try {
+            const response = await apiFetch('/api/audio/gemini-tts-preview', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({project_id: payload.project_id, text, model_id: payload.model_id,
+                    voice_name: payload.voice_id, production_prompt: payload.production_prompt, language_code: audioProductionLanguageData().code})
+            });
+            if (!response.ok) {
+                const data = await response.json().catch(() => null);
+                throw new Error(data?.detail || 'Äänitestin luominen epäonnistui.');
+            }
+            const blob = await response.blob();
+            if (!blob.size || !blob.type.startsWith('audio/')) throw new Error('Palvelin ei palauttanut äänitiedostoa.');
+            if (draft !== currentAudioNarrationDraft()) return;
+            const player = document.getElementById('audio-production-voice-preview');
+            if (audioNarrationPreviewUrl) URL.revokeObjectURL(audioNarrationPreviewUrl);
+            audioNarrationPreviewUrl = URL.createObjectURL(blob);
+            player.src = audioNarrationPreviewUrl;
+            player.classList.remove('hidden');
+            setAudioNarrationStatus(draft, 'Äänitesti on valmis. Kuuntele, miten ohje vaikuttaa lukutapaan.');
+            loadUsage();
+            try { await player.play(); } catch (_) { /* The player remains available for manual playback. */ }
+        } catch (error) {
+            setAudioNarrationStatus(draft, error.message, true);
+        } finally {
+            draft.testing = false;
+            if (draft === currentAudioNarrationDraft()) renderAudioNarration();
+        }
+    }
     let audioProductionVoices = [];
     let audioProductionOptionsPayload = null;
     let audioProductionCurrent = null;
@@ -16588,6 +16765,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     is_default: Boolean(item.is_default || item.default || item.recommended),
                     max_chars: Math.max(0, Number(item.max_chars || item.max_chars_per_segment || 0) || 0),
                     supports_batch: item.supports_batch === true || item.supportsBatch === true,
+                    supports_production_prompt: item.supports_production_prompt === true,
                     disabled: item.enabled === false || item.available === false || item.configured === false
                 });
             }
@@ -16675,6 +16853,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         };
         const preparation = audioProductionScriptPreparationState();
         payload.expected_script_preparation_id = preparation.current ? preparation.preparationId : null;
+        if (model.supports_production_prompt) payload.production_prompt = audioNarrationPromptValue();
         payload.expected_script_preparation_source_checksum = preparation.current ? preparation.sourceChecksum : '';
         payload.expected_script_preparation_updated_at = preparation.current ? preparation.updatedAt || null : null;
         if (
@@ -17377,12 +17556,12 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             container.classList.add('is-stale');
             if (mark) mark.textContent = '!';
             label.textContent = 'Äänikäsikirjoitus on vanhentunut';
-            detail.textContent = `${profile} · ${updated}. ${state.warning ? `${state.warning} ` : ''}Gemini käyttää nyt alkuperäistä tekstiä; generoi tagit uudelleen ennen tuotantoa.`;
+            detail.textContent = `${profile} · ${updated}. ${state.warning ? `${state.warning} ` : ''}Gemini käyttää alkuperäistä tekstiä ja alla olevaa kerrontaohjetta. Voit halutessasi valmistella tagit uudelleen.`;
         } else {
             container.classList.add('is-missing');
             if (mark) mark.textContent = '○';
-            label.textContent = 'Äänikäsikirjoitus ja tagit puuttuvat';
-            detail.textContent = 'Gemini käyttää alkuperäistä tekstiä ilman teoskohtaista tuotantopromptia. Valmistele prompti ja tagit ennen tuotantoa.';
+            label.textContent = 'Tuotanto käyttää alkuperäistä tekstiä';
+            detail.textContent = 'Alla oleva kerrontaohje toimii myös ilman tageja. Voit halutessasi valmistella tekstiin lisäksi kohtauskohtaiset audio-tagit.';
         }
         finish();
     }
@@ -18055,6 +18234,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         });
         renderAudioProductionVoiceDescription();
         syncAudioProductionPartsControls();
+        renderAudioNarration();
     }
 
     function renderAudioProduction(production) {
@@ -18271,6 +18451,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             if (!data || typeof data !== 'object') throw new Error('Palvelin palautti virheellisen audiotuotannon valintaluettelon.');
             if (!isCurrentRequest()) return false;
             audioProductionOptionsPayload = data || {};
+            const narrationDraft = currentAudioNarrationDraft();
+            if (narrationDraft && !narrationDraft.dirty && !narrationDraft.saving && !narrationDraft.generating
+                && typeof data.production_prompt === 'string') narrationDraft.prompt = data.production_prompt;
             const normalized = normalizeAudioProductionOptions(audioProductionOptionsPayload);
             audioProductionModels = normalized.models;
             audioProductionVoices = normalized.voices;
@@ -20679,6 +20862,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     text,
                     model_id: model.model_name,
                     voice_name: voiceName,
+                    production_prompt: audioNarrationPromptValue(),
                     delivery: document.getElementById('audio-gemini-delivery-select')?.value || 'natural'
                 })
             });
@@ -29055,6 +29239,34 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         });
     }
     if (audioProductionPreviewBtn) audioProductionPreviewBtn.addEventListener('click', playAudioProductionVoicePreview);
+    document.getElementById('audio-production-prompt')?.addEventListener('input', event => {
+        const draft = currentAudioNarrationDraft();
+        if (!draft) return;
+        draft.prompt = event.target.value;
+        draft.dirty = true;
+        setAudioNarrationStatus(draft, 'Ohje käytetään seuraavassa testissä ja uudessa tuotannossa. Tallenna se säilyttääksesi sen teoksella.');
+    });
+    ['audio-narration-style', 'audio-narration-instructions', 'audio-narration-suggestion'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', event => {
+            const draft = currentAudioNarrationDraft();
+            if (!draft) return;
+            const key = id === 'audio-narration-style' ? 'style' : id === 'audio-narration-instructions' ? 'instructions' : 'suggestion';
+            draft[key] = event.target.value;
+            if (key === 'style') draft.dirty = true;
+            renderAudioNarration();
+        });
+    });
+    document.getElementById('audio-narration-suggest-btn')?.addEventListener('click', suggestAudioNarration);
+    document.getElementById('audio-narration-save-btn')?.addEventListener('click', saveAudioNarration);
+    document.getElementById('audio-narration-test-btn')?.addEventListener('click', testAudioNarration);
+    document.getElementById('audio-narration-apply-btn')?.addEventListener('click', () => {
+        const draft = currentAudioNarrationDraft();
+        if (!draft?.suggestion || audioProductionIsActive()) return;
+        draft.prompt = draft.suggestion;
+        draft.dirty = true;
+        setAudioNarrationStatus(draft, 'Ehdotus otettu käyttöön. Voit muokata ohjetta, testata sitä ja tallentaa sen teokselle.');
+        document.getElementById('audio-production-prompt')?.focus();
+    });
     if (audioProductionStartBtn) audioProductionStartBtn.addEventListener('click', startAudioProduction);
     if (audioProductionBatchStartBtn) audioProductionBatchStartBtn.addEventListener('click', () => startAudioProduction({ batch: true }));
     if (audioProductionCancelBtn) audioProductionCancelBtn.addEventListener('click', cancelAudioProduction);
