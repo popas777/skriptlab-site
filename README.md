@@ -58,4 +58,4 @@ Yläpalkin `Kirjaudu`-painikkeet ohjaavat osoitteeseen `/app/login.html`. Backen
 
 Ota osio näkyviin muuttamalla `assets/main.js`-tiedoston `SITE_FEATURES.enterpriseByokPricing` arvoksi `true` ja julkaisemalla sivusto normaalisti. URL-parametri tai selaimen tallennettu asetus ei ohita tätä kytkintä. Tarkista ennen julkaisua hinnat, sopimusehdot sekä suomen- ja englanninkielinen mobiilinäkymä (`hinnat.html?lang=en`).
 
-Valmisteltu sopimushinnoittelu on alkaen 149 €/kk viidelle käyttäjälle ja 19 €/lisäkäyttäjä/kk. Tekoälypalvelun kulutus maksetaan suoraan palveluntarjoajalle, ja soveltuva arvonlisävero lisätään hintoihin. Tämä sivun osio ei käynnistä laskutusta eikä ota sovelluksen BYOK-toimintoa käyttöön. Asiakaskohtainen käyttöönotto ja mallien rajaus tehdään sovelluksen ylläpidossa erikseen.
+Valmisteltu sopimushinnoittelu on 899 €/kk organisaation käyttöoikeudesta. Tekoälypalvelun kulutus maksetaan suoraan palveluntarjoajalle, ja soveltuva arvonlisävero lisätään hintoihin. Tämä sivun osio ei käynnistä laskutusta eikä ota sovelluksen BYOK-toimintoa käyttöön. Asiakaskohtainen käyttöönotto ja mallien rajaus tehdään sovelluksen ylläpidossa erikseen.

@@ -67,7 +67,7 @@
         state.groups.forEach(group => {
             const current = Number(profile?.access_group_id) === Number(group.id);
             if ((!group.is_active || group.system_key || assigned.has(Number(group.id))) && !current) return;
-            get('group').append(option(group.id, `${group.name} · ${group.user_count || 0} käyttäjää${group.is_active ? '' : ' (pois käytöstä)'}`));
+            get('group').append(option(group.id, `${group.name}${group.is_active ? '' : ' (pois käytöstä)'}`));
         });
         get('group').value = profile?.access_group_id ?? '';
         get('group').disabled = Boolean(profile);
@@ -181,11 +181,9 @@
         groupOptions(profile);
         get('customer').value = profile?.customer_name || '';
         get('profile-status').value = profile?.status || 'draft';
-        get('monthly-fee').value = ((profile?.monthly_fee_cents ?? defaults.monthly_fee_cents ?? 14900) / 100).toFixed(2);
-        get('included-seats').value = profile?.included_seats ?? defaults.included_seats ?? 5;
-        get('extra-fee').value = ((profile?.extra_seat_fee_cents ?? defaults.extra_seat_fee_cents ?? 1900) / 100).toFixed(2);
+        get('monthly-fee').value = ((profile?.monthly_fee_cents ?? defaults.monthly_fee_cents ?? 89900) / 100).toFixed(2);
         get('notes').value = profile?.notes || '';
-        get('profile-summary').textContent = profile ? `${profile.access_group_name || 'Käyttöoikeusryhmä'} · ${profile.user_count || 0} käyttäjää · ${labels[profile.status] || profile.status}` : 'Luo asiakkaalle oma käyttöoikeusryhmä Käyttöoikeudet-välilehdellä ennen profiilin tallennusta.';
+        get('profile-summary').textContent = profile ? `${profile.access_group_name || 'Käyttöoikeusryhmä'} · ${labels[profile.status] || profile.status}` : 'Luo asiakkaalle oma käyttöoikeusryhmä Käyttöoikeudet-välilehdellä ennen profiilin tallennusta.';
         renderRefs(profile);
         renderModels(profile);
         readiness(profile);
@@ -231,12 +229,10 @@
             if (get(id).value === '' || !Number.isFinite(value) || value < 0) throw new Error('Anna sopimusmaksut euroina, vähintään 0.');
             return Math.round(value * 100);
         };
-        const included_seats = Number(get('included-seats').value);
-        if (!Number.isInteger(included_seats) || included_seats < 1) throw new Error('Sisältyviä käyttäjiä on oltava vähintään yksi.');
         const allowed_models = [...panel.querySelectorAll('[data-byok-model]:checked')].map(input => input.value);
         if (get('profile-status').value === 'active' && !state.config.enabled) throw new Error('Ota BYOK ensin käyttöön Renderin backend-palvelun asetuksissa.');
         if (get('profile-status').value === 'active' && (!allowed_models.length || !Object.keys(provider_key_refs).length)) throw new Error('Valitse vähintään yksi malli ja sen avainmuuttuja ennen aktivointia.');
-        return { access_group_id: Number(get('group').value), customer_name, status: get('profile-status').value, provider_key_refs, allowed_models, monthly_fee_cents: fee('monthly-fee'), included_seats, extra_seat_fee_cents: fee('extra-fee'), currency: 'EUR', notes: get('notes').value.trim() };
+        return { access_group_id: Number(get('group').value), customer_name, status: get('profile-status').value, provider_key_refs, allowed_models, monthly_fee_cents: fee('monthly-fee'), currency: 'EUR', notes: get('notes').value.trim() };
     }
 
     get('form').addEventListener('input', () => markDirty(true));
