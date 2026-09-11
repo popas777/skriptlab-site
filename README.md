@@ -50,3 +50,12 @@ Varmista lopulliset arvot aina Netlifyn Domain management -näkymästä ennen ta
 Sovellus julkaistaan saman domainin alla osoitteessa `https://skriptlab.com/app/`.
 
 Yläpalkin `Kirjaudu`-painikkeet ohjaavat osoitteeseen `/app/login.html`. Backendin julkinen osoite on `https://api.skriptlab.com`.
+
+
+## Yritysten BYOK-hinnoittelu (valmis, piilossa)
+
+`hinnat.html` sisältää kaksikielisen yritysosion inertissä `#enterprise-byok-pricing-template`-elementissä. Sitä ei lisätä sivun näkyvään sisältöön, navigaatioon tai metatietoihin oletuksena. Template ja sen tekstit ovat kuitenkin luettavissa julkisesta lähdekoodista; tämä ei ole salaus tai pääsynhallinta.
+
+Ota osio näkyviin muuttamalla `assets/main.js`-tiedoston `SITE_FEATURES.enterpriseByokPricing` arvoksi `true` ja julkaisemalla sivusto normaalisti. URL-parametri tai selaimen tallennettu asetus ei ohita tätä kytkintä. Tarkista ennen julkaisua hinnat, sopimusehdot sekä suomen- ja englanninkielinen mobiilinäkymä (`hinnat.html?lang=en`).
+
+Valmisteltu sopimushinnoittelu on alkaen 149 €/kk viidelle käyttäjälle ja 19 €/lisäkäyttäjä/kk. Tekoälypalvelun kulutus maksetaan suoraan palveluntarjoajalle, ja soveltuva arvonlisävero lisätään hintoihin. Tämä sivun osio ei käynnistä laskutusta eikä ota sovelluksen BYOK-toimintoa käyttöön. Asiakaskohtainen käyttöönotto ja mallien rajaus tehdään sovelluksen ylläpidossa erikseen.

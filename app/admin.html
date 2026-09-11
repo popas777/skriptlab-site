@@ -6,6 +6,7 @@
     <title>SkriptLab - Admin Paneeli</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css?v=86">
+    <link rel="stylesheet" href="admin-byok.css?v=1">
     <style>
         .admin-container {
             max-width: 1200px;
@@ -344,6 +345,7 @@
                 <button type="button" class="admin-tab" id="admin-tab-invites" role="tab" aria-controls="admin-panel-invites" aria-selected="false" tabindex="-1" data-admin-tab="invites">Kutsut</button>
                 <button type="button" class="admin-tab" id="admin-tab-access" role="tab" aria-controls="admin-panel-access" aria-selected="false" tabindex="-1" data-admin-tab="access">Käyttöoikeudet</button>
                 <button type="button" class="admin-tab" id="admin-tab-models" role="tab" aria-controls="admin-panel-models" aria-selected="false" tabindex="-1" data-admin-tab="models">Tekoälymallit</button>
+                <button type="button" class="admin-tab" id="admin-tab-byok" role="tab" aria-controls="admin-panel-byok" aria-selected="false" tabindex="-1" data-admin-tab="byok">BYOK</button>
                 <button type="button" class="admin-tab" id="admin-tab-feedback" role="tab" aria-controls="admin-panel-feedback" aria-selected="false" tabindex="-1" data-admin-tab="feedback">Palautteet</button>
                 <button type="button" class="admin-tab" id="admin-tab-system" role="tab" aria-controls="admin-panel-system" aria-selected="false" tabindex="-1" data-admin-tab="system">Järjestelmä</button>
             </div>
@@ -619,6 +621,60 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
                             </div>
                         </div>
                     </div>
+                </div>
+            </section>
+
+            <section class="admin-tab-panel" id="admin-panel-byok" role="tabpanel" aria-labelledby="admin-tab-byok" tabindex="0" hidden>
+                <div class="admin-card glass-panel">
+                    <div class="byok-header">
+                        <div><h3>Yritysasiakkaiden BYOK</h3><p class="byok-muted">Asiakkaan omat tekoälyavaimet, sallitut mallit ja sopimustiedot.</p></div>
+                        <button class="btn btn-secondary" id="byok-refresh" type="button">Päivitä tiedot</button>
+                    </div>
+                    <p id="byok-global" class="byok-notice">Haetaan palvelimen BYOK-asetuksia.</p>
+                    <div class="byok-notice">
+                        <p><strong>Avaimet Renderin backend-palvelun Environment-asetuksiin; Adminiin vain muuttujan nimi.</strong> Käytä asiakaskohtaisia nimiä, esimerkiksi <code>SKRIPTLAB_BYOK_ASIAKAS_OPENAI_API_KEY</code>. Varsinaista API-avainta ei syötetä tähän näkymään.</p>
+                        <p class="byok-muted">Valitse käytettävät mallit alla. NotebookLM- ja Higgsfield-yhteydet eivät kuulu tähän BYOK-toteutukseen.</p>
+                    </div>
+                    <div class="byok-notice byok-warning">
+                        <p><strong>Profiili sitoo koko käyttöoikeusryhmän BYOK-käyttöön heti tallennettaessa.</strong> Luonnos, keskeytetty profiili tai puuttuva avain estää ryhmän tekoälykutsut. Kutsuja ei siirretä SkriptLabin yhteisille avaimille. Valmistele ryhmä ja toimiva profiili ennen käyttäjien lisäämistä.</p>
+                    </div>
+                    <div class="byok-profile-toolbar">
+                        <div class="settings-row"><label for="byok-profile">Asiakasprofiili</label><select id="byok-profile" disabled><option value="">Uusi asiakasprofiili</option></select></div>
+                        <button id="byok-new" class="btn btn-secondary" type="button" disabled>Uusi profiili</button>
+                    </div>
+                    <p id="byok-profile-summary" class="byok-profile-summary byok-muted"></p>
+                    <form id="byok-form" autocomplete="off">
+                        <fieldset id="byok-editor-fields" disabled>
+                            <legend>Asiakkaan asetukset</legend>
+                            <div class="byok-grid">
+                                <div class="settings-row"><label for="byok-customer">Asiakkaan nimi</label><input id="byok-customer" type="text" maxlength="160" required></div>
+                                <div class="settings-row"><label for="byok-group">Käyttöoikeusryhmä</label><select id="byok-group" required><option value="">Valitse ryhmä</option></select><small>Asiakkaalle oma ryhmä. Ryhmää ei vaihdeta profiilin tallentamisen jälkeen.</small></div>
+                                <div class="settings-row"><label for="byok-profile-status">Profiilin tila</label><select id="byok-profile-status"><option value="draft">Luonnos – käyttö estetty</option><option value="active">Aktiivinen</option><option value="suspended">Keskeytetty – käyttö estetty</option></select></div>
+                            </div>
+                            <fieldset><legend>Avainten muuttujanimet</legend>
+                                <p class="admin-section-description">Täytä vain käytettävien palveluntarjoajien muuttujat. Palvelin tarkistaa muuttujien olemassaolon tallennettaessa.</p>
+                                <div id="byok-provider-refs" class="byok-grid"></div>
+                                <details><summary>Toimintokohtaiset avainmuuttujat (valinnainen)</summary><div id="byok-scoped-refs" class="byok-grid"></div></details>
+                            </fieldset>
+                            <fieldset><legend>Sallitut mallit</legend>
+                                <p class="admin-section-description">Vain valitut mallit ovat profiilin käytettävissä. Valinnan puuttuminen ei tarkoita kaikkien mallien sallimista.</p>
+                                <div id="byok-models" class="byok-model-list"></div>
+                            </fieldset>
+                            <fieldset><legend>Sopimushinnoittelu</legend>
+                                <p class="admin-section-description">Sopimuksen tiedot manuaalista laskutusta varten. Näiden tallennus ei veloita asiakasta eikä rajoita käyttäjämäärää automaattisesti. Valuutta EUR; tekoälypalvelu laskuttaa kulutuksen suoraan asiakkaalta.</p>
+                                <div class="byok-grid byok-grid-three">
+                                    <div class="settings-row"><label for="byok-monthly-fee">Kuukausimaksu (€)</label><input id="byok-monthly-fee" type="number" min="0" max="1000000" step="0.01" required value="149.00"></div>
+                                    <div class="settings-row"><label for="byok-included-seats">Sisältyvät käyttäjät</label><input id="byok-included-seats" type="number" min="1" max="100000" step="1" required value="5"></div>
+                                    <div class="settings-row"><label for="byok-extra-fee">Lisäkäyttäjä / kk (€)</label><input id="byok-extra-fee" type="number" min="0" max="100000" step="0.01" required value="19.00"></div>
+                                </div>
+                                <div class="settings-row"><label for="byok-notes">Sisäiset sopimusmuistiinpanot</label><textarea id="byok-notes" maxlength="4000" rows="3" placeholder="Sovittu laajuus ja laskutuksen lisätiedot. Ei API-avaimia."></textarea></div>
+                            </fieldset>
+                        </fieldset>
+                        <div class="byok-actions"><button id="byok-save" class="btn btn-primary" type="submit" disabled>Tallenna asiakasprofiili</button><span id="byok-pending" class="byok-pending" aria-live="polite"></span></div>
+                    </form>
+                    <p id="byok-status-message" class="byok-status" role="status" aria-live="polite"></p>
+                    <div id="byok-readiness" class="byok-notice" hidden><strong id="byok-readiness-title"></strong><ul id="byok-readiness-list" class="byok-readiness-list"></ul><p class="byok-muted">Muuttujan löytyminen ei vielä varmista API-avaimen voimassaoloa tai palveluntarjoajan saldoa.</p></div>
+                    <details><summary>Profiilin tapahtumat</summary><p id="byok-audit-status" class="byok-muted">Valitse tallennettu profiili.</p><ol id="byok-audit-list" class="byok-audit-list"></ol></details>
                 </div>
             </section>
 
@@ -1809,5 +1865,6 @@ sinulle on luotu kutsu SkriptLab-palveluun.</textarea>
         loadInvites();
         loadUsers();
     </script>
+    <script src="admin-byok.js?v=1"></script>
 </body>
 </html>

@@ -1,6 +1,12 @@
 const LANGUAGE_KEY = "skriptlab_site_language";
 const SUPPORTED_LANGUAGES = ["fi", "en"];
 
+// Public-site launch switch. This does not enable BYOK in the application.
+// Keep false until enterprise pricing is ready to publish; no URL/storage override.
+const SITE_FEATURES = Object.freeze({
+  enterpriseByokPricing: false
+});
+
 const pathParts = window.location.pathname.split("/").filter(Boolean);
 const pageSlug = (pathParts[pathParts.length - 1] || "index").replace(/\.html$/, "");
 
@@ -744,5 +750,13 @@ window.addEventListener("keydown", (event) => {
   }
 });
 
+function mountEnterpriseByokPricing() {
+  if (pageKey !== "pricing" || !SITE_FEATURES.enterpriseByokPricing) return;
+  const template = document.getElementById("enterprise-byok-pricing-template");
+  if (!template || document.getElementById("enterprise-byok-pricing")) return;
+  template.before(template.content.cloneNode(true));
+}
+
+mountEnterpriseByokPricing();
 ensureLanguageToggle();
 setLanguage(currentLanguage);

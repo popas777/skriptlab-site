@@ -1136,6 +1136,141 @@ body.product-shot-modal-open {
   font-size: 0.86rem;
 }
 
+/* Enterprise BYOK is mounted from an inert template only after its launch switch is enabled. */
+.enterprise-byok {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
+  gap: clamp(2rem, 4vw, 4rem);
+  align-items: start;
+  margin-top: 4rem;
+  padding-top: 3rem;
+  border-top: 1px solid var(--border);
+  scroll-margin-top: 8rem;
+}
+
+.enterprise-byok-overview h2 {
+  max-width: 520px;
+  font-size: clamp(2.1rem, 3.5vw, 3rem);
+}
+
+.enterprise-byok-intro {
+  margin-top: 1.25rem;
+  color: var(--muted);
+}
+
+.enterprise-byok-steps {
+  display: grid;
+  gap: 1.3rem;
+  margin: 2rem 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: byok-step;
+}
+
+.enterprise-byok-steps li {
+  position: relative;
+  padding-left: 2.8rem;
+  counter-increment: byok-step;
+}
+
+.enterprise-byok-steps li::before {
+  content: counter(byok-step, decimal-leading-zero);
+  position: absolute;
+  top: 0.1rem;
+  left: 0;
+  color: var(--sienna);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.enterprise-byok-steps strong,
+.enterprise-byok-steps span {
+  display: block;
+}
+
+.enterprise-byok-steps span {
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.enterprise-byok-plan {
+  padding: clamp(1.4rem, 3vw, 2.25rem);
+  border: 1px solid var(--amber);
+  border-radius: 10px;
+  background: var(--cream);
+}
+
+.enterprise-byok-plan h3 {
+  font-size: 1.75rem;
+}
+
+.enterprise-byok-price {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: baseline;
+  margin: 1.15rem 0 0.2rem;
+  font-size: 0.9rem;
+}
+
+.enterprise-byok-price strong {
+  font-size: clamp(2.4rem, 4vw, 3.25rem);
+  font-weight: 500;
+  letter-spacing: -0.05em;
+  line-height: 1.1;
+}
+
+.enterprise-byok-price-note {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.enterprise-byok-inclusions {
+  display: grid;
+  gap: 0.55rem;
+  margin: 1.5rem 0;
+  padding-left: 1.15rem;
+  font-size: 0.88rem;
+}
+
+.enterprise-byok-inclusions li::marker {
+  color: var(--sienna);
+}
+
+.enterprise-byok-provider-cost {
+  margin-bottom: 1.5rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.88rem;
+}
+
+.enterprise-byok-provider-cost p {
+  margin-top: 0.35rem;
+  color: var(--muted);
+}
+
+.enterprise-byok-plan .btn-primary {
+  width: 100%;
+  padding-inline: 1rem;
+  text-align: center;
+  white-space: normal;
+}
+
+.enterprise-byok-terms {
+  margin-top: 1rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+@media (max-width: 800px) {
+  .enterprise-byok {
+    grid-template-columns: 1fr;
+    margin-top: 3rem;
+    padding-top: 2.5rem;
+  }
+}
+
 .cta-section {
   padding: 6rem 2rem;
   background: var(--ink);
