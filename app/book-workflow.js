@@ -360,42 +360,162 @@
     const root = $("view-kehityseditointi"); if (!root) return;
     wrap(root, "development", "module.development_editing", `${cardIntro("Kehityspalaute", "Pyydä koko teoksesta toimituksellinen palaute. Saat arvion rakenteesta, henkilöistä, rytmistä ja tärkeimmistä seuraavista muokkauksista.")}<section class="book-basic-card"><label>Lisäohje kehityseditoijalle <textarea id="book-development-instructions" rows="4" maxlength="4000" placeholder="Esim. tarkastele erityisesti keskiosan rytmiä ja päähenkilön kaarta."></textarea></label><div class="book-basic-actions">${button("book-development-run", "Pyydä kehityspalaute", "development_feedback.run")}${usage("development_feedback.run")}${button("book-development-refresh", "Päivitä tulokset", null, true)}${button("book-development-download", "Lataa palaute", null, true)}</div>${status("book-development-status")}<div id="book-development-results" class="book-basic-results"></div></section>`);
     $("book-basic-tab-development").textContent = "Kehityspalaute";
-    let run = null, runProject = null, timer = null, loadedCompleted = null;
-    function render() {
-      if (!run) return;
-      const control = $("book-development-run"); control.dataset.bookRunning = String(["running", "queued", "pending"].includes(run.status)); control.disabled = control.dataset.bookRunning === "true";
-      $("book-development-instructions").disabled = control.disabled || run.can_resume;
-      if (run.can_resume) { delete control.dataset.accessAction; control.removeAttribute("aria-disabled"); control.classList.remove("book-access-locked"); control.textContent = "Jatka samaa kehityspalautetta"; }
+    let run = null, runProject = A.projectId(), timer = null, loadedCompleted = null, generation = 0, failures = 0, submitting = false;
+    // Keep an uncertain start tied to its project and request identity across view changes.
+    const uncertainSubmissions = new Map();
+    const running = value => ["running", "queued", "pending"].includes(value?.status);
+    const current = version => version === generation && runProject === A.projectId();
+    const statePath = () => `/projects/${runProject}/basic-production/state`;
+    function clearTimer() { clearTimeout(timer); timer = null; }
+    function transient(error) {
+      const code = Number(error?.status);
+      if (error?.name === "AbortError" || (code >= 400 && code < 500 && code !== 429)) return false;
+      return error?.retryable === true || error?.code === "NETWORK_ERROR" || ["TypeError", "NetworkError"].includes(error?.name) || [429, 502, 503, 504].includes(code);
+    }
+    function controls() {
+      const control = $("book-development-run");
+      const pending = uncertainSubmissions.get(runProject);
+      control.dataset.bookRunning = String(submitting || (pending ? !pending.retryAllowed : running(run)));
+      control.disabled = control.dataset.bookRunning === "true";
+      $("book-development-instructions").disabled = control.disabled || Boolean(pending) || Boolean(run?.can_resume);
+      if (pending || run?.can_resume) { delete control.dataset.accessAction; control.removeAttribute("aria-disabled"); control.classList.remove("book-access-locked"); control.textContent = pending?.retryAllowed ? "Yritä käynnistystä uudelleen" : "Jatka samaa kehityspalautetta"; }
       else { control.dataset.accessAction = "development_feedback.run"; control.textContent = "Pyydä kehityspalaute"; }
-      tell("book-development-status", `${run.completed_count || 0}/${run.total_count || 0} osaa käsitelty. ${run.status === "completed" ? "Kehityspalaute valmis." : run.error_message || (run.phase === "synthesizing" ? "Koostetaan koko teoksen palautetta…" : "Teosta luetaan ja palautetta muodostetaan…")}`);
-      const target = $("book-development-results"); target.replaceChildren();
-      if (run.report) { const report = document.createElement("pre"); report.textContent = run.report; target.append(report); }
-      else (run.partials || []).forEach(part => { const section = document.createElement("article"); const title = document.createElement("h3"); title.textContent = part.title || "Osa " + (Number(part.index) + 1); const report = document.createElement("pre"); report.textContent = part.report; section.append(title, report); target.append(section); });
       A.decorate();
     }
-    async function poll() {
-      if (!run?.id || runProject !== A.projectId()) return;
-      run = await A.request(projectPath("/development-feedback/runs/" + run.id)); render(); clearTimeout(timer);
-      if (["running", "pending", "queued"].includes(run.status)) timer = setTimeout(() => poll().catch(error => tell("book-development-status", error.message)), 4000);
-      else {
-        await A.refresh(true);
-        if (run.status === "completed") { A.completeKey(A.keyFor("development_feedback.run", "whole-book")); if (loadedCompleted !== run.id) { loadedCompleted = run.id; await window.SkriptLabBasicHooks?.reloadProject?.(); } }
-      }
+    function render(message) {
+      controls();
+      const progress = !run ? "Kehityspalautetta ei ole vielä pyydetty." : `${run.completed_count || 0}/${run.total_count || 0} osaa käsitelty. ${run.status === "completed" ? "Kehityspalaute valmis." : run.error_message || (["failed", "interrupted", "cancelled"].includes(run.status) ? "Kehityspalaute keskeytyi." : run.phase === "synthesizing" ? "Koostetaan koko teoksen palautetta…" : "Teosta luetaan ja palautetta muodostetaan…")}`;
+      tell("book-development-status", message || progress);
+      const target = $("book-development-results"); target.replaceChildren();
+      if (run?.report) { const report = document.createElement("pre"); report.textContent = run.report; target.append(report); }
+      else (run?.partials || []).forEach(part => { const section = document.createElement("article"); const title = document.createElement("h3"); title.textContent = part.title || "Osa " + (Number(part.index) + 1); const report = document.createElement("pre"); report.textContent = part.report; section.append(title, report); target.append(section); });
+    }
+    function begin() {
+      generation += 1; clearTimer(); failures = 0; submitting = false;
+      if (runProject !== A.projectId()) { run = null; loadedCompleted = null; $("book-development-instructions").value = ""; }
+      runProject = A.projectId();
+      return generation;
+    }
+    function schedule(callback, version, delay) {
+      clearTimer();
+      timer = setTimeout(() => { if (!current(version)) return; timer = null; callback(version); }, delay);
+    }
+    function recover(error, version, callback) {
+      if (!current(version)) return;
+      clearTimer();
+      if (!transient(error)) { tell("book-development-status", error.message || "Tilaa ei voitu ladata. Päivitä tulokset myöhemmin."); return; }
+      const delay = Math.min(15000, 4000 * (2 ** Math.min(failures++, 2)));
+      tell("book-development-status", `Yhteys palvelimeen katkesi. Kehityspalautteen tila tarkistetaan uudelleen ${Math.ceil(delay / 1000)} sekunnin kuluttua. Työ voi jatkua palvelimella.`);
+      schedule(callback, version, delay);
+    }
+    async function poll(version = generation) {
+      if (!current(version) || !run?.id) return;
+      clearTimer();
+      const id = run.id;
+      try {
+        const next = await A.request(`/projects/${runProject}/development-feedback/runs/${id}`);
+        if (!current(version) || run?.id !== id) return;
+        if (next.id !== id) { tell("book-development-status", "Palautteen tunniste ei vastannut pyyntöä. Päivitä tulokset."); return; }
+        run = next; failures = 0; render();
+        if (running(run)) schedule(poll, version, 4000);
+        else {
+          await A.refresh(true);
+          if (!current(version) || run?.id !== id) return;
+          if (run.status === "completed") {
+            // Register the persisted identity after a page reload before clearing it.
+            const identity = A.keyFor("development_feedback.run", "whole-book");
+            if (!run.idempotency_key || identity === run.idempotency_key) A.completeKey(identity);
+            if (loadedCompleted !== id) { loadedCompleted = id; await window.SkriptLabBasicHooks?.reloadProject?.(); }
+          }
+        }
+      } catch (error) { if (run?.id === id) recover(error, version, poll); }
+    }
+    async function reconcile(version) {
+      if (!current(version)) return;
+      clearTimer();
+      const pending = uncertainSubmissions.get(runProject);
+      if (!pending) return;
+      try {
+        const state = await A.request(statePath());
+        if (!current(version) || uncertainSubmissions.get(runProject) !== pending) return;
+        failures = 0;
+        const found = state?.latest_development_feedback;
+        if (found?.id && found.idempotency_key === pending.key) {
+          uncertainSubmissions.delete(runProject); run = found; failures = 0; render(); await poll(version);
+        } else {
+          pending.misses += 1;
+          controls();
+          if (pending.misses < 3) {
+            tell("book-development-status", "Käynnistyspyynnön tulos on vielä epäselvä. Tarkistetaan samaa kehityspalautetta palvelimelta…");
+            schedule(reconcile, version, Math.min(15000, 4000 * (2 ** (pending.misses - 1))));
+          } else {
+            pending.retryAllowed = true; controls();
+            tell("book-development-status", "Käynnistyksen tulos on epäselvä. Voit päivittää tulokset tai yrittää käynnistystä uudelleen. Uusinta käyttää samaa pyyntöä ja alkuperäisiä ohjeita.");
+          }
+        }
+      } catch (error) { recover(error, version, reconcile); }
+    }
+    async function loadLatest(version) {
+      if (!current(version) || !runProject) return;
+      try {
+        const state = await A.request(statePath());
+        if (!current(version)) return;
+        run = state?.latest_development_feedback || null; failures = 0;
+        if (run?.can_resume) $("book-development-instructions").value = run.request?.instructions || "";
+        render(); if (run) await poll(version);
+      } catch (error) { recover(error, version, loadLatest); }
     }
     async function load() {
-      if (runProject !== A.projectId()) { run = null; loadedCompleted = null; $("book-development-results").replaceChildren(); }
-      const state = await loadState(true); run = state?.latest_development_feedback || null; runProject = A.projectId();
-      if (run) { if (run.can_resume) $("book-development-instructions").value = run.request?.instructions || ""; render(); await poll(); }
-      else tell("book-development-status", "Kehityspalautetta ei ole vielä pyydetty.");
+      const version = begin();
+      render(runProject ? "Ladataan kehityspalautteen tilaa…" : "Valitse ensin teos Tekstini-moduulista.");
+      const pending = uncertainSubmissions.get(runProject);
+      if (pending) { pending.misses = 0; pending.retryAllowed = false; controls(); await reconcile(version); }
+      else await loadLatest(version);
     }
-    on("book-development-run", () => work("book-development-run", "book-development-status", "Käynnistetään koko teoksen kehityspalaute…", async () => {
-      await savedProject(); const current = await loadState(true); const previous = current?.latest_development_feedback || run;
-      run = await A.request(projectPath("/development-feedback/run"), { method: "POST", body: { idempotency_key: A.keyForRun("development_feedback.run", "whole-book", previous),
-        instructions: previous?.can_resume ? previous.request?.instructions || "" : $("book-development-instructions").value.trim() } });
-      runProject = A.projectId(); render(); await poll();
-    }));
+    async function submit(pending, version) {
+      const project = runProject;
+      let created;
+      try {
+        created = await A.request(`/projects/${project}/development-feedback/run`, { method: "POST", body: pending.body });
+      } catch (error) {
+        if (!transient(error) && uncertainSubmissions.get(project) === pending) uncertainSubmissions.delete(project);
+        if (!current(version)) return;
+        submitting = false;
+        if (!transient(error)) throw error;
+        render("Käynnistyspyynnön vastaus katkesi. Tarkistetaan saman kehityspalautteen tila palvelimelta…");
+        await reconcile(version); return;
+      }
+      if (!current(version)) return;
+      uncertainSubmissions.delete(project); run = created; submitting = false; render(); await poll(version);
+    }
+    on("book-development-run", async () => {
+      if ($("book-development-run").disabled) return;
+      const version = begin();
+      submitting = true; render("Käynnistetään koko teoksen kehityspalaute…");
+      try {
+        const existing = uncertainSubmissions.get(runProject);
+        if (existing) {
+          existing.retryAllowed = false; existing.misses = 0;
+          render("Yritetään saman kehityspalautteen käynnistystä alkuperäisillä ohjeilla…");
+          await submit(existing, version); return;
+        }
+        await savedProject(); if (!current(version)) return;
+        const state = await A.request(statePath()); if (!current(version)) return;
+        const previous = state?.latest_development_feedback || run;
+        const identity = A.keyForRun("development_feedback.run", "whole-book", previous);
+        const pending = { key: identity, misses: 0, retryAllowed: false, body: { idempotency_key: identity,
+          instructions: previous?.can_resume ? previous.request?.instructions || "" : $("book-development-instructions").value.trim() } };
+        uncertainSubmissions.set(runProject, pending);
+        await submit(pending, version);
+      } catch (error) { if (current(version)) { submitting = false; render(error.message || "Käynnistys epäonnistui."); } }
+      finally { if (current(version)) { submitting = false; controls(); A.refresh(true); } }
+    });
+    document.addEventListener("skriptlab:access", () => {
+      if (runProject !== A.projectId()) load();
+    });
     on("book-development-refresh", () => load().catch(error => tell("book-development-status", error.message)));
     on("book-development-download", () => {
+      if (runProject !== A.projectId()) return;
       const report = run?.report || (run?.partials || []).map(part => "## " + part.title + "\n\n" + part.report).join("\n\n");
       if (!report) { tell("book-development-status", "Ladattavaa palautetta ei ole vielä."); return; }
       const url = URL.createObjectURL(new Blob([report], { type: "text/markdown;charset=utf-8" })); const link = document.createElement("a"); link.href = url; link.download = "kehityspalaute.md"; link.click(); setTimeout(() => URL.revokeObjectURL(url), 30000);

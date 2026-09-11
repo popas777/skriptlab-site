@@ -120,6 +120,11 @@
     return identity;
   }
   function escape(value) { return String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+  function fetchApi(path, options) {
+    return win.SkriptLabAuth?.fetch
+      ? win.SkriptLabAuth.fetch("/api" + path, options)
+      : win.fetch(apiRoot() + "/api" + path, options);
+  }
   async function request(path, options = {}) {
     const headers = new Headers(options.headers || {});
     const token = win.localStorage.getItem("skriptlab_auth_token");
@@ -127,8 +132,15 @@
     if (options.body && typeof options.body !== "string" && !(options.body instanceof FormData)) {
       headers.set("Content-Type", "application/json"); options = { ...options, body: JSON.stringify(options.body) };
     }
-    const response = await win.fetch(apiRoot() + "/api" + path, { ...options, headers });
-    if (!response.ok) { const body = await response.json().catch(() => ({})); const detail = body.detail; throw new Error(typeof detail === "string" ? detail : detail?.message || "Pyyntö epäonnistui."); }
+    const response = await fetchApi(path, { ...options, headers });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({})); const detail = body.detail;
+      const error = new Error(typeof detail === "string" ? detail : detail?.message || "Pyyntö epäonnistui.");
+      error.status = response.status;
+      error.code = "HTTP_ERROR";
+      error.retryable = [429, 502, 503, 504].includes(response.status);
+      throw error;
+    }
     if (options.blob) return response.blob();
     return response.status === 204 ? null : response.json();
   }
@@ -141,7 +153,7 @@
     loadedProject = id;
     refreshing = (async () => {
       try {
-        const response = await rawFetch(apiRoot() + "/api/access/me" + (id ? "?project_id=" + id : ""), {
+        const response = await fetchApi("/access/me" + (id ? "?project_id=" + id : ""), {
           headers: { Authorization: "Bearer " + win.localStorage.getItem("skriptlab_auth_token") }
         });
         if (!response.ok) throw new Error("Käyttöoikeuksien lataaminen epäonnistui.");
