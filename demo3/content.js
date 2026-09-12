@@ -168,8 +168,8 @@ export function renderOutput(id, { language = 'fi', audioLanguage = 'fi', campai
 
   if (id === 'video') {
     return `<h3 class="sample-title">Katso videokokeilu</h3>
-      <video class="output-media output-video" controls playsinline preload="metadata" poster="/demo/assets/door-landscape.webp" aria-label="Vihreä ovi, kahdeksan sekunnin äänetön kuva-animaatio"><source src="/demo/assets/door-scene.mp4" type="video/mp4"><track kind="captions" src="/demo/assets/door-scene.vtt" srclang="fi" label="Suomi" default>Selaimesi ei tue videosoitinta. <a href="/demo/assets/door-scene.mp4">Avaa video</a>.</video>
-      <p class="output-note">8 sekunnin äänetön kuva-animaatio. Valmisteltu kokeilu: kuvan liike rakentuu oven ja puutarhan motiiville.</p>${footer}`;
+      <video class="output-media output-video" controls playsinline preload="metadata" poster="/demo/assets/door-scene-poster.webp" aria-label="Kahdeksan sekunnin AI-video: vihreä ovi avautuu puutarhaan"><source src="/demo/assets/door-scene.mp4" type="video/mp4"><track kind="captions" src="/demo/assets/door-scene.vtt" srclang="fi" label="Suomi" default>Selaimesi ei tue videosoitinta. <a href="/demo/assets/door-scene.mp4">Avaa video</a>.</video>
+      <p class="output-note">Geminin videomallilla tuotettu 8 sekunnin näyte: muurin viereltä oven kautta puutarhaan.</p>${footer}`;
   }
 
   if (id === 'campaign') {

@@ -18,7 +18,7 @@ The page reuses existing local fonts from `/demo2/fonts.css`, and original image
 
 The example is H. G. Wells, *The Door in the Wall* / *Ovi muurissa*. Quotes and reviewed Finnish translation come from the original demo's curated source data. Redmond is the framing narrator; Wallace describes his memories. The garden's reality remains open to interpretation. Themes and voice/visual directions are labeled interpretations.
 
-Languages, audio, illustration, book layout, video, campaign and world panels are prepared examples. Swedish/German translations and campaign copy are demo drafts. Audio files are the original locally synthesized Finnish and English recordings. Video is the existing silent eight-second image animation, not a live AI video generation. Book layout is a visual concept; the download is explicitly a real `.txt` excerpt. Generated virtual worlds are a future concept. The public site's paused-service notice remains visible.
+Languages, audio, illustration, book layout, video, campaign and world panels are prepared examples. Swedish/German translations and campaign copy are demo drafts. Audio files are the original locally synthesized Finnish and English recordings. Video is the user-supplied Gemini-generated clip, trimmed from source time 12–20 s with its audio retained. The shared `/demo/assets/door-scene.mp4` runs for eight seconds and uses a poster and Finnish scene descriptions from the new clip. It is a prepared external example, not a live AI video generation in the application. Book layout is a visual concept; the download is explicitly a real `.txt` excerpt. Generated virtual worlds are a future concept. The public site's paused-service notice remains visible.
 
 ## Interaction and accessibility
 

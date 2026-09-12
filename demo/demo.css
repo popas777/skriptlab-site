@@ -844,7 +844,9 @@ figcaption {
   font-size:11px;
 }
 .video-visual video {
-  height:400px;
+  height:auto;
+  aspect-ratio:16/9;
+  object-fit:contain;
 }
 .shot-strip {
   display:grid;
@@ -1638,9 +1640,6 @@ figcaption {
   }
   .audio-visual h3 {
     font-size:39px;
-  }
-  .video-visual video {
-    height:290px;
   }
   .shot-strip {
     gap:12px;

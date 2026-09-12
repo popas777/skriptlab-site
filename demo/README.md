@@ -21,9 +21,9 @@ The Swedish and German sentence translations, campaign copy and interactive gard
 ## Media provenance
 
 - Context portraits, places and themes, plus translation, audio, illustration, campaign and book concept art: reused from `/demo3/assets/`. The eleven WebP files in this directory are exact copies, so this page remains independent of the `/demo3/` route. Context images change with the selected story node; captions identify the images as interpretations or concepts.
-- Door and garden illustrations: generated for this demo with Imagegen. The doorway's wide composition is also used in the video.
+- Door and garden illustrations: generated for this demo with Imagegen. The original doorway illustration remains available separately from the video.
 - Finnish and English voice samples: locally synthesized using macOS Satu and Daniel, respectively, then encoded as AAC. They illustrate language switching and are explicitly not a benchmark of the application's audio models. The Finnish sample was regenerated on 12 September 2026 from the current opening paragraph; the same text and recording are synchronized in `/demo2/` and `/demo3/`, including the embedded Finnish recording in `/demo2/demo-data.js`.
-- Video: an eight-second, silent H.264 camera move over the generated doorway image, rendered locally. The page labels it as an image animation, distinct from AI video generation.
+- Video: the user’s Gemini-generated `loppu_oli_hyvä_mutta_haluaisin.mp4`, trimmed from 12.000 s to the source end at 20.000 s. The eight-second MP4 retains the source audio and is exported as H.264 at 1280×720, 24 fps, with web streaming optimization. The source file is preserved. The WebP poster is from 6.5 s of the trimmed clip; the Finnish VTT describes the visible action. Both `/demo/` and `/demo3/` use this clip. It is a prepared external example, not a live generation in the application.
 - The garden is a clickable image concept, not a 3D engine or a currently available world-generation feature.
 
 ## Product boundaries

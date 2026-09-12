@@ -68,7 +68,7 @@ export const outputPresentations = {
     caption: 'Konseptikuva liikkuvan kuvan suunnasta. Alla on erillinen valmisteltu videokokeilu.',
     lead: 'Oven ja puutarhan motiivista syntyy lyhyt visuaalinen kutsu.',
     sections: [
-      { title: 'Katso kahdeksan sekunnin kokeilu.', text: 'Demon video on valmisteltu, äänetön kuva-animaatio. Se näyttää yhden tavan tuoda kuvitukseen liikettä ja antaa tarinan keskeiselle motiiville aikaa.' },
+      { title: 'Katso kahdeksan sekunnin videonäyte.', text: 'Geminin videomallilla tuotetussa näytteessä kamera kulkee muurin vierellä kohti vihreää ovea. Ovi avautuu ja paljastaa puutarhan.' },
       { title: 'Liike tarvitsee tarinan suunnan.', text: 'Lempeä valo ja kutsuva puutarha ohjaavat kohtausta. Kuvakulma, tempo ja leikkaus voivat korostaa kaipuuta, mutta niiden ei pidä väittää puutarhasta enempää kuin teksti kertoo.' },
     ],
     process: [
