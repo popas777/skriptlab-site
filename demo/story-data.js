@@ -70,7 +70,7 @@ window.SkriptLabDemo = Object.freeze({
     de: { label: 'SAKSA · DEMON KÄÄNNÖSLUONNOS', text: 'Doch die weiße Mauer und die grüne Tür hoben sich ganz deutlich ab.', note: 'Tätä demoa varten laadittu saksannos. Havainnollistaa kontekstin säilymistä, ei tarkistettua kokonaiskäännöstä.' }
   },
   voices: {
-    fi: { src: '/demo/assets/narrator-fi.m4a', lang: 'fi', label: 'Ovi muurissa, suomenkielinen koneääninäyte', transcript: 'Eräänä luottamuksellisena iltana, vajaat kolme kuukautta sitten, Lionel Wallace kertoi minulle tämän tarinan muurissa olevasta ovesta. Ja silloin ajattelin, että ainakin hänelle itselleen se oli tosi.' },
+    fi: { src: '/demo/assets/narrator-fi.m4a', lang: 'fi', label: 'Ovi muurissa, suomenkielinen koneääninäyte', transcript: 'Eräänä iltana vajaat kolme kuukautta sitten Lionel Wallace uskoutui minulle ja kertoi tämän tarinan muurissa olevasta ovesta. Ja silloin ajattelin, että ainakin hänelle itselleen se oli tosi.' },
     en: { src: '/demo/assets/narrator-en.m4a', lang: 'en', label: 'The Door in the Wall, englanninkielinen koneääninäyte', transcript: 'One confidential evening, not three months ago, Lionel Wallace told me this story of the Door in the Wall. And at the time I thought that so far as he was concerned it was a true story.' }
   },
   campaigns: {

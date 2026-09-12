@@ -73,7 +73,7 @@ export const voices = {
   fi: {
     name: 'Suomi', src: '/demo/assets/narrator-fi.m4a', lang: 'fi',
     label: 'Ovi muurissa, suomenkielinen koneääninäyte',
-    transcript: 'Eräänä luottamuksellisena iltana, vajaat kolme kuukautta sitten, Lionel Wallace kertoi minulle tämän tarinan muurissa olevasta ovesta. Ja silloin ajattelin, että ainakin hänelle itselleen se oli tosi.',
+    transcript: 'Eräänä iltana vajaat kolme kuukautta sitten Lionel Wallace uskoutui minulle ja kertoi tämän tarinan muurissa olevasta ovesta. Ja silloin ajattelin, että ainakin hänelle itselleen se oli tosi.',
   },
   en: {
     name: 'Englanti', src: '/demo/assets/narrator-en.m4a', lang: 'en',
@@ -162,7 +162,7 @@ export function renderOutput(id, { language = 'fi', audioLanguage = 'fi', campai
 
   if (id === 'book') {
     return `<h3 class="sample-title">Tutustu tekstikatkelmaan</h3>
-      <figure class="book-excerpt"><blockquote><p>Eräänä luottamuksellisena iltana, vajaat kolme kuukautta sitten, Lionel Wallace kertoi minulle tämän tarinan muurissa olevasta ovesta.</p></blockquote><figcaption>H. G. Wells · <cite>Ovi muurissa</cite> · osa I</figcaption></figure>
+      <figure class="book-excerpt"><blockquote><p>Eräänä iltana vajaat kolme kuukautta sitten Lionel Wallace uskoutui minulle ja kertoi tämän tarinan muurissa olevasta ovesta.</p></blockquote><figcaption>H. G. Wells · <cite>Ovi muurissa</cite> · osa I</figcaption></figure>
       <a class="output-control output-download" href="/demo/assets/ovi-muurissa-katkelma.txt" download="ovi-muurissa-katkelma.txt">Lataa tekstikatkelma <span aria-hidden="true">↓</span></a>${footer}`;
   }
 
