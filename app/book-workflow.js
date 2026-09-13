@@ -56,45 +56,6 @@
     });
     return basic;
   }
-  function mountModuleIntroductions() {
-    const introductions = [
-      ["view-oheisaineistot", "support_materials", "Oheisaineistot", "Täydennä kirjaasi copysivulla, hakemistoilla ja lähdeluettelolla. Voit antaa taustatiedot, muokata luonnosta ja liittää valmiin aineiston kirjan taittoon."],
-      ["view-markkinointi", "marketing", "Markkinointi", "Valmistele kirjallesi esittelytekstejä ja kampanja-aineistoja teoksen omien tietojen pohjalta."],
-      ["view-suomentaja", "translations", "Räätälöidyt käännökset", "Työstä kirjasi käännöstä valitulla kielisuunnalla ja teoskohtaisilla ohjeilla."],
-      ["view-kaannostyotila", "translation_workspace", "Automaattikäännökset", "Muodosta kirjasta käännös ja seuraa sen valmistumista osissa."],
-      ["view-monikielinen-julkaisu", "multilingual_publication", "Kieliversiot", "Kokoa ja tarkista teoksen eri kieliversioiden julkaisuaineistot."],
-      ["view-ai-tyonkulku", "ai_workflow", "Työnkulkustudio", "Yhdistä tekstin käsittelyn vaiheita omaan työskentelyysi sopivaksi kokonaisuudeksi."],
-      ["view-elamakerta", "biography", "Elämäkerta", "Kokoa muistoja ja haastatteluja sekä työstä niistä elämäkerran käsikirjoitusta."],
-      ["view-video", "video", "Videostudio", "Valmistele teoksesi pohjalta käsikirjoituksia ja visuaalisia aineistoja videoihin."],
-      ["view-3d-studio", "world_studio", "3D-studio", "Hahmottele teoksen tapahtumapaikkoja ja maailmaa kolmiulotteisesti."],
-      ["view-julkaise", "publish", "Painatus ja kustantaminen", "Valmistele painetun kirjan tuotantoa ja sen tarvitsemia tietoja."],
-      ["view-sopimukset", "contracts", "Sopimukset", "Kokoa teoksen sopimuksiin liittyvät tiedot ja tarkasteltavat asiakirjat yhteen."],
-      ["view-aikajana", "timeline", "Aikajana", "Jäsennä teoksen tapahtumia ja niiden ajallisia yhteyksiä."],
-      ["view-korjaukset", "correction_reprints", "Korjaukset ja uusintapainokset", "Valmistele julkaistun teoksen korjaukset ja uuden painoksen aineistot."],
-      ["view-skill", "skill", "Skill", "Kokoa teoksen keskeiset tiedot ja ohjeet myöhempää työskentelyä varten."],
-      ["view-notebooklm", "notebooklm", "NotebookLM", "Työstä teoksen lähteitä ja muistiinpanoja NotebookLM-yhteyden avulla."]
-    ];
-    for (const [viewId, moduleKey, title, copy] of introductions) {
-      const root = $(viewId); if (!root) continue;
-      const name = "intro-" + moduleKey, action = "module." + moduleKey;
-      const navView = viewId === "view-suomentaja" ? "view-kaannokset" : viewId;
-      const basic = wrap(root, name, action,
-        `<h2>${title}</h2><p class="book-basic-intro">${copy}</p><p class="book-basic-usage" id="${name}-availability"></p><div class="book-basic-actions"><button type="button" id="${name}-open">Avaa työkalut</button></div>`,
-        { title: "Esittely", toolsTitle: "Työkalut", onTools: () => {
-          document.querySelector(`#nav-menu [data-view="${navView}"]`)?.click();
-        } });
-      if (!basic) continue;
-      root.dataset.bookIntro = "book-basic-advanced-" + name;
-      on(name + "-open", () => $("book-advanced-tab-" + name).click());
-      const update = () => {
-        const snapshot = A.getSnapshot();
-        const allowed = A.tabAccessDecision(snapshot, action).allowed;
-        $(name + "-open").textContent = !snapshot ? "Tarkista käyttöoikeus" : allowed ? "Avaa työkalut" : "Hanki lisäpalveluna";
-        $(name + "-availability").textContent = !snapshot ? "Käyttöoikeuksia ladataan…" : allowed ? "Työkalut ovat käytössäsi." : "Saat tämän moduulin käyttöösi lisäpalveluna.";
-      };
-      document.addEventListener("skriptlab:access", update); update();
-    }
-  }
   async function loadState(force = false) {
     const id = A.projectId(); if (!id) return null;
     if (!force && productionState && stateProject === id) return productionState;
@@ -277,7 +238,7 @@
   function renderPublication() {
     const cover = productionState?.selected_cover;
     if ($("book-publish-cover")) { $("book-publish-cover").src = assetUrl(cover); $("book-publish-cover").hidden = !assetUrl(cover); }
-    tell("book-publish-source", productionState ? `Tallennettu lähdeversio ${productionState.source_revision ?? ""}. ${cover ? "Sommiteltu kansi valittu." : "Valitse kansi Kansi ja grafiikka -moduulista."}` : "Valitse teos ensin.");
+    tell("book-publish-source", productionState ? `Tallennettu lähdeversio ${productionState.source_revision ?? ""}. ${cover ? "Sommiteltu kansi valittu." : "Valitse kansi Grafiikka-moduulista."}` : "Valitse teos ensin.");
     const previous = productionState?.latest_publication;
     if (previous?.status === "completed") tell("book-publish-status", "Teos on julkaistu omaan kirjastoosi. Voit avata sen Kirjastosta.");
   }
@@ -287,7 +248,7 @@
     on("book-publish-refresh", () => work("book-publish-refresh", "book-publish-status", "Tarkistetaan tallennettu versio…", async () => { await savedProject(); await loadState(true); tell("book-publish-status", "Valmius päivitetty."); }));
     on("book-publish-run", () => work("book-publish-run", "book-publish-status", "Muodostetaan e-kirja ja julkaistaan sama lähdeversio kirjastoon…", async () => {
       if (!$("book-publish-rights").checked) throw new Error("Vahvista ensin oikeutesi julkaista teksti ja kansi.");
-      await savedProject(); const current = await loadState(true); if (!current?.selected_cover?.id) throw new Error("Sommittele ja tallenna kansi ensin Kansi ja grafiikka -moduulissa.");
+      await savedProject(); const current = await loadState(true); if (!current?.selected_cover?.id) throw new Error("Sommittele ja tallenna kansi ensin Grafiikka-moduulissa.");
       const includeAudio = $("book-publish-audio").checked;
       let audio = null; if (includeAudio) { const value = await A.request("/audio/productions/latest?project_id=" + A.projectId()); audio = value.production || value; if (!audio?.id) throw new Error("Valmista äänikirjaa ei löytynyt."); }
       const identity = A.keyFor("publication.publish", String(current.source_hash) + ":" + current.selected_cover.id + ":" + includeAudio);
@@ -569,14 +530,11 @@
     load().catch(error => tell("book-admin-status", error.message));
   }
   function init() {
-    mountCover(); mountEpub(); mountAudio(); mountPublish(); mountProofread(); mountDevelopment(); mountPlan(); mountUsageBadges(); mountAdmin(); mountModuleIntroductions();
+    mountCover(); mountEpub(); mountAudio(); mountPublish(); mountProofread(); mountDevelopment(); mountPlan(); mountUsageBadges(); mountAdmin();
     A.registerExisting(); A.decorate();
     document.addEventListener("skriptlab:module-open", event => {
-      A.refresh(true);
-      if (event.detail?.preview) return;
+      A.refresh();
       handlers[event.detail?.viewId]?.();
-      const current = document.getElementById(event.detail?.viewId);
-      current?.querySelectorAll("iframe").forEach(frame => frame.contentWindow?.postMessage({ type: "skriptlab:access-refresh" }, window.location.origin));
     });
     document.addEventListener("skriptlab:access", () => { if (stateProject && stateProject !== A.projectId()) { productionState = null; selectedCover = null; renderCovers(); renderPublication(); } });
   }

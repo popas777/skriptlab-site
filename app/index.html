@@ -10,8 +10,8 @@
     <link rel="stylesheet" href="correction-reprints.css?v=1">
     <link rel="stylesheet" href="timeline.css?v=1">
 <link rel="stylesheet" href="book-access.css?v=2">
-<script src="book-access.js?v=4"></script>
-<script src="book-workflow.js?v=4" defer></script>
+<script src="book-access.js?v=5"></script>
+<script src="book-workflow.js?v=5" defer></script>
 </head>
 <body class="access-pending">
     <div id="access-loading-screen" class="access-loading-screen" role="status" aria-live="polite">
@@ -227,7 +227,7 @@
             <div class="app-brand">
                 <h1 class="logo">SkriptLab<span class="accent">.</span></h1>
                 <!-- Increase 0.xxx by 0.001 and replace the suffix with the latest SkriptLab Main update hash on each release. -->
-                <span class="app-version" aria-label="Sovellusversio 0.118, päivitys 2adfe6b" title="Sovellusversio 0.118 · päivitys 2adfe6b">0.1182adfe6b</span>
+                <span class="app-version" aria-label="Sovellusversio 0.119, päivitys e0ad210" title="Sovellusversio 0.119 · päivitys e0ad210">0.119e0ad210</span>
             </div>
             <nav class="sidebar-nav">
                 <p id="module-menu-legend" class="module-menu-legend" hidden>
@@ -241,11 +241,11 @@
                     <li data-view="view-kehityseditointi">Kehityspalaute</li>
                     <li data-view="view-kirjoita-editoi">Kirjoita ja editoi</li>
                     <li data-view="view-mobiilieditori">Mobiili-editori</li>
-                    <li data-view="view-kaannokset">Räätälöidyt käännökset</li>
+                    <li data-view="view-kaannokset">Käännökset</li>
                     <li data-view="view-kaannostyotila">Automaattikäännökset</li>
                     <li data-view="view-oikoluku">Tekstin parantelu</li>
                     <li data-view="view-kaannoksen-viimeistely">Tekstin viimeistely ja oikoluku</li>
-                    <li data-view="view-kuvitus">Kansi ja grafiikka</li>
+                    <li data-view="view-kuvitus">Grafiikka</li>
                     <li data-view="view-notebooklm">NotebookLM</li>
                     <li data-view="view-oheisaineistot">Oheisaineistot</li>
                     <li data-view="view-taitto">Taitto</li>
@@ -1237,7 +1237,7 @@
                         <select id="publication-package-cover-select">
                             <option value="">Ei kansikuvaa paketissa</option>
                         </select>
-                        <button class="btn btn-secondary" id="publication-package-open-cover-btn" type="button">Avaa Kansi ja grafiikka</button>
+                        <button class="btn btn-secondary" id="publication-package-open-cover-btn" type="button">Avaa grafiikka</button>
                     </section>
 
                     <section class="card glass-panel publication-package-contents-card">
@@ -2036,16 +2036,16 @@
                 ></iframe>
             </div>
 
-            <!-- 6. VIEW: KANSI JA GRAFIIKKA -->
+            <!-- 6. VIEW: GRAFIIKKA -->
             <div id="view-kuvitus" class="view-section hidden">
                 <header class="header graphics-header">
                     <div class="header-info">
-                        <h2>Kansi ja grafiikka</h2>
+                        <h2>Grafiikka</h2>
                         <p id="illustration-current-project">Käsikirjoitus: [Ei aktiivista teosta]</p>
                     </div>
                 </header>
 
-                <div class="graphics-tabs" role="tablist" aria-label="Kansi ja grafiikka -työtilat">
+                <div class="graphics-tabs" role="tablist" aria-label="Grafiikan työtilat">
                     <button class="graphics-tab is-active" id="graphics-tab-cover" type="button" role="tab" aria-selected="true" aria-controls="graphics-panel-cover" data-graphics-panel="graphics-panel-cover">Kansi</button>
                     <button class="graphics-tab" id="graphics-tab-images" type="button" role="tab" aria-selected="false" aria-controls="graphics-panel-images" data-graphics-panel="graphics-panel-images" tabindex="-1">Kuvamaailma</button>
                     <button class="graphics-tab" id="graphics-tab-infographics" type="button" role="tab" aria-selected="false" aria-controls="graphics-panel-infographics" data-graphics-panel="graphics-panel-infographics" tabindex="-1">Infografiikka</button>
@@ -3669,7 +3669,7 @@
             <div id="view-kaannokset" class="view-section hidden">
                 <div class="header">
                     <div class="header-info">
-                        <h2>Räätälöidyt käännökset</h2>
+                        <h2>Käännökset</h2>
                         <p id="translation-current-project">Valitse käsikirjoitus ja käännösasetukset.</p>
                     </div>
                 </div>
@@ -3833,7 +3833,7 @@
             <div id="view-suomentaja" class="view-section hidden">
                 <div class="header">
                     <div class="header-info">
-                        <h2 id="finnish-translation-view-title">Räätälöidyt käännökset</h2>
+                        <h2 id="finnish-translation-view-title">Käännökset</h2>
                         <p id="finnish-translation-current-project">Valitse käsikirjoitus ja käännösasetukset.</p>
                     </div>
                 </div>
@@ -4491,7 +4491,7 @@
     <script src="workflow-studio.js?v=5"></script>
     <script src="correction-reprints.js?v=1"></script>
     <script src="demo-terminology.js?v=1"></script>
-    <script src="app.js?v=226"></script>
+    <script src="app.js?v=227"></script>
     <script src="timeline.js?v=1"></script>
 </body>
 </html>

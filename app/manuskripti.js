@@ -87,14 +87,12 @@
   const allowedModuleKeys = Array.isArray(authUser?.allowed_modules)
     ? new Set(authUser.allowed_modules.map((key) => String(key || "")))
     : null;
-  const showcaseDemoHiddenModuleKeys = new Set([
-    "development_editing",
-    "proofread",
-    "support_materials",
-    "book_layout",
+  const showcaseDemoModuleKeys = new Set([
+    "manuscripts", "analysis", "write_edit", "translations",
+    "cover_illustration", "audio", "video", "world_studio", "versions",
   ]);
   const hasModule = (moduleKey) => (
-    (!showcaseDemoMode || !showcaseDemoHiddenModuleKeys.has(moduleKey))
+    (!showcaseDemoMode || showcaseDemoModuleKeys.has(moduleKey))
     && (!allowedModuleKeys || allowedModuleKeys.has(moduleKey))
   );
   let pendingInitialStep = ["kasikirjoitus", "analyysi", "rakenne"].includes(requestedStep) ? requestedStep : "";
@@ -1357,7 +1355,7 @@
         status: projectStageStatus(developmentDone, developmentStarted), moduleView: "view-kehityseditointi" },
       { id: "oikoluku", name: "Oikoluku ja viimeistely", desc: "Kielenhuolto ja viimeistelty versio",
         status: projectStageStatus(proofreadDone, proofreadStarted || Boolean(stageAssets.simpleProduction?.latest_proofread)), moduleView: "view-kaannoksen-viimeistely" },
-      { id: "kansi", name: "Kansi ja grafiikka", desc: "Kansi, kuvamaailma ja infografiikat",
+      { id: "kansi", name: "Grafiikka", desc: "Kansi, kuvamaailma ja infografiikat",
         status: projectStageStatus(hasFullCoverAssets(stageAssets), hasCoverAssets(stageAssets) || hasGraphicAssets(stageAssets) || coverPromptStarted), moduleView: "view-kuvitus" },
       { id: "oheisaineistot", name: "Oheisaineistot", desc: showcaseDemo ? "Hakemistot, lähdeluettelo ja täydentävät aineistot" : "Copysivu, hakemistot ja lähdeluettelo",
         status: projectStageStatus(hasMiscAssets(stageAssets), false), moduleView: "view-oheisaineistot" },
@@ -1398,7 +1396,11 @@
       monikielinen: "multilingual_publication",
       markkinointi: "marketing",
     };
-    return steps
+    const demoStepOrder = ["analyysi", "kasikirjoitus", "kaannokset", "kansi", "audio"];
+    const visibleSteps = showcaseDemoMode
+      ? demoStepOrder.map(id => steps.find(step => step.id === id))
+      : steps;
+    return visibleSteps
       .filter((step) => Boolean(stageModuleKeys[step.id]))
       .map((step) => unavailableStepIds.has(step.id)
         ? { ...step, status: "unavailable", statusLabel: "Tieto ei saatavilla" }

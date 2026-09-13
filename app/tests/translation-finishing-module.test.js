@@ -50,7 +50,7 @@ test('translator modules use the requested labels and workflow order', () => {
     [
       { view: 'view-kirjani', label: 'Tekstini' },
       { view: 'view-analyysi', label: 'Analyysi' },
-      { view: 'view-kaannokset', label: 'Räätälöidyt käännökset' },
+      { view: 'view-kaannokset', label: 'Käännökset' },
       { view: 'view-kaannostyotila', label: 'Automaattikäännökset' },
       { view: 'view-oikoluku', label: 'Tekstin parantelu' },
       { view: 'view-kaannoksen-viimeistely', label: 'Tekstin viimeistely ja oikoluku' },

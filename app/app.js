@@ -510,6 +510,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     let writerDeskAssistantDraftKind = '';
     let writerDeskStructureVisible = localStorage.getItem(WRITER_DESK_STRUCTURE_VISIBLE_KEY) === 'true';
     function defaultViewForUser() {
+        if (showcaseDemoMode) return 'view-kirjani';
         if (Array.isArray(currentUser?.allowed_modules)) {
             const allowedModules = new Set(currentUser.allowed_modules);
             const biographyWorkspaceOnly = allowedModules.has('biography')
@@ -5141,22 +5142,14 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const showcaseDemoNavOrder = [
         'view-kirjani',
         'view-analyysi',
-        'view-skill',
         'view-kirjoita-editoi',
-        'view-kuvitus',
         'view-kaannokset',
+        'view-kuvitus',
         'view-audio',
         'view-video',
-        'view-3d-studio',
-        'view-julkaisupaketti',
-        'view-monikielinen-julkaisu'
+        'view-3d-studio'
     ];
-    const showcaseDemoHiddenViews = new Set([
-        'view-kehityseditointi',
-        'view-oikoluku',
-        'view-oheisaineistot',
-        'view-taitto'
-    ]);
+    const showcaseDemoViews = new Set(showcaseDemoNavOrder);
     function canonicalViewId(viewId) {
         if (viewId === 'view-kirjoita' || viewId === 'view-toimitus') return 'view-mobiilieditori';
         if (viewId === 'view-rakenne') return 'view-analyysi';
@@ -5173,9 +5166,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function isViewAllowed(viewId) {
         viewId = canonicalViewId(viewId);
+        if (showcaseDemoMode) return showcaseDemoViews.has(navViewFor(viewId));
         if (isBasicNavigation() && basicHiddenViews.has(viewId)) return false;
-        // Module discovery is shared by every plan. Server action entitlements
-        // and the common access client decide what can actually be performed.
+        // Other plans can discover modules; the server guards their actions.
         return Object.values(accessModuleViews).some(viewIds => viewIds.includes(viewId));
     }
 
@@ -5189,8 +5182,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const legend = document.getElementById('module-menu-legend');
         if (legend) legend.hidden = !basic;
         navItems.forEach(item => {
-            const hidden = basic && basicHiddenViews.has(item.dataset.view);
-            if (hidden || item.dataset.basicHidden === 'true') item.hidden = hidden;
+            const hidden = !isViewAllowed(item.dataset.view);
+            item.hidden = hidden;
             item.dataset.basicHidden = String(hidden);
             const core = basic && basicCoreViews.has(item.dataset.view);
             item.classList.toggle('module-core', core);
@@ -5212,6 +5205,17 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
     });
     configureShowcaseDemoUi();
+    if (showcaseDemoMode) {
+        const navMenu = document.getElementById('nav-menu');
+        showcaseDemoNavOrder.forEach(viewId => {
+            const item = navMenu.querySelector(`[data-view="${viewId}"]`);
+            if (item) navMenu.append(item);
+        });
+        for (const [viewId, label] of [['view-audio', 'Audio'], ['view-video', 'Video'], ['view-3d-studio', '3D']]) {
+            const item = navMenu.querySelector(`[data-view="${viewId}"]`);
+            if (item) item.textContent = label;
+        }
+    }
     document.body.classList.remove('access-pending');
     document.getElementById('access-loading-screen')?.setAttribute('aria-hidden', 'true');
 
@@ -5272,7 +5276,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     document.addEventListener('skriptlab:access', () => {
         decorateModuleNavigation();
         refreshModuleMenuOverflow();
-        if (basicHiddenViews.has(currentViewId) && !isViewAllowed(currentViewId)) openModule('view-kirjani');
+        if (!isViewAllowed(currentViewId)) openModule(defaultViewForUser());
     });
 
     function setBookTab(panelId = 'book-preview-tab') {
@@ -5325,7 +5329,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             setTranslationUiMode('assistant');
             viewId = 'view-suomentaja';
         }
-        if (viewId !== 'view-suomentaja' && !isViewAllowed(viewId)) {
+        if (!isViewAllowed(navViewFor(viewId))) {
             viewId = defaultViewForUser();
             activeNavViewId = viewId;
         }
@@ -5353,12 +5357,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             }
         });
         refreshModuleMenuOverflow();
-        if (moduleIntroductionVisible(viewId)) {
-            syncTopBarContextForView(currentViewId);
-            updateHelpAgentContext();
-            document.dispatchEvent(new CustomEvent('skriptlab:module-open', { detail: { viewId: currentViewId, preview: true } }));
-            return;
-        }
         if (['view-oheisaineistot', 'view-taitto'].includes(viewId)) {
             refreshTuotantoFrame(viewId);
         }
@@ -5432,11 +5430,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         document.dispatchEvent(new CustomEvent('skriptlab:module-open', { detail: { viewId: currentViewId } }));
     }
 
-    function moduleIntroductionVisible(viewId) {
-        const view = document.getElementById(viewId === 'view-kaannokset' ? 'view-suomentaja' : viewId);
-        return Boolean(view?.dataset.bookIntro && document.getElementById(view.dataset.bookIntro)?.hidden);
-    }
-
     function persistPendingModuleEdits(nextViewId) {
         if (currentViewId === 'view-tyopoyta' && nextViewId !== 'view-tyopoyta') {
             saveWriterDeskText(false);
@@ -5460,7 +5453,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             persistPendingModuleEdits(nextViewId);
             openModule(nextViewId);
             if (isMobileShell()) setSidebarDrawer(false);
-            if (moduleIntroductionVisible(nextViewId)) return;
+            if (!isViewAllowed(nextViewId)) return;
             if (nextViewId === 'view-oheisaineistot') {
                 loadMiscAssetsForActiveProject(true);
             }
@@ -22746,7 +22739,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             ['suomentaja-ai-check-panel', 'AI-tarkastus']
         ];
 
-        if (title) title.textContent = 'Räätälöidyt käännökset';
+        if (title) title.textContent = 'Käännökset';
         if (createTitle) createTitle.textContent = 'Käännettävä teos';
         if (currentProjectText && !window.manuscriptData?.id) {
             currentProjectText.textContent = 'Valitse käsikirjoitus ja käännösasetukset.';

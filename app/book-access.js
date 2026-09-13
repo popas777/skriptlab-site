@@ -95,7 +95,7 @@
   if (!win) return api;
   const doc = win.document;
   const rawFetch = win.fetch.bind(win);
-  let snapshot = null, loadedProject = null, refreshing = null, refreshTimer = null, modal = null, modalReturn = null;
+  let snapshot = null, snapshotContext = null, snapshotUpdatedAt = 0, refreshing = null, refreshTimer = null, modal = null, modalReturn = null;
   const keys = new Map();
   const projectId = () => {
     let parentId = null;
@@ -103,6 +103,36 @@
     return Number(win.manuscriptData?.id || parentId || win.localStorage.getItem("skriptlab_active_project_id") || new URLSearchParams(win.location.search).get("project")) || null;
   };
   const apiRoot = () => String(win.SKRIPTLAB_CONFIG?.API_BASE_URL || "").replace(/\/$/, "");
+  const accessContext = () => {
+    const id = projectId(), token = win.localStorage.getItem("skriptlab_auth_token"), root = apiRoot();
+    return { id, token, root, key: JSON.stringify([root, token, id]) };
+  };
+  function sharedAccess(context = accessContext()) {
+    try {
+      const parent = win.parent, access = parent !== win && parent.SkriptLabBookAccess;
+      // Embedded modules use the shell's cache only for the same account,
+      // backend and project. Standalone or differently scoped views stay separate.
+      if (access?.refresh && access.getSnapshot && access.projectId?.() === context.id
+        && parent.localStorage.getItem("skriptlab_auth_token") === context.token
+        && String(parent.SKRIPTLAB_CONFIG?.API_BASE_URL || "").replace(/\/$/, "") === context.root) return access;
+    } catch (_) { /* cross-origin embedding cannot share access state */ }
+    return null;
+  }
+  function getSnapshot() {
+    const context = accessContext(), shared = sharedAccess(context);
+    const current = !context.token ? null : shared ? shared.getSnapshot() : snapshotContext === context.key ? snapshot : null;
+    if (snapshotContext !== context.key) snapshotUpdatedAt = 0;
+    snapshot = current; snapshotContext = context.key;
+    return current;
+  }
+  function publishSnapshot(data, context) {
+    if (context.key !== accessContext().key) return null;
+    const changed = snapshot !== data || snapshotContext !== context.key;
+    snapshot = data; snapshotContext = context.key; snapshotUpdatedAt = data ? Date.now() : 0;
+    decorate();
+    if (changed) doc.dispatchEvent(new CustomEvent("skriptlab:access", { detail: data }));
+    return data;
+  }
   function keyFor(action, scope = "") {
     const storageKey = "skriptlab_action:" + projectId() + ":" + action + ":" + scope;
     let value = win.sessionStorage.getItem(storageKey);
@@ -145,38 +175,61 @@
     return response.status === 204 ? null : response.json();
   }
   async function refresh(force = false) {
-    const id = projectId();
-    if (!win.localStorage.getItem("skriptlab_auth_token")) return null;
-    if (refreshing && loadedProject === id) return refreshing;
-    if (!force && snapshot && loadedProject === id) return snapshot;
-    if (loadedProject !== id) snapshot = null;
-    loadedProject = id;
-    refreshing = (async () => {
+    const context = accessContext(), shared = sharedAccess(context);
+    if (shared) {
+      await shared.refresh(force);
+      return publishSnapshot(shared.getSnapshot(), context);
+    }
+    if (!context.token) return publishSnapshot(null, context);
+    const current = getSnapshot();
+    if (refreshing?.key === context.key) return refreshing.promise;
+    if (!force && current) return current;
+    const operation = { key: context.key, promise: null };
+    refreshing = operation;
+    operation.promise = (async () => {
       try {
-        const response = await fetchApi("/access/me" + (id ? "?project_id=" + id : ""), {
-          headers: { Authorization: "Bearer " + win.localStorage.getItem("skriptlab_auth_token") }
+        const response = await fetchApi("/access/me" + (context.id ? "?project_id=" + context.id : ""), {
+          headers: { Authorization: "Bearer " + context.token }
         });
         if (!response.ok) throw new Error("Käyttöoikeuksien lataaminen epäonnistui.");
         const data = await response.json();
-        if (id !== projectId()) return null;
-        snapshot = data; decorate(); doc.dispatchEvent(new CustomEvent("skriptlab:access", { detail: data }));
-        return snapshot;
+        return publishSnapshot(data, context);
       } catch (error) {
-        if (id === projectId()) { snapshot = null; decorate(); }
-        return null;
-      } finally { refreshing = null; }
+        if (context.key !== accessContext().key) return null;
+        // A failed background update need not blank already loaded controls.
+        // Mutations still pass through the server's authoritative usage guard.
+        decorate();
+        return getSnapshot();
+      } finally { if (refreshing === operation) refreshing = null; }
     })();
-    return refreshing;
+    return operation.promise;
   }
-  function scheduleRefresh() { win.clearTimeout(refreshTimer); refreshTimer = win.setTimeout(() => refresh(true), 250); }
+  function refreshIfStale() {
+    const shared = sharedAccess();
+    if (shared?.refreshIfStale) return shared.refreshIfStale();
+    return refresh(!getSnapshot() || Date.now() - snapshotUpdatedAt >= 30000);
+  }
+  function scheduleRefresh() {
+    const shared = sharedAccess();
+    if (shared?.scheduleRefresh) return shared.scheduleRefresh();
+    win.clearTimeout(refreshTimer);
+    refreshTimer = win.setTimeout(async () => {
+      const context = accessContext();
+      // A read started before a completed mutation may contain old usage. Let
+      // it finish, then fetch once more instead of treating it as the update.
+      if (refreshing?.key === context.key) await refreshing.promise;
+      if (context.key === accessContext().key) return refresh(true);
+    }, 250);
+  }
   async function ensure(action, options = {}) {
     await refresh();
-    const decision = options.tab ? tabAccessDecision(snapshot, action) : accessDecision(snapshot, action);
+    const decision = options.tab ? tabAccessDecision(getSnapshot(), action) : accessDecision(getSnapshot(), action);
     if (decision.allowed) return true;
     showUpgrade(action, decision); return false;
   }
   function closeUpgrade() { if (!modal) return; modal.close(); modalReturn?.focus?.(); }
   function showUpgrade(action, detail = {}) {
+    getSnapshot();
     if (win.parent !== win && win.parent.SkriptLabBookAccess) { win.parent.SkriptLabBookAccess.showUpgrade(action, detail); return; }
     if (!modal) {
       modal = doc.createElement("dialog"); modal.className = "book-access-dialog"; modal.setAttribute("aria-labelledby", "book-access-title");
@@ -206,6 +259,7 @@
     if (!modal.open) modal.showModal();
   }
   function decorate() {
+    getSnapshot();
     doc.querySelectorAll("[data-access-action]").forEach(element => {
       const decision = element.getAttribute("role") === "tab" ? tabAccessDecision(snapshot, element.dataset.accessAction) : accessDecision(snapshot, element.dataset.accessAction);
       element.classList.toggle("book-access-locked", Boolean(snapshot && !decision.allowed));
@@ -267,7 +321,7 @@
   function hash(value) { let result = 2166136261; for (const char of value) result = Math.imul(result ^ char.charCodeAt(0), 16777619); return (result >>> 0).toString(36); }
   function mark(selector, action) { doc.querySelectorAll(selector).forEach(el => { el.dataset.accessAction = action; }); }
   function guardTab(action) {
-    if (tabAccessDecision(snapshot, action).allowed) return true;
+    if (tabAccessDecision(getSnapshot(), action).allowed) return true;
     if (snapshot) showUpgrade(action);
     return false;
   }
@@ -305,12 +359,24 @@
     decorate();
   }
   function init() {
+    const parentAccess = sharedAccess();
+    if (parentAccess && win.parent.document?.addEventListener) {
+      const parentDoc = win.parent.document;
+      const sync = () => {
+        const context = accessContext();
+        if (sharedAccess(context) === parentAccess) publishSnapshot(parentAccess.getSnapshot(), context);
+      };
+      parentDoc.addEventListener("skriptlab:access", sync);
+      win.addEventListener("pagehide", () => parentDoc.removeEventListener("skriptlab:access", sync));
+      win.addEventListener("pageshow", () => { parentDoc.addEventListener("skriptlab:access", sync); sync(); });
+    }
     doc.addEventListener("click", async event => {
       const control = event.target.closest?.("[data-access-action]");
       if (!control || control.dataset.accessReplaying === "true") return;
       const action = control.dataset.accessAction;
       const tab = control.getAttribute("role") === "tab";
-      if (snapshot && (tab ? tabAccessDecision(snapshot, action) : accessDecision(snapshot, action)).allowed) return;
+      const current = getSnapshot();
+      if (current && (tab ? tabAccessDecision(current, action) : accessDecision(current, action)).allowed) return;
       event.preventDefault(); event.stopImmediatePropagation();
       if (await ensure(action, { tab })) { control.dataset.accessReplaying = "true"; control.click(); delete control.dataset.accessReplaying; }
     }, true);
@@ -321,17 +387,17 @@
       const tabs = Array.from(list.querySelectorAll('[role="tab"]')).filter(tab => !tab.hidden);
       const i = tabs.indexOf(control);
       const next = tabs[event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (i + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length];
-      if (next?.dataset.accessAction && !tabAccessDecision(snapshot, next.dataset.accessAction).allowed) {
+      if (next?.dataset.accessAction && !tabAccessDecision(getSnapshot(), next.dataset.accessAction).allowed) {
         event.preventDefault(); event.stopImmediatePropagation(); next.focus(); showUpgrade(next.dataset.accessAction);
       }
     }, true);
     registerExisting(); refresh();
-    win.addEventListener("storage", event => { if (["skriptlab_active_project_id", "skriptlab_auth_user"].includes(event.key)) refresh(true); });
-    win.addEventListener("focus", () => refresh(true));
+    win.addEventListener("storage", event => { if (["skriptlab_active_project_id", "skriptlab_auth_user", "skriptlab_auth_token"].includes(event.key)) refresh(true); });
+    win.addEventListener("focus", refreshIfStale);
     win.addEventListener("message", event => { if (event.origin === win.location.origin && event.data?.type === "skriptlab:access-refresh") refresh(true); });
   }
-  Object.assign(api, { request, refresh, ensure, showUpgrade, closeUpgrade, decorate, mark, guardTab, registerExisting, keyFor, keyForRun, completeKey,
-    projectId, escape, getSnapshot: () => snapshot, isBasic: () => snapshot?.plan_key === "writer_basic" });
+  Object.assign(api, { request, refresh, refreshIfStale, scheduleRefresh, ensure, showUpgrade, closeUpgrade, decorate, mark, guardTab, registerExisting, keyFor, keyForRun, completeKey,
+    projectId, escape, getSnapshot, isBasic: () => getSnapshot()?.plan_key === "writer_basic" });
   if (doc.readyState === "loading") doc.addEventListener("DOMContentLoaded", init); else init();
   return api;
 });

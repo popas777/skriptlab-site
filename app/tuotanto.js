@@ -1105,7 +1105,7 @@
     } else if (layoutCoverLoadState === "error") {
       help.textContent = layoutCoverLoadError || "Etukansia ei voitu ladata. Taiton voi silti muodostaa ilman kantta.";
     } else if (!hasOptions) {
-      help.textContent = "Projektilla ei ole vielä etukansia. Luo kansi Kansi ja grafiikka -osiossa.";
+      help.textContent = "Projektilla ei ole vielä etukansia. Luo kansi Grafiikka-osiossa.";
     } else if (!supportsCover) {
       help.textContent = "Valitse PDF tai EPUB käyttääksesi kansikuvaa.";
     } else {

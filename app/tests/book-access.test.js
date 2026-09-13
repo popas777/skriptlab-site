@@ -73,22 +73,169 @@ test("explicit project context and retry identity survive adapter enrichment", (
   assert.deepEqual(access.withRequestContext({ text: "Test" }, "8", "retry"), { text: "Test", project_id: 8, idempotency_key: "retry" });
 });
 
-function browserHarness(fetcher) {
+function browserHarness(fetcher, options = {}) {
   const session = new Map(); const local = new Map([["skriptlab_auth_token", "test-token"], ["skriptlab_active_project_id", "7"]]);
   const storage = map => ({ getItem: key => map.get(key) || null, setItem: (key, value) => map.set(key, String(value)), removeItem: key => map.delete(key) });
-  const denials = [];
+  const denials = [], timers = new Map(); let timerId = 0;
+  const eventTarget = () => {
+    const listeners = new Map(), events = [];
+    return {
+      events,
+      addEventListener(type, listener) { if (!listeners.has(type)) listeners.set(type, new Set()); listeners.get(type).add(listener); },
+      removeEventListener(type, listener) { listeners.get(type)?.delete(listener); },
+      dispatchEvent(event) { events.push(event); for (const listener of listeners.get(event.type) || []) listener(event); }
+    };
+  };
   const win = {
-    document: { readyState: "loading", addEventListener() {}, querySelectorAll: () => [], dispatchEvent() {} },
+    ...eventTarget(),
+    document: { ...eventTarget(), readyState: "loading", querySelectorAll: () => [] },
     location: { href: "https://app.example/index.html", origin: "https://app.example", pathname: "/index.html", search: "" },
     SKRIPTLAB_CONFIG: { API_BASE_URL: "https://backend.example" },
-    localStorage: storage(local), sessionStorage: storage(session), crypto: { randomUUID: (() => { let id = 0; return () => "identity-" + ++id; })() },
-    fetch: fetcher, setTimeout: () => 1, clearTimeout() {},
-    parent: { SkriptLabBookAccess: { showUpgrade: (action, detail) => denials.push({ action, detail }) } }
+    localStorage: options.parent?.localStorage || storage(local), sessionStorage: storage(session), crypto: { randomUUID: (() => { let id = 0; return () => "identity-" + ++id; })() },
+    fetch: fetcher,
+    setTimeout(callback) { const id = ++timerId; timers.set(id, callback); return id; }, clearTimeout: id => timers.delete(id),
+    parent: options.parent || { SkriptLabBookAccess: { showUpgrade: (action, detail) => denials.push({ action, detail }) } }
   };
-  const context = vm.createContext({ window: win, module: { exports: {} }, URL, URLSearchParams, Headers, Response, FormData, CustomEvent: class {} });
+  if (options.parent === "self") win.parent = win;
+  const context = vm.createContext({ window: win, module: { exports: {} }, URL, URLSearchParams, Headers, Response, FormData,
+    Date: class extends Date { static now() { return options.now?.() ?? Date.now(); } },
+    CustomEvent: class { constructor(type, options = {}) { this.type = type; this.detail = options.detail; } } });
   vm.runInContext(fs.readFileSync(path.join(__dirname, "../book-access.js"), "utf8"), context);
-  return { win, api: win.SkriptLabBookAccess, denials };
+  return { win, api: win.SkriptLabBookAccess, denials, timers,
+    start: () => win.document.dispatchEvent({ type: "DOMContentLoaded" }),
+    async runTimers() { const pending = [...timers.values()]; timers.clear(); await Promise.all(pending.map(callback => callback())); }
+  };
 }
+
+const accessResponse = (allowed = true) => new Response(JSON.stringify({ actions: { "module.video": { allowed } } }), {
+  headers: { "Content-Type": "application/json" }
+});
+const deferred = () => {
+  let resolve; const promise = new Promise(value => { resolve = value; }); return { promise, resolve };
+};
+
+test("embedded modules share the shell's pending access request and receive later entitlement changes", async () => {
+  const pending = deferred(); let parentRequests = 0, iframeRequests = 0;
+  const parent = browserHarness(() => { parentRequests++; return parentRequests === 1 ? pending.promise : accessResponse(false); }, { parent: "self" });
+  const childA = browserHarness(() => { iframeRequests++; return accessResponse(); }, { parent: parent.win });
+  const childB = browserHarness(() => { iframeRequests++; return accessResponse(); }, { parent: parent.win });
+  parent.start(); childA.start(); childB.start();
+  const initial = Promise.all([parent.api.refresh(), childA.api.refresh(), childB.api.refresh()]);
+  assert.equal(parentRequests, 1);
+  assert.equal(iframeRequests, 0);
+  pending.resolve(accessResponse()); await initial;
+  assert.equal(childA.api.guardTab("module.video"), true);
+  assert.equal(childB.api.getSnapshot(), parent.api.getSnapshot());
+  await parent.api.refresh(true);
+  assert.equal(childA.api.getSnapshot().actions["module.video"].allowed, false);
+  assert.equal(childB.win.document.events.filter(event => event.type === "skriptlab:access").at(-1).detail.actions["module.video"].allowed, false);
+  assert.equal(parentRequests, 2);
+  assert.equal(iframeRequests, 0);
+});
+
+test("a newly opened module can immediately read cached access without a loading gate", async () => {
+  let requests = 0;
+  const parent = browserHarness(() => { requests++; return accessResponse(); }, { parent: "self" });
+  await parent.api.refresh();
+  const child = browserHarness(() => { throw new Error("An iframe must reuse shell access"); }, { parent: parent.win });
+  assert.equal(child.api.guardTab("module.video"), true);
+  await child.api.refresh();
+  assert.equal(requests, 1);
+});
+
+test("module focus reuses recent access and refreshes it after thirty seconds", async () => {
+  let now = 1000, requests = 0;
+  const parent = browserHarness(() => { requests++; return accessResponse(); }, { parent: "self", now: () => now });
+  const child = browserHarness(() => { throw new Error("An iframe must reuse shell access"); }, { parent: parent.win, now: () => now });
+  parent.start(); child.start(); await child.api.refresh();
+  for (let i = 0; i < 3; i++) { parent.win.dispatchEvent({ type: "focus" }); child.win.dispatchEvent({ type: "focus" }); }
+  await parent.api.refresh(); assert.equal(requests, 1);
+  now += 30000;
+  parent.win.dispatchEvent({ type: "focus" }); child.win.dispatchEvent({ type: "focus" });
+  await parent.api.refresh(); assert.equal(requests, 2);
+});
+
+test("mutations across embedded modules debounce one shell access refresh", async () => {
+  let requests = 0;
+  const parent = browserHarness(() => { requests++; return accessResponse(); }, { parent: "self" });
+  await parent.api.refresh();
+  const childA = browserHarness(async () => new Response("{}"), { parent: parent.win });
+  const childB = browserHarness(async () => new Response("{}"), { parent: parent.win });
+  const options = { method: "POST", body: JSON.stringify({ text: "Source" }) };
+  await Promise.all([childA.win.fetch("https://backend.example/api/edit", options), childB.win.fetch("https://backend.example/api/edit", options)]);
+  assert.equal(parent.timers.size, 1);
+  assert.equal(childA.timers.size + childB.timers.size, 0);
+  await parent.runTimers();
+  assert.equal(requests, 2);
+});
+
+test("a completed mutation refreshes usage after a previously started access read finishes", async () => {
+  const pending = deferred(); let reads = 0;
+  const harness = browserHarness(url => {
+    if (url.includes("/access/me")) return ++reads === 1 ? pending.promise : accessResponse(false);
+    return new Response("{}");
+  }, { parent: "self" });
+  const initial = harness.api.refresh();
+  await harness.win.fetch("https://backend.example/api/edit", { method: "POST", body: JSON.stringify({ text: "Source" }) });
+  const update = harness.runTimers();
+  assert.equal(reads, 1);
+  pending.resolve(accessResponse()); await Promise.all([initial, update]);
+  assert.equal(reads, 2);
+  assert.equal(harness.api.getSnapshot().actions["module.video"].allowed, false);
+});
+
+test("project changes discard old responses without clearing the new project's pending request", async () => {
+  const first = deferred(), second = deferred(); let requests = 0;
+  const harness = browserHarness(() => (++requests === 1 ? first.promise : second.promise), { parent: "self" });
+  const oldRequest = harness.api.refresh();
+  harness.win.localStorage.setItem("skriptlab_active_project_id", "8");
+  const newRequest = harness.api.refresh();
+  first.resolve(accessResponse()); assert.equal(await oldRequest, null);
+  const duplicate = harness.api.refresh();
+  assert.equal(requests, 2, "completion of an old request must not start a duplicate for the new project");
+  assert.equal(harness.api.getSnapshot(), null);
+  second.resolve(accessResponse(false)); await Promise.all([newRequest, duplicate]);
+  assert.equal(harness.api.getSnapshot().actions["module.video"].allowed, false);
+});
+
+test("account changes invalidate cached and pending access even when the project is unchanged", async () => {
+  const pending = deferred(); let requests = 0;
+  const harness = browserHarness(() => (++requests === 2 ? pending.promise : accessResponse()), { parent: "self" });
+  await harness.api.refresh();
+  const oldRequest = harness.api.refresh(true);
+  harness.win.localStorage.setItem("skriptlab_auth_token", "another-account");
+  assert.equal(harness.api.getSnapshot(), null);
+  await harness.api.refresh();
+  const current = harness.api.getSnapshot();
+  pending.resolve(accessResponse(false)); assert.equal(await oldRequest, null);
+  assert.equal(harness.api.getSnapshot(), current);
+  harness.win.localStorage.removeItem("skriptlab_auth_token");
+  assert.equal(harness.api.getSnapshot(), null);
+  assert.equal(await harness.api.refresh(), null);
+});
+
+test("an iframe with its own project cannot reuse access granted to the shell's project", async () => {
+  let requests = 0;
+  const parent = browserHarness(() => accessResponse(), { parent: "self" });
+  await parent.api.refresh();
+  const child = browserHarness(() => { requests++; return accessResponse(false); }, { parent: parent.win });
+  child.win.manuscriptData = { id: 8 };
+  assert.equal(child.api.getSnapshot(), null);
+  await child.api.refresh();
+  assert.equal(requests, 1);
+  assert.equal(child.api.getSnapshot().actions["module.video"].allowed, false);
+  assert.equal(parent.api.getSnapshot().actions["module.video"].allowed, true);
+});
+
+test("a transient background refresh failure preserves the current project's loaded controls", async () => {
+  let requests = 0;
+  const harness = browserHarness(() => { if (++requests > 1) throw new TypeError("Offline"); return accessResponse(); }, { parent: "self" });
+  const initial = await harness.api.refresh();
+  assert.equal(await harness.api.refresh(true), initial);
+  assert.equal(harness.api.guardTab("module.video"), true);
+  harness.win.localStorage.setItem("skriptlab_active_project_id", "8");
+  assert.equal(await harness.api.refresh(), null, "failed access for another project cannot reuse the old grant");
+});
 
 test("an uncertain submission retries with the identical action identity", async () => {
   const requests = [];
