@@ -79,8 +79,23 @@ window.SkriptLabDemo = Object.freeze({
     newsletter: { title: 'Tällä viikolla: oven toisella puolella.', text: 'Mikä muisto kutsuu sinua takaisin? Ovi muurissa johdattaa harmaasta Lontoosta paikkaan, jossa kaikki tuntuu olevan niin kuin pitää. Tutustu H. G. Wellsin novelliin ja sen suomennokseen.' }
   },
   hotspots: {
-    path: { title: '1 · Marmorireunainen käytävä', description: 'Lähteen pitkä, leveä käytävä muuttuu tilan kulkureitiksi. Kukkapenkkien reunat ohjaavat katsetta ja liikkumista.' },
-    panthers: { title: '2 · Kaksi täplikästä pantteria', description: 'Tekstissä eläimet leikkivät pallolla ja ottavat lapsen lempeästi vastaan. Vuorovaikutuksen lähtökohta olisi luottamus, ei uhka.' },
-    light: { title: '3 · Puutarhan valo', description: 'Lämpimämpi, lempeämpi valo ja puhtaat värit ovat tekstin havaintoja. Tilassa ne voisivat välittää samaa keveyttä ja kotiintulon tunnetta.' }
+    panthers: {
+      title: 'Pantterien luona',
+      description: 'Kaksi täplikästä pantteria leikkii pallolla käytävän varrella. Läheltäkin ne ovat lempeitä: tähän maailmaan tulija saa tuntea olevansa tervetullut.',
+      image: '/demo/assets/world-panthers.webp',
+      imageAlt: 'Kaksi rauhallista täplikästä pantteria lähietäisyydeltä, ruskea pallo tassujen vieressä. Taustalla kukkia, vanhoja puita ja puutarhan vaaleat marmorireunukset.'
+    },
+    vegetation: {
+      title: 'Kasvillisuuden keskellä',
+      description: 'Siniset kukkavarret, vaaleat ruusut ja saniaiset ympäröivät kulkijaa. Puiden lomasta siivilöityvä valo johdattaa syvemmälle puutarhaan.',
+      image: '/demo/assets/world-vegetation.webp',
+      imageAlt: 'Näkymä rehevän puutarhan sisältä: sinisiä kukkavarsia, valkoisia ja vaaleanpunaisia ruusuja, saniaisia ja kapea polku vanhojen puiden katveessa.'
+    },
+    mountain: {
+      title: 'Vuorimetsän näköalapaikalla',
+      description: 'Metsäiseltä rinteeltä katse palaa alas puutarhaan. Puiden ja kukkapenkkien lomassa erottuva käytävä johtaa valkoiselle muurille ja vihreälle ovelle. Näkymä laajentaa tarinan maailmaa kuvallisena tulkintana.',
+      image: '/demo/assets/world-mountain.webp',
+      imageAlt: 'Metsäisen vuoririnteen näköalapaikalta näkyy laakson puutarha, sen puut ja marmorireunainen käytävä sekä kauempana valkoinen muuri ja pieni vihreä ovi.'
+    }
   }
 });

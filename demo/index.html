@@ -169,8 +169,17 @@
       </div>
 
       <div class="output-panel world-panel" role="tabpanel" id="panel-world" aria-labelledby="tab-world" tabindex="0" hidden>
-        <figure class="world-visual"><div class="world-scene"><img src="/demo/assets/garden.webp" width="1536" height="1024" loading="lazy" alt="Lumottu puutarha, marmorireunainen käytävä ja kaksi täplikästä pantteria leikkimässä pallolla."><button class="hotspot hotspot-path" type="button" data-hotspot="path" aria-label="Tutki puutarhan käytävää" aria-pressed="true">1</button><button class="hotspot hotspot-panthers" type="button" data-hotspot="panthers" aria-label="Tutki puutarhan panttereita" aria-pressed="false">2</button><button class="hotspot hotspot-light" type="button" data-hotspot="light" aria-label="Tutki puutarhan valoa" aria-pressed="false">3</button></div><figcaption>Interaktiivinen maailmakonsepti · AI-kuvitus · ei valmis 3D-ympäristö</figcaption><div class="hotspot-caption" aria-live="polite"><b id="hotspot-title">1 · Marmorireunainen käytävä</b><p id="hotspot-description">Lähteen pitkä, leveä käytävä muuttuu tilan kulkureitiksi. Kukkapenkkien reunat ohjaavat katsetta ja liikkumista.</p></div></figure>
-        <div class="output-copy"><span class="section-number">TULEVAISUUDEN SUUNTA</span><h3>Tarina, johon voi astua.</h3><p>Kun paikat, henkilöt ja maailman säännöt on kuvattu, ne voisivat toimia pohjana tutkittavalle virtuaaliympäristölle, vuorovaikutteiselle kohtaukselle tai tarinalliselle pelille.</p><dl class="context-list"><dt>Mukana kontekstista</dt><dd><b>Tilat</b> · puutarha, käytävä ja muuri</dd><dd><b>Toimijat</b> · lempeät, kesyt pantterit</dd><dd><b>Kokemus</b> · ihme ja kotiintulon tunne</dd></dl><p class="feature-state future">Tulevaisuusvisio. Virtuaaliympäristöjen generointi ei ole nykyinen SkriptLab-toiminto. Tutki tässä kuvan kolmea kohtaa.</p></div>
+        <figure class="world-visual">
+          <div class="world-scene">
+            <img src="/demo/assets/garden.webp" width="1536" height="1024" loading="lazy" alt="Lumottu puutarha, marmorireunainen käytävä ja kaksi täplikästä pantteria leikkimässä pallolla. Taustalla kohoavat metsäiset vuoret.">
+            <button class="hotspot hotspot-panthers" type="button" data-hotspot="panthers" aria-label="Avaa näkymä 1: Pantterien luona" aria-haspopup="dialog" aria-controls="world-dialog">1</button>
+            <button class="hotspot hotspot-vegetation" type="button" data-hotspot="vegetation" aria-label="Avaa näkymä 2: Kasvillisuuden keskellä" aria-haspopup="dialog" aria-controls="world-dialog">2</button>
+            <button class="hotspot hotspot-mountain" type="button" data-hotspot="mountain" aria-label="Avaa näkymä 3: Vuorimetsän näköalapaikalla" aria-haspopup="dialog" aria-controls="world-dialog">3</button>
+          </div>
+          <figcaption>Interaktiivinen maailmakonsepti · AI-kuvitus · ei valmis 3D-ympäristö</figcaption>
+          <div class="hotspot-caption"><b>Astu kuvaan.</b><p>Valitse numero: 1 vie pantterien luo, 2 kasvillisuuden keskelle ja 3 vuorimetsään katsomaan takaisin puutarhaan.</p></div>
+        </figure>
+        <div class="output-copy"><span class="section-number">TULEVAISUUDEN SUUNTA</span><h3>Tarina, johon voi astua.</h3><p>Kun paikat, henkilöt ja maailman säännöt on kuvattu, ne voisivat toimia pohjana tutkittavalle virtuaaliympäristölle, vuorovaikutteiselle kohtaukselle tai tarinalliselle pelille.</p><dl class="context-list"><dt>Mukana kontekstista</dt><dd><b>Tilat</b> · puutarha, käytävä ja muuri</dd><dd><b>Toimijat</b> · lempeät, kesyt pantterit</dd><dd><b>Kokemus</b> · ihme ja kotiintulon tunne</dd></dl><p class="feature-state future">Tulevaisuusvisio. Virtuaaliympäristöjen generointi ei ole nykyinen SkriptLab-toiminto. Avaa kuvan numeroista kolme näkymää samaan maailmaan.</p></div>
       </div>
       <noscript><p class="noscript-note">Näet kuvitusesimerkin ilman JavaScriptiä. Ota JavaScript käyttöön tutkiaksesi kontekstikarttaa ja muita tuotantomuotoja.</p></noscript>
     </section>
@@ -179,6 +188,26 @@
 
     <section class="about-demo wrap" aria-labelledby="about-title"><div><h2 id="about-title">Yhteinen konteksti. Tekijän päätökset.</h2><p>Demo havainnollistaa SkriptLabin työnkulkua valmiilla esimerkeillä. Nykyiset työkalut, kokeiluvaiheen tuotannot ja tulevaisuuden suunta on merkitty erikseen. Käyttöoikeus, valitut mallit ja palvelun saatavuus vaikuttavat toimintoihin.</p></div><div><h3>Esimerkin lähde</h3><p>H. G. Wells: <i lang="en">The Door in the Wall</i>. Katkelmat ovat teoksen suomennoksesta <i>Ovi muurissa</i>. Kontekstitekstit ovat demoa varten koottuja havaintoja ja tulkintoja.</p><a href="https://www.gutenberg.org/cache/epub/456/pg456-images.html#chap01" target="_blank" rel="noopener noreferrer">Lue englanninkielinen alkuteos <span aria-hidden="true">↗</span></a></div></section>
   </main>
+  <dialog class="world-dialog" id="world-dialog" aria-labelledby="world-view-title" aria-describedby="world-view-description">
+    <div class="world-dialog-header">
+      <span class="world-view-count" id="world-view-count">1 / 3</span>
+      <button class="world-return" id="world-view-close" type="button" autofocus><span aria-hidden="true">←</span> Takaisin puutarhaan</button>
+    </div>
+    <div class="world-view-media" id="world-view-media" aria-busy="false">
+      <img id="world-view-image" width="1536" height="1024" alt="" decoding="async">
+      <p id="world-view-status" role="status" hidden></p>
+      <a id="world-view-fallback" hidden>Avaa kuva erikseen</a>
+    </div>
+    <div class="world-view-details" aria-live="polite" aria-atomic="true">
+      <h2 id="world-view-title">Pantterien luona</h2>
+      <p id="world-view-description"></p>
+    </div>
+    <nav class="world-view-navigation" aria-label="Puutarhan näkymät">
+      <button id="world-view-previous" type="button"><span aria-hidden="true">←</span> Edellinen näkymä</button>
+      <span>AI-kuvitus · Ovi muurissa</span>
+      <button id="world-view-next" type="button">Seuraava näkymä <span aria-hidden="true">→</span></button>
+    </nav>
+  </dialog>
   <footer class="footer wrap"><a class="wordmark" href="/">Skript<span>Lab</span></a><p>Palvelu on tällä hetkellä tauolla.<br><span>Demo on tutustuttavissa ilman kirjautumista.</span></p><a href="/luottamus">Tietosuoja</a><small>© 2026 SkriptLab</small></footer>
 </body>
 </html>

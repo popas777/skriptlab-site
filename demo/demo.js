@@ -119,12 +119,65 @@
     $$('[data-campaign]').forEach((option) => option.setAttribute('aria-pressed', String(option === button)));
   }));
 
+  const worldDialog = $('#world-dialog');
+  const worldImage = $('#world-view-image');
+  const worldMedia = $('#world-view-media');
+  const worldStatus = $('#world-view-status');
+  const worldKeys = Object.keys(data.hotspots);
+  let worldIndex = 0;
+  let worldTrigger;
+
+  function finishWorldImage() {
+    worldMedia.setAttribute('aria-busy', 'false');
+    worldStatus.hidden = true;
+  }
+  worldImage.addEventListener('load', finishWorldImage);
+  worldImage.addEventListener('error', () => {
+    worldMedia.setAttribute('aria-busy', 'false');
+    worldStatus.textContent = 'Kuva ei latautunut. Kokeile avata se erikseen.';
+    worldStatus.hidden = false;
+    $('#world-view-fallback').hidden = false;
+  });
+
+  function showWorldView(index) {
+    worldIndex = (index + worldKeys.length) % worldKeys.length;
+    const view = data.hotspots[worldKeys[worldIndex]];
+    worldStatus.textContent = 'Näkymä avautuu…';
+    worldStatus.hidden = false;
+    worldMedia.setAttribute('aria-busy', 'true');
+    $('#world-view-fallback').hidden = true;
+    $('#world-view-fallback').href = view.image;
+    worldImage.alt = view.imageAlt;
+    worldImage.src = view.image;
+    if (worldImage.complete && worldImage.naturalWidth) finishWorldImage();
+    $('#world-view-title').textContent = view.title;
+    $('#world-view-description').textContent = view.description;
+    $('#world-view-count').textContent = `${worldIndex + 1} / ${worldKeys.length}`;
+  }
+
   $$('[data-hotspot]').forEach((button) => button.addEventListener('click', () => {
-    const hotspot = data.hotspots[button.dataset.hotspot];
-    $('#hotspot-title').textContent = hotspot.title;
-    $('#hotspot-description').textContent = hotspot.description;
-    $$('[data-hotspot]').forEach((option) => option.setAttribute('aria-pressed', String(option === button)));
+    worldTrigger = button;
+    showWorldView(worldKeys.indexOf(button.dataset.hotspot));
+    worldDialog.showModal();
+    document.body.classList.add('world-view-open');
   }));
+  $('#world-view-close').addEventListener('click', () => worldDialog.close());
+  $('#world-view-previous').addEventListener('click', () => showWorldView(worldIndex - 1));
+  $('#world-view-next').addEventListener('click', () => showWorldView(worldIndex + 1));
+  worldDialog.addEventListener('keydown', (event) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+    showWorldView(worldIndex + (event.key === 'ArrowRight' ? 1 : -1));
+  });
+  worldDialog.addEventListener('click', (event) => {
+    if (event.target !== worldDialog) return;
+    const bounds = worldDialog.getBoundingClientRect();
+    if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) worldDialog.close();
+  });
+  worldDialog.addEventListener('close', () => {
+    document.body.classList.remove('world-view-open');
+    worldTrigger?.focus({ preventScroll: true });
+  });
 
   $('#explore-future').addEventListener('click', () => {
     selectOutput('world', true);
