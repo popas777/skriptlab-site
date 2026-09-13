@@ -46,7 +46,7 @@
 
   $('#load-story').addEventListener('click', () => {
     document.body.classList.add('source-open');
-    $('#import-status').textContent = '✓ Ovi muurissa · esimerkkiteksti avattu. Neljä osaa, kaksi kieltä, yksi tarinan maailma.';
+    $('#import-status').textContent = '✓ The Door In The Wall · suomennos Vihreä ovi avattu. Neljä osaa, kaksi kieltä, yksi tarinan maailma.';
     $('#continue-context').hidden = false;
     $('#load-story').textContent = 'Esimerkkikäsikirjoitus ladattu';
     $('#load-story').disabled = true;
@@ -56,6 +56,7 @@
   $$('[data-select-context]').forEach((link) => link.addEventListener('click', () => selectContext(link.dataset.selectContext)));
 
   function pauseMedia() { $$('audio,video').forEach((media) => media.pause()); }
+  document.addEventListener('comic-view-open', pauseMedia);
   function selectOutput(key, focus = false) {
     const selected = $(`[data-output="${key}"]`);
     if (!selected) return;

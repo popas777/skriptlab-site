@@ -48,18 +48,32 @@ export const outputPresentations = {
     ],
   },
   book: {
-    image: '/demo3/assets/output-book.webp',
-    alt: 'Vihreä kangaskantinen Ovi muurissa -kirjaesimerkki, H. G. Wellsin nimi kullalla ja avoin malliaukeama.',
-    caption: 'Kansi- ja taittoesimerkki · Ovi muurissa',
+    image: '/demo/assets/output-book-vihrea-ovi.webp',
+    alt: 'Vihreä kangaskantinen Vihreä ovi -kirjaesimerkki, H. G. Wellsin nimi kullalla ja avoin malliaukeama.',
+    caption: 'Kansi- ja taittoesimerkki · Vihreä ovi',
     lead: 'Kansi kutsuu sisään. Aukeaman rytmi tekee lukemiselle tilaa.',
     sections: [
-      { title: 'Sisällöstä johdonmukainen julkaisu.', text: 'Kansiesimerkki, kirjan rakenne ja taiton suunta voidaan johtaa samasta käsikirjoituksesta. Tässä näet Ovi muurissa -kansi- ja taittoesimerkin sekä voit ladata tekstikatkelman.' },
+      { title: 'Sisällöstä johdonmukainen julkaisu.', text: 'Kansiesimerkki, kirjan rakenne ja taiton suunta voidaan johtaa samasta käsikirjoituksesta. Tässä näet Vihreä ovi -kansi- ja taittoesimerkin sekä voit ladata tekstikatkelman.' },
       { title: 'Ulkoasu jatkaa kertomusta.', text: 'Vihreä kansi ja oven motiivi luovat tunnistettavan yhteyden tarinaan. Rauhallinen sivu antaa Redmondin kertovalle äänelle tilaa eikä paljasta puutarhan arvoitusta etukäteen.' },
     ],
     process: [
       { title: 'Jäsennä käsikirjoitus', text: 'Tunnista luvut, kappaleet ja muut tekstin rakenteelliset osat.' },
       { title: 'Muotoile lukukokemus', text: 'Yhdistä kansi, kirjaintyyppi, marginaalit ja aukeamien rytmi.' },
       { title: 'Tarkista vedos', text: 'Toimittaja tarkistaa tekstin, sivutuksen ja julkaisun tiedot ennen tuotantoa.' },
+    ],
+  },
+  comics: {
+    comic: true,
+    caption: 'Vihreä ovi · sarjakuvasovitus · tussi ja akvarelli',
+    lead: 'Tarinan konteksti ohjaa ruutujakoa, dialogia ja kuvituksen jatkuvuutta.',
+    sections: [
+      { title: 'Kerronta muuttuu kuviksi.', text: 'H. G. Wellsin The Door In The Wall saa kaksisivuisen sarjakuvasovituksen. Redmondin kertova ääni, Wallacen muisto ja lapsen kokemus erottuvat kuvissa ja tekstilaatikoissa.' },
+      { title: 'Hahmo pysyy tunnistettavana.', text: 'Wallacen elämänvaiheet, vihreä ovi ja puutarhan lempeät pantterit muodostavat yhteisen kuvallisen maailman. Tussiviiva ja akvarelli kantavat samaa tunnelmaa ruudusta toiseen.' },
+    ],
+    process: [
+      { title: 'Sovita kohtauksiksi', text: 'Poimi tarinan keskeiset hetket ja säilytä kerronnan eri tasot.' },
+      { title: 'Suunnittele ruudut', text: 'Rytmitä tapahtumat, kuvakulmat, tekstilaatikot ja puhekuplat.' },
+      { title: 'Tarkista jatkuvuus', text: 'Varmista hahmojen tunnistettavuus, tunnelma ja suhde lähdeteokseen.' },
     ],
   },
   video: {
@@ -78,8 +92,8 @@ export const outputPresentations = {
     ],
   },
   campaign: {
-    image: '/demo3/assets/output-campaign.webp',
-    alt: 'Ovi muurissa -kirjan kampanjakonsepti: vaalea juliste, vihreä mainoskortti ja kirja, joita yhdistää vihreän oven kuva.',
+    image: '/demo/assets/output-campaign-vihrea-ovi.webp',
+    alt: 'Vihreä ovi -kirjan kampanjakonsepti: vaalea juliste, vihreä mainoskortti ja kirja, joita yhdistää vihreän oven kuva.',
     caption: 'Valmisteltu kampanjailmeen konsepti: sama oven motiivi eri pinnoilla.',
     lead: 'Tarinan oma kysymys kutsuu lukijaa: entä jos olisit avannut oven?',
     sections: [

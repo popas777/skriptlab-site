@@ -2,6 +2,7 @@ import { contexts, outputs, renderOutput, renderWorldHotspots } from './content.
 import { contextPresentations } from './context-presentations.js';
 import { outputPresentations } from './output-presentations.js';
 import { setupWorldViewer } from './world-viewer.js';
+import '/demo/comic-reader.js';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -18,11 +19,14 @@ function presentationHeader(kind,title,lead){
   return `<button type="button" class="back-button" data-overview>${arrow}<span>Takaisin karttaan</span></button><p class="presentation-kind">${esc(kind)}</p><h2 class="presentation-title" tabindex="-1">${esc(title)}</h2><p class="presentation-lead">${esc(lead)}</p>`;
 }
 function presentationBody(item, world=false){
-  return `<div class="presentation-body"><figure class="presentation-figure">${world?'<div class="world-scene">':''}<img class="presentation-image" src="${esc(item.image)}" width="${item.width||1536}" height="${item.height||1024}"${item.aspectRatio?` style="aspect-ratio:${item.aspectRatio}"`:''} alt="${esc(item.alt)}" decoding="async">${world?renderWorldHotspots()+'</div>':''}<figcaption>${esc(item.caption)}</figcaption></figure><div class="presentation-sections">${item.sections.map(section=>`<section><h3>${esc(section.title)}</h3><p>${esc(section.text)}</p></section>`).join('')}</div></div>`;
+  const image = item.comic
+    ? '<comic-reader></comic-reader>'
+    : `${world?'<div class="world-scene">':''}<img class="presentation-image" src="${esc(item.image)}" width="${item.width||1536}" height="${item.height||1024}"${item.aspectRatio?` style="aspect-ratio:${item.aspectRatio}"`:''} alt="${esc(item.alt)}" decoding="async">${world?renderWorldHotspots()+'</div>':''}`;
+  return `<div class="presentation-body"><figure class="presentation-figure">${image}<figcaption>${esc(item.caption)}</figcaption></figure><div class="presentation-sections">${item.sections.map(section=>`<section><h3>${esc(section.title)}</h3><p>${esc(section.text)}</p></section>`).join('')}</div></div>`;
 }
 function renderContext(){
   const base=contexts[state.context], item=contextPresentations[state.context];
-  $('#context-detail').innerHTML = `${presentationHeader(base.kind,base.name,item.lead)}${presentationBody(item)}<figure class="source-quote"><blockquote>”${esc(base.quote)}”</blockquote><figcaption>Ovi muurissa · osa ${esc(base.part)} · Katkelma suomennoksesta</figcaption></figure><section class="application-section"><h3>Kontekstista mahdollisuuksiin</h3><div class="application-links">${item.applications.map(link=>`<button type="button" data-output="${esc(link.id)}"><span><strong>${esc(link.label)}</strong><span>${esc(link.reason)}</span></span>${arrow}</button>`).join('')}</div></section>`;
+  $('#context-detail').innerHTML = `${presentationHeader(base.kind,base.name,item.lead)}${presentationBody(item)}<figure class="source-quote"><blockquote>”${esc(base.quote)}”</blockquote><figcaption>The Door In The Wall · osa ${esc(base.part)} · Katkelma suomennoksesta Vihreä ovi</figcaption></figure><section class="application-section"><h3>Kontekstista mahdollisuuksiin</h3><div class="application-links">${item.applications.map(link=>`<button type="button" data-output="${esc(link.id)}"><span><strong>${esc(link.label)}</strong><span>${esc(link.reason)}</span></span>${arrow}</button>`).join('')}</div></section>`;
 }
 function renderCurrentOutput({sampleOnly=false}={}){
   pauseMedia();
@@ -93,6 +97,8 @@ document.addEventListener('click',event=>{
 $('#theme-toggle').addEventListener('click',()=>{setTheme(state.theme==='dark'?'light':'dark');announce(state.theme==='light'?'Vaalea teema käytössä.':'Tumma teema käytössä.');});
 $('#motion-toggle').addEventListener('click',()=>setMotion(!state.motion));
 reduced.addEventListener('change',()=>setMotion(!reduced.matches));
+document.addEventListener('comic-view-open',()=>{pauseMedia();scene?.setMotion(false);});
+document.addEventListener('comic-view-close',()=>scene?.setMotion(state.motion));
 setupWorldViewer({ onOpen:()=>{pauseMedia();scene?.setMotion(false);}, onClose:()=>scene?.setMotion(state.motion) });
 const dialog=$('#about-dialog');
 $('#about-open').addEventListener('click',()=>{pauseMedia();dialog.showModal();scene?.setMotion(false);});

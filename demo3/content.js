@@ -1,4 +1,4 @@
-/* Curated examples from demo/story-data.js and the Ovi muurissa project.
+/* Curated examples from demo/story-data.js and the local The Door In The Wall translation project.
    Quotes are source text; directions and interpretations are marked as such.
    This module makes no model calls and never sends manuscript text anywhere. */
 
@@ -72,12 +72,12 @@ export const translations = {
 export const voices = {
   fi: {
     name: 'Suomi', src: '/demo/assets/narrator-fi.m4a', lang: 'fi',
-    label: 'Ovi muurissa, suomenkielinen koneääninäyte',
+    label: 'Vihreä ovi, suomenkielinen koneääninäyte',
     transcript: 'Eräänä iltana vajaat kolme kuukautta sitten Lionel Wallace uskoutui minulle ja kertoi tämän tarinan muurissa olevasta ovesta. Ja silloin ajattelin, että ainakin hänelle itselleen se oli tosi.',
   },
   en: {
     name: 'Englanti', src: '/demo/assets/narrator-en.m4a', lang: 'en',
-    label: 'The Door in the Wall, englanninkielinen koneääninäyte',
+    label: 'The Door In The Wall, englanninkielinen koneääninäyte',
     transcript: 'One confidential evening, not three months ago, Lionel Wallace told me this story of the Door in the Wall. And at the time I thought that so far as he was concerned it was a true story.',
   },
 };
@@ -93,7 +93,7 @@ export const campaigns = {
   },
   newsletter: {
     label: 'Uutiskirje', title: 'Tällä viikolla: oven toisella puolella.',
-    text: 'Mikä muisto kutsuu sinua takaisin? Ovi muurissa johdattaa harmaasta Lontoosta paikkaan, jossa kaikki tuntuu olevan niin kuin pitää. Tutustu H. G. Wellsin novelliin ja sen suomennokseen.',
+    text: 'Mikä muisto kutsuu sinua takaisin? The Door In The Wall johdattaa harmaasta Lontoosta paikkaan, jossa kaikki tuntuu olevan niin kuin pitää. Tutustu H. G. Wellsin novelliin ja sen suomennokseen Vihreä ovi.',
   },
 };
 
@@ -123,6 +123,7 @@ export const outputs = {
   audio: { label: 'Äänet', title: 'Kertojan ääni herää.', contexts: ['redmond', 'wallace', 'memory'] },
   illustration: { label: 'Kuvat', title: 'Maailma saa kasvot.', contexts: ['door', 'garden'] },
   book: { label: 'Taitto', title: 'Tarina löytää muotonsa.', contexts: ['redmond', 'door'] },
+  comics: { label: 'Sarjakuvat', title: 'Tarina jatkuu ruudusta toiseen.', contexts: ['wallace', 'redmond', 'garden'] },
   video: { label: 'Videot', title: 'Yksi hetki liikkeessä.', contexts: ['door', 'garden'] },
   campaign: { label: 'Kampanjat', title: 'Sama tarina. Uusi yleisö.', contexts: ['wallace', 'longing'] },
   world: { label: 'Virtuaalimaailma', title: 'Entä jos astuisit sisään?', contexts: ['garden', 'memory'] },
@@ -168,8 +169,12 @@ export function renderOutput(id, { language = 'fi', audioLanguage = 'fi', campai
 
   if (id === 'book') {
     return `<h3 class="sample-title">Tutustu taittoesimerkkiin</h3>
-      <div class="book-visual"><article class="book-page" lang="fi" aria-label="Taittoesimerkki, Ovi muurissa, ensimmäinen sivu"><span>H. G. WELLS</span><h4>Ovi muurissa</h4><div class="gold-rule"></div><small>I</small><p>Eräänä iltana vajaat kolme kuu&shy;kautta sitten Lionel Wallace uskou&shy;tui minulle ja kertoi tämän tari&shy;nan muu&shy;rissa ole&shy;vasta ovesta. Ja sil&shy;loin ajat&shy;te&shy;lin, että aina&shy;kin hänelle itsel&shy;leen se oli tosi.</p><p>Hän kertoi sen niin suo&shy;raan ja mut&shy;katto&shy;man vakuut&shy;tuneesti, etten voinut muuta kuin uskoa häntä. Mutta aamulla herä&shy;sin omassa asun&shy;nos&shy;sani toisen&shy;laiseen tun&shy;nel&shy;maan. Kun maka&shy;sin vuo&shy;teessa ja muis&shy;telin hänen ker&shy;to&shy;maansa, kaikki tuntui minusta kerta kaik&shy;kiaan usko&shy;matto&shy;malta. Poissa oli hänen vaka&shy;van, verk&shy;kai&shy;sen äänensä lumo, poissa var&shy;joste&shy;tun pöytä&shy;lampun valo&shy;keila ja hämärä, joka oli ympä&shy;röi&shy;nyt häntä ja illallis&shy;pöytämme kau&shy;nista, valossa hoh&shy;tavaa kat&shy;tausta – jälki&shy;ruokaa, laseja ja lii&shy;noja – ja sul&shy;kenut kaiken het&shy;keksi pie&shy;neen valoi&shy;saan maail&shy;maan, aivan eril&shy;leen arki&shy;todel&shy;lisuu&shy;desta. ”Hän nar&shy;rasi minua!” sanoin ja sitten: ”Ja miten taita&shy;vasti! … Juuri häneltä en olisi odot&shy;tanut sel&shy;laista taitoa.”</p><span class="page-number">1</span></article></div>
-      <a class="output-control output-download" href="/demo/assets/ovi-muurissa-katkelma.txt" download="ovi-muurissa-katkelma.txt">Lataa tekstikatkelma <span aria-hidden="true">↓</span></a>${footer}`;
+      <div class="book-visual"><article class="book-page" lang="fi" aria-label="Taittoesimerkki, Vihreä ovi, ensimmäinen sivu"><span>H. G. WELLS</span><h4>Vihreä ovi</h4><div class="gold-rule"></div><small>I</small><p>Eräänä iltana vajaat kolme kuu&shy;kautta sitten Lionel Wallace uskou&shy;tui minulle ja kertoi tämän tari&shy;nan muu&shy;rissa ole&shy;vasta ovesta. Ja sil&shy;loin ajat&shy;te&shy;lin, että aina&shy;kin hänelle itsel&shy;leen se oli tosi.</p><p>Hän kertoi sen niin suo&shy;raan ja mut&shy;katto&shy;man vakuut&shy;tuneesti, etten voinut muuta kuin uskoa häntä. Mutta aamulla herä&shy;sin omassa asun&shy;nos&shy;sani toisen&shy;laiseen tun&shy;nel&shy;maan. Kun maka&shy;sin vuo&shy;teessa ja muis&shy;telin hänen ker&shy;to&shy;maansa, kaikki tuntui minusta kerta kaik&shy;kiaan usko&shy;matto&shy;malta. Poissa oli hänen vaka&shy;van, verk&shy;kai&shy;sen äänensä lumo, poissa var&shy;joste&shy;tun pöytä&shy;lampun valo&shy;keila ja hämärä, joka oli ympä&shy;röi&shy;nyt häntä ja illallis&shy;pöytämme kau&shy;nista, valossa hoh&shy;tavaa kat&shy;tausta – jälki&shy;ruokaa, laseja ja lii&shy;noja – ja sul&shy;kenut kaiken het&shy;keksi pie&shy;neen valoi&shy;saan maail&shy;maan, aivan eril&shy;leen arki&shy;todel&shy;lisuu&shy;desta. ”Hän nar&shy;rasi minua!” sanoin ja sitten: ”Ja miten taita&shy;vasti! … Juuri häneltä en olisi odot&shy;tanut sel&shy;laista taitoa.”</p><span class="page-number">1</span></article></div>
+      <a class="output-control output-download" href="/demo/assets/ovi-muurissa-katkelma.txt" download="Vihrea-ovi-katkelma.txt">Lataa tekstikatkelma <span aria-hidden="true">↓</span></a>${footer}`;
+  }
+
+  if (id === 'comics') {
+    return `<h3 class="sample-title">Yksi tarina, kaksi sivua.</h3><p class="output-body">Vihreä ovi on H. G. Wellsin The Door In The Wall -teoksen sarjakuvasovitus. Selaa sivuja, avaa lukutila suurempana tai lataa koko sarjakuva PDF:nä.</p>${footer}`;
   }
 
   if (id === 'video') {

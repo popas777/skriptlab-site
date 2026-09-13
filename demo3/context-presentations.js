@@ -43,6 +43,7 @@ export const contextPresentations = {
       { id: 'audio', label: 'Kertojan ääni', reason: 'Kuulija tunnistaa, milloin Redmond kertoo ja milloin Wallace muistelee.' },
       { id: 'translation', label: 'Näkökulma kielissä', reason: 'Kertojan epäily ja Wallacen varmuus säilyvät erillisinä.' },
       { id: 'book', label: 'Lukemisen rytmi', reason: 'Kappalejako ja puheen merkit tukevat kertomuksen tasoja.' },
+      { id: 'comics', label: 'Sarjakuvan kerronta', reason: 'Kertojan ääni ja Wallacen muistot erottuvat ruuduissa ja tekstilaatikoissa.' },
     ],
   },
   door: {

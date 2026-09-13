@@ -15,13 +15,14 @@ const CONTEXT = [
   ['memory', 'Teemat', -2.18, -0.25, -0.10],
 ];
 const OUTPUTS = [
-  ['translation', 'Kielet', 0.00, 1.96, 0.02],
-  ['illustration', 'Kuvat', 1.78, 1.27, 0.18],
-  ['book', 'Taitto', 2.21, -0.04, -0.12],
-  ['video', 'Videot', 1.60, -1.40, 0.23],
-  ['campaign', 'Kampanjat', 0.02, -1.94, 0.02],
-  ['world', 'Virtuaalimaailma', -1.79, -1.31, -0.18],
-  ['audio', 'Äänet', -1.90, 1.06, 0.19],
+  ['translation', 'Kielet', 0.00, 1.98, 0.02],
+  ['illustration', 'Kuvat', 1.54, 1.40, 0.18],
+  ['comics', 'Sarjakuvat', 2.20, 0.00, -0.12],
+  ['video', 'Videot', 1.54, -1.40, 0.23],
+  ['campaign', 'Kampanjat', 0.00, -1.98, 0.02],
+  ['book', 'Taitto', -1.54, -1.40, 0.14],
+  ['world', 'Virtuaalimaailma', -2.20, 0.00, -0.18],
+  ['audio', 'Äänet', -1.54, 1.40, 0.19],
 ];
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -554,7 +555,7 @@ export function createScene(container, { onNodeSelect = () => {}, onReady = () =
     camera.aspect = width / height;
     // Keep the whole constellation in the short dimension, including its labels.
     // A small, nearly square inspector map needs extra room for the outer rings
-    // and all seven labels. Container dimensions, rather than viewport width,
+    // and all eight labels. Container dimensions, rather than viewport width,
     // determine the fit during the parent's expand/collapse transition.
     baseCameraZ = compact
       ? 10.8 / Math.min(camera.aspect, 1)
