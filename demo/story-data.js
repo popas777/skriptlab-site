@@ -71,12 +71,12 @@ window.SkriptLabDemo = Object.freeze({
   },
   voices: {
     fi: { src: '/demo/assets/narrator-fi.m4a', lang: 'fi', label: 'Vihreä ovi, suomenkielinen koneääninäyte', transcript: 'Eräänä iltana vajaat kolme kuukautta sitten Lionel Wallace uskoutui minulle ja kertoi tämän tarinan muurissa olevasta ovesta. Ja silloin ajattelin, että ainakin hänelle itselleen se oli tosi.' },
-    en: { src: '/demo/assets/narrator-en.m4a', lang: 'en', label: 'The Door In The Wall, englanninkielinen koneääninäyte', transcript: 'One confidential evening, not three months ago, Lionel Wallace told me this story of the Door in the Wall. And at the time I thought that so far as he was concerned it was a true story.' }
+    en: { src: '/demo/assets/narrator-en.m4a', lang: 'en', label: 'The Door in the Wall, englanninkielinen koneääninäyte', transcript: 'One confidential evening, not three months ago, Lionel Wallace told me this story of the Door in the Wall. And at the time I thought that so far as he was concerned it was a true story.' }
   },
   campaigns: {
     social: { title: 'Entä jos olisit avannut oven?', text: 'Yksi lapsuuden muisto. Elämän mittainen kaipaus. Astu H. G. Wellsin arvoituksellisen novellin maailmaan.' },
     backcover: { title: 'Yksi ovi. Kaksi maailmaa.', text: 'Lionel Wallace on menestynyt mies, jota lapsuudessa nähty puutarha ei jätä rauhaan. Valkoinen muuri ja vihreä ovi palaavat hänen elämäänsä, mutta aina jokin velvollisuus vie toisaalle. H. G. Wellsin novelli kysyy, mitä jätämme taaksemme, kun valitsemme tutun tien.' },
-    newsletter: { title: 'Tällä viikolla: oven toisella puolella.', text: 'Mikä muisto kutsuu sinua takaisin? The Door In The Wall johdattaa harmaasta Lontoosta paikkaan, jossa kaikki tuntuu olevan niin kuin pitää. Tutustu H. G. Wellsin novelliin ja sen suomennokseen Vihreä ovi.' }
+    newsletter: { title: 'Tällä viikolla: oven toisella puolella.', text: 'Mikä muisto kutsuu sinua takaisin? The Door in the Wall johdattaa harmaasta Lontoosta paikkaan, jossa kaikki tuntuu olevan niin kuin pitää. Tutustu H. G. Wellsin novelliin ja sen suomennokseen Vihreä ovi.' }
   },
   hotspots: {
     panthers: {

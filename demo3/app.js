@@ -2,7 +2,7 @@ import { contexts, outputs, renderOutput, renderWorldHotspots } from './content.
 import { contextPresentations } from './context-presentations.js';
 import { outputPresentations } from './output-presentations.js';
 import { setupWorldViewer } from './world-viewer.js';
-import '/demo/comic-reader.js';
+import '/demo/comic-reader.js?v=7476d46c';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -26,7 +26,7 @@ function presentationBody(item, world=false){
 }
 function renderContext(){
   const base=contexts[state.context], item=contextPresentations[state.context];
-  $('#context-detail').innerHTML = `${presentationHeader(base.kind,base.name,item.lead)}${presentationBody(item)}<figure class="source-quote"><blockquote>”${esc(base.quote)}”</blockquote><figcaption>The Door In The Wall · osa ${esc(base.part)} · Katkelma suomennoksesta Vihreä ovi</figcaption></figure><section class="application-section"><h3>Kontekstista mahdollisuuksiin</h3><div class="application-links">${item.applications.map(link=>`<button type="button" data-output="${esc(link.id)}"><span><strong>${esc(link.label)}</strong><span>${esc(link.reason)}</span></span>${arrow}</button>`).join('')}</div></section>`;
+  $('#context-detail').innerHTML = `${presentationHeader(base.kind,base.name,item.lead)}${presentationBody(item)}<figure class="source-quote"><blockquote>”${esc(base.quote)}”</blockquote><figcaption>The Door in the Wall · osa ${esc(base.part)} · Katkelma suomennoksesta Vihreä ovi</figcaption></figure><section class="application-section"><h3>Kontekstista mahdollisuuksiin</h3><div class="application-links">${item.applications.map(link=>`<button type="button" data-output="${esc(link.id)}"><span><strong>${esc(link.label)}</strong><span>${esc(link.reason)}</span></span>${arrow}</button>`).join('')}</div></section>`;
 }
 function renderCurrentOutput({sampleOnly=false}={}){
   pauseMedia();

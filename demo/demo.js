@@ -46,7 +46,7 @@
 
   $('#load-story').addEventListener('click', () => {
     document.body.classList.add('source-open');
-    $('#import-status').textContent = '✓ The Door In The Wall · suomennos Vihreä ovi avattu. Neljä osaa, kaksi kieltä, yksi tarinan maailma.';
+    $('#import-status').textContent = '✓ The Door in the Wall · suomennos Vihreä ovi avattu. Neljä osaa, kaksi kieltä, yksi tarinan maailma.';
     $('#continue-context').hidden = false;
     $('#load-story').textContent = 'Esimerkkikäsikirjoitus ladattu';
     $('#load-story').disabled = true;

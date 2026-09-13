@@ -13,7 +13,7 @@ Static Finnish demo at `/demo/`, published with the existing Netlify site. No bu
 
 ## Content provenance
 
-The example is H. G. Wells's *The Door In The Wall*, the title story of Project Gutenberg ebook 456. Finnish quotations are from the completed local Finnish translation, presented here as *Vihreä ovi*, in the local translator project's `h-g-wells-the-door-in-the-wall-fi-translated/output/translated_manuscript.md`, synchronized on 12 September 2026 with the project’s reviewed 6 September 2026 revision. The six source quotations and Finnish audio transcript have been matched verbatim to that text. Only brief excerpts are included here.
+The example is H. G. Wells's *The Door in the Wall*, the title story of Project Gutenberg ebook 456. Finnish quotations are from the completed local Finnish translation, presented here as *Vihreä ovi*, in the local translator project's `h-g-wells-the-door-in-the-wall-fi-translated/output/translated_manuscript.md`, synchronized on 12 September 2026 with the project’s reviewed 6 September 2026 revision. The six source quotations and Finnish audio transcript have been matched verbatim to that text. Only brief excerpts are included here.
 
 Descriptions of people, places and motifs are editorial summaries prepared for the demo. Theme and voice guidance are interpretations, not additional quotations. Preserve the distinction between Redmond's framing narration and Wallace's memories, and keep the garden's reality open to interpretation.
 
@@ -42,8 +42,10 @@ Discretionary breaks are reviewed for this fixed sample rather than delegated to
 
 ## Vihreä ovi and comics (2026-09-13)
 
-References to the original work use *The Door In The Wall*. Finnish sample artifacts, including the book layout, audio label, downloadable excerpt, cover and campaign artwork, use *Vihreä ovi*. Only the title and original-work credit changed in the TXT; the reviewed translation remains unchanged. The translator project and legacy asset URLs are preserved. New title-bearing images are separate files, leaving the earlier artwork available.
+References to the original work use *The Door in the Wall*. Finnish sample artifacts, including the book layout, audio label, downloadable excerpt, cover and campaign artwork, use *Vihreä ovi*. Only the title and original-work credit changed in the TXT; the reviewed translation remains unchanged. The translator project and legacy asset URLs are preserved. New title-bearing images are separate files, leaving the earlier artwork available.
 
 Sarjakuvat is the eighth output. It presents both pages of the user-supplied ink-and-watercolor comic, with page selection, an enlarged scrollable reading view, zoom, keyboard navigation, a text transcript and the unchanged original PDF. Background media pauses while reading. See [comic-example.md](comic-example.md) for source checksums and image provenance.
 
 Verification for the comic/title update: JavaScript syntax checks, exact PDF checksum, unchanged Finnish excerpt paragraphs and discretionary hyphens; browser checks at 1440×900 and 390×844; both comic pages, modal opening/closing, focus restoration, zoom and keyboard scrolling; light/dark demo3 themes and scene motion pause/resume; eight visible mobile output nodes with no clipped or overlapping buttons. No browser warnings or errors were observed.
+
+The latest supplied `Vihrea-ovi-tussi-ja-akvarelli (3).pdf` replaces the previous comic example in both demos, including both rendered pages and their text transcripts. The original-work spelling is *The Door in the Wall*, and the illustration output label is Grafiikka. See `/demo/comic-example.md` for the current PDF checksum.

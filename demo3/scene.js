@@ -16,7 +16,7 @@ const CONTEXT = [
 ];
 const OUTPUTS = [
   ['translation', 'Kielet', 0.00, 1.98, 0.02],
-  ['illustration', 'Kuvat', 1.54, 1.40, 0.18],
+  ['illustration', 'Grafiikka', 1.54, 1.40, 0.18],
   ['comics', 'Sarjakuvat', 2.20, 0.00, -0.12],
   ['video', 'Videot', 1.54, -1.40, 0.23],
   ['campaign', 'Kampanjat', 0.00, -1.98, 0.02],

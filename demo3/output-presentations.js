@@ -67,7 +67,7 @@ export const outputPresentations = {
     caption: 'Vihreä ovi · sarjakuvasovitus · tussi ja akvarelli',
     lead: 'Tarinan konteksti ohjaa ruutujakoa, dialogia ja kuvituksen jatkuvuutta.',
     sections: [
-      { title: 'Kerronta muuttuu kuviksi.', text: 'H. G. Wellsin The Door In The Wall saa kaksisivuisen sarjakuvasovituksen. Redmondin kertova ääni, Wallacen muisto ja lapsen kokemus erottuvat kuvissa ja tekstilaatikoissa.' },
+      { title: 'Kerronta muuttuu kuviksi.', text: 'H. G. Wellsin The Door in the Wall saa kaksisivuisen sarjakuvasovituksen. Redmondin kertova ääni, Wallacen muisto ja lapsen kokemus erottuvat kuvissa ja tekstilaatikoissa.' },
       { title: 'Hahmo pysyy tunnistettavana.', text: 'Wallacen elämänvaiheet, vihreä ovi ja puutarhan lempeät pantterit muodostavat yhteisen kuvallisen maailman. Tussiviiva ja akvarelli kantavat samaa tunnelmaa ruudusta toiseen.' },
     ],
     process: [

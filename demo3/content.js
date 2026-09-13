@@ -1,4 +1,4 @@
-/* Curated examples from demo/story-data.js and the local The Door In The Wall translation project.
+/* Curated examples from demo/story-data.js and the local The Door in the Wall translation project.
    Quotes are source text; directions and interpretations are marked as such.
    This module makes no model calls and never sends manuscript text anywhere. */
 
@@ -77,7 +77,7 @@ export const voices = {
   },
   en: {
     name: 'Englanti', src: '/demo/assets/narrator-en.m4a', lang: 'en',
-    label: 'The Door In The Wall, englanninkielinen koneääninäyte',
+    label: 'The Door in the Wall, englanninkielinen koneääninäyte',
     transcript: 'One confidential evening, not three months ago, Lionel Wallace told me this story of the Door in the Wall. And at the time I thought that so far as he was concerned it was a true story.',
   },
 };
@@ -93,7 +93,7 @@ export const campaigns = {
   },
   newsletter: {
     label: 'Uutiskirje', title: 'Tällä viikolla: oven toisella puolella.',
-    text: 'Mikä muisto kutsuu sinua takaisin? The Door In The Wall johdattaa harmaasta Lontoosta paikkaan, jossa kaikki tuntuu olevan niin kuin pitää. Tutustu H. G. Wellsin novelliin ja sen suomennokseen Vihreä ovi.',
+    text: 'Mikä muisto kutsuu sinua takaisin? The Door in the Wall johdattaa harmaasta Lontoosta paikkaan, jossa kaikki tuntuu olevan niin kuin pitää. Tutustu H. G. Wellsin novelliin ja sen suomennokseen Vihreä ovi.',
   },
 };
 
@@ -121,7 +121,7 @@ export const hotspots = {
 export const outputs = {
   translation: { label: 'Kielet', title: 'Merkitys kulkee mukana.', contexts: ['door', 'memory'] },
   audio: { label: 'Äänet', title: 'Kertojan ääni herää.', contexts: ['redmond', 'wallace', 'memory'] },
-  illustration: { label: 'Kuvat', title: 'Maailma saa kasvot.', contexts: ['door', 'garden'] },
+  illustration: { label: 'Grafiikka', title: 'Maailma saa kasvot.', contexts: ['door', 'garden'] },
   book: { label: 'Taitto', title: 'Tarina löytää muotonsa.', contexts: ['redmond', 'door'] },
   comics: { label: 'Sarjakuvat', title: 'Tarina jatkuu ruudusta toiseen.', contexts: ['wallace', 'redmond', 'garden'] },
   video: { label: 'Videot', title: 'Yksi hetki liikkeessä.', contexts: ['door', 'garden'] },
@@ -174,7 +174,7 @@ export function renderOutput(id, { language = 'fi', audioLanguage = 'fi', campai
   }
 
   if (id === 'comics') {
-    return `<h3 class="sample-title">Yksi tarina, kaksi sivua.</h3><p class="output-body">Vihreä ovi on H. G. Wellsin The Door In The Wall -teoksen sarjakuvasovitus. Selaa sivuja, avaa lukutila suurempana tai lataa koko sarjakuva PDF:nä.</p>${footer}`;
+    return `<h3 class="sample-title">Yksi tarina, kaksi sivua.</h3><p class="output-body">Vihreä ovi on H. G. Wellsin The Door in the Wall -teoksen sarjakuvasovitus. Selaa sivuja, avaa lukutila suurempana tai lataa koko sarjakuva PDF:nä.</p>${footer}`;
   }
 
   if (id === 'video') {

@@ -17,7 +17,7 @@ The page reuses existing local fonts from `/demo2/fonts.css`, and original image
 
 ## Content boundaries
 
-The example is H. G. Wells, *The Door In The Wall*; its Finnish translation is presented as *Vihreä ovi*. Quotes and reviewed Finnish translation come from the original demo's curated source data. Redmond is the framing narrator; Wallace describes his memories. The garden's reality remains open to interpretation. Themes and voice/visual directions are labeled interpretations.
+The example is H. G. Wells, *The Door in the Wall*; its Finnish translation is presented as *Vihreä ovi*. Quotes and reviewed Finnish translation come from the original demo's curated source data. Redmond is the framing narrator; Wallace describes his memories. The garden's reality remains open to interpretation. Themes and voice/visual directions are labeled interpretations.
 
 Languages, audio, illustration, comics, book layout, video, campaign and world panels are prepared examples. Swedish/German translations and campaign copy are demo drafts. Audio files are the original locally synthesized Finnish and English recordings. Video is the user-supplied Gemini-generated clip, trimmed from source time 12–20 s with its audio retained. The shared `/demo/assets/door-scene.mp4` runs for eight seconds and uses a poster and Finnish scene descriptions from the new clip. It is a prepared external example, not a live AI video generation in the application. Book layout is a reading sample with the first two reviewed Finnish paragraphs, 13 px Georgia, justified lines and manually reviewed discretionary hyphens, matching `/demo/`; the download is explicitly a real `.txt` excerpt. Generated virtual worlds are a future concept. The public site's paused-service notice remains visible.
 
@@ -39,7 +39,7 @@ Visual QA compared the two Imagegen concepts and final native-size browser captu
 
 The two demos share the reviewed Finnish excerpt and audio, the 12–20 s video cut and its poster/captions, and all three new illustrated garden viewpoints. World-image provenance and prompts remain in `/demo/world-images.md`; this update makes no new model calls. The original hero, context artwork, theme colors and 3D constellation remain specific to demo3.
 
-Visible output names now match the main demo: Kielet, Äänet, Kuvat, Sarjakuvat, Videot, Kampanjat, Taitto and Virtuaalimaailma, under Uudet sisällöt. Captions use the approved context-aware production wording. The information dialog identifies the video correctly. Desktop introductory text starts at the upper left; the mobile layout keeps its existing flow.
+Visible output names now match the main demo: Kielet, Äänet, Grafiikka, Sarjakuvat, Videot, Kampanjat, Taitto and Virtuaalimaailma, under Uudet sisällöt. Captions use the approved context-aware production wording. The information dialog identifies the video correctly. Desktop introductory text starts at the upper left; the mobile layout keeps its existing flow.
 
 The book-page paragraphs and all soft hyphens are copied exactly from `/demo/index.html`, with the title heading level adjusted for demo3. Georgia and manual hyphens make the Finnish word divisions consistent across browsers. See the main demo README for the reviewed translation source and hyphenation references.
 
@@ -47,6 +47,8 @@ Targeted verification for this update: 1440×900 and 390×844 in the Codex in-ap
 
 ## Finnish title and comic example (2026-09-13)
 
-Original-work references now use *The Door In The Wall*, while Finnish output titles use *Vihreä ovi*. The book and campaign artwork use the shared new title variants. Sarjakuvat adds the supplied two-page comic to the constellation and detail view. The reader imports `/demo/comic-reader.js` and its stylesheet; page changes, zoom, the text transcript and original PDF links work identically in both demos. The 3D scene pauses while the comic dialog is open and returns to the chosen motion setting on close. Eight output nodes retain keyboard and narrow-screen collision handling. Source provenance is recorded in `/demo/comic-example.md`.
+Original-work references now use *The Door in the Wall*, while Finnish output titles use *Vihreä ovi*. The book and campaign artwork use the shared new title variants. Sarjakuvat adds the supplied two-page comic to the constellation and detail view. The reader imports `/demo/comic-reader.js` and its stylesheet; page changes, zoom, the text transcript and original PDF links work identically in both demos. The 3D scene pauses while the comic dialog is open and returns to the chosen motion setting on close. Eight output nodes retain keyboard and narrow-screen collision handling. Source provenance is recorded in `/demo/comic-example.md`.
 
 Verification for the comic/title update: JavaScript syntax checks, exact PDF checksum, unchanged Finnish excerpt paragraphs and discretionary hyphens; browser checks at 1440×900 and 390×844; both comic pages, modal opening/closing, focus restoration, zoom and keyboard scrolling; light/dark demo3 themes and scene motion pause/resume; eight visible mobile output nodes with no clipped or overlapping buttons. No browser warnings or errors were observed.
+
+The latest supplied `Vihrea-ovi-tussi-ja-akvarelli (3).pdf` replaces the previous comic example in both demos, including both rendered pages and their text transcripts. The original-work spelling is *The Door in the Wall*, and the illustration output label is Grafiikka. See `/demo/comic-example.md` for the current PDF checksum.

@@ -1,14 +1,14 @@
 # Vihreä ovi: comic and title artwork
 
-Added to `/demo/` and `/demo3/` on 13 September 2026 at the user's request. Original-work references use *The Door In The Wall*; the Finnish sample is *Vihreä ovi*.
+Added to `/demo/` and `/demo3/` on 13 September 2026 at the user's request. Original-work references use *The Door in the Wall*; the Finnish sample is *Vihreä ovi*.
 
-## Supplied comic
+## Supplied comic (latest user version)
 
-- Source: `/Users/skriptlab/Downloads/Vihrea-ovi-tussi-ja-akvarelli.pdf`.
-- Published exact copy: `assets/vihrea-ovi-sarjakuva.pdf` (10,269,895 bytes; two A4 pages).
-- SHA-256 of both source and published copy: `3c5d2abcc246bdc20ecab257c1320b026cf46c321314461aec914aaff5c3b83e`.
+- Source: `/Users/skriptlab/Downloads/Vihrea-ovi-tussi-ja-akvarelli (3).pdf`.
+- Published exact copy: `assets/vihrea-ovi-sarjakuva.pdf` (10,279,113 bytes; two A4 pages).
+- SHA-256 of both source and published copy: `7476d46c9657991c02240d4fd9663184433c715951b362ee3adfda04654188f0`.
 - Both pages were rendered with Poppler at 145 dpi and visually checked. Web previews `vihrea-ovi-sarjakuva-1.webp` and `vihrea-ovi-sarjakuva-2.webp` are 1199 × 1696 pixels, encoded with Pillow (WebP quality 92, method 6). No panels, text or artwork were edited.
-- `comic-reader.js` contains the exact PDF text extracted with pypdf as an accessible, page-specific transcript. The reader preserves the supplied page order.
+- `comic-reader.js` contains the exact PDF text extracted with pypdf as an accessible, page-specific transcript. The reader preserves the supplied page order. The current version has rounded speech balloons, revised text placement and an original-work credit beneath the title. Both demos request the reader, preview images and PDF with the content version `?v=7476d46c` so previously cached previews are refreshed.
 
 ## Finnish title artwork
 

@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Yksi käsikirjoitus. Kokonainen maailma. | SkriptLab Demo</title>
-  <meta name="description" content="Avaa H. G. Wellsin The Door In The Wall ja tutki, miten käsikirjoituksen hahmot, paikat ja merkitykset kulkevat käännöksiin, ääneen, kuviin ja uusiin maailmoihin.">
+  <meta name="description" content="Avaa H. G. Wellsin The Door in the Wall ja tutki, miten käsikirjoituksen hahmot, paikat ja merkitykset kulkevat käännöksiin, ääneen, kuviin ja uusiin maailmoihin.">
   <meta name="theme-color" content="#faf7f2">
   <meta property="og:title" content="Yksi käsikirjoitus. Kokonainen maailma. — SkriptLab">
-  <meta property="og:description" content="Interaktiivinen matka tekstistä tarinan kontekstiin ja uusiin tuotantoihin. H. G. Wells: The Door In The Wall.">
+  <meta property="og:description" content="Interaktiivinen matka tekstistä tarinan kontekstiin ja uusiin tuotantoihin. H. G. Wells: The Door in the Wall.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://skriptlab.com/demo/">
   <meta property="og:image" content="https://skriptlab.com/demo/assets/green-door.webp">
@@ -18,7 +18,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@400;450;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/demo/demo.css">
   <link rel="stylesheet" href="/demo/comic-reader.css">
-  <script type="module" src="/demo/comic-reader.js"></script>
+  <script type="module" src="/demo/comic-reader.js?v=7476d46c"></script>
   <script src="/demo/story-data.js" defer></script>
   <script src="/demo/demo.js" defer></script>
 </head>
@@ -38,7 +38,7 @@
         <h1 id="hero-title">Yksi käsikirjoitus.<br>Kokonainen <em>maailma.</em></h1>
         <p>Hahmot, paikat ja merkitykset. Kun tarinan konteksti kulkee mukana, sama teos saa uusia kieliä, ääniä ja muotoja.</p>
         <a class="button primary" href="#tarina">Avaa tarinan ovi <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6"/></svg></a>
-        <small>H. G. Wells, <i lang="en">The Door In The Wall</i></small>
+        <small>H. G. Wells, <i lang="en">The Door in the Wall</i></small>
       </div>
       <figure class="hero-image">
         <img src="/demo/assets/green-door.webp" srcset="/demo/assets/green-door-small.webp 640w, /demo/assets/green-door.webp 1254w" sizes="(max-width: 760px) 92vw, 50vw" width="1254" height="1254" alt="Vihreä ovi valkoisessa muurissa avautuu valoisaan puutarhaan. Muurilla kasvaa punaista villiviiniä." fetchpriority="high">
@@ -57,7 +57,7 @@
         <span class="section-number">01 / KÄSIKIRJOITUS</span>
         <h2 id="source-title">Kaikki alkaa tekstistä.</h2>
         <p>Valmis kirja, keskeneräinen käsikirjoitus tai ensimmäinen luku. Teksti on yhteinen lähtökohta kaikelle, mitä siitä syntyy.</p>
-        <p>Tässä esimerkissä avaamme H. G. Wellsin novellin <i lang="en">The Door In The Wall</i> ja sen suomennoksen <i>Vihreä ovi</i>.</p>
+        <p>Tässä esimerkissä avaamme H. G. Wellsin novellin <i lang="en">The Door in the Wall</i> ja sen suomennoksen <i>Vihreä ovi</i>.</p>
         <button class="button primary" id="load-story" type="button">Lataa esimerkkikäsikirjoitus <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 16v4h14v-4"/></svg></button>
         <p class="micro">Painike avaa esimerkkiaineiston; se ei lähetä tiedostoa tai käynnistä uutta analyysiä.</p>
         <div class="import-status" id="import-status" role="status" aria-live="polite"></div>
@@ -79,7 +79,7 @@
         <p class="section-intro">Tutki, mitä tarinasta tunnistetaan ja miksi se merkitsee. Valitse kartalta henkilö, paikka tai teema.</p>
         <div class="context-workspace">
           <article class="manuscript source-evidence" aria-label="Valitun kontekstin lähdekatkelma">
-            <h3 lang="en">The Door In The Wall</h3><p class="source-byline">H. G. Wells · <span id="quote-part">I</span></p><div class="gold-rule"></div>
+            <h3 lang="en">The Door in the Wall</h3><p class="source-byline">H. G. Wells · <span id="quote-part">I</span></p><div class="gold-rule"></div>
             <blockquote id="context-quote">Mutta <mark>valkoinen muuri</mark> ja <mark>vihreä ovi</mark> erottuivat aivan selvinä.</blockquote>
             <p class="source-label">Katkelma suomennoksesta</p>
             <a href="#tarina" class="micro">Takaisin käsikirjoitukseen</a>
@@ -119,7 +119,7 @@
       <div class="output-tabs" role="tablist" aria-label="Tarinan tuotantomuodot">
         <button type="button" role="tab" id="tab-languages" aria-controls="panel-languages" aria-selected="false" tabindex="-1" data-output="languages">Kielet</button>
         <button type="button" role="tab" id="tab-audio" aria-controls="panel-audio" aria-selected="false" tabindex="-1" data-output="audio">Äänet</button>
-        <button type="button" role="tab" id="tab-images" aria-controls="panel-images" aria-selected="true" tabindex="0" data-output="images">Kuvat</button>
+        <button type="button" role="tab" id="tab-images" aria-controls="panel-images" aria-selected="true" tabindex="0" data-output="images">Grafiikka</button>
         <button type="button" role="tab" id="tab-comics" aria-controls="panel-comics" aria-selected="false" tabindex="-1" data-output="comics">Sarjakuvat</button>
         <button type="button" role="tab" id="tab-video" aria-controls="panel-video" aria-selected="false" tabindex="-1" data-output="video">Videot</button>
         <button type="button" role="tab" id="tab-campaign" aria-controls="panel-campaign" aria-selected="false" tabindex="-1" data-output="campaign">Kampanjat</button>
@@ -154,8 +154,8 @@
       </div>
 
       <div class="output-panel comics-panel" role="tabpanel" id="panel-comics" aria-labelledby="tab-comics" tabindex="0" hidden>
-        <comic-reader><a href="/demo/assets/vihrea-ovi-sarjakuva.pdf">Avaa sarjakuva PDF:nä</a></comic-reader>
-        <div class="output-copy"><span class="section-number">SARJAKUVAESIMERKKI</span><h3>Tarina jatkuu ruudusta toiseen.</h3><p>H. G. Wellsin <i lang="en">The Door In The Wall</i> saa kuvallisen muodon kaksisivuisessa <i>Vihreä ovi</i> -sarjakuvasovituksessa. Tussiviiva ja akvarelli yhdistävät Lontoon arjen, lapsuusmuiston ja puutarhan.</p><dl class="context-list"><dt>Mukana kontekstista</dt><dd><b>Kerronta</b> · Redmond kuuntelee, Wallace muistelee</dd><dd><b>Jatkuvuus</b> · sama henkilö eri elämänvaiheissa</dd><dd><b>Kuvakieli</b> · vihreä ovi, lempeät pantterit ja kaipaus</dd></dl><p class="feature-state">Konteksti ohjaa ruutujakoa, dialogia, hahmojen ilmeitä ja kuvituksen jatkuvuutta. Selaa molemmat sivut tai avaa alkuperäinen PDF.</p><a class="text-link context-jump" href="#konteksti" data-select-context="wallace">Tutki Wallacen tarinaa <span aria-hidden="true">↗</span></a></div>
+        <comic-reader><a href="/demo/assets/vihrea-ovi-sarjakuva.pdf?v=7476d46c">Avaa sarjakuva PDF:nä</a></comic-reader>
+        <div class="output-copy"><span class="section-number">SARJAKUVAESIMERKKI</span><h3>Tarina jatkuu ruudusta toiseen.</h3><p>H. G. Wellsin <i lang="en">The Door in the Wall</i> saa kuvallisen muodon kaksisivuisessa <i>Vihreä ovi</i> -sarjakuvasovituksessa. Tussiviiva ja akvarelli yhdistävät Lontoon arjen, lapsuusmuiston ja puutarhan.</p><dl class="context-list"><dt>Mukana kontekstista</dt><dd><b>Kerronta</b> · Redmond kuuntelee, Wallace muistelee</dd><dd><b>Jatkuvuus</b> · sama henkilö eri elämänvaiheissa</dd><dd><b>Kuvakieli</b> · vihreä ovi, lempeät pantterit ja kaipaus</dd></dl><p class="feature-state">Konteksti ohjaa ruutujakoa, dialogia, hahmojen ilmeitä ja kuvituksen jatkuvuutta. Selaa molemmat sivut tai avaa alkuperäinen PDF.</p><a class="text-link context-jump" href="#konteksti" data-select-context="wallace">Tutki Wallacen tarinaa <span aria-hidden="true">↗</span></a></div>
       </div>
 
       <div class="output-panel" role="tabpanel" id="panel-video" aria-labelledby="tab-video" tabindex="0" hidden>
@@ -194,7 +194,7 @@
 
     <section class="future-band"><div class="wrap"><h2>Entä jos tarinaan<br>voisi astua?</h2><p>Tulevaisuuden suunta<br>Virtuaaliympäristöt</p><button class="button light-outline" type="button" id="explore-future">Tutki tulevaisuusvisiota <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6"/></svg></button></div></section>
 
-    <section class="about-demo wrap" aria-labelledby="about-title"><div><h2 id="about-title">Yhteinen konteksti. Tekijän päätökset.</h2><p>Demo havainnollistaa SkriptLabin työnkulkua valmiilla esimerkeillä. Nykyiset työkalut, kokeiluvaiheen tuotannot ja tulevaisuuden suunta on merkitty erikseen. Käyttöoikeus, valitut mallit ja palvelun saatavuus vaikuttavat toimintoihin.</p></div><div><h3>Esimerkin lähde</h3><p>H. G. Wells: <i lang="en">The Door In The Wall</i>. Katkelmat ovat teoksen suomennoksesta <i>Vihreä ovi</i>. Kontekstitekstit ovat demoa varten koottuja havaintoja ja tulkintoja.</p><a href="https://www.gutenberg.org/cache/epub/456/pg456-images.html#chap01" target="_blank" rel="noopener noreferrer">Lue englanninkielinen alkuteos <span aria-hidden="true">↗</span></a></div></section>
+    <section class="about-demo wrap" aria-labelledby="about-title"><div><h2 id="about-title">Yhteinen konteksti. Tekijän päätökset.</h2><p>Demo havainnollistaa SkriptLabin työnkulkua valmiilla esimerkeillä. Nykyiset työkalut, kokeiluvaiheen tuotannot ja tulevaisuuden suunta on merkitty erikseen. Käyttöoikeus, valitut mallit ja palvelun saatavuus vaikuttavat toimintoihin.</p></div><div><h3>Esimerkin lähde</h3><p>H. G. Wells: <i lang="en">The Door in the Wall</i>. Katkelmat ovat teoksen suomennoksesta <i>Vihreä ovi</i>. Kontekstitekstit ovat demoa varten koottuja havaintoja ja tulkintoja.</p><a href="https://www.gutenberg.org/cache/epub/456/pg456-images.html#chap01" target="_blank" rel="noopener noreferrer">Lue englanninkielinen alkuteos <span aria-hidden="true">↗</span></a></div></section>
   </main>
   <dialog class="world-dialog" id="world-dialog" aria-labelledby="world-view-title" aria-describedby="world-view-description">
     <div class="world-dialog-header">
@@ -212,7 +212,7 @@
     </div>
     <nav class="world-view-navigation" aria-label="Puutarhan näkymät">
       <button id="world-view-previous" type="button"><span aria-hidden="true">←</span> Edellinen näkymä</button>
-      <span>AI-kuvitus · The Door In The Wall</span>
+      <span>AI-kuvitus · The Door in the Wall</span>
       <button id="world-view-next" type="button">Seuraava näkymä <span aria-hidden="true">→</span></button>
     </nav>
   </dialog>
