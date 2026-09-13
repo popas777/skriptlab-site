@@ -1232,6 +1232,17 @@ body.world-view-open {
     stroke-dashoffset:-20;
   }
 }
+@media(min-width:761px) {
+  .hero,.source-section {
+    align-items:start;
+  }
+  .hero-copy {
+    padding:0;
+  }
+  .source-section {
+    padding-inline:0;
+  }
+}
 @media(min-width:1600px) {
   .hero {
     gap:65px;
