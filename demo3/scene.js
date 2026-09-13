@@ -16,12 +16,12 @@ const CONTEXT = [
 ];
 const OUTPUTS = [
   ['translation', 'Kielet', 0.00, 1.96, 0.02],
-  ['illustration', 'Kuvitus', 1.78, 1.27, 0.18],
-  ['book', 'Kirja', 2.21, -0.04, -0.12],
-  ['video', 'Video', 1.60, -1.40, 0.23],
-  ['campaign', 'Kampanja', 0.02, -1.94, 0.02],
-  ['world', '3D-maailma', -1.79, -1.31, -0.18],
-  ['audio', 'Ääni', -1.90, 1.06, 0.19],
+  ['illustration', 'Kuvat', 1.78, 1.27, 0.18],
+  ['book', 'Taitto', 2.21, -0.04, -0.12],
+  ['video', 'Videot', 1.60, -1.40, 0.23],
+  ['campaign', 'Kampanjat', 0.02, -1.94, 0.02],
+  ['world', 'Virtuaalimaailma', -1.79, -1.31, -0.18],
+  ['audio', 'Äänet', -1.90, 1.06, 0.19],
 ];
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -448,10 +448,10 @@ export function createScene(container, { onNodeSelect = () => {}, onReady = () =
         positions.push({ button, x, y });
       }
     }
-    // The compact map still exposes the full set of native button controls.
+    // Compact and narrow maps still expose the full set of native button controls.
     // Resolve their actual text bounds, including fallback mode and orbit drag,
     // instead of hiding labels or allowing one button to obscure another.
-    if (compact) {
+    if (compact || width < 500) {
       for (const position of positions) {
         position.halfWidth = Math.max(22, position.button.offsetWidth / 2) + 3;
         position.halfHeight = Math.max(22, position.button.offsetHeight / 2) + 2;
@@ -572,7 +572,7 @@ export function createScene(container, { onNodeSelect = () => {}, onReady = () =
   function setPhase(value) {
     phase = clamp(Math.round(Number(value) || 0), 0, 2);
     root.dataset.phase = String(phase);
-    labels.setAttribute('aria-label', phase === 2 ? 'Tutki tarinan uusia muotoja' : 'Tutki tarinan yhteyksiä');
+    labels.setAttribute('aria-label', phase === 2 ? 'Tutki tarinan uusia sisältöjä' : 'Tutki tarinan yhteyksiä');
     if (!motion) phaseBlend = phase;
     updateLabels();
     invalidate();

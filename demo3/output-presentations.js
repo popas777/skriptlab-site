@@ -5,7 +5,7 @@ export const outputPresentations = {
   translation: {
     image: '/demo3/assets/output-translation.webp',
     alt: 'Kolme kieliversiota kuvaavaa käsikirjoituslehteä yhdistyy samaan vihreään oveen valkoisessa muurissa.',
-    caption: 'Konseptikuva: kolme kieltä, yksi yhteinen merkitys.',
+    caption: 'Kontekstitietoinen kääntäminen',
     lead: 'Sama merkitys löytää luontevan muodon jokaisessa kielessä.',
     sections: [
       { title: 'Lukija vaihtuu. Tarina säilyy.', text: 'Tässä näytteessä voit verrata tarkistettua suomennosta sekä tätä demoa varten valmisteltuja ruotsin ja saksan luonnoksia. Sama havainto saa kullekin kielelle luontevan muodon.' },
@@ -20,7 +20,7 @@ export const outputPresentations = {
   audio: {
     image: '/demo3/assets/output-audio.webp',
     alt: 'Kullanvärinen studiomikrofoni, kuulokkeet ja käsikirjoitus lämpimästi valaistussa vihreässä äänitystilassa.',
-    caption: 'Konseptikuva: kertojan ääni, tauot ja kuuntelemisen tila.',
+    caption: 'Äänituotanto – Tarinan ja kohtausten tunne välittyy kertojan ja henkilöiden ääneen ja sävyyn.',
     lead: 'Konteksti antaa äänelle kertojan, rytmin ja sävyn.',
     sections: [
       { title: 'Kokeile tarinan ääntä.', text: 'Valmiit suomen- ja englanninkieliset koneääninäytteet antavat kuultavan esimerkin novellin alusta. Voit avata myös näytteen tekstin ja seurata kerrontaa.' },
@@ -35,7 +35,7 @@ export const outputPresentations = {
   illustration: {
     image: '/demo3/assets/output-illustration.webp',
     alt: 'Vesiväriluonnos vihreästä ovesta ja valkoisesta muurista, siveltimiä sekä vihreitä ja kultaisia värikokeiluja.',
-    caption: 'Valmisteltu kuvitustulkinta: tekstin yksityiskohdista kuvalliseksi suunnaksi.',
+    caption: 'Konteksti määrittää yhtenäisen ja sopivan kuvituksen suunnan kansilehdistä, sisältöön ja kampanjoihin.',
     lead: 'Tekstin yksityiskohdat ja tunnelma antavat kuvalle suunnan.',
     sections: [
       { title: 'Yhteinen maailma kuvasarjalle.', text: 'Oven, muurien, kasvien ja valon kuvallinen linja antaa pohjan kohtauskuville, kansille ja yksityiskohtien luonnoksille. Tässä näet valmisteltuja kuvitusesimerkkejä.' },
@@ -49,11 +49,11 @@ export const outputPresentations = {
   },
   book: {
     image: '/demo3/assets/output-book.webp',
-    alt: 'Vihreä kangaskantinen Ovi muurissa -kirjakonsepti, H. G. Wellsin nimi kullalla ja avoin malliaukeama.',
-    caption: 'Kansi- ja taittokonseptin kuvitus. Kuvan malliaukeama havainnollistaa ulkoasua.',
+    alt: 'Vihreä kangaskantinen Ovi muurissa -kirjaesimerkki, H. G. Wellsin nimi kullalla ja avoin malliaukeama.',
+    caption: 'Kansi- ja taittoesimerkki · Ovi muurissa',
     lead: 'Kansi kutsuu sisään. Aukeaman rytmi tekee lukemiselle tilaa.',
     sections: [
-      { title: 'Sisällöstä johdonmukainen julkaisu.', text: 'Kansikonsepti, kirjan rakenne ja taiton suunta voidaan johtaa samasta käsikirjoituksesta. Tässä näet Ovi muurissa -konseptin sekä voit ladata tekstikatkelman.' },
+      { title: 'Sisällöstä johdonmukainen julkaisu.', text: 'Kansiesimerkki, kirjan rakenne ja taiton suunta voidaan johtaa samasta käsikirjoituksesta. Tässä näet Ovi muurissa -kansi- ja taittoesimerkin sekä voit ladata tekstikatkelman.' },
       { title: 'Ulkoasu jatkaa kertomusta.', text: 'Vihreä kansi ja oven motiivi luovat tunnistettavan yhteyden tarinaan. Rauhallinen sivu antaa Redmondin kertovalle äänelle tilaa eikä paljasta puutarhan arvoitusta etukäteen.' },
     ],
     process: [
@@ -63,9 +63,9 @@ export const outputPresentations = {
     ],
   },
   video: {
-    image: '/demo3/assets/output-video.webp',
-    alt: 'Vihreä ovi elokuvallisessa kuvaikkunassa, etualalla kameran objektiivi ja ovimotiivia toistava filminauha.',
-    caption: 'Konseptikuva liikkuvan kuvan suunnasta. Alla on erillinen valmisteltu videokokeilu.',
+    image: '/demo/assets/door-scene-poster.webp', aspectRatio: '16/9', width: 1280, height: 720,
+    alt: 'Videonäkymä vihreän oven takaa avautuvaan puutarhaan.',
+    caption: 'Kontekstin ja kuvituksen perusteella tuotettu videonäyte.',
     lead: 'Oven ja puutarhan motiivista syntyy lyhyt visuaalinen kutsu.',
     sections: [
       { title: 'Katso kahdeksan sekunnin videonäyte.', text: 'Geminin videomallilla tuotetussa näytteessä kamera kulkee muurin vierellä kohti vihreää ovea. Ovi avautuu ja paljastaa puutarhan.' },
@@ -93,13 +93,13 @@ export const outputPresentations = {
     ],
   },
   world: {
-    image: '/demo3/assets/output-world.webp',
-    alt: 'Valoisa puutarhakonsepti, leveä marmorireunainen käytävä, kaksi lempeää täplikästä pantteria pallon vieressä ja vihreä ovi kaukana.',
-    caption: 'Tulevaisuuden maailmakonsepti: kuvitettu näkymä mahdolliseen tutkittavaan tilaan.',
+    image: '/demo/assets/garden.webp',
+    alt: 'Lumottu puutarha, marmorireunainen käytävä ja kaksi täplikästä pantteria leikkimässä pallolla. Taustalla kohoavat metsäiset vuoret.',
+    caption: 'Tarinan maailma visualisoituna. Avaa kuvan numeroista kolme näkymää puutarhaan.',
     lead: 'Entä jos tekstin sisään voisi astua ja sen maailmassa liikkua?',
     sections: [
-      { title: 'Paikoista kokemukseksi.', text: 'Leveä käytävä antaa suunnan, marmorireunaiset kukkapenkit rakentavat tilaa ja puutarhan valo välittää kotiintuloa. Voit tutkia näiden osien merkityksiä tämän demon valinnoilla.' },
-      { title: 'Maailma säilyttää tekstin säännöt.', text: 'Ystävälliset pantterit loisivat luottamusta, eivät taistelua. Muistin epävarmuus jäisi osaksi kokemusta. Tämä on tulevaisuuden visio: tässä demossa esitetään kuvitus ja kontekstia avaavat valinnat.' },
+      { title: 'Paikoista kokemukseksi.', text: 'Leveä käytävä antaa suunnan, marmorireunaiset kukkapenkit rakentavat tilaa ja puutarhan valo välittää kotiintuloa. Kuvan numerot vievät pantterien luo, puutarhan kasvillisuuden keskelle ja vuorimetsän näköalapaikalle.' },
+      { title: 'Maailma säilyttää tekstin säännöt.', text: 'Ystävälliset pantterit loisivat luottamusta, eivät taistelua. Muistin epävarmuus jäisi osaksi kokemusta. Tämä on tulevaisuuden visio: tässä demossa liikutaan kuvitettujen näkymien välillä. Virtuaaliympäristöjen generointi ei ole nykyinen SkriptLab-toiminto.' },
     ],
     process: [
       { title: 'Johda tilan säännöt', text: 'Kirjaa paikat, mittasuhteet, tunnelma ja mahdolliset kohtaamiset.' },

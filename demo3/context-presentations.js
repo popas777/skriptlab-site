@@ -6,7 +6,7 @@ export const contextPresentations = {
   wallace: {
     image: '/demo3/assets/context-wallace.webp',
     alt: 'Kuvitustulkinta aikuisesta Lionel Wallacesta mietteliäänä lontoolaisen työhuoneen ikkunan äärellä.',
-    caption: 'Kuvallinen tulkinta. Wallacen kasvot, vaatetus ja työhuone on kuviteltu tätä esittelyä varten.',
+    caption: 'Tarinan maailma visualisoituna. Wallacen kasvot, vaatetus ja työhuone on kuviteltu tätä esittelyä varten.',
     lead: 'Julkinen menestys ja yksityinen kaipaus elävät samassa ihmisessä.',
     sections: [
       {
@@ -27,7 +27,7 @@ export const contextPresentations = {
   redmond: {
     image: '/demo3/assets/context-redmond.webp',
     alt: 'Kuvitustulkinta Redmondista kirjoituspöydän äärellä, lämpimän lampun valossa ja yöllinen Lontoo ikkunan takana.',
-    caption: 'Kuvallinen tulkinta. Redmondin ulkomuoto ja kirjoitushetken lavastus ovat kuviteltuja.',
+    caption: 'Tarinan maailma visualisoituna. Redmondin ulkomuoto ja kirjoitushetken lavastus ovat kuviteltuja.',
     lead: 'Wallace kokee. Redmond kuuntelee, muistaa ja kertoo meille.',
     sections: [
       {
@@ -48,7 +48,7 @@ export const contextPresentations = {
   door: {
     image: '/demo3/assets/context-door.webp',
     alt: 'Suorakulmainen vihreä puuovi valkoisessa kivimuurissa, punaisia köynnöksiä ja raosta näkyvä lämmin puutarha.',
-    caption: 'Kuvallinen tulkinta tarinan vihreästä ovesta. Sommittelu, pintojen yksityiskohdat ja raollaan oleva ovi ovat kuvitusvalintoja.',
+    caption: 'Tarinan maailma visualisoituna. Sommittelu, pintojen yksityiskohdat ja raollaan oleva ovi ovat kuvitusvalintoja.',
     lead: 'Pieni, tunnistettava näky kantaa koko kertomuksen kysymystä.',
     sections: [
       {
@@ -69,7 +69,7 @@ export const contextPresentations = {
   garden: {
     image: '/demo3/assets/context-garden.webp',
     alt: 'Valoisa puutarha, pitkä marmorireunainen käytävä ja kaksi rauhallisesti lepäävää täplikästä pantteria.',
-    caption: 'Kuvallinen tulkinta. Käytävä, marmorireunukset ja ystävälliset pantterit pohjautuvat tekstiin; tarkka sommittelu on kuviteltu.',
+    caption: 'Tarinan maailma visualisoituna. Käytävä, marmorireunukset ja ystävälliset pantterit pohjautuvat tekstiin; tarkka sommittelu on kuviteltu.',
     lead: 'Tämän paikan tärkein ominaisuus on tunne: olen tullut kotiin.',
     sections: [
       {
@@ -90,7 +90,7 @@ export const contextPresentations = {
   longing: {
     image: '/demo3/assets/context-longing.webp',
     alt: 'Yksinäinen aikuinen hahmo Lontoon katujen haarautumiskohdassa ja kultainen puutarhan häivähdys harmaan kaupungin laidalla.',
-    caption: 'Kuvallinen tulkinta kaipauksen teemasta. Kadun risteys ja puutarhan häivähdys ovat vertauskuvallinen sommitelma.',
+    caption: 'Tarinan maailma visualisoituna. Kadun risteys ja puutarhan häivähdys ovat vertauskuvallinen sommitelma.',
     lead: 'Mitä jää kaipaamaan, kun valitsee aina seuraavan velvollisuuden?',
     sections: [
       {
@@ -111,7 +111,7 @@ export const contextPresentations = {
   memory: {
     image: '/demo3/assets/context-memory.webp',
     alt: 'Läpikuultavien paperikerrosten päälle limittyviä Lontoon, puutarhan ja vihreän oven kuvafragmentteja.',
-    caption: 'Kuvallinen tulkinta muistin kerroksista. Paperit ja päällekkäiset näkymät ovat visuaalinen vertauskuva.',
+    caption: 'Tarinan maailma visualisoituna. Paperit ja päällekkäiset näkymät ovat visuaalinen vertauskuva.',
     lead: 'Lapsen kokemus, aikuisen muisto ja ystävän kertomus muodostavat kolme tasoa.',
     sections: [
       {

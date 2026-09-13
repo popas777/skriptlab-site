@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Teksti on vasta alku. | SkriptLab Demo 3</title>
-  <meta name="description" content="Astu tarinan maailmaan. Tutki kolmiulotteisesti, kuinka käsikirjoituksen yhteinen konteksti kulkee kieliin, ääneen, kuviin ja uusiin muotoihin.">
+  <meta name="description" content="Astu tarinan maailmaan. Tutki kolmiulotteisesti, kuinka käsikirjoituksen yhteinen konteksti kulkee kieliin, ääneen, kuviin ja uusiin sisältöihin.">
   <meta name="theme-color" content="#08120f">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self'; img-src 'self' data:; media-src 'self'; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <link rel="canonical" href="https://skriptlab.com/demo3/">
@@ -44,20 +44,20 @@
       <section class="act act-context" id="act-1" aria-labelledby="context-title" hidden>
         <div class="act-heading">
           <h2 id="context-title" tabindex="-1">Tekstin sisällä<br><em>on maailma.</em></h2>
-          <p>Tutki henkilöitä, paikkoja ja merkityksiä. Jokainen havainto kulkee tarinan mukana.</p>
+          <p>Kokonaisvaltainen ymmärrys tarinasta. Tutki henkilöitä, paikkoja ja merkityksiä, jotka kulkevat tarinan mukana.</p>
           <p class="selection-prompt">Valitse kohde kartalta ja avaa sen kuvallinen esittely.</p>
         </div>
         <article class="detail context-detail" id="context-detail" aria-label="Valitun kontekstin tiedot"></article>
-        <button class="text-button next-button" type="button" data-go="2">Avaa mahdollisuudet <svg viewBox="0 0 32 24" aria-hidden="true"><path d="M2 12h27M22 5l7 7-7 7"/></svg></button>
+        <button class="text-button next-button" type="button" data-go="2">Avaa uudet sisällöt <svg viewBox="0 0 32 24" aria-hidden="true"><path d="M2 12h27M22 5l7 7-7 7"/></svg></button>
       </section>
 
       <section class="act act-output" id="act-2" aria-labelledby="output-title" hidden>
         <div class="act-heading">
-          <h2 id="output-title" tabindex="-1">Yksi ymmärrys.<br>Rajattomasti <em>muotoja.</em></h2>
+          <h2 id="output-title" tabindex="-1">Yksi ymmärrys.<br>Uusia <em>sisältöjä.</em></h2>
           <p>Kieli vaihtuu. Muoto muuttuu. Tarinan ydin säilyy.</p>
-          <p class="selection-prompt">Valitse muoto kartalta ja tutustu sen mahdollisuuksiin.</p>
+          <p class="selection-prompt">Valitse sisältö kartalta ja tutustu sen mahdollisuuksiin.</p>
         </div>
-        <article class="detail output-detail" id="output-detail" aria-label="Valitun muodon esimerkki"></article>
+        <article class="detail output-detail" id="output-detail" aria-label="Valitun sisällön esimerkki"></article>
         <button class="text-button next-button" type="button" data-go="1">Tutki yhteistä kontekstia <svg viewBox="0 0 32 24" aria-hidden="true"><path d="M2 12h27M22 5l7 7-7 7"/></svg></button>
       </section>
       <div class="visual" id="visual">
@@ -73,22 +73,42 @@
     <nav class="act-rail" aria-label="Tarinan vaiheet">
       <button type="button" data-go="0" aria-current="step"><span class="act-number">01</span><span>Käsikirjoitus</span></button>
       <button type="button" data-go="1"><span class="act-number">02</span><span>Konteksti</span></button>
-      <button type="button" data-go="2"><span class="act-number">03</span><span>Mahdollisuudet</span></button>
+      <button type="button" data-go="2"><span class="act-number">03</span><span>Uudet sisällöt</span></button>
     </nav>
-    <footer class="site-footer"><span>Valmisteltu, interaktiivinen esimerkki.</span><span>Palvelu on tällä hetkellä tauolla.</span></footer>
+    <footer class="site-footer"><span>H. G. Wells · Ovi muurissa</span><span>Palvelu on tällä hetkellä tauolla.</span></footer>
   </div>
   <p class="sr-only" role="status" aria-live="polite" aria-atomic="true" id="status"></p>
 
   <dialog id="about-dialog" aria-labelledby="about-title">
     <button type="button" class="icon-button dialog-close" id="about-close" aria-label="Sulje tietoa demosta"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
     <p class="output-caption">SKRIPTLAB / DEMO 03</p>
-    <h2 id="about-title">Ymmärryksestä<br><em>uusiin muotoihin.</em></h2>
+    <h2 id="about-title">Ymmärryksestä<br><em>uusiin sisältöihin.</em></h2>
     <p>Kun henkilöt, paikat, suhteet, aikatasot ja sävy ymmärretään, sama konteksti voi ohjata kaikkea teoksen jalostusta. Tekijä tarkistaa tulkinnat ja päättää lopputuloksesta.</p>
-    <p>Tämä on valmisteltu esimerkki H. G. Wellsin novellista <cite>Ovi muurissa</cite>. Valinnat avaavat esimerkkisisältöjä. Ne eivät lähetä käsikirjoitusta tai käynnistä uutta tekoälytuotantoa.</p>
-    <p>Kuvat ovat tekoälykuvituksia, äänet koneääninäytteitä ja video kuvan animaatio. Virtuaalimaailman tuottaminen on tulevaisuuden visio. Sivun merkitysverkko on vuorovaikutteinen 3D-näkymä.</p>
+    <p>Tässä esimerkissä tutustutaan H. G. Wellsin novelliin <cite>Ovi muurissa</cite>. Valinnat avaavat esimerkkisisältöjä. Ne eivät lähetä käsikirjoitusta tai käynnistä uutta tekoälytuotantoa.</p>
+    <p>Kuvat ovat tekoälykuvituksia, äänet koneääninäytteitä ja video Geminin videomallilla tuotettu kahdeksan sekunnin näyte. Virtuaalimaailman tuottaminen on tulevaisuuden visio. Sivun merkitysverkko on vuorovaikutteinen 3D-näkymä.</p>
     <p>Voit valita vaiheen alareunasta, tutkia verkon kohteita myös Tab- ja Enter-näppäimillä ja pysäyttää liikkeen yläkulmasta.</p>
     <div class="about-links"><a href="https://www.gutenberg.org/ebooks/456">Esimerkin alkuteos <span aria-hidden="true">↗</span></a><a href="/luottamus.html">Tietosuoja</a></div>
     <p class="output-note">Palvelu on tällä hetkellä tauolla. Demo on avoimesti tutustuttavissa.</p>
+  </dialog>
+  <dialog class="world-dialog" id="world-dialog" aria-labelledby="world-view-title" aria-describedby="world-view-description">
+    <div class="world-dialog-header">
+      <span class="world-view-count" id="world-view-count">1 / 3</span>
+      <button class="world-return" id="world-view-close" type="button" autofocus><span aria-hidden="true">←</span> Takaisin puutarhaan</button>
+    </div>
+    <div class="world-view-media" id="world-view-media" aria-busy="false">
+      <img id="world-view-image" width="1536" height="1024" alt="" decoding="async">
+      <p id="world-view-status" role="status" hidden></p>
+      <a id="world-view-fallback" hidden>Avaa kuva erikseen</a>
+    </div>
+    <div class="world-view-details" aria-live="polite" aria-atomic="true">
+      <h2 id="world-view-title">Pantterien luona</h2>
+      <p id="world-view-description"></p>
+    </div>
+    <nav class="world-view-navigation" aria-label="Puutarhan näkymät">
+      <button id="world-view-previous" type="button"><span aria-hidden="true">←</span> Edellinen näkymä</button>
+      <span>AI-kuvitus · Ovi muurissa</span>
+      <button id="world-view-next" type="button">Seuraava näkymä <span aria-hidden="true">→</span></button>
+    </nav>
   </dialog>
 </body>
 </html>

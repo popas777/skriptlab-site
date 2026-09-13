@@ -1,13 +1,14 @@
-import { contexts, outputs, renderOutput } from './content.js';
+import { contexts, outputs, renderOutput, renderWorldHotspots } from './content.js';
 import { contextPresentations } from './context-presentations.js';
 import { outputPresentations } from './output-presentations.js';
+import { setupWorldViewer } from './world-viewer.js';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const esc = (value) => String(value).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const arrow = '<svg viewBox="0 0 32 24" aria-hidden="true"><path d="M2 12h27M22 5l7 7-7 7"/></svg>';
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-const state = {phase:0,detail:false,context:'door',output:'translation',language:'fi',audioLanguage:'fi',campaign:'social',hotspot:'path',motion:!reduced.matches,theme:'dark'};
+const state = {phase:0,detail:false,context:'door',output:'translation',language:'fi',audioLanguage:'fi',campaign:'social',motion:!reduced.matches,theme:'dark'};
 let scene;
 try { if (localStorage.getItem('skriptlab-demo3-theme') === 'light') state.theme = 'light'; } catch { /* A theme switch also works without browser storage. */ }
 
@@ -16,18 +17,18 @@ function announce(text){ $('#status').textContent = text; }
 function presentationHeader(kind,title,lead){
   return `<button type="button" class="back-button" data-overview>${arrow}<span>Takaisin karttaan</span></button><p class="presentation-kind">${esc(kind)}</p><h2 class="presentation-title" tabindex="-1">${esc(title)}</h2><p class="presentation-lead">${esc(lead)}</p>`;
 }
-function presentationBody(item){
-  return `<div class="presentation-body"><figure class="presentation-figure"><img class="presentation-image" src="${esc(item.image)}" width="1536" height="1024" alt="${esc(item.alt)}" decoding="async"><figcaption>${esc(item.caption)}</figcaption></figure><div class="presentation-sections">${item.sections.map(section=>`<section><h3>${esc(section.title)}</h3><p>${esc(section.text)}</p></section>`).join('')}</div></div>`;
+function presentationBody(item, world=false){
+  return `<div class="presentation-body"><figure class="presentation-figure">${world?'<div class="world-scene">':''}<img class="presentation-image" src="${esc(item.image)}" width="${item.width||1536}" height="${item.height||1024}"${item.aspectRatio?` style="aspect-ratio:${item.aspectRatio}"`:''} alt="${esc(item.alt)}" decoding="async">${world?renderWorldHotspots()+'</div>':''}<figcaption>${esc(item.caption)}</figcaption></figure><div class="presentation-sections">${item.sections.map(section=>`<section><h3>${esc(section.title)}</h3><p>${esc(section.text)}</p></section>`).join('')}</div></div>`;
 }
 function renderContext(){
   const base=contexts[state.context], item=contextPresentations[state.context];
-  $('#context-detail').innerHTML = `${presentationHeader(base.kind,base.name,item.lead)}${presentationBody(item)}<figure class="source-quote"><blockquote>”${esc(base.quote)}”</blockquote><figcaption>Ovi muurissa · osa ${esc(base.part)} · lähdekatkelma</figcaption></figure><section class="application-section"><h3>Kontekstista mahdollisuuksiin</h3><div class="application-links">${item.applications.map(link=>`<button type="button" data-output="${esc(link.id)}"><span><strong>${esc(link.label)}</strong><span>${esc(link.reason)}</span></span>${arrow}</button>`).join('')}</div></section>`;
+  $('#context-detail').innerHTML = `${presentationHeader(base.kind,base.name,item.lead)}${presentationBody(item)}<figure class="source-quote"><blockquote>”${esc(base.quote)}”</blockquote><figcaption>Ovi muurissa · osa ${esc(base.part)} · Katkelma suomennoksesta</figcaption></figure><section class="application-section"><h3>Kontekstista mahdollisuuksiin</h3><div class="application-links">${item.applications.map(link=>`<button type="button" data-output="${esc(link.id)}"><span><strong>${esc(link.label)}</strong><span>${esc(link.reason)}</span></span>${arrow}</button>`).join('')}</div></section>`;
 }
 function renderCurrentOutput({sampleOnly=false}={}){
   pauseMedia();
   if(sampleOnly){$('#output-detail .sample-section').innerHTML=renderOutput(state.output,state);return;}
   const base=outputs[state.output],item=outputPresentations[state.output];
-  $('#output-detail').innerHTML=`${presentationHeader(base.label,base.title,item.lead)}${presentationBody(item)}<section class="sample-section">${renderOutput(state.output,state)}</section><section class="process-section"><h3>Näin konteksti ohjaa tekemistä</h3><ol>${item.process.map(step=>`<li><h4>${esc(step.title)}</h4><p>${esc(step.text)}</p></li>`).join('')}</ol></section>`;
+  $('#output-detail').innerHTML=`${presentationHeader(base.label,base.title,item.lead)}${presentationBody(item,state.output==='world')}<section class="sample-section">${renderOutput(state.output,state)}</section><section class="process-section"><h3>Näin konteksti ohjaa tekemistä</h3><ol>${item.process.map(step=>`<li><h4>${esc(step.title)}</h4><p>${esc(step.text)}</p></li>`).join('')}</ol></section>`;
 }
 function focusHeading(){
   const target=state.detail?$(`#act-${state.phase} .presentation-title`):$(`#act-${state.phase} h${state.phase===0?'1':'2'}`);
@@ -37,7 +38,7 @@ function updateLayout(){
   document.body.dataset.phase=String(state.phase);
   document.body.dataset.detail=String(state.detail);
   $('#hero-art').setAttribute('aria-hidden',String(state.phase!==0));
-  $('#map-title').textContent=state.phase===1?'Tutki kontekstia':'Tutki mahdollisuuksia';
+  $('#map-title').textContent=state.phase===1?'Tutki kontekstia':'Tutki uusia sisältöjä';
   for(let i=0;i<3;i++) $(`#act-${i}`).hidden=i!==state.phase;
   $$('.act-rail [data-go]').forEach(button=>{if(Number(button.dataset.go)===state.phase)button.setAttribute('aria-current','step');else button.removeAttribute('aria-current');});
   scene?.setPhase(state.phase);
@@ -47,7 +48,7 @@ function updateLayout(){
 function scrollTop(){window.scrollTo({top:0,behavior:state.motion?'smooth':'instant'});}
 function go(phase,{focus=true}={}){
   pauseMedia();state.phase=phase;state.detail=false;updateLayout();
-  announce(['Käsikirjoitus. Teksti on vasta alku.','Konteksti. Valitse henkilö, paikka tai merkitys kartalta.','Mahdollisuudet. Valitse tarinalle uusi muoto kartalta.'][phase]);
+  announce(['Käsikirjoitus. Teksti on vasta alku.','Konteksti. Valitse henkilö, paikka tai merkitys kartalta.','Uudet sisällöt. Valitse tarinalle uusi sisältö kartalta.'][phase]);
   if(focus)focusHeading();scrollTop();
 }
 function selectNode(id){
@@ -82,7 +83,7 @@ document.addEventListener('click',event=>{
   if(button.hasAttribute('data-overview'))overview();
   if(button.dataset.context){state.phase=1;selectNode(button.dataset.context);}
   if(button.dataset.output){state.phase=2;selectNode(button.dataset.output);}
-  const changes=[['language','language'],['audioLanguage','audioLanguage'],['campaign','campaign'],['world','hotspot']];
+  const changes=[['language','language'],['audioLanguage','audioLanguage'],['campaign','campaign']];
   for(const [attribute,key]of changes)if(button.dataset[attribute]){
     const value=button.dataset[attribute];state[key]=value;renderCurrentOutput({sampleOnly:true});
     const selector=`button[data-${attribute.replace(/[A-Z]/g,c=>'-'+c.toLowerCase())}="${value}"]`;
@@ -92,6 +93,7 @@ document.addEventListener('click',event=>{
 $('#theme-toggle').addEventListener('click',()=>{setTheme(state.theme==='dark'?'light':'dark');announce(state.theme==='light'?'Vaalea teema käytössä.':'Tumma teema käytössä.');});
 $('#motion-toggle').addEventListener('click',()=>setMotion(!state.motion));
 reduced.addEventListener('change',()=>setMotion(!reduced.matches));
+setupWorldViewer({ onOpen:()=>{pauseMedia();scene?.setMotion(false);}, onClose:()=>scene?.setMotion(state.motion) });
 const dialog=$('#about-dialog');
 $('#about-open').addEventListener('click',()=>{pauseMedia();dialog.showModal();scene?.setMotion(false);});
 $('#about-close').addEventListener('click',()=>dialog.close());
