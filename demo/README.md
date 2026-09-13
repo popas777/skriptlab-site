@@ -32,3 +32,9 @@ The Swedish and German sentence translations, campaign copy and interactive gard
 Current workflows are illustrated separately from experimental short-video production and the future virtual-environment direction. Do not remove these status distinctions or imply that all tools are available to every account. The site's existing paused-service notice remains in place.
 
 This directory belongs to the public site repository. It is not an `/app/` frontend mirror and has no corresponding backend release dependency.
+
+## Book-page typography
+
+The layout example uses the first two consecutive paragraphs of the reviewed Finnish translation, unchanged apart from optional HTML soft hyphens. The 13 px Georgia text has a 1.55 line height, justified edges, a left-aligned final line and a first-line indent on the second paragraph. Other excerpts and the downloadable TXT remain unchanged.
+
+Discretionary breaks are reviewed for this fixed sample rather than delegated to an operating system's optional Finnish dictionary. `hyphens: manual` and `&shy;` allow the browser to choose among these breakpoints as the page width changes; no line endings are fixed. Foreign names are not split, compound boundaries are preferred, and single-vowel fragments are avoided. Sources: [Kielitoimiston ohjepankki: Tavutus](https://kielitoimistonohjepankki.fi/ohje/tavutus-yleisperiaatteet/) and [MDN: hyphens](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/hyphens).

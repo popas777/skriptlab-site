@@ -908,30 +908,49 @@ figcaption {
 .book-page {
   background:var(--white);
   width:min(340px,100%);
-  padding:36px 33px 22px;
+  padding:30px 28px 22px;
   margin:auto;
   box-shadow:0 8px 30px #3f342312;
   text-align:center;
-  min-height:390px;
+  min-height:450px;
   border-left:4px solid #dad4c6;
+  font-family:Georgia,'Times New Roman',serif;
 }
 .book-page>span:first-child {
-  font-size:10px;
+  font:400 9px/1.5 var(--sans);
   letter-spacing:.17em;
 }
 .book-page h3 {
-  font-size:40px;
-  margin-top:20px;
+  font:400 26px/1.2 Georgia,'Times New Roman',serif;
+  margin-top:16px;
+}
+.book-page .gold-rule {
+  margin:18px auto;
+}
+.book-page>small {
+  font-size:11px;
 }
 .book-page p {
-  font:400 20px/1.65 var(--serif);
-  text-align:left;
-  margin-top:24px;
+  font:400 13px/1.55 Georgia,'Times New Roman',serif;
+  text-align:justify;
+  text-align-last:left;
+  text-justify:inter-word;
+  -webkit-hyphens:manual;
+  hyphens:manual;
+  overflow-wrap:normal;
+  word-break:normal;
+  margin-top:18px;
+  orphans:2;
+  widows:2;
+}
+.book-page p+p {
+  margin-top:0;
+  text-indent:1.25em;
 }
 .book-page .page-number {
   display:block;
   margin-top:24px;
-  font:400 12px var(--serif);
+  font:400 10px/1.5 Georgia,'Times New Roman',serif;
 }
 .book-visual>.text-link {
   margin-top:20px;
