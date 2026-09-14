@@ -831,6 +831,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         audio: ['view-audio'],
         video: ['view-video'],
         world_studio: ['view-3d-studio'],
+        comics: ['view-sarjakuvat'],
         contracts: ['view-sopimukset'],
         timeline: ['view-aikajana'],
         versions: ['view-viimeistely'],
@@ -5365,6 +5366,9 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         }
         if (viewId === 'view-3d-studio') {
             refreshWorldStudioFrame();
+        }
+        if (viewId === 'view-sarjakuvat') {
+            refreshComicsFrame();
         }
         if (viewId === 'view-skill') {
             refreshSkillFrame();
@@ -21732,6 +21736,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
         if (currentViewId === 'view-video') refreshVideoFrame();
         if (currentViewId === 'view-3d-studio') refreshWorldStudioFrame();
+        if (currentViewId === 'view-sarjakuvat') refreshComicsFrame();
         if (currentViewId === 'view-skill') refreshSkillFrame();
         if (currentViewId === 'view-notebooklm') refreshNotebookLMFrame();
         refreshLibraryFrame();
@@ -21854,6 +21859,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             refreshVideoFrame();
         }
         if (currentViewId === 'view-3d-studio') refreshWorldStudioFrame();
+        if (currentViewId === 'view-sarjakuvat') refreshComicsFrame();
         if (!options.skipSkillFrameRefresh && currentViewId === 'view-skill') {
             refreshSkillFrame();
         }
@@ -28069,6 +28075,19 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const params = new URLSearchParams({ project: String(projectId), v: '1' });
         frame.dataset.worldProjectId = String(projectId);
         updateEmbeddedModuleFrame(frame, 'world-studio.html', params);
+    }
+
+    function refreshComicsFrame() {
+        const frame = document.getElementById('comics-frame');
+        if (!frame) return;
+        const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
+        if (frame.dataset.moduleSourceKey) {
+            // Keep the editor mounted: it can retain a local draft while an
+            // in-flight save for the previous project finishes.
+            frame.contentWindow?.postMessage({type: 'skriptlab:comics-project-changed', projectId: projectId || null}, window.location.origin);
+            return;
+        }
+        updateEmbeddedModuleFrame(frame, 'comics.html', new URLSearchParams({project: String(projectId), v: '1'}));
     }
 
     function refreshSkillFrame() {
