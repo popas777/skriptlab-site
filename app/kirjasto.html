@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
-  <link rel="stylesheet" href="kirjasto.css?v=4">
+  <link rel="stylesheet" href="kirjasto.css?v=5">
 <link rel="stylesheet" href="book-access.css?v=2">
 <script src="book-access.js?v=5"></script>
 <script src="book-workflow.js?v=5" defer></script>
@@ -208,6 +208,7 @@
           <span id="reader-work-author"></span>
         </div>
         <div class="reader-tools" role="toolbar" aria-label="Lukijan työkalut">
+          <label class="reader-format-label" hidden><span class="sr-only">Lukutapa</span><select id="reader-format" aria-label="Lukutapa"><option value="text">Teksti</option><option value="pdf">PDF-sivut</option></select></label>
           <button id="reader-contents-toggle" type="button" aria-expanded="true" aria-controls="reader-contents">
             <i class="ph ph-list-bullets" aria-hidden="true"></i>
             <span>Sisällys</span>
@@ -250,6 +251,7 @@
         </aside>
 
         <div class="reader-scroll" id="reader-scroll" tabindex="0">
+          <section id="reader-pdf" class="pdf-reader" aria-label="PDF-lukija" hidden></section>
           <article class="reader-page" id="reader-page">
             <h1 id="reader-chapter-title" tabindex="-1">Luku</h1>
             <div class="reader-text" id="reader-text"></div>
@@ -371,8 +373,8 @@
           <label class="file-drop file-source-field" for="add-work-file" hidden>
             <i class="ph ph-file-arrow-up" aria-hidden="true"></i>
             <strong>Valitse teostiedosto</strong>
-            <span>TXT, MD, DOCX, PDF, RTF, ODT tai HTML</span>
-            <input id="add-work-file" name="file" type="file" accept=".txt,.md,.docx,.pdf,.rtf,.odt,.html,.htm,text/plain,text/markdown,text/html,application/pdf,application/rtf,application/vnd.oasis.opendocument.text,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+            <span>EPUB suositeltu · PDF säilyttää sivut · myös TXT, MD, DOCX, RTF, ODT ja HTML</span>
+            <input id="add-work-file" name="file" type="file" accept=".epub,.txt,.md,.docx,.pdf,.rtf,.odt,.html,.htm">
             <small id="add-work-file-name">Ei valittua tiedostoa</small>
           </label>
         </section>
@@ -420,9 +422,12 @@
             <input id="add-work-cover" name="cover" type="file" accept="image/jpeg,image/png,image/webp">
           </label>
           <label class="form-field file-inline" for="add-work-audio">
-            <span>Äänite <small>valinnainen</small></span>
-            <input id="add-work-audio" name="audio" type="file" accept="audio/*">
+            <span>Äänikirjan tiedostot <small>valinnainen</small></span>
+            <input id="add-work-audio" name="audio" type="file" accept="audio/*,.m4b" multiple>
+            <small>MP3 tai M4A suositeltu. Yksi koko kirja tai tiedosto jokaista lukua kohti, yhteensä enintään 300 MB. Voit tuoda myös pelkän äänikirjan.</small>
           </label>
+          <label class="form-field file-inline" for="add-work-pdf"><span>PDF-rinnakkaisversio <small>valinnainen</small></span><input id="add-work-pdf" type="file" accept=".pdf,application/pdf"><small>Liitä EPUBin rinnalle alkuperäistaitto. Kirjatiedoston raja 25 MB.</small></label>
+          <fieldset class="audio-import-order metadata-wide" id="add-audio-order" hidden><legend>Kuuntelujärjestys ja lukujen nimet</legend><p>Tiedostot järjestetään aluksi nimen mukaan. Tarkista järjestys ennen tallentamista.</p><ol id="add-audio-tracks"></ol></fieldset>
         </div>
 
         <aside class="classification-explainer">
@@ -508,6 +513,7 @@
       <input id="audio-seek" type="range" min="0" max="100" value="0" step="0.1" aria-label="Äänitteen kohta">
       <span id="audio-time-duration">0:00</span>
     </div>
+    <label class="audio-track-picker" hidden><span class="sr-only">Äänikirjan luku</span><select id="audio-track-select" aria-label="Äänikirjan luku"></select></label>
 
     <label class="audio-speed" for="audio-speed">
       <span class="sr-only">Toistonopeus</span>
@@ -544,6 +550,6 @@
     window.apiUrl = (path) => `${window.API_BASE_URL}${path}`;
   </script>
   <script src="auth.js?v=5"></script>
-  <script src="kirjasto.js?v=4"></script>
+  <script src="kirjasto.js?v=5"></script>
 </body>
 </html>

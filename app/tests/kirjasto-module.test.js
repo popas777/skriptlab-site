@@ -37,6 +37,30 @@ test('fractional API percentages remain percentages, not fractions', () => {
   }
 });
 
+test('PDF-only work and format-specific locations normalize without losing text progress', () => {
+  const vm = require('node:vm');
+  const context = {window: {}, document: {readyState: 'loading', addEventListener() {}}};
+  vm.runInNewContext(js, context);
+  const api = context.window.SkriptLabLibrary;
+  assert.equal(api.normalizeWork({id: 1, has_pdf: true, has_text: false}).hasText, true);
+  const progress = api.normalizeProgress({media: 'pdf', pdf_page: 15, audio_track_id: 'track-0002', chapter_id: 'chapter-1'});
+  assert.equal(progress.pdfPage, 15);
+  assert.equal(progress.audioTrackId, 'track-0002');
+  assert.equal(progress.chapterId, 'chapter-1');
+  assert.equal(progress.media, 'pdf');
+  assert.match(js, /"audio_track_id", "pdf_page"\]\.forEach/);
+});
+
+test('PDF is lazy and private; rich EPUB nodes never execute imported HTML', () => {
+  const pdf = fs.readFileSync(path.join(appRoot, 'library-pdf.mjs'), 'utf8');
+  assert.match(js, /await import\("\.\/library-pdf\.mjs\?v=1"\)/);
+  assert.match(js, /READING_TAGS\.has\(block\.tag\)/);
+  assert.match(js, /document\.createTextNode\(block\)/);
+  assert.match(pdf, /\.\/vendor\/pdfjs-6\.3\.289\/pdf\.mjs/);
+  assert.match(pdf, /signal\?\.addEventListener\("abort", destroy/);
+  assert.doesNotMatch(pdf, /innerHTML|eval\(|https?:\/\//);
+});
+
 function expectId(id) {
   assert.match(html, new RegExp(`\\bid=["']${id}["']`), `Missing #${id}`);
 }
@@ -95,7 +119,7 @@ test('backend work payloads normalize cover, content, Thema, ownership and signe
   assert.match(js, /["']owner_user_id["']/);
   assert.match(js, /["']can_manage["']/);
   assert.match(js, /["']audio_url["']/);
-  assert.match(js, /return mediaUrl\(work\?\.audioUrl \|\| ["']["']\)/);
+  assert.match(js, /return mediaUrl\(audioTracks\(work\)\[state\.audioTrackIndex\]\?\.url \|\| work\?\.audioUrl/);
   assert.match(js, /Array\.isArray\(value\.subjects\)/);
   assert.match(js, /["']theme_labels["']/);
   assert.match(js, /primary:\s*booleanValue\(value\.primary\)/);
@@ -168,11 +192,10 @@ test('import and project publication use a draft-first rights and Thema review f
 });
 
 test('manual imports advertise only the backend-supported document formats', () => {
-  for (const extension of ['.txt', '.md', '.docx', '.pdf', '.rtf', '.odt', '.html', '.htm']) {
+  for (const extension of ['.epub', '.txt', '.md', '.docx', '.pdf', '.rtf', '.odt', '.html', '.htm']) {
     assert.match(html, new RegExp(extension.replace('.', '\\.')));
   }
-  assert.match(html, /TXT, MD, DOCX, PDF, RTF, ODT tai HTML/);
-  assert.doesNotMatch(html, /\.epub/i);
+  assert.match(html, /EPUB suositeltu/);
   assert.doesNotMatch(html, /application\/msword/);
   assert.doesNotMatch(html, /accept=["'][^"']*\.doc(?:,|["'])/i);
 });
@@ -181,7 +204,7 @@ test('the project snapshot copy is honest and project-only unsupported uploads a
   assert.match(html, /projektin tämänhetkisestä tekstistä muuttumaton julkaisuversio/);
   assert.match(html, /Uusin kansi ja valmis äänite liitetään mukaan, jos ne löytyvät/);
   assert.doesNotMatch(html, /uusin lukittu julkaisupaketti/);
-  assert.match(js, /\[elements\[["']add-work-cover["']\], elements\[["']add-work-audio["']\]\][\s\S]*input\.disabled = !importSelected/);
+  assert.match(js, /\[elements\[["']add-work-cover["']\], elements\[["']add-work-audio["']\], elements\[["']add-work-pdf["']\]\][\s\S]*input\.disabled = !importSelected/);
 });
 
 test('draft metadata PATCH omits empty constrained title, author and language fields', () => {
@@ -245,9 +268,9 @@ test('timing-dependent controls stay unavailable without an audio timing manifes
   assert.match(html, /id=["']reader-follow-audio["'][^>]*\bdisabled\b/);
   assert.match(html, /id=["']audio-previous["'][^>]*\bhidden\b[^>]*\bdisabled\b/);
   assert.match(html, /id=["']audio-next["'][^>]*\bhidden\b[^>]*\bdisabled\b/);
-  assert.match(js, /if \(!hasAudioTimingManifest\(state\.audioWork\)\) return/);
+  assert.match(js, /const trackCount = audioTracks\(state\.audioWork\)\.length/);
   assert.match(js, /state\.readerSettings\.followAudio = false/);
-  assert.match(js, /hasAudioTimingManifest\(state\.audioWork\) \? chapter\.title : ["']Äänite["']/);
+  assert.match(js, /if \(hasAudioTimingManifest\(state\.audioWork\)\) elements\[["']audio-chapter["']\]\.textContent = chapter\.title/);
 });
 
 test('HTML audio player supports seek, speed, volume, 15-second jumps and a compact dock', () => {

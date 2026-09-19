@@ -32,6 +32,13 @@
     selectedProgress: null,
     chapters: [],
     chapterIndex: 0,
+    readerContent: null,
+    readerMode: "text",
+    pdfViewer: null,
+    pdfController: null,
+    audioTrackIndex: 0,
+    audioSequence: 0,
+    importTracks: [],
     listController: null,
     listSequence: 0,
     searchTimer: null,
@@ -92,6 +99,7 @@
   function collectElements() {
     [
       "library-app",
+      "reader-format", "reader-pdf", "add-work-pdf", "add-audio-order", "add-audio-tracks", "audio-track-select",
       "library-notice",
       "library-notice-text",
       "library-notice-action",
@@ -300,8 +308,13 @@
     return `${apiBase()}/${url}`;
   }
 
+  function audioTracks(work) {
+    const tracks = asArray(work?.raw?.audio_tracks);
+    return tracks.length ? tracks : work?.audioUrl ? [{ id: "", title: "Äänite", url: work.audioUrl }] : [];
+  }
+
   function workAudioUrl(work) {
-    return mediaUrl(work?.audioUrl || "");
+    return mediaUrl(audioTracks(work)[state.audioTrackIndex]?.url || work?.audioUrl || "");
   }
 
   async function requestJson(path, options = {}) {
@@ -439,7 +452,9 @@
     // The API uses percentages (0.5 means half a percent, not 50 percent).
     return {
       percent: clamp(percent, 0, 100),
-      media: source.media === "audio" ? "audio" : "read",
+      media: ["audio", "pdf"].includes(source.media) ? source.media : "read",
+      audioTrackId: text(firstValue(source, ["audio_track_id", "audioTrackId"], "")),
+      pdfPage: Math.max(1, Math.floor(finiteNumber(firstValue(source, ["pdf_page", "pdfPage"], 1)))),
       chapterId: text(firstValue(source, ["chapter_id", "chapterId"], "")),
       chapterIndex: Math.max(0, Math.floor(finiteNumber(firstValue(source, ["chapter_index", "chapterIndex"], 0)))),
       chapterProgress: clamp(finiteNumber(firstValue(source, ["chapter_progress", "chapterProgress", "scroll_fraction"], 0)), 0, 1),
@@ -471,7 +486,7 @@
       "is_readable",
       "text_available",
       "readable",
-    ], media.readable || media.has_text)) || formats.some((item) => ["text", "read", "epub", "pdf", "html"].includes(item));
+    ], media.readable || media.has_text)) || Boolean(source.has_pdf) || formats.some((item) => ["text", "read", "epub", "pdf", "html"].includes(item));
     const hasAudio = booleanValue(firstValue(source, [
       "has_audio",
       "is_listenable",
@@ -1329,6 +1344,7 @@
       chapter_progress: previous.chapterProgress, paragraph_index: previous.paragraphIndex,
       progress_percent: previous.percent, audio_position_seconds: previous.audioPosition,
       audio_duration_seconds: previous.audioDuration, bookmarks: previous.bookmarks,
+      audio_track_id: previous.audioTrackId, pdf_page: previous.pdfPage,
       ...state.progressPayload,
     });
     const localProgress = readLocalProgress(workId);
@@ -1351,7 +1367,7 @@
     state.progressWorkId = null;
     state.progressPayload = null;
     const requestPayload = {};
-    ["media", "chapter_id", "chapter_index", "chapter_progress", "paragraph_index", "progress_percent", "audio_position_seconds", "audio_duration_seconds"].forEach((key) => {
+    ["media", "chapter_id", "chapter_index", "chapter_progress", "paragraph_index", "progress_percent", "audio_position_seconds", "audio_duration_seconds", "audio_track_id", "pdf_page"].forEach((key) => {
       if (payload[key] !== undefined && payload[key] !== null) requestPayload[key] = payload[key];
     });
     if (Array.isArray(payload.bookmarks)) requestPayload.bookmarks = payload.bookmarks;
@@ -1401,6 +1417,8 @@
         id: text(firstValue(object, ["id", "chapter_id", "slug"], index + 1)),
         title: text(firstValue(object, ["title", "name", "heading"], ""), `Luku ${index + 1}`),
         text: stripMarkup(chapterText(object)),
+        blocks: Array.isArray(object.blocks) ? object.blocks : null,
+        paragraphs: Array.isArray(object.paragraphs) ? object.paragraphs.map(value => text(value)) : null,
         audioStart: Math.max(0, finiteNumber(firstValue(object, ["audio_start_seconds", "audio_start"], 0))),
         audioEnd: Math.max(0, finiteNumber(firstValue(object, ["audio_end_seconds", "audio_end"], 0))),
       };
@@ -1420,6 +1438,85 @@
     if (!normalized) return [];
     const blocks = normalized.split(/\n\s*\n+/).map((part) => part.replace(/\s*\n\s*/g, " ").trim()).filter(Boolean);
     return blocks.length ? blocks : [normalized];
+  }
+
+  const READING_TAGS = new Set("p div section article aside span em strong b i u s sub sup br hr blockquote pre code h1 h2 h3 h4 h5 h6 ul ol li dl dt dd figure figcaption table thead tbody tfoot tr th td a img".split(" "));
+  function renderReadingBlock(block, depth = 0) {
+    if (typeof block === "string") return document.createTextNode(block);
+    if (!block || depth > 60) return document.createTextNode("");
+    const tag = READING_TAGS.has(block.tag) ? block.tag : "span";
+    const node = document.createElement(tag);
+    if (/^anchor-[a-f0-9]{24}$/.test(block.id || "")) node.id = `reader-${block.id}`;
+    if (/^[A-Za-z0-9-]{1,35}$/.test(block.lang || "")) node.lang = block.lang;
+    if (["ltr", "rtl", "auto"].includes(block.dir)) node.dir = block.dir;
+    if (tag === "img") {
+      const resource = state.readerContent?.resources?.find(item => item.id === block.resource_id && item.kind === "image");
+      node.alt = text(block.alt);
+      if (resource) { node.src = mediaUrl(resource.url); node.loading = "lazy"; node.decoding = "async"; }
+    } else {
+      for (const child of asArray(block.children)) node.append(renderReadingBlock(child, depth + 1));
+    }
+    if (tag === "a" && block.target) {
+      node.href = "#reader-text";
+      node.addEventListener("click", event => {
+        event.preventDefault();
+        const index = state.chapters.findIndex(chapter => chapter.id === block.target.chapter_id);
+        if (index < 0) return;
+        renderChapter(index);
+        requestAnimationFrame(() => {
+          const anchor = document.getElementById(`reader-${block.target.anchor}`);
+          if (anchor) { anchor.scrollIntoView({ block: "center" }); anchor.tabIndex = -1; anchor.focus({ preventScroll: true }); }
+        });
+      });
+    }
+    return node;
+  }
+
+  async function setReaderFormat(mode) {
+    const content = state.readerContent;
+    if (!content) return;
+    const work = state.selectedWork;
+    const sequence = ++state.readerSequence;
+    state.pdfController?.abort(); state.pdfController = null;
+    state.pdfViewer?.destroy(); state.pdfViewer = null;
+    state.readerMode = mode;
+    elements["reader-format"].value = mode;
+    elements["library-reader"].dataset.format = mode;
+    elements["reader-page"].hidden = mode === "pdf";
+    elements["reader-pdf"].hidden = mode !== "pdf";
+    elements["reader-settings-toggle"].hidden = mode === "pdf";
+    elements["reader-bookmark"].hidden = mode === "pdf";
+    elements["reader-search-status"].textContent = "";
+    elements["reader-search-results"].replaceChildren();
+    elements["reader-chapter-list"].replaceChildren();
+    closeReaderPanels();
+    const progress = state.selectedProgress || work.progress;
+    if (mode === "pdf") {
+      const resource = content.resources?.find(item => item.kind === "pdf");
+      if (!resource) return;
+      elements["reader-pdf"].textContent = "Ladataan PDF-lukijaa…";
+      try {
+        const { openPdf } = await import("./library-pdf.mjs?v=1");
+        if (sequence !== state.readerSequence) return;
+        state.pdfController = new AbortController();
+        const viewer = await openPdf({ container: elements["reader-pdf"], outline: elements["reader-chapter-list"],
+          signal: state.pdfController.signal,
+          url: mediaUrl(resource.url), pageNumber: progress.pdfPage,
+          onPage: (page, count) => {
+            if (sequence === state.readerSequence) queueProgress(work.id, { media: "pdf", pdf_page: page, progress_percent: page / count * 100 });
+          },
+          onError: () => { if (sequence === state.readerSequence) showNotice("PDF:n lataus ei onnistunut. Avaa teos tarvittaessa uudelleen."); },
+          onNavigate: closeReaderPanels });
+        if (sequence !== state.readerSequence) viewer.destroy();
+        else state.pdfViewer = viewer;
+      } catch (error) {
+        if (sequence === state.readerSequence) elements["reader-pdf"].textContent = "PDF-lukijan lataaminen epäonnistui. Tarkista yhteys, päivitä selain ja avaa teos uudelleen.";
+      }
+      return;
+    }
+    const byIdIndex = progress.chapterId ? state.chapters.findIndex(chapter => chapter.id === progress.chapterId) : -1;
+    const startIndex = byIdIndex >= 0 ? byIdIndex : clamp(progress.chapterIndex, 0, state.chapters.length - 1);
+    renderChapter(startIndex, { scrollFraction: progress.chapterProgress, paragraphIndex: progress.paragraphIndex });
   }
 
   function renderChapterList() {
@@ -1453,14 +1550,16 @@
     if (!state.chapters.length) return;
     state.chapterIndex = clamp(Math.floor(index), 0, state.chapters.length - 1);
     const chapter = state.chapters[state.chapterIndex];
+    elements["reader-page"].classList.toggle("rich-publication", Boolean(chapter.blocks));
     elements["reader-chapter-title"].textContent = chapter.title;
     elements["reader-previous-chapter"].disabled = state.chapterIndex === 0;
     elements["reader-next-chapter"].disabled = state.chapterIndex === state.chapters.length - 1;
     elements["reader-chapter-position"].textContent = `${state.chapterIndex + 1} / ${state.chapters.length}`;
-    elements["audio-chapter"].textContent = hasAudioTimingManifest(state.audioWork) ? chapter.title : "Äänite";
-    const paragraphs = paragraphsFromText(chapter.text).map((paragraphText, paragraphIndex) => {
-      const paragraph = document.createElement("p");
-      paragraph.textContent = paragraphText;
+    if (hasAudioTimingManifest(state.audioWork)) elements["audio-chapter"].textContent = chapter.title;
+    const paragraphs = (chapter.blocks || paragraphsFromText(chapter.text)).map((block, paragraphIndex) => {
+      const paragraph = document.createElement(chapter.blocks ? "div" : "p");
+      if (chapter.blocks) paragraph.append(renderReadingBlock(block));
+      else paragraph.textContent = block;
       paragraph.dataset.paragraphIndex = String(paragraphIndex);
       return paragraph;
     });
@@ -1503,12 +1602,17 @@
   }
 
   function searchReader(event) {
+    if (state.readerMode === "pdf") {
+      event?.preventDefault();
+      void state.pdfViewer?.search(elements["reader-search-input"].value, elements["reader-search-results"], elements["reader-search-status"]);
+      return;
+    }
     event.preventDefault();
     const query = text(elements["reader-search-input"].value).toLocaleLowerCase("fi");
     const results = [];
     let count = 0;
     if (query.length >= 2) state.chapters.forEach((chapter, chapterIndex) => {
-      paragraphsFromText(chapter.text).forEach((paragraph, paragraphIndex) => {
+      (chapter.blocks ? chapter.paragraphs : paragraphsFromText(chapter.text)).forEach((paragraph, paragraphIndex) => {
         const position = paragraph.toLocaleLowerCase("fi").indexOf(query);
         if (position < 0) return;
         count += 1;
@@ -1632,6 +1736,14 @@
   async function openReader(work = state.selectedWork) {
     if (!work?.id || !work.hasText || work.status === "draft") return;
     const sequence = ++state.readerSequence;
+    state.pdfController?.abort(); state.pdfController = null;
+    state.pdfViewer?.destroy(); state.pdfViewer = null;
+    state.readerContent = null;
+    state.readerMode = "text";
+    elements["reader-page"].hidden = false;
+    elements["reader-pdf"].hidden = true;
+    elements["library-reader"].dataset.format = "text";
+    elements["reader-format"].closest("label").hidden = true;
     state.chapters = [];
     elements["reader-search-input"].value = "";
     elements["reader-search-status"].textContent = "";
@@ -1660,13 +1772,15 @@
       ]);
       if (sequence !== state.readerSequence || state.selectedWork?.id !== work.id) return;
       state.selectedProgress = progress;
+      state.readerContent = contentPayload;
       state.chapters = normalizeContent(contentPayload, work);
-      if (!state.chapters.length) {
+      const hasPdf = contentPayload.resources?.some(item => item.kind === "pdf");
+      if (!state.chapters.length && !hasPdf) {
         throw new LibraryApiError("Teoksen luettavaa sisältöä ei löytynyt.", 404, contentPayload);
       }
-      const byIdIndex = progress.chapterId ? state.chapters.findIndex((chapter) => chapter.id === progress.chapterId) : -1;
-      const startIndex = byIdIndex >= 0 ? byIdIndex : clamp(progress.chapterIndex, 0, state.chapters.length - 1);
-      renderChapter(startIndex, { scrollFraction: progress.chapterProgress, paragraphIndex: progress.paragraphIndex });
+      elements["reader-format"].closest("label").hidden = !hasPdf || !state.chapters.length;
+      const pdfPrimary = hasPdf && (!contentPayload.resources?.some(item => item.mime_type === "application/epub+zip"));
+      await setReaderFormat(hasPdf && (progress.media === "pdf" || !state.chapters.length || (pdfPrimary && !progress.chapterId)) ? "pdf" : "text");
     } catch (error) {
       if (sequence !== state.readerSequence) return;
       elements["reader-chapter-title"].textContent = "Sisältöä ei voitu avata";
@@ -1680,6 +1794,8 @@
   function closeReader() {
     if (elements["library-reader"].hidden) return;
     state.readerSequence += 1;
+    state.pdfController?.abort(); state.pdfController = null;
+    state.pdfViewer?.destroy(); state.pdfViewer = null;
     flushProgress();
     closeReaderPanels();
     elements["library-reader"].hidden = true;
@@ -1739,7 +1855,7 @@
   }
 
   function handleReaderScroll() {
-    if (state.restoreReaderScroll || !state.selectedWork || !state.chapters.length) return;
+    if (state.readerMode === "pdf" || state.restoreReaderScroll || !state.selectedWork || !state.chapters.length) return;
     const scroller = elements["reader-scroll"];
     const maximum = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
     const fraction = maximum ? clamp(scroller.scrollTop / maximum, 0, 1) : 1;
@@ -1782,10 +1898,12 @@
     const readerTimingAvailable = audioTimingAvailable
       && state.audioWork?.id === state.selectedWork?.id
       && !elements["library-reader"].hidden;
-    elements["audio-previous"].hidden = !audioTimingAvailable;
-    elements["audio-previous"].disabled = !audioTimingAvailable;
-    elements["audio-next"].hidden = !audioTimingAvailable;
-    elements["audio-next"].disabled = !audioTimingAvailable;
+    const trackCount = audioTracks(state.audioWork).length;
+    elements["audio-previous"].hidden = trackCount < 2;
+    elements["audio-previous"].disabled = state.audioTrackIndex <= 0;
+    elements["audio-next"].hidden = trackCount < 2;
+    elements["audio-next"].disabled = state.audioTrackIndex >= trackCount - 1;
+    elements["audio-track-select"].closest("label").hidden = trackCount < 2;
     elements["reader-follow-audio-setting"].hidden = !readerTimingAvailable;
     elements["reader-follow-audio"].disabled = !readerTimingAvailable;
     if (!readerTimingAvailable) {
@@ -1796,9 +1914,13 @@
 
   function renderAudioWork(work) {
     elements["audio-title"].textContent = work.title;
-    elements["audio-chapter"].textContent = hasAudioTimingManifest(work)
-      ? state.chapters[state.chapterIndex]?.title || "Äänite"
-      : "Äänite";
+    const tracks = audioTracks(work);
+    elements["audio-chapter"].textContent = tracks[state.audioTrackIndex]?.title || "Äänite";
+    elements["audio-track-select"].replaceChildren(...tracks.map((track, index) => {
+      const option = document.createElement("option"); option.value = String(index);
+      option.textContent = `${index + 1}. ${track.title}`; return option;
+    }));
+    elements["audio-track-select"].value = String(state.audioTrackIndex);
     renderCover(elements["audio-cover"], work, { eager: true });
     syncAudioTimingControls();
     if (navigator.mediaSession && window.MediaMetadata) {
@@ -1818,6 +1940,13 @@
 
   async function startAudio(work = state.selectedWork, autoplay = false) {
     if (!work?.id || !work.hasAudio || work.status === "draft") return;
+    const sequence = ++state.audioSequence;
+    if (state.audioWork?.id === work.id && elements["library-audio"].src) {
+      if (autoplay && elements["library-audio"].paused) await toggleAudio();
+      return;
+    }
+    saveAudioProgress();
+    elements["library-audio"].pause();
     try {
       const freshPayload = await requestJson(`${API_ROOT}/works/${encodeURIComponent(work.id)}`);
       work = mergeWork(work, unwrapWork(freshPayload));
@@ -1825,6 +1954,10 @@
     } catch (_error) {
       // A still-valid signed URL from the list response can remain usable.
     }
+    if (sequence !== state.audioSequence) return;
+    const progress = await loadProgress(work.id);
+    if (sequence !== state.audioSequence) return;
+    state.audioTrackIndex = Math.max(0, audioTracks(work).findIndex(track => track.id === progress.audioTrackId));
     const source = workAudioUrl(work);
     if (!source) {
       showNotice("Äänitteen turvallista toistolinkkiä ei saatu palvelimelta.");
@@ -1842,8 +1975,8 @@
     renderAudioWork(work);
 
     if (!sameWork || elements["library-audio"].src !== source) {
-      const progress = await loadProgress(work.id);
       state.pendingAudioPosition = progress.audioPosition;
+      state.audioLastSavedAt = progress.audioPosition;
       elements["library-audio"].src = source;
       elements["library-audio"].load();
     }
@@ -1909,13 +2042,7 @@
 
     if (state.audioWork && Math.abs(audio.currentTime - state.audioLastSavedAt) >= 5) {
       state.audioLastSavedAt = audio.currentTime;
-      const percent = Number.isFinite(audio.duration) && audio.duration > 0 ? (audio.currentTime / audio.duration) * 100 : 0;
-      queueProgress(state.audioWork.id, {
-        media: "audio",
-        audio_position_seconds: audio.currentTime,
-        audio_duration_seconds: Number.isFinite(audio.duration) ? audio.duration : 0,
-        progress_percent: percent,
-      });
+      saveAudioProgress();
     }
   }
 
@@ -1975,12 +2102,33 @@
   }
 
   function changeAudioChapter(delta) {
-    if (!hasAudioTimingManifest(state.audioWork)) return;
-    if (!state.chapters.length || elements["library-reader"].hidden) {
-      if (delta < 0) elements["library-audio"].currentTime = 0;
-      return;
-    }
-    renderChapter(state.chapterIndex + delta, { focus: true });
+    selectAudioTrack(state.audioTrackIndex + delta);
+  }
+
+  function saveAudioProgress() {
+    const audio = elements["library-audio"];
+    if (!state.audioWork || !audio.src || !Number.isFinite(audio.duration)) return;
+    const tracks = audioTracks(state.audioWork);
+    const fraction = audio.duration > 0 ? audio.currentTime / audio.duration : 0;
+    queueProgress(state.audioWork.id, { media: "audio", audio_track_id: tracks[state.audioTrackIndex]?.id || "",
+      audio_position_seconds: audio.currentTime, audio_duration_seconds: audio.duration,
+      progress_percent: (state.audioTrackIndex + fraction) / Math.max(1, tracks.length) * 100 });
+  }
+
+  function selectAudioTrack(index, autoplay = state.audioIntentPlaying) {
+    const tracks = audioTracks(state.audioWork);
+    if (!tracks[index]) return;
+    saveAudioProgress();
+    elements["library-audio"].pause();
+    state.audioTrackIndex = index;
+    state.pendingAudioPosition = 0;
+    state.audioLastSavedAt = 0;
+    state.audioResumeAfterLoad = autoplay;
+    elements["library-audio"].src = workAudioUrl(state.audioWork);
+    elements["library-audio"].load();
+    renderAudioWork(state.audioWork);
+    queueProgress(state.audioWork.id, { media: "audio", audio_track_id: tracks[index].id,
+      audio_position_seconds: 0, audio_duration_seconds: 0, progress_percent: index / tracks.length * 100 });
   }
 
   function toggleMute() {
@@ -1995,6 +2143,8 @@
     state.draftWork = null;
     state.reviewThemes = [];
     state.addBusy = false;
+    state.importTracks = [];
+    renderImportTracks();
     elements["add-work-notice"].hidden = true;
     elements["add-work-source-step"].hidden = false;
     elements["add-work-classification-step"].hidden = true;
@@ -2005,6 +2155,32 @@
     elements["thema-custom-input"].value = "";
     setAddSource("import");
     updateProjectCard();
+  }
+
+  function renderImportTracks() {
+    elements["add-audio-order"].hidden = !state.importTracks.length || state.addSource === "project";
+    elements["add-audio-tracks"].replaceChildren(...state.importTracks.map((track, index) => {
+      const li = document.createElement("li");
+      const input = document.createElement("input");
+      input.type = "text"; input.maxLength = 500; input.value = track.title;
+      input.setAttribute("aria-label", `Ääniluvun ${index + 1} nimi`);
+      input.addEventListener("input", () => { track.title = input.value; });
+      const filename = document.createElement("small"); filename.textContent = track.file.name;
+      li.append(input, filename);
+      for (const [delta, label] of [[-1, "Siirrä ylemmäs"], [1, "Siirrä alemmas"]]) {
+        const button = document.createElement("button"); button.type = "button";
+        button.textContent = delta < 0 ? "↑" : "↓";
+        button.setAttribute("aria-label", `${label}: ${track.title}`);
+        button.disabled = index + delta < 0 || index + delta >= state.importTracks.length;
+        button.addEventListener("click", () => {
+          [state.importTracks[index], state.importTracks[index + delta]] = [state.importTracks[index + delta], state.importTracks[index]];
+          renderImportTracks();
+          elements["add-audio-tracks"].children[index + delta]?.querySelector("input")?.focus();
+        });
+        li.append(button);
+      }
+      return li;
+    }));
   }
 
   function showDialogNotice(message) {
@@ -2031,10 +2207,11 @@
     elements["add-tab-project"].tabIndex = importSelected ? -1 : 0;
     elements["add-panel-import"].hidden = !importSelected;
     elements["add-panel-project"].hidden = importSelected;
-    [elements["add-work-cover"], elements["add-work-audio"]].forEach((input) => {
+    [elements["add-work-cover"], elements["add-work-audio"], elements["add-work-pdf"]].forEach((input) => {
       input.disabled = !importSelected;
       input.closest("label").hidden = !importSelected;
     });
+    elements["add-audio-order"].hidden = !importSelected || !state.importTracks.length;
   }
 
   function setContentSource(source) {
@@ -2103,12 +2280,13 @@
     const source = document.querySelector('input[name="content_source"]:checked')?.value || "text";
     elements["add-work-text"].setCustomValidity("");
     elements["add-work-file"].setCustomValidity("");
-    if (source === "text" && !text(elements["add-work-text"].value)) {
+    const alternative = state.importTracks.length || elements["add-work-pdf"].files?.[0];
+    if (source === "text" && !text(elements["add-work-text"].value) && !alternative) {
       elements["add-work-text"].setCustomValidity("Liitä teoksen teksti.");
       elements["add-work-text"].reportValidity();
       return null;
     }
-    if (source === "file" && !elements["add-work-file"].files?.[0]) {
+    if (source === "file" && !elements["add-work-file"].files?.[0] && !alternative) {
       elements["add-work-file"].setCustomValidity("Valitse teostiedosto.");
       elements["add-work-file"].reportValidity();
       return null;
@@ -2130,11 +2308,14 @@
   async function createImportDraft(metadata) {
     const contentSource = validateImportSource();
     if (!contentSource) return null;
+    if (state.importTracks.length > 200 || state.importTracks.reduce((size, track) => size + track.file.size, 0) > 300 * 1024 * 1024) {
+      showDialogNotice("Äänikirjan raja on 200 tiedostoa ja yhteensä 300 MB."); return null;
+    }
     const form = new FormData();
-    if (contentSource === "text") {
+    if (contentSource === "text" && text(elements["add-work-text"].value)) {
       const blob = new Blob([elements["add-work-text"].value], { type: "text/plain;charset=utf-8" });
       form.append("file", blob, draftFileName(metadata.title));
-    } else {
+    } else if (contentSource === "file" && elements["add-work-file"].files?.[0]) {
       form.append("file", elements["add-work-file"].files[0]);
     }
     appendOptional(form, "title", metadata.title);
@@ -2142,7 +2323,9 @@
     appendOptional(form, "description", metadata.description);
     appendOptional(form, "language", metadata.language);
     if (elements["add-work-cover"].files?.[0]) form.append("cover", elements["add-work-cover"].files[0]);
-    if (elements["add-work-audio"].files?.[0]) form.append("audio", elements["add-work-audio"].files[0]);
+    for (const track of state.importTracks) form.append("audio_files", track.file);
+    form.append("audio_titles", JSON.stringify(state.importTracks.map(track => track.title)));
+    if (elements["add-work-pdf"].files?.[0]) form.append("pdf", elements["add-work-pdf"].files[0]);
     form.append("status", "draft");
     form.append("rights_confirmed", "false");
     return requestJson(`${API_ROOT}/works/import`, { method: "POST", body: form });
@@ -2542,6 +2725,16 @@
 
     elements["detail-back"].addEventListener("click", () => closeDetail());
     elements["detail-read"].addEventListener("click", () => openReader());
+    elements["reader-format"].addEventListener("change", () => void setReaderFormat(elements["reader-format"].value));
+    elements["audio-track-select"].addEventListener("change", () => selectAudioTrack(Number(elements["audio-track-select"].value)));
+    elements["add-work-audio"].addEventListener("change", () => {
+      state.importTracks = [...elements["add-work-audio"].files].sort((a, b) => a.name.localeCompare(b.name, "fi", { numeric: true }))
+        .map(file => ({ file, title: file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ") }));
+      renderImportTracks();
+    });
+    if (window.ResizeObserver) new ResizeObserver(() => {
+      document.body.style.setProperty("--library-audio-height", `${elements["library-audio-dock"].getBoundingClientRect().height + 16}px`);
+    }).observe(elements["library-audio-dock"]);
     elements["detail-listen"].addEventListener("click", () => startAudio(state.selectedWork, true));
     elements["detail-delete"].addEventListener("click", deleteSelectedDraft);
     elements["detail-unpublish"].addEventListener("click", unpublishSelectedWork);
@@ -2656,10 +2849,14 @@
       state.audioIntentPlaying = true;
       setPlayIcon(true);
     });
-    elements["library-audio"].addEventListener("pause", () => setPlayIcon(false));
+    elements["library-audio"].addEventListener("pause", () => { setPlayIcon(false); saveAudioProgress(); });
     elements["library-audio"].addEventListener("loadedmetadata", handleAudioLoaded);
     elements["library-audio"].addEventListener("timeupdate", handleAudioTimeUpdate);
     elements["library-audio"].addEventListener("ended", () => {
+      saveAudioProgress();
+      if (state.audioTrackIndex + 1 < audioTracks(state.audioWork).length) {
+        selectAudioTrack(state.audioTrackIndex + 1, true); return;
+      }
       state.audioIntentPlaying = false;
       setPlayIcon(false);
       if (state.audioWork) {
@@ -2691,9 +2888,9 @@
     window.addEventListener("storage", handleAuthStorageChange);
     window.addEventListener("keydown", handleKeyboard);
     window.addEventListener("resize", syncReaderBackdrop);
-    window.addEventListener("pagehide", flushProgress);
+    window.addEventListener("pagehide", () => { saveAudioProgress(); flushProgress(); });
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "hidden") flushProgress();
+      if (document.visibilityState === "hidden") { saveAudioProgress(); flushProgress(); }
     });
   }
 
