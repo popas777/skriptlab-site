@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
-  <link rel="stylesheet" href="kirjasto.css?v=3">
+  <link rel="stylesheet" href="kirjasto.css?v=4">
 <link rel="stylesheet" href="book-access.css?v=2">
 <script src="book-access.js?v=5"></script>
 <script src="book-workflow.js?v=5" defer></script>
@@ -31,7 +31,7 @@
       <header class="library-header">
         <div>
           <h1 id="library-title">Kirjasto</h1>
-          <p>Lue tai kuuntele omaan tahtiisi.</p>
+          <p>Löydä seuraava tarinasi. Lue tai kuuntele omaan tahtiisi.</p>
         </div>
         <button class="primary-action add-work-action" id="library-add-work" type="button" hidden>
           <i class="ph ph-plus" aria-hidden="true"></i>
@@ -50,7 +50,7 @@
         <label class="search-field" for="library-search-input">
           <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
           <span class="sr-only">Hae kirjastosta</span>
-          <input id="library-search-input" name="q" type="search" autocomplete="off" placeholder="Hae teosta, tekijää tai teemaa">
+          <input id="library-search-input" name="q" type="search" autocomplete="off" placeholder="Hae nimeä, tekijää, aihetta tai esittelyä">
           <button id="library-search-clear" type="button" aria-label="Tyhjennä haku" hidden>
             <i class="ph ph-x" aria-hidden="true"></i>
           </button>
@@ -72,6 +72,28 @@
             <i class="ph ph-caret-down" aria-hidden="true"></i>
           </label>
         </div>
+        <details class="catalog-advanced" id="library-advanced-filters" open>
+          <summary>Tarkenna hakua ja järjestä</summary>
+          <div class="catalog-options">
+          <label>Kieli<select id="library-language-filter"><option value="">Kaikki kielet</option></select></label>
+          <label>Pituus<select id="library-length-filter">
+            <option value="">Kaikki pituudet</option>
+            <option value="short">Lyhyt · alle 10 000 sanaa</option>
+            <option value="medium">Keskipitkä · 10 000–50 000</option>
+            <option value="long">Pitkä · vähintään 50 000</option>
+          </select></label>
+          <label>Järjestys<select id="library-sort">
+            <option value="newest">Uusimmat ensin</option>
+            <option value="title">Teoksen nimi A–Ö</option>
+            <option value="author">Tekijä A–Ö</option>
+            <option value="shortest">Lyhyimmät ensin</option>
+          </select></label>
+          </div>
+        </details>
+        <div class="catalog-filter-summary" id="library-filter-summary" hidden>
+          <span id="library-active-filters"></span>
+          <button type="button" id="library-reset-filters">Poista rajaukset</button>
+        </div>
       </form>
 
       <div class="library-loading" id="library-loading" role="status" aria-live="polite" hidden>
@@ -87,12 +109,16 @@
       <section class="results-section" id="library-results" aria-labelledby="library-results-title" tabindex="-1">
         <header class="results-heading">
           <div class="results-heading-copy">
-            <h2 id="library-results-title">Poimintoja sinulle</h2>
+            <h2 id="library-results-title">Tutustu teoksiin</h2>
             <p class="results-description" id="library-results-description" hidden></p>
           </div>
           <span id="library-result-count" aria-live="polite"></span>
         </header>
         <div class="work-grid" id="library-work-grid" aria-live="polite" aria-busy="false"></div>
+        <div class="catalog-pagination" id="library-pagination" hidden>
+          <p id="library-page-summary" role="status"></p>
+          <button class="secondary-action" id="library-load-more" type="button">Näytä lisää teoksia</button>
+        </div>
 
         <div class="library-empty" id="library-empty" hidden>
           <div class="empty-icon" aria-hidden="true"><i class="ph ph-books"></i></div>
@@ -107,6 +133,14 @@
           </div>
         </div>
       </section>
+      <aside class="library-invitation" aria-labelledby="library-invitation-title">
+        <div>
+          <p class="invitation-eyebrow">Lukijasta tekijäksi</p>
+          <h2 id="library-invitation-title">Minkä kirjan sinä tekisit?</h2>
+          <p>Tarina voi herättää oman idean tai avata keskustelun luokassa. SkriptLabissa voit työstää omaa kirjaa ja oppimateriaalia tekstistä kuvitukseen ja ääneen.</p>
+        </div>
+        <a class="secondary-action" href="https://skriptlab.com/" target="_blank" rel="noopener">Tutustu SkriptLabiin <span class="sr-only">(avautuu uuteen välilehteen)</span><i class="ph ph-arrow-up-right" aria-hidden="true"></i></a>
+      </aside>
     </section>
 
     <section class="library-screen detail-screen" id="library-detail" aria-labelledby="detail-title" hidden>
@@ -206,12 +240,24 @@
           <nav aria-label="Teoksen luvut">
             <ol id="reader-chapter-list"></ol>
           </nav>
+          <form id="reader-search-form" class="reader-search" role="search" aria-label="Hae teoksen tekstistä">
+            <label for="reader-search-input">Etsi tästä teoksesta</label>
+            <input id="reader-search-input" type="search" placeholder="Sana tai katkelma" maxlength="120">
+            <button class="secondary-action" type="submit">Etsi tekstistä</button>
+            <p id="reader-search-status" role="status"></p>
+            <ol id="reader-search-results" aria-label="Tekstin hakutulokset"></ol>
+          </form>
         </aside>
 
         <div class="reader-scroll" id="reader-scroll" tabindex="0">
           <article class="reader-page" id="reader-page">
             <h1 id="reader-chapter-title" tabindex="-1">Luku</h1>
             <div class="reader-text" id="reader-text"></div>
+            <nav class="reader-chapter-navigation" aria-label="Vaihda lukua">
+              <button class="secondary-action" id="reader-previous-chapter" type="button">Edellinen luku</button>
+              <span id="reader-chapter-position"></span>
+              <button class="primary-action" id="reader-next-chapter" type="button">Seuraava luku</button>
+            </nav>
             <footer class="reader-page-progress" aria-label="Lukemisen eteneminen">
               <span></span>
               <strong id="reader-progress-percent">0 %</strong>
@@ -498,6 +544,6 @@
     window.apiUrl = (path) => `${window.API_BASE_URL}${path}`;
   </script>
   <script src="auth.js?v=5"></script>
-  <script src="kirjasto.js?v=3"></script>
+  <script src="kirjasto.js?v=4"></script>
 </body>
 </html>

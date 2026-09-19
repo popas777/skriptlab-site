@@ -18,6 +18,14 @@
     query: "",
     media: "",
     theme: "",
+    language: "",
+    length: "",
+    sort: "newest",
+    total: 0,
+    nextCursor: null,
+    continuation: null,
+    readerSequence: 0,
+    browserScroll: 0,
     works: [],
     availableThemes: new Map(),
     selectedWork: null,
@@ -96,6 +104,16 @@
       "library-search-clear",
       "library-media-filters",
       "library-theme-filter",
+      "library-language-filter",
+      "library-length-filter",
+      "library-sort",
+      "library-advanced-filters",
+      "library-filter-summary",
+      "library-active-filters",
+      "library-reset-filters",
+      "library-pagination",
+      "library-page-summary",
+      "library-load-more",
       "library-loading",
       "library-loading-text",
       "library-continue-section",
@@ -141,6 +159,13 @@
       "reader-backdrop",
       "reader-contents",
       "reader-chapter-list",
+      "reader-search-form",
+      "reader-search-input",
+      "reader-search-status",
+      "reader-search-results",
+      "reader-previous-chapter",
+      "reader-next-chapter",
+      "reader-chapter-position",
       "reader-scroll",
       "reader-page",
       "reader-chapter-title",
@@ -411,9 +436,10 @@
       "percentage",
       "progress",
     ], 0));
-    if (percent > 0 && percent <= 1) percent *= 100;
+    // The API uses percentages (0.5 means half a percent, not 50 percent).
     return {
       percent: clamp(percent, 0, 100),
+      media: source.media === "audio" ? "audio" : "read",
       chapterId: text(firstValue(source, ["chapter_id", "chapterId"], "")),
       chapterIndex: Math.max(0, Math.floor(finiteNumber(firstValue(source, ["chapter_index", "chapterIndex"], 0)))),
       chapterProgress: clamp(finiteNumber(firstValue(source, ["chapter_progress", "chapterProgress", "scroll_fraction"], 0)), 0, 1),
@@ -480,6 +506,7 @@
       managedExample,
       shared,
       chapterCount,
+      wordCount: Math.max(0, finiteNumber(source.word_count)),
       durationSeconds: Math.max(0, finiteNumber(firstValue(source, ["audio_duration_seconds", "duration_seconds", "audio_duration"], 0))),
       publishedAt: text(firstValue(source, ["published_at", "publication_date"], "")),
       updatedAt: text(firstValue(source, ["updated_at", "modified_at"], "")),
@@ -582,7 +609,8 @@
   }
 
   function workMatchesContinue(work) {
-    return work.progress.percent > 0 && work.progress.percent < 100;
+    return (work.progress.percent > 0 && work.progress.percent < 100)
+      || (work.progress.audioPosition > 0 && (!work.progress.audioDuration || work.progress.audioPosition < work.progress.audioDuration));
   }
 
   function renderContinueCard(work) {
@@ -612,7 +640,8 @@
     appendMediaIcons(icons, work);
     const progressCopy = document.createElement("p");
     progressCopy.className = "continue-progress-copy";
-    progressCopy.textContent = progressLabel(work);
+    progressCopy.textContent = work.progress.media === "audio" && work.progress.audioPosition > 0
+      ? `Kuuntelukohta ${formatTime(work.progress.audioPosition)}` : progressLabel(work);
     const track = document.createElement("div");
     track.className = "progress-track";
     track.setAttribute("aria-label", `Edistyminen ${Math.round(work.progress.percent)} prosenttia`);
@@ -630,11 +659,12 @@
     const resume = document.createElement("button");
     resume.type = "button";
     resume.className = "primary-action";
-    resume.textContent = work.hasText ? "Jatka lukemista" : "Jatka kuuntelua";
-    resume.addEventListener("click", () => work.hasText ? openReader(work) : startAudio(work, true));
+    const resumeAudio = work.hasAudio && (work.progress.media === "audio" || !work.hasText);
+    resume.textContent = resumeAudio ? "Jatka kuuntelua" : "Jatka lukemista";
+    resume.addEventListener("click", () => resumeAudio ? startAudio(work, true) : openReader(work));
     actions.append(resume);
 
-    if (work.hasAudio) {
+    if (work.hasAudio && work.hasText) {
       const play = document.createElement("button");
       play.type = "button";
       play.className = "continue-play";
@@ -692,6 +722,16 @@
     appendMediaIcons(icons, work);
     copy.append(title, author, icons);
 
+    const description = document.createElement("p");
+    description.className = "work-description";
+    description.textContent = work.description || "Teoksen esittelyä ei ole vielä lisätty.";
+    copy.append(description);
+    const facts = document.createElement("p");
+    facts.className = "work-facts";
+    facts.textContent = [languageLabel(work.language), readingTimeLabel(work),
+      work.hasAudio ? "Myös kuunneltavissa" : ""].filter(Boolean).join(" · ");
+    copy.append(facts);
+
     const theme = firstThemeLabel(work);
     if (theme) {
       const themeNode = document.createElement("p");
@@ -703,10 +743,33 @@
     const open = document.createElement("button");
     open.type = "button";
     open.className = "work-card-open";
-    open.setAttribute("aria-label", `Avaa ${work.title}, ${work.author}`);
+    open.textContent = "Esittely";
+    open.setAttribute("aria-label", `Avaa esittely: ${work.title}, ${work.author}`);
     open.addEventListener("click", () => openDetail(work.id));
-
-    article.append(cover, copy, open);
+    const actions = document.createElement("div");
+    actions.className = "work-card-actions";
+    actions.append(open);
+    if (work.status !== "draft") {
+      if (work.hasText) {
+        const read = document.createElement("button");
+        read.type = "button";
+        read.className = "card-read";
+        read.append(makeIcon("book-open"), document.createTextNode(work.progress.percent > 0 ? "Jatka" : "Lue"));
+        read.setAttribute("aria-label", `Lue: ${work.title}`);
+        read.addEventListener("click", () => openReader(work));
+        actions.append(read);
+      }
+      if (work.hasAudio) {
+        const listen = document.createElement("button");
+        listen.type = "button";
+        listen.append(makeIcon("headphones"), document.createTextNode("Kuuntele"));
+        listen.setAttribute("aria-label", `Kuuntele: ${work.title}`);
+        listen.addEventListener("click", () => startAudio(work, true));
+        actions.append(listen);
+      }
+    }
+    copy.append(actions);
+    article.append(cover, copy);
 
     if (work.progress.percent > 0) {
       const progress = document.createElement("div");
@@ -721,26 +784,26 @@
   }
 
   function resultsHeading(scope) {
-    if (scope === "shared") return state.query || state.media || state.theme ? "Jaetut hakutulokset" : "Jaetut teokset";
+    if (scope === "shared") return hasFilters() ? "Jaetut hakutulokset" : "Jaetut teokset";
     if (scope === "continue") return "Jatka lukemista ja kuuntelua";
     if (scope === "mine") return "Omat teokset";
-    if (state.query || state.media || state.theme) return "Hakutulokset";
-    return "Poimintoja sinulle";
+    if (hasFilters()) return "Hakutulokset";
+    return "Tutustu teoksiin";
   }
 
   function resultsDescription(scope) {
-    if (scope === "shared") return "SkriptLabin ylläpitämiä esimerkkiteoksia, joilla voit kokeilla lukualustaa.";
+    if (scope === "shared") return "Muiden kirjaston käyttäjille julkaisemat teokset ja SkriptLabin esimerkit.";
     return "";
   }
 
   function renderEmptyState(visibleWorks, continuation) {
     const empty = elements["library-empty"];
-    const hasFilters = Boolean(state.query || state.media || state.theme);
+    const filtered = hasFilters();
     const isEmpty = visibleWorks.length === 0 && !continuation;
     empty.hidden = !isEmpty;
     if (!isEmpty) return;
 
-    if (hasFilters) {
+    if (filtered) {
       elements["library-empty-title"].textContent = "Hakusi ei löytänyt teoksia";
       elements["library-empty-copy"].textContent = "Kokeile toista hakusanaa tai poista yksi rajauksista.";
       elements["library-empty-add"].hidden = true;
@@ -773,25 +836,36 @@
   }
 
   function renderWorks() {
-    const continuation = state.scope === "all" ? state.works.find(workMatchesContinue) || null : null;
+    const continuation = state.scope === "all" && !hasFilters() ? state.continuation : null;
     renderContinueCard(continuation);
 
-    const visibleWorks = continuation && state.works.length > 1
-      ? state.works.filter((work) => work.id !== continuation.id)
-      : (continuation ? [] : state.works);
+    const visibleWorks = state.works;
     elements["library-results-title"].textContent = resultsHeading(state.scope);
     const description = resultsDescription(state.scope);
     elements["library-results-description"].textContent = description;
     elements["library-results-description"].hidden = !description;
-    elements["library-result-count"].textContent = `${state.works.length} ${state.works.length === 1 ? "teos" : "teosta"}`;
+    elements["library-result-count"].textContent = `${state.total} ${state.total === 1 ? "teos" : "teosta"}`;
     elements["library-work-grid"].replaceChildren(...visibleWorks.map(createWorkCard));
     renderEmptyState(visibleWorks, continuation);
     elements["library-results"].hidden = visibleWorks.length === 0 && Boolean(continuation);
+    elements["library-pagination"].hidden = !state.works.length;
+    elements["library-page-summary"].textContent = `Näytetään ${state.works.length} / ${state.total} teosta`;
+    elements["library-load-more"].hidden = !state.nextCursor;
+    elements["library-filter-summary"].hidden = !hasFilters();
+    elements["library-active-filters"].textContent = [state.query ? `Haku: ${state.query}` : "",
+      state.media === "audio" ? "Kuunneltavat" : (state.media === "read" ? "Luettavat" : ""),
+      state.availableThemes.get(state.theme) || state.theme, languageLabel(state.language),
+      state.length ? elements["library-length-filter"].selectedOptions[0].textContent : ""].filter(Boolean).join(" · ");
+  }
+
+  function hasFilters() {
+    return Boolean(state.query || state.media || state.theme || state.language || state.length);
   }
 
   function updateThemeOptions() {
     const select = elements["library-theme-filter"];
     const current = state.theme;
+    if (current && !state.availableThemes.has(current)) state.availableThemes.set(current, current);
     state.works.forEach((work) => {
       work.themes.forEach((theme) => {
         const value = theme.code || theme.label;
@@ -831,6 +905,9 @@
   }
 
   async function loadWorks(options = {}) {
+    window.clearTimeout(state.searchTimer);
+    const append = Boolean(options.append && state.nextCursor);
+    const previousCount = state.works.length;
     const sequence = ++state.listSequence;
     state.listController?.abort();
     state.listController = new AbortController();
@@ -838,25 +915,68 @@
     if (state.query) params.set("q", state.query);
     if (state.media) params.set("media", state.media);
     if (state.theme) params.set("theme", state.theme);
+    if (state.language) params.set("language", state.language);
+    if (state.length) params.set("length", state.length);
+    params.set("sort", state.sort);
+    params.set("catalog", "true");
+    params.set("limit", "24");
+    if (append) params.set("after", state.nextCursor);
 
     elements["library-loading-text"].textContent = state.scope === "shared" ? "Ladataan jaettuja teoksia…" : "Ladataan kirjastoa…";
     elements["library-loading"].hidden = false;
     elements["library-work-grid"].setAttribute("aria-busy", "true");
     elements["library-empty"].hidden = true;
+    elements["library-load-more"].disabled = true;
+    elements["library-load-more"].textContent = "Ladataan…";
+    if (!append) {
+      state.works = [];
+      state.continuation = null;
+      state.nextCursor = null;
+      elements["library-work-grid"].replaceChildren();
+      elements["library-continue-section"].hidden = true;
+      elements["library-pagination"].hidden = true;
+      elements["library-result-count"].textContent = "";
+    }
     if (!options.silent) hideNotice();
 
     try {
-      const payload = await requestJson(`${API_ROOT}/works?${params.toString()}`, {
-        signal: state.listController.signal,
-      });
+      const signal = state.listController.signal;
+      await flushProgress();
       if (sequence !== state.listSequence) return;
-      state.works = unwrapWorks(payload).map(normalizeWork).filter((work) => work.id);
+      const [payload, continued] = await Promise.all([
+        requestJson(`${API_ROOT}/works?${params.toString()}`, { signal }),
+        !append && state.scope === "all" && !hasFilters()
+          ? requestJson(`${API_ROOT}/works?scope=continue&limit=1`, { signal }).catch(() => [])
+          : Promise.resolve(null),
+      ]);
+      if (sequence !== state.listSequence) return;
+      const works = unwrapWorks(payload).map(normalizeWork).filter((work) => work.id);
+      state.works = append ? [...state.works, ...works.filter((work) => !state.works.some((old) => old.id === work.id))] : works;
+      state.total = finiteNumber(payload?.total, state.works.length);
+      state.nextCursor = payload?.next_cursor || null;
+      if (continued) state.continuation = unwrapWorks(continued).map(normalizeWork).find(workMatchesContinue) || null;
+      if (payload?.facets) {
+        state.availableThemes = new Map(payload.facets.themes.map((theme) => [theme.value, theme.label]));
+        const languages = [new Option("Kaikki kielet", ""), ...payload.facets.languages.map((code) => new Option(languageLabel(code), code))];
+        if (state.language && !payload.facets.languages.includes(state.language)) languages.push(new Option(languageLabel(state.language), state.language));
+        elements["library-language-filter"].replaceChildren(...languages);
+        elements["library-language-filter"].value = state.language;
+      }
       updateThemeOptions();
       renderWorks();
+      if (append) elements["library-work-grid"].children[previousCount]?.querySelector("button")?.focus({ preventScroll: true });
     } catch (error) {
       if (error?.name === "AbortError") return;
       if (sequence !== state.listSequence) return;
+      if (append) {
+        showNotice(errorMessage(error, "Lisää teoksia ei voitu ladata. Aiemmat tulokset ovat yhä näkyvissä."), {
+          action: () => loadWorks({ append: error.status !== 422 }),
+          label: error.status === 422 ? "Päivitä tulokset" : "Yritä uudelleen",
+        });
+        return;
+      }
       state.works = [];
+      state.total = 0;
       renderWorks();
       elements["library-empty"].hidden = false;
       const sharedError = state.scope === "shared";
@@ -871,6 +991,8 @@
       if (sequence === state.listSequence) {
         elements["library-loading"].hidden = true;
         elements["library-work-grid"].setAttribute("aria-busy", "false");
+        elements["library-load-more"].disabled = false;
+        elements["library-load-more"].textContent = "Näytä lisää teoksia";
       }
     }
   }
@@ -888,9 +1010,13 @@
     state.query = "";
     state.media = "";
     state.theme = "";
+    state.language = "";
+    state.length = "";
     elements["library-search-input"].value = "";
     elements["library-search-clear"].hidden = true;
     elements["library-theme-filter"].value = "";
+    elements["library-language-filter"].value = "";
+    elements["library-length-filter"].value = "";
     document.querySelectorAll("[data-media]").forEach((button) => {
       const selected = button.dataset.media === "";
       button.classList.toggle("is-active", selected);
@@ -913,9 +1039,14 @@
   function durationLabel(seconds) {
     const total = Math.max(0, Math.round(finiteNumber(seconds)));
     if (!total) return "";
-    const hours = Math.floor(total / 3600);
-    const minutes = Math.round((total % 3600) / 60);
+    const totalMinutes = Math.max(1, Math.round(total / 60));
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
     return hours ? `${hours} h ${minutes} min` : `${minutes} min`;
+  }
+
+  function readingTimeLabel(work) {
+    return work.hasText && work.wordCount ? `Lukuaika noin ${durationLabel(work.wordCount / 200 * 60)}` : "";
   }
 
   function dateLabel(value) {
@@ -931,6 +1062,8 @@
       ["Teostyyppi", work.managedExample ? "SkriptLab-esimerkki" : (work.shared ? "Jaettu teos" : "")],
       ["Kieli", languageLabel(work.language)],
       ["Lukuja", work.chapterCount ? String(work.chapterCount) : ""],
+      ["Arvioitu lukuaika", readingTimeLabel(work).replace("Lukuaika noin ", "")],
+      ["Sanoja", work.wordCount ? work.wordCount.toLocaleString("fi-FI") : ""],
       ["Äänitteen kesto", durationLabel(work.durationSeconds)],
       ["Julkaistu", dateLabel(work.publishedAt)],
     ];
@@ -1004,6 +1137,7 @@
   async function openDetail(workId) {
     const id = text(workId);
     if (!id) return;
+    state.browserScroll = window.scrollY;
     hideNotice();
     const partial = state.works.find((work) => work.id === id) || null;
     state.selectedWork = partial;
@@ -1038,8 +1172,9 @@
     elements["library-detail"].hidden = true;
     elements["library-browser"].hidden = false;
     document.body.classList.remove("is-detail");
+    window.scrollTo(0, state.browserScroll);
     if (restoreFocus && workId) {
-      document.querySelector(`[data-work-id="${CSS.escape(workId)}"] .work-card-open`)?.focus();
+      document.querySelector(`[data-work-id="${CSS.escape(workId)}"] .work-card-open`)?.focus({ preventScroll: true });
     }
   }
 
@@ -1161,7 +1296,8 @@
   }
 
   function progressUpdatedTime(progress) {
-    const timestamp = Date.parse(progress.updatedAt);
+    const value = text(progress.updatedAt);
+    const timestamp = Date.parse(value && !/(?:Z|[+-]\d\d:\d\d)$/i.test(value) ? `${value}Z` : value);
     return Number.isFinite(timestamp) ? timestamp : 0;
   }
 
@@ -1180,10 +1316,28 @@
 
   function queueProgress(workId, patch) {
     if (!workId) return;
+    if (state.progressWorkId && state.progressWorkId !== workId) flushProgress();
     const current = state.progressWorkId === workId && state.progressPayload ? state.progressPayload : {};
     state.progressWorkId = workId;
     state.progressPayload = { ...current, ...patch };
-    writeLocalProgress(workId, state.progressPayload);
+    const work = state.works.find((item) => item.id === workId)
+      || (state.selectedWork?.id === workId ? state.selectedWork : null)
+      || (state.audioWork?.id === workId ? state.audioWork : null);
+    const previous = (state.selectedWork?.id === workId ? state.selectedProgress : null) || work?.progress || readLocalProgress(workId);
+    writeLocalProgress(workId, {
+      media: previous.media, chapter_id: previous.chapterId, chapter_index: previous.chapterIndex,
+      chapter_progress: previous.chapterProgress, paragraph_index: previous.paragraphIndex,
+      progress_percent: previous.percent, audio_position_seconds: previous.audioPosition,
+      audio_duration_seconds: previous.audioDuration, bookmarks: previous.bookmarks,
+      ...state.progressPayload,
+    });
+    const localProgress = readLocalProgress(workId);
+    if (work) {
+      work.progress = localProgress;
+      if (workMatchesContinue(work)) state.continuation = work;
+      else if (state.continuation?.id === workId) state.continuation = null;
+    }
+    if (state.selectedWork?.id === workId) state.selectedProgress = localProgress;
     window.clearTimeout(state.progressTimer);
     state.progressTimer = window.setTimeout(() => flushProgress(), 850);
   }
@@ -1197,7 +1351,7 @@
     state.progressWorkId = null;
     state.progressPayload = null;
     const requestPayload = {};
-    ["media", "chapter_id", "paragraph_index", "progress_percent", "audio_position_seconds", "audio_duration_seconds"].forEach((key) => {
+    ["media", "chapter_id", "chapter_index", "chapter_progress", "paragraph_index", "progress_percent", "audio_position_seconds", "audio_duration_seconds"].forEach((key) => {
       if (payload[key] !== undefined && payload[key] !== null) requestPayload[key] = payload[key];
     });
     if (Array.isArray(payload.bookmarks)) requestPayload.bookmarks = payload.bookmarks;
@@ -1208,8 +1362,12 @@
         keepalive: true,
       });
     } catch (_error) {
-      state.progressWorkId = workId;
-      state.progressPayload = { ...payload, ...(state.progressPayload || {}) };
+      // Do not mix a failed save with a different book's newly queued position.
+      // The per-user local copy remains available when that book is reopened.
+      if (!state.progressWorkId || state.progressWorkId === workId) {
+        state.progressWorkId = workId;
+        state.progressPayload = { ...payload, ...(state.progressPayload || {}) };
+      }
     }
   }
 
@@ -1296,6 +1454,9 @@
     state.chapterIndex = clamp(Math.floor(index), 0, state.chapters.length - 1);
     const chapter = state.chapters[state.chapterIndex];
     elements["reader-chapter-title"].textContent = chapter.title;
+    elements["reader-previous-chapter"].disabled = state.chapterIndex === 0;
+    elements["reader-next-chapter"].disabled = state.chapterIndex === state.chapters.length - 1;
+    elements["reader-chapter-position"].textContent = `${state.chapterIndex + 1} / ${state.chapters.length}`;
     elements["audio-chapter"].textContent = hasAudioTimingManifest(state.audioWork) ? chapter.title : "Äänite";
     const paragraphs = paragraphsFromText(chapter.text).map((paragraphText, paragraphIndex) => {
       const paragraph = document.createElement("p");
@@ -1320,7 +1481,8 @@
     requestAnimationFrame(() => {
       const paragraph = elements["reader-text"].querySelector(`[data-paragraph-index="${initialParagraph}"]`);
       if (initialParagraph > 0 && paragraph) {
-        elements["reader-scroll"].scrollTop = Math.max(0, paragraph.offsetTop - elements["reader-scroll"].clientHeight * 0.18);
+        const scroller = elements["reader-scroll"];
+        scroller.scrollTop += paragraph.getBoundingClientRect().top - scroller.getBoundingClientRect().top - scroller.clientHeight * 0.18;
       } else {
         const maximum = Math.max(0, elements["reader-scroll"].scrollHeight - elements["reader-scroll"].clientHeight);
         elements["reader-scroll"].scrollTop = maximum * initialFraction;
@@ -1330,11 +1492,45 @@
     });
 
     const progress = {
+      media: "read",
       chapter_id: chapter.id,
+      chapter_index: state.chapterIndex,
+      chapter_progress: initialFraction,
       paragraph_index: initialParagraph,
       progress_percent: percent,
     };
     queueProgress(state.selectedWork?.id, progress);
+  }
+
+  function searchReader(event) {
+    event.preventDefault();
+    const query = text(elements["reader-search-input"].value).toLocaleLowerCase("fi");
+    const results = [];
+    let count = 0;
+    if (query.length >= 2) state.chapters.forEach((chapter, chapterIndex) => {
+      paragraphsFromText(chapter.text).forEach((paragraph, paragraphIndex) => {
+        const position = paragraph.toLocaleLowerCase("fi").indexOf(query);
+        if (position < 0) return;
+        count += 1;
+        if (results.length >= 40) return;
+        const item = document.createElement("li");
+        const button = document.createElement("button");
+        button.type = "button";
+        const start = Math.max(0, position - 45);
+        button.textContent = `${chapter.title}: ${start ? "…" : ""}${paragraph.slice(start, position + query.length + 90)}…`;
+        button.addEventListener("click", () => {
+          renderChapter(chapterIndex, { paragraphIndex, focus: true });
+          closeReaderPanels();
+          const match = elements["reader-text"].querySelector(`[data-paragraph-index="${paragraphIndex}"]`);
+          if (match) match.classList.add("reader-search-match");
+        });
+        item.append(button);
+        results.push(item);
+      });
+    });
+    elements["reader-search-results"].replaceChildren(...results);
+    elements["reader-search-status"].textContent = query.length < 2 ? "Kirjoita vähintään kaksi merkkiä."
+      : count ? `${count} osuvaa kappaletta.${count > 40 ? " Näytetään ensimmäiset 40. Tarkenna hakua tarvittaessa." : ""}` : "Ei osumia tässä teoksessa.";
   }
 
   function applyReaderSettings() {
@@ -1435,6 +1631,15 @@
 
   async function openReader(work = state.selectedWork) {
     if (!work?.id || !work.hasText || work.status === "draft") return;
+    const sequence = ++state.readerSequence;
+    state.chapters = [];
+    elements["reader-search-input"].value = "";
+    elements["reader-search-status"].textContent = "";
+    elements["reader-search-results"].replaceChildren();
+    elements["reader-chapter-list"].replaceChildren();
+    elements["reader-previous-chapter"].disabled = true;
+    elements["reader-next-chapter"].disabled = true;
+    elements["reader-chapter-position"].textContent = "";
     state.selectedWork = work;
     elements["reader-work-title"].textContent = work.title;
     elements["reader-work-author"].textContent = work.author;
@@ -1453,7 +1658,7 @@
         requestJson(`${API_ROOT}/works/${encodeURIComponent(work.id)}/content`),
         loadProgress(work.id),
       ]);
-      if (state.selectedWork?.id !== work.id) return;
+      if (sequence !== state.readerSequence || state.selectedWork?.id !== work.id) return;
       state.selectedProgress = progress;
       state.chapters = normalizeContent(contentPayload, work);
       if (!state.chapters.length) {
@@ -1463,6 +1668,7 @@
       const startIndex = byIdIndex >= 0 ? byIdIndex : clamp(progress.chapterIndex, 0, state.chapters.length - 1);
       renderChapter(startIndex, { scrollFraction: progress.chapterProgress, paragraphIndex: progress.paragraphIndex });
     } catch (error) {
+      if (sequence !== state.readerSequence) return;
       elements["reader-chapter-title"].textContent = "Sisältöä ei voitu avata";
       const message = document.createElement("p");
       message.textContent = errorMessage(error, "Teoksen sisällön lataaminen epäonnistui.");
@@ -1473,12 +1679,14 @@
 
   function closeReader() {
     if (elements["library-reader"].hidden) return;
+    state.readerSequence += 1;
     flushProgress();
     closeReaderPanels();
     elements["library-reader"].hidden = true;
     document.body.classList.remove("is-reading");
     if (!elements["library-detail"].hidden) elements["detail-read"].focus();
     else elements["library-results"].focus({ preventScroll: true });
+    renderWorks();
   }
 
   function toggleBookmark() {
@@ -1541,7 +1749,10 @@
     elements["reader-progress-percent"].textContent = `${Math.round(percent)} %`;
     syncReaderBookmark(paragraphIndex);
     queueProgress(state.selectedWork.id, {
+      media: "read",
       chapter_id: chapter.id,
+      chapter_index: state.chapterIndex,
+      chapter_progress: fraction,
       paragraph_index: paragraphIndex,
       progress_percent: percent,
     });
@@ -1558,6 +1769,7 @@
   function setPlayIcon(isPlaying) {
     elements["audio-play"].replaceChildren(makeIcon(isPlaying ? "pause" : "play"));
     elements["audio-play"].setAttribute("aria-label", isPlaying ? "Keskeytä" : "Toista");
+    if (navigator.mediaSession) navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
   }
 
   function hasAudioTimingManifest(work) {
@@ -1589,6 +1801,19 @@
       : "Äänite";
     renderCover(elements["audio-cover"], work, { eager: true });
     syncAudioTimingControls();
+    if (navigator.mediaSession && window.MediaMetadata) {
+      navigator.mediaSession.metadata = new MediaMetadata({title: work.title, artist: work.author, album: "SkriptLab-kirjasto"});
+      const audio = elements["library-audio"];
+      const handlers = {
+        play: () => { if (audio.paused) toggleAudio(); },
+        pause: () => { if (!audio.paused) toggleAudio(); },
+        seekbackward: (event) => seekAudio(-(event.seekOffset || 15)),
+        seekforward: (event) => seekAudio(event.seekOffset || 15),
+      };
+      Object.entries(handlers).forEach(([action, handler]) => {
+        try { navigator.mediaSession.setActionHandler(action, handler); } catch (_error) { /* Optional OS control. */ }
+      });
+    }
   }
 
   async function startAudio(work = state.selectedWork, autoplay = false) {
@@ -2256,11 +2481,23 @@
   }
 
   function bindEvents() {
+    const compactCatalog = window.matchMedia("(max-width: 600px)");
+    const syncAdvancedFilters = () => { elements["library-advanced-filters"].open = !compactCatalog.matches; };
+    syncAdvancedFilters();
+    compactCatalog.addEventListener("change", syncAdvancedFilters);
     elements["library-notice-action"].addEventListener("click", () => state.noticeAction?.());
     elements["library-notice-close"].addEventListener("click", hideNotice);
     elements["library-add-work"].addEventListener("click", () => openAddDialog());
     elements["library-empty-add"].addEventListener("click", () => openAddDialog());
     elements["library-clear-filters"].addEventListener("click", clearFilters);
+    elements["library-reset-filters"].addEventListener("click", clearFilters);
+    elements["library-load-more"].addEventListener("click", () => loadWorks({ append: true }));
+    [["library-language-filter", "language"], ["library-length-filter", "length"], ["library-sort", "sort"]].forEach(([id, key]) => {
+      elements[id].addEventListener("change", () => {
+        state[key] = elements[id].value;
+        loadWorks();
+      });
+    });
 
     elements["library-scope-tabs"].addEventListener("click", (event) => {
       const button = event.target.closest("[data-scope]");
@@ -2312,6 +2549,9 @@
 
     elements["reader-back"].addEventListener("click", closeReader);
     elements["reader-close"].addEventListener("click", closeReader);
+    elements["reader-search-form"].addEventListener("submit", searchReader);
+    elements["reader-previous-chapter"].addEventListener("click", () => renderChapter(state.chapterIndex - 1, { focus: true }));
+    elements["reader-next-chapter"].addEventListener("click", () => renderChapter(state.chapterIndex + 1, { focus: true }));
     elements["reader-contents-toggle"].addEventListener("click", () => toggleReaderPanel("contents"));
     elements["reader-settings-toggle"].addEventListener("click", () => toggleReaderPanel("settings"));
     elements["reader-backdrop"].addEventListener("click", closeReaderPanels);
