@@ -3108,6 +3108,8 @@ body.has-audio .browser-screen, body.has-audio .detail-screen { padding-bottom: 
   border-top: 1px solid rgba(126, 128, 124, .28); background: inherit; z-index: 6;
 }
 .reader-page-controls button { min-height: 44px; white-space: nowrap; }
+.reader-page-controls .secondary-action { background: transparent; color: inherit; border-color: rgba(126, 128, 124, .55); }
+.reader-page-controls .secondary-action:hover:not(:disabled) { color: inherit; background: color-mix(in srgb, currentColor 8%, transparent); }
 .reader-page-controls > span { text-align: center; font: 12px/1.4 var(--ui-font); }
 body.has-audio .reader-page-controls { margin-bottom: var(--library-audio-height, 110px); }
 @media (max-width: 980px) {
