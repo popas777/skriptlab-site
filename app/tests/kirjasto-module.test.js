@@ -8,6 +8,39 @@ const html = fs.readFileSync(path.join(appRoot, 'kirjasto.html'), 'utf8');
 const css = fs.readFileSync(path.join(appRoot, 'kirjasto.css'), 'utf8');
 const js = fs.readFileSync(path.join(appRoot, 'kirjasto.js'), 'utf8');
 
+test('screen-sized pages overlap, clamp to boundaries and handle short chapters', () => {
+  const context = {window: {}, document: {readyState: 'loading', addEventListener() {}}};
+  require('node:vm').runInNewContext(js, context);
+  const metrics = context.window.SkriptLabLibrary.readerPageMetrics;
+  let p = metrics(600, 2000, 0, 30);
+  assert.equal(p.step, 540);
+  assert.equal(p.page, 1);
+  assert.equal(p.count, 4);
+  assert.equal(p.next, 540);
+  assert.equal(p.previous, 0);
+  assert.equal(p.atStart, true);
+  p = metrics(600, 2000, 1400, 30);
+  assert.equal(p.page, 4);
+  assert.equal(p.previous, 1080);
+  assert.equal(p.next, 1400);
+  assert.equal(p.atEnd, true);
+  p = metrics(600, 300, 0);
+  assert.equal(p.count, 1);
+  assert.equal(p.atStart && p.atEnd, true);
+  assert.equal(metrics(900, 2000, 500, 30).next, 840);
+});
+
+test('swipes ignore taps, vertical scrolling, diagonal movements and long selection gestures', () => {
+  const context = {window: {}, document: {readyState: 'loading', addEventListener() {}}};
+  require('node:vm').runInNewContext(js, context);
+  const swipe = context.window.SkriptLabLibrary.swipePageDirection;
+  const start = {x: 200, y: 100, time: 0};
+  assert.equal(swipe(start, {x: 90, y: 110, time: 200}), 1);
+  assert.equal(swipe(start, {x: 310, y: 90, time: 200}), -1);
+  for (const end of [{x:190,y:100,time:200}, {x:190,y:300,time:200},
+    {x:90,y:200,time:200}, {x:90,y:100,time:1000}]) assert.equal(swipe(start,end), 0);
+});
+
 test('catalog pages and facets come from the server and load-more preserves results', () => {
   for (const id of ['library-load-more', 'library-language-filter', 'library-length-filter', 'library-sort', 'library-reset-filters']) expectId(id);
   assert.match(js, /params\.set\("catalog", "true"\)/);
@@ -53,7 +86,7 @@ test('PDF-only work and format-specific locations normalize without losing text 
 
 test('PDF is lazy and private; rich EPUB nodes never execute imported HTML', () => {
   const pdf = fs.readFileSync(path.join(appRoot, 'library-pdf.mjs'), 'utf8');
-  assert.match(js, /await import\("\.\/library-pdf\.mjs\?v=1"\)/);
+  assert.match(js, /await import\("\.\/library-pdf\.mjs\?v=2"\)/);
   assert.match(js, /READING_TAGS\.has\(block\.tag\)/);
   assert.match(js, /document\.createTextNode\(block\)/);
   assert.match(pdf, /\.\/vendor\/pdfjs-6\.3\.289\/pdf\.mjs/);

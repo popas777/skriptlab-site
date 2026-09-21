@@ -54,6 +54,9 @@
     audioRefreshWorkId: null,
     audioRefreshAttemptedAt: 0,
     restoreReaderScroll: false,
+    readerSwipe: null,
+    readerExpanded: false,
+    readerNativeFullscreen: false,
     addSource: "import",
     addIntent: "review",
     addBusy: false,
@@ -177,6 +180,7 @@
       "reader-next-chapter",
       "reader-chapter-position",
       "reader-scroll",
+      "reader-previous-page", "reader-next-page", "reader-page-position", "reader-fullscreen",
       "reader-page",
       "reader-chapter-title",
       "reader-text",
@@ -1540,6 +1544,7 @@
     state.pdfController?.abort(); state.pdfController = null;
     state.pdfViewer?.destroy(); state.pdfViewer = null;
     state.readerMode = mode;
+    syncReaderPageControls();
     elements["reader-format"].value = mode;
     elements["library-reader"].dataset.format = mode;
     elements["reader-page"].hidden = mode === "pdf";
@@ -1556,19 +1561,22 @@
       if (!resource) return;
       elements["reader-pdf"].textContent = "Ladataan PDF-lukijaa…";
       try {
-        const { openPdf } = await import("./library-pdf.mjs?v=1");
+        const { openPdf } = await import("./library-pdf.mjs?v=2");
         if (sequence !== state.readerSequence) return;
         state.pdfController = new AbortController();
         const viewer = await openPdf({ container: elements["reader-pdf"], outline: elements["reader-chapter-list"],
           signal: state.pdfController.signal,
           url: mediaUrl(resource.url), pageNumber: progress.pdfPage,
           onPage: (page, count) => {
-            if (sequence === state.readerSequence) queueProgress(work.id, { media: "pdf", pdf_page: page, progress_percent: page / count * 100 });
+            if (sequence === state.readerSequence) {
+              queueProgress(work.id, { media: "pdf", pdf_page: page, progress_percent: page / count * 100 });
+              syncReaderPageControls({ page, count });
+            }
           },
           onError: () => { if (sequence === state.readerSequence) showNotice("PDF:n lataus ei onnistunut. Avaa teos tarvittaessa uudelleen."); },
           onNavigate: closeReaderPanels });
         if (sequence !== state.readerSequence) viewer.destroy();
-        else state.pdfViewer = viewer;
+        else { state.pdfViewer = viewer; syncReaderPageControls(); }
       } catch (error) {
         if (sequence === state.readerSequence) elements["reader-pdf"].textContent = "PDF-lukijan lataaminen epäonnistui. Tarkista yhteys, päivitä selain ja avaa teos uudelleen.";
       }
@@ -1644,9 +1652,10 @@
         scroller.scrollTop += paragraph.getBoundingClientRect().top - scroller.getBoundingClientRect().top - scroller.clientHeight * 0.18;
       } else {
         const maximum = Math.max(0, elements["reader-scroll"].scrollHeight - elements["reader-scroll"].clientHeight);
-        elements["reader-scroll"].scrollTop = maximum * initialFraction;
+        elements["reader-scroll"].scrollTo({ top: maximum * initialFraction, behavior: "instant" });
       }
       state.restoreReaderScroll = false;
+      syncReaderPageControls();
       if (options.focus) elements["reader-chapter-title"].focus?.({ preventScroll: true });
     });
 
@@ -1820,6 +1829,7 @@
     loading.textContent = "Teoksen sisältöä ladataan…";
     elements["reader-text"].replaceChildren(loading);
     elements["library-reader"].hidden = false;
+    syncReaderPageControls();
     document.body.classList.add("is-reading");
     closeReaderPanels();
     applyReaderSettings();
@@ -1853,6 +1863,8 @@
 
   function closeReader() {
     if (elements["library-reader"].hidden) return;
+    void exitReaderFullscreen();
+    state.readerSwipe = null;
     state.readerSequence += 1;
     state.pdfController?.abort(); state.pdfController = null;
     state.pdfViewer?.destroy(); state.pdfViewer = null;
@@ -1914,7 +1926,139 @@
     return index;
   }
 
+  // A text page is one viewport with two lines of overlap, so no line is lost.
+  function readerPageMetrics(height, contentHeight, top, lineHeight = 34) {
+    const maximum = Math.max(0, contentHeight - height);
+    const step = Math.max(1, height - Math.min(height * 0.2, lineHeight * 2));
+    const position = clamp(top, 0, maximum);
+    const count = Math.ceil(maximum / step) + 1;
+    const atStart = position <= 2;
+    const atEnd = maximum - position <= 2;
+    return {
+      maximum, step, atStart, atEnd, count,
+      page: atEnd ? count : Math.floor((position + 2) / step) + 1,
+      next: Math.min(maximum, (Math.floor((position + 2) / step) + 1) * step),
+      previous: Math.max(0, (Math.ceil((position - 2) / step) - 1) * step),
+    };
+  }
+
+  function textPageMetrics() {
+    const scroller = elements["reader-scroll"];
+    const line = parseFloat(getComputedStyle(elements["reader-text"]).lineHeight) || 34;
+    return readerPageMetrics(scroller.clientHeight, scroller.scrollHeight, scroller.scrollTop, line);
+  }
+
+  function syncReaderPageControls(pdfPosition) {
+    if (elements["library-reader"].hidden) return;
+    const previous = elements["reader-previous-page"];
+    const next = elements["reader-next-page"];
+    const label = elements["reader-page-position"];
+    if (state.readerMode === "pdf") {
+      const position = pdfPosition?.page ? pdfPosition : state.pdfViewer?.getPosition();
+      previous.disabled = !position || position.page <= 1;
+      next.disabled = !position || position.page >= position.count;
+      label.textContent = position ? `Sivu ${position.page} / ${position.count}` : "Ladataan…";
+      return;
+    }
+    if (!state.chapters.length || state.restoreReaderScroll) {
+      previous.disabled = next.disabled = true;
+      label.textContent = "Ladataan…";
+      return;
+    }
+    const page = textPageMetrics();
+    previous.disabled = page.atStart && state.chapterIndex === 0;
+    next.disabled = page.atEnd && state.chapterIndex === state.chapters.length - 1;
+    const value = `Luku ${state.chapterIndex + 1} / ${state.chapters.length} · Sivu ${page.page} / ${page.count}`;
+    if (label.textContent !== value) label.textContent = value;
+  }
+
+  function turnReaderPage(direction) {
+    if (elements["library-reader"].hidden || state.restoreReaderScroll) return;
+    if (state.readerMode === "pdf") { void state.pdfViewer?.turnPage(direction); return; }
+    if (!state.chapters.length) return;
+    const page = textPageMetrics();
+    if (direction > 0 && page.atEnd) {
+      if (state.chapterIndex < state.chapters.length - 1) renderChapter(state.chapterIndex + 1);
+    } else if (direction < 0 && page.atStart) {
+      if (state.chapterIndex > 0) renderChapter(state.chapterIndex - 1, { scrollFraction: 1 });
+    } else {
+      elements["reader-scroll"].scrollTo({ top: direction > 0 ? page.next : page.previous, behavior: "instant" });
+      handleReaderScroll();
+    }
+  }
+
+  function swipePageDirection(start, end) {
+    if (!start || end.time - start.time > 900) return 0;
+    const dx = end.x - start.x, dy = end.y - start.y;
+    return Math.abs(dx) >= 60 && Math.abs(dx) > Math.abs(dy) * 2 ? (dx < 0 ? 1 : -1) : 0;
+  }
+
+  function startReaderSwipe(event) {
+    state.readerSwipe = null;
+    if (event.pointerType !== "touch" || !event.isPrimary ||
+        event.target.closest("a, button, input, select, textarea, table, [contenteditable]") ||
+        !window.getSelection()?.isCollapsed) return;
+    state.readerSwipe = { id: event.pointerId, x: event.clientX, y: event.clientY, time: event.timeStamp };
+  }
+
+  function finishReaderSwipe(event) {
+    const start = state.readerSwipe;
+    state.readerSwipe = null;
+    if (!start || start.id !== event.pointerId || !window.getSelection()?.isCollapsed) return;
+    const direction = swipePageDirection(start, { x: event.clientX, y: event.clientY, time: event.timeStamp });
+    if (direction) turnReaderPage(direction);
+  }
+
+  function syncReaderFullscreen() {
+    const native = Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+    if (state.readerNativeFullscreen && !native) setReaderExpanded(false);
+    state.readerNativeFullscreen = native;
+    const active = native || state.readerExpanded;
+    const button = elements["reader-fullscreen"];
+    const label = active ? "Poistu koko näytöstä" : "Koko näyttö";
+    button.setAttribute("aria-pressed", String(active));
+    button.setAttribute("aria-label", label);
+    button.title = label;
+    button.querySelector("span").textContent = label;
+    button.querySelector("i").className = active ? "ph ph-arrows-in" : "ph ph-arrows-out";
+    syncReaderPageControls();
+  }
+
+  async function exitReaderFullscreen() {
+    setReaderExpanded(false);
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else if (document.webkitFullscreenElement) await document.webkitExitFullscreen();
+    } catch (_) { /* Browser may already have exited through Escape. */ }
+    syncReaderFullscreen();
+  }
+
+  function setReaderExpanded(expanded) {
+    state.readerExpanded = expanded;
+    // The app iframe is same-origin. Also offer a full-window reader on mobile
+    // browsers that do not support, or decline, native fullscreen requests.
+    try {
+      const frame = window.frameElement;
+      if (frame?.id === "kirjasto-frame") frame.ownerDocument.documentElement.classList.toggle("library-reader-expanded", expanded);
+    } catch (_) { /* A separately embedded reader cannot modify its host. */ }
+  }
+
+  async function toggleReaderFullscreen() {
+    if (state.readerExpanded || document.fullscreenElement || document.webkitFullscreenElement) {
+      await exitReaderFullscreen();
+    } else {
+      setReaderExpanded(true);
+      syncReaderFullscreen();
+      const root = document.documentElement;
+      const request = root.requestFullscreen || root.webkitRequestFullscreen;
+      if (!request) return;
+      try { await request.call(root); }
+      catch (_) { /* Full-window mode remains usable when native mode is denied. */ }
+    }
+  }
+
   function handleReaderScroll() {
+    syncReaderPageControls();
     if (state.readerMode === "pdf" || state.restoreReaderScroll || !state.selectedWork || !state.chapters.length) return;
     const scroller = elements["reader-scroll"];
     const maximum = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
@@ -2690,6 +2834,11 @@
     const typing = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || target?.isContentEditable;
 
     if (event.key === "Escape") {
+      if (state.readerExpanded || document.fullscreenElement || document.webkitFullscreenElement) {
+        event.preventDefault();
+        void exitReaderFullscreen();
+        return;
+      }
       if (elements["library-add-dialog"].open) {
         event.preventDefault();
         closeAddDialog();
@@ -2707,7 +2856,14 @@
       return;
     }
 
-    if (typing || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (typing || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+    if (!elements["library-reader"].hidden && !document.querySelector("dialog[open]")
+        && ["ArrowLeft", "ArrowRight", "PageUp", "PageDown"].includes(event.key)
+        && !target?.closest?.('[role="slider"], [role="menu"], [role="tablist"]')) {
+      event.preventDefault();
+      turnReaderPage(["ArrowRight", "PageDown"].includes(event.key) ? 1 : -1);
+      return;
+    }
     if (event.key === "/") {
       event.preventDefault();
       closeDetail(false);
@@ -2850,6 +3006,16 @@
       syncAudioParagraph();
     });
     elements["reader-scroll"].addEventListener("scroll", handleReaderScroll, { passive: true });
+    elements["reader-previous-page"].addEventListener("click", () => turnReaderPage(-1));
+    elements["reader-next-page"].addEventListener("click", () => turnReaderPage(1));
+    elements["reader-fullscreen"].addEventListener("click", toggleReaderFullscreen);
+    document.addEventListener("fullscreenchange", syncReaderFullscreen);
+    document.addEventListener("webkitfullscreenchange", syncReaderFullscreen);
+    new ResizeObserver(syncReaderPageControls).observe(elements["reader-scroll"]);
+    new ResizeObserver(syncReaderPageControls).observe(elements["reader-page"]);
+    elements["reader-scroll"].addEventListener("pointerdown", startReaderSwipe, { passive: true });
+    elements["reader-scroll"].addEventListener("pointerup", finishReaderSwipe, { passive: true });
+    elements["reader-scroll"].addEventListener("pointercancel", () => { state.readerSwipe = null; }, { passive: true });
 
     document.querySelectorAll("[data-add-source]").forEach((button) => {
       button.addEventListener("click", () => setAddSource(button.dataset.addSource));
@@ -3021,6 +3187,8 @@
     normalizeWork,
     normalizeThema,
     normalizeProgress,
+    readerPageMetrics,
+    swipePageDirection,
   };
 
   if (document.readyState === "loading") {

@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
-  <link rel="stylesheet" href="kirjasto.css?v=6">
+  <link rel="stylesheet" href="kirjasto.css?v=7">
 <link rel="stylesheet" href="book-access.css?v=2">
 <script src="book-access.js?v=5"></script>
 <script src="book-workflow.js?v=5" defer></script>
@@ -227,6 +227,9 @@
             <i class="ph ph-x" aria-hidden="true"></i>
             <span>Sulje</span>
           </button>
+          <button id="reader-fullscreen" type="button" aria-label="Koko näyttö" aria-pressed="false" title="Koko näyttö">
+            <i class="ph ph-arrows-out" aria-hidden="true"></i><span>Koko näyttö</span>
+          </button>
         </div>
       </header>
 
@@ -324,6 +327,11 @@
           </label>
         </aside>
       </div>
+      <nav class="reader-page-controls" aria-label="Vaihda sivua">
+        <button class="secondary-action" id="reader-previous-page" type="button" aria-keyshortcuts="ArrowLeft PageUp" disabled><i class="ph ph-caret-left" aria-hidden="true"></i><span>Edellinen sivu</span></button>
+        <span id="reader-page-position" role="status" aria-live="polite"></span>
+        <button class="primary-action" id="reader-next-page" type="button" aria-keyshortcuts="ArrowRight PageDown" disabled><span>Seuraava sivu</span><i class="ph ph-caret-right" aria-hidden="true"></i></button>
+      </nav>
     </section>
   </main>
 
@@ -566,6 +574,6 @@
     window.apiUrl = (path) => `${window.API_BASE_URL}${path}`;
   </script>
   <script src="auth.js?v=5"></script>
-  <script src="kirjasto.js?v=6"></script>
+  <script src="kirjasto.js?v=7"></script>
 </body>
 </html>

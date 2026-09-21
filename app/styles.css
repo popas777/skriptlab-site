@@ -13399,3 +13399,15 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     outline: 3px solid rgba(61, 91, 72, 0.35);
     outline-offset: -3px;
 }
+
+/* The library's full-window fallback also works without the Fullscreen API. */
+html.library-reader-expanded { overflow: hidden; }
+html.library-reader-expanded #view-kirjasto {
+    position: fixed !important; inset: 0 !important; z-index: 10000;
+    width: 100vw !important; height: 100dvh !important;
+    padding: 0 !important; margin: 0 !important; background: #fdfcf9;
+}
+html.library-reader-expanded #kirjasto-frame {
+    display: block; position: absolute; inset: 0; border: 0;
+    width: 100% !important; height: 100% !important; min-height: 0 !important;
+}

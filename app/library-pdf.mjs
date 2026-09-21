@@ -102,12 +102,6 @@ export async function openPdf({ container, outline, url, pageNumber = 1, onPage,
   next.addEventListener("click", () => void render(currentPage + 1));
   input.addEventListener("change", () => void render(input.value));
   scale.addEventListener("change", () => { zoom = Number(scale.value); void render(currentPage, false); });
-  container.addEventListener("keydown", event => {
-    if (event.target.closest("input,select,button") || event.altKey || event.ctrlKey || event.metaKey) return;
-    if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
-      event.preventDefault(); void render(currentPage + (event.key === "ArrowRight" ? 1 : -1));
-    }
-  });
   try {
     pdf = await loading.promise;
     if (destroyed) return { destroy };
@@ -147,6 +141,8 @@ export async function openPdf({ container, outline, url, pageNumber = 1, onPage,
 
   return {
     destroy,
+    turnPage: direction => render(currentPage + direction),
+    getPosition: () => ({ page: currentPage, count: pdf.numPages }),
     async search(query, results, feedback) {
       const sequence = ++searchSequence;
       results.replaceChildren();
