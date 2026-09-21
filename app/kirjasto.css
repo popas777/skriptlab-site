@@ -1015,6 +1015,21 @@ body.has-audio .library-screen {
   overscroll-behavior: contain;
 }
 
+#library-edition-form {
+  padding: 26px 30px;
+  display: grid;
+  gap: 18px;
+}
+
+#library-edition-form p {
+  max-width: 65ch;
+  line-height: 1.6;
+}
+
+#library-edition-form input[type="file"] {
+  max-width: 100%;
+}
+
 .dialog-header {
   position: sticky;
   z-index: 4;

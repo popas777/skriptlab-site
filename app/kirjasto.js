@@ -139,6 +139,8 @@
       "library-detail",
       "detail-back",
       "detail-owner-actions",
+      "detail-edition", "detail-example-visibility", "library-edition-dialog",
+      "library-edition-form", "edition-file", "edition-cover", "edition-notice", "edition-save", "edition-cancel",
       "detail-review",
       "detail-unpublish",
       "detail-delete",
@@ -518,6 +520,7 @@
       progress: normalizeProgress(progressSource),
       ownerId: text(firstValue(source, ["owner_user_id", "owner_id", "user_id", "created_by"], "")),
       canEdit: booleanValue(firstValue(source, ["can_manage", "can_edit", "editable"], false)),
+      canManageExample: booleanValue(source.can_manage_example),
       managedExample,
       shared,
       chapterCount,
@@ -1142,7 +1145,11 @@
     elements["detail-listen"].querySelector("span").textContent = progress.audioPosition > 0 ? "Jatka kuuntelua" : "Kuuntele";
 
     const manageable = canManageWork(work);
-    elements["detail-owner-actions"].hidden = !manageable;
+    const exampleManager = work.canManageExample && canPublish();
+    elements["detail-owner-actions"].hidden = !(manageable || exampleManager);
+    elements["detail-edition"].hidden = !manageable;
+    elements["detail-example-visibility"].hidden = !exampleManager;
+    elements["detail-example-visibility"].textContent = work.status === "published" ? "Piilota esimerkkiteos" : "Palauta esimerkki kirjastoon";
     elements["detail-review"].hidden = !(manageable && work.status === "draft");
     elements["detail-unpublish"].hidden = !(manageable && work.status === "published");
     elements["detail-delete"].hidden = !(manageable && work.status === "draft");
@@ -1208,6 +1215,59 @@
       showNotice(errorMessage(error, "Luonnoksen poistaminen epäonnistui."));
     } finally {
       elements["detail-delete"].disabled = false;
+    }
+  }
+
+  function openEditionDialog() {
+    if (!canManageWork(state.selectedWork)) return;
+    elements["library-edition-form"].reset();
+    elements["edition-notice"].textContent = "";
+    elements["library-edition-dialog"].showModal();
+  }
+
+  async function saveEdition(event) {
+    event.preventDefault();
+    const work = state.selectedWork;
+    const file = elements["edition-file"].files[0];
+    if (!canManageWork(work) || !file || elements["edition-save"].disabled) return;
+    const form = new FormData();
+    form.append("file", file);
+    form.append("expected_checksum", work.raw.content_checksum || "");
+    const cover = elements["edition-cover"].files[0];
+    if (cover) form.append("cover", cover);
+    elements["edition-save"].disabled = true;
+    elements["edition-cancel"].disabled = true;
+    elements["edition-notice"].textContent = "Tallennetaan uutta versiota…";
+    try {
+      const payload = await requestJson(`${API_ROOT}/works/${encodeURIComponent(work.id)}/edition`, { method: "POST", body: form });
+      state.selectedWork = mergeWork(work, unwrapWork(payload));
+      elements["library-edition-dialog"].close();
+      renderDetail(state.selectedWork);
+      await loadWorks({ silent: true });
+      showNotice(`“${work.title}” päivitettiin. Teoksen kirjastotunnus säilyi samana.`);
+    } catch (error) {
+      elements["edition-notice"].textContent = errorMessage(error, "Version päivitys epäonnistui. Aiempi versio säilyy käytössä.");
+    } finally {
+      elements["edition-save"].disabled = false;
+      elements["edition-cancel"].disabled = false;
+    }
+  }
+
+  async function toggleExampleVisibility() {
+    const work = state.selectedWork;
+    if (!work?.canManageExample || !canPublish()) return;
+    const visible = work.status !== "published";
+    elements["detail-example-visibility"].disabled = true;
+    try {
+      await requestJson(`${API_ROOT}/works/${encodeURIComponent(work.id)}/example-visibility`, { method: "POST", body: JSON.stringify({ visible }) });
+      closeDetail(false);
+      state.selectedWork = null;
+      await loadWorks({ silent: true });
+      showNotice(visible ? "Esimerkkiteos palautettiin kirjastoon." : "Esimerkkiteos piilotettiin. Ylläpitäjä voi palauttaa sen Omat teokset -näkymästä.");
+    } catch (error) {
+      showNotice(errorMessage(error, "Esimerkkiteoksen näkyvyyden muuttaminen epäonnistui."));
+    } finally {
+      elements["detail-example-visibility"].disabled = false;
     }
   }
 
@@ -2140,6 +2200,8 @@
 
   function resetAddForm() {
     elements["library-add-form"].reset();
+    elements["add-work-title"].textContent = "Lisää teos";
+    elements["add-work-description"].textContent = "Tuo valmis teksti tai julkaise SkriptLab-projekti kirjastoon.";
     state.draftWork = null;
     state.reviewThemes = [];
     state.addBusy = false;
@@ -2526,6 +2588,10 @@
         }),
       });
       const published = normalizeWork(unwrapWork(payload));
+      if (state.selectedWork?.id === published.id) {
+        state.selectedWork = mergeWork(state.selectedWork, published);
+        renderDetail(state.selectedWork);
+      }
       closeAddDialog();
       showNotice(`“${published.title || work.title}” julkaistiin kirjastoon.`);
       await loadWorks({ silent: true });
@@ -2724,6 +2790,11 @@
     });
 
     elements["detail-back"].addEventListener("click", () => closeDetail());
+    elements["detail-edition"].addEventListener("click", openEditionDialog);
+    elements["detail-example-visibility"].addEventListener("click", toggleExampleVisibility);
+    elements["library-edition-form"].addEventListener("submit", saveEdition);
+    elements["edition-cancel"].addEventListener("click", () => elements["library-edition-dialog"].close());
+    elements["library-edition-dialog"].addEventListener("cancel", (event) => { if (elements["edition-save"].disabled) event.preventDefault(); });
     elements["detail-read"].addEventListener("click", () => openReader());
     elements["reader-format"].addEventListener("change", () => void setReaderFormat(elements["reader-format"].value));
     elements["audio-track-select"].addEventListener("change", () => selectAudioTrack(Number(elements["audio-track-select"].value)));
