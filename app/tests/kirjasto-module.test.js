@@ -47,15 +47,14 @@ test('catalog pages and facets come from the server and load-more preserves resu
   assert.match(js, /params\.set\("after", state\.nextCursor\)/);
   assert.match(js, /payload\?\.total/);
   assert.match(js, /payload\.facets\.themes/);
-  assert.match(js, /requestJson\(`\$\{API_ROOT\}\/works\?scope=continue&limit=1`/);
+  assert.match(js, /requestJson\(`\$\{API_ROOT\}\/works\?scope=continue&limit=6`/);
   assert.match(js, /\.\.\.state\.works, \.\.\.works\.filter/);
   assert.match(js, /append: error\.status !== 422/);
 });
 
-test('cards expose descriptions and direct actions, and the reader can search and change chapters', () => {
+test('cards expose descriptions and primary actions, and the reader can search and change chapters', () => {
   assert.match(js, /description\.textContent = work\.description/);
-  assert.match(js, /read\.addEventListener\("click", \(\) => openReader\(work\)\)/);
-  assert.match(js, /listen\.addEventListener\("click", \(\) => startAudio\(work, true\)\)/);
+  assert.match(js, /title\.append\(createWorkPrimaryAction\(work\)\)/);
   for (const id of ['reader-search-form', 'reader-search-results', 'reader-next-chapter', 'reader-previous-chapter']) expectId(id);
   assert.match(js, /renderChapter\(chapterIndex, \{ paragraphIndex, focus: true \}\)/);
   assert.match(js, /sequence !== state\.readerSequence/);
@@ -370,4 +369,28 @@ test('Library can shrink into the shell mobile simulator at a 300px iframe width
   assert.match(css, /body\s*{[^}]*min-width:\s*0/);
   assert.doesNotMatch(css, /(?:html|body)\s*{[^}]*min-width:\s*320px/);
   assert.match(css, /\.mobile-library-nav\s*{[^}]*grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/);
+});
+
+
+test('book cards open unread and draft details, but resume the saved reading or audio mode', () => {
+  const context = {window: {}, document: {readyState: 'loading', addEventListener() {}}};
+  require('node:vm').runInNewContext(js, context);
+  const {workPrimaryAction, normalizeWork} = context.window.SkriptLabLibrary;
+  const work = normalizeWork({id: 7, status: 'published', has_text: true, has_audio: true});
+  assert.equal(workPrimaryAction(work), 'detail');
+  work.progress.percent = 0.5;
+  assert.equal(workPrimaryAction(work), 'read');
+  work.progress.media = 'audio';
+  assert.equal(workPrimaryAction(work), 'audio');
+  work.status = 'draft';
+  assert.equal(workPrimaryAction(work), 'detail');
+  work.status = 'published';
+  work.progress.percent = 0;
+  work.progress.updatedAt = '2026-09-21T12:00:00Z';
+  work.progress.media = 'pdf';
+  assert.equal(workPrimaryAction(work), 'read');
+  work.hasText = false;
+  assert.equal(workPrimaryAction(work), 'audio');
+  work.hasAudio = false;
+  assert.equal(workPrimaryAction(work), 'detail');
 });

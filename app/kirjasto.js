@@ -2,6 +2,7 @@
   "use strict";
 
   const API_ROOT = "/api/library";
+  const CATALOG_VIEW_KEY = "skriptlab_library_catalog_view_v1";
   const READER_SETTINGS_KEY = "skriptlab_library_reader_settings_v1";
   const PROGRESS_KEY_PREFIX = "skriptlab_library_progress_v1";
   const AUTH_TOKEN_KEY = "skriptlab_auth_token";
@@ -23,7 +24,8 @@
     sort: "newest",
     total: 0,
     nextCursor: null,
-    continuation: null,
+    continuations: [],
+    catalogView: "cards",
     readerSequence: 0,
     browserScroll: 0,
     works: [],
@@ -134,6 +136,7 @@
       "library-results-description",
       "library-result-count",
       "library-work-grid",
+      "library-view-options",
       "library-empty",
       "library-empty-title",
       "library-empty-copy",
@@ -635,14 +638,45 @@
       || (work.progress.audioPosition > 0 && (!work.progress.audioDuration || work.progress.audioPosition < work.progress.audioDuration));
   }
 
-  function renderContinueCard(work) {
-    const host = elements["library-continue-card"];
-    host.replaceChildren();
-    if (!work) {
-      elements["library-continue-section"].hidden = true;
-      return;
-    }
+  function workPrimaryAction(work) {
+    const progress = work.progress || {};
+    const started = Boolean(progress.updatedAt || progress.percent > 0 || progress.audioPosition > 0
+      || progress.chapterId || progress.chapterIndex > 0 || progress.pdfPage > 1);
+    if (work.status === "draft" || !started) return "detail";
+    if (work.hasAudio && (progress.media === "audio" || !work.hasText)) return "audio";
+    return work.hasText ? "read" : "detail";
+  }
 
+  function createWorkPrimaryAction(work) {
+    const action = workPrimaryAction(work);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "work-primary-action";
+    button.textContent = work.title;
+    const label = action === "detail" ? "Avaa esittely" : action === "audio" ? "Jatka kuuntelua" : "Jatka lukemista";
+    button.setAttribute("aria-label", `${label}: ${work.title}, ${work.author}`);
+    button.addEventListener("click", () => {
+      if (action === "audio") startAudio(work, true);
+      else if (action === "read") openReader(work);
+      else openDetail(work.id);
+    });
+    return button;
+  }
+
+  function appendDetailAction(article, work) {
+    if (workPrimaryAction(work) === "detail") return;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "work-detail-action";
+    button.title = "Esittely";
+    button.setAttribute("aria-label", `Avaa esittely: ${work.title}, ${work.author}`);
+    button.append(makeIcon("info"));
+    button.addEventListener("click", () => openDetail(work.id));
+    article.classList.add("has-detail-action");
+    article.append(button);
+  }
+
+  function createContinueCard(work) {
     const article = document.createElement("article");
     article.className = "continue-work";
 
@@ -653,13 +687,9 @@
     const info = document.createElement("div");
     info.className = "continue-info";
     const title = document.createElement("h3");
-    title.textContent = work.title;
+    title.append(createWorkPrimaryAction(work));
     const author = document.createElement("p");
     author.textContent = work.author;
-    const icons = document.createElement("div");
-    icons.className = "media-icons";
-    icons.setAttribute("aria-label", "Saatavilla olevat muodot");
-    appendMediaIcons(icons, work);
     const progressCopy = document.createElement("p");
     progressCopy.className = "continue-progress-copy";
     progressCopy.textContent = work.progress.media === "audio" && work.progress.audioPosition > 0
@@ -674,31 +704,27 @@
     const fill = document.createElement("span");
     fill.style.width = `${work.progress.percent}%`;
     track.append(fill);
-    info.append(title, author, icons, progressCopy, track);
+    info.append(title, author, progressCopy, track);
 
-    const actions = document.createElement("div");
-    actions.className = "continue-actions";
-    const resume = document.createElement("button");
-    resume.type = "button";
-    resume.className = "primary-action";
-    const resumeAudio = work.hasAudio && (work.progress.media === "audio" || !work.hasText);
-    resume.textContent = resumeAudio ? "Jatka kuuntelua" : "Jatka lukemista";
-    resume.addEventListener("click", () => resumeAudio ? startAudio(work, true) : openReader(work));
-    actions.append(resume);
+    article.append(cover, info);
+    appendDetailAction(article, work);
+    return article;
+  }
 
-    if (work.hasAudio && work.hasText) {
-      const play = document.createElement("button");
-      play.type = "button";
-      play.className = "continue-play";
-      play.setAttribute("aria-label", `Kuuntele ${work.title}`);
-      play.append(makeIcon("play"));
-      play.addEventListener("click", () => startAudio(work, true));
-      actions.append(play);
+  function renderContinueCards(works) {
+    elements["library-continue-card"].replaceChildren(...works.map(createContinueCard));
+    elements["library-continue-section"].hidden = !works.length;
+  }
+
+  function setCatalogView(view, persist = true) {
+    state.catalogView = ["cards", "compact", "list"].includes(view) ? view : "cards";
+    elements["library-work-grid"].dataset.view = state.catalogView;
+    elements["library-view-options"].querySelectorAll("[data-catalog-view]").forEach((button) => {
+      button.setAttribute("aria-pressed", String(button.dataset.catalogView === state.catalogView));
+    });
+    if (persist) {
+      try { localStorage.setItem(CATALOG_VIEW_KEY, state.catalogView); } catch (_error) { /* Storage is optional. */ }
     }
-
-    article.append(cover, info, actions);
-    host.append(article);
-    elements["library-continue-section"].hidden = false;
   }
 
   function workStatusLabel(work) {
@@ -734,7 +760,7 @@
     const copy = document.createElement("div");
     copy.className = "work-card-copy";
     const title = document.createElement("h3");
-    title.textContent = work.title;
+    title.append(createWorkPrimaryAction(work));
     const author = document.createElement("p");
     author.className = "work-author";
     author.textContent = work.author;
@@ -762,36 +788,8 @@
       copy.append(themeNode);
     }
 
-    const open = document.createElement("button");
-    open.type = "button";
-    open.className = "work-card-open";
-    open.textContent = "Esittely";
-    open.setAttribute("aria-label", `Avaa esittely: ${work.title}, ${work.author}`);
-    open.addEventListener("click", () => openDetail(work.id));
-    const actions = document.createElement("div");
-    actions.className = "work-card-actions";
-    actions.append(open);
-    if (work.status !== "draft") {
-      if (work.hasText) {
-        const read = document.createElement("button");
-        read.type = "button";
-        read.className = "card-read";
-        read.append(makeIcon("book-open"), document.createTextNode(work.progress.percent > 0 ? "Jatka" : "Lue"));
-        read.setAttribute("aria-label", `Lue: ${work.title}`);
-        read.addEventListener("click", () => openReader(work));
-        actions.append(read);
-      }
-      if (work.hasAudio) {
-        const listen = document.createElement("button");
-        listen.type = "button";
-        listen.append(makeIcon("headphones"), document.createTextNode("Kuuntele"));
-        listen.setAttribute("aria-label", `Kuuntele: ${work.title}`);
-        listen.addEventListener("click", () => startAudio(work, true));
-        actions.append(listen);
-      }
-    }
-    copy.append(actions);
     article.append(cover, copy);
+    appendDetailAction(article, work);
 
     if (work.progress.percent > 0) {
       const progress = document.createElement("div");
@@ -858,8 +856,8 @@
   }
 
   function renderWorks() {
-    const continuation = state.scope === "all" && !hasFilters() ? state.continuation : null;
-    renderContinueCard(continuation);
+    const continuations = state.scope === "all" && !hasFilters() ? state.continuations : [];
+    renderContinueCards(continuations);
 
     const visibleWorks = state.works;
     elements["library-results-title"].textContent = resultsHeading(state.scope);
@@ -868,8 +866,8 @@
     elements["library-results-description"].hidden = !description;
     elements["library-result-count"].textContent = `${state.total} ${state.total === 1 ? "teos" : "teosta"}`;
     elements["library-work-grid"].replaceChildren(...visibleWorks.map(createWorkCard));
-    renderEmptyState(visibleWorks, continuation);
-    elements["library-results"].hidden = visibleWorks.length === 0 && Boolean(continuation);
+    renderEmptyState(visibleWorks, continuations.length > 0);
+    elements["library-results"].hidden = visibleWorks.length === 0 && continuations.length > 0;
     elements["library-pagination"].hidden = !state.works.length;
     elements["library-page-summary"].textContent = `Näytetään ${state.works.length} / ${state.total} teosta`;
     elements["library-load-more"].hidden = !state.nextCursor;
@@ -952,7 +950,7 @@
     elements["library-load-more"].textContent = "Ladataan…";
     if (!append) {
       state.works = [];
-      state.continuation = null;
+      state.continuations = [];
       state.nextCursor = null;
       elements["library-work-grid"].replaceChildren();
       elements["library-continue-section"].hidden = true;
@@ -968,7 +966,7 @@
       const [payload, continued] = await Promise.all([
         requestJson(`${API_ROOT}/works?${params.toString()}`, { signal }),
         !append && state.scope === "all" && !hasFilters()
-          ? requestJson(`${API_ROOT}/works?scope=continue&limit=1`, { signal }).catch(() => [])
+          ? requestJson(`${API_ROOT}/works?scope=continue&limit=6`, { signal }).catch(() => [])
           : Promise.resolve(null),
       ]);
       if (sequence !== state.listSequence) return;
@@ -976,7 +974,7 @@
       state.works = append ? [...state.works, ...works.filter((work) => !state.works.some((old) => old.id === work.id))] : works;
       state.total = finiteNumber(payload?.total, state.works.length);
       state.nextCursor = payload?.next_cursor || null;
-      if (continued) state.continuation = unwrapWorks(continued).map(normalizeWork).find(workMatchesContinue) || null;
+      if (continued) state.continuations = unwrapWorks(continued).map(normalizeWork).filter(workMatchesContinue);
       if (payload?.facets) {
         state.availableThemes = new Map(payload.facets.themes.map((theme) => [theme.value, theme.label]));
         const languages = [new Option("Kaikki kielet", ""), ...payload.facets.languages.map((code) => new Option(languageLabel(code), code))];
@@ -1200,7 +1198,7 @@
     document.body.classList.remove("is-detail");
     window.scrollTo(0, state.browserScroll);
     if (restoreFocus && workId) {
-      document.querySelector(`[data-work-id="${CSS.escape(workId)}"] .work-card-open`)?.focus({ preventScroll: true });
+      document.querySelector(`[data-work-id="${CSS.escape(workId)}"] .work-primary-action`)?.focus({ preventScroll: true });
     }
   }
 
@@ -1414,8 +1412,8 @@
     const localProgress = readLocalProgress(workId);
     if (work) {
       work.progress = localProgress;
-      if (workMatchesContinue(work)) state.continuation = work;
-      else if (state.continuation?.id === workId) state.continuation = null;
+      state.continuations = state.continuations.filter((item) => item.id !== workId);
+      if (workMatchesContinue(work)) state.continuations = [work, ...state.continuations].slice(0, 6);
     }
     if (state.selectedWork?.id === workId) state.selectedProgress = localProgress;
     window.clearTimeout(state.progressTimer);
@@ -2886,6 +2884,10 @@
   }
 
   function bindEvents() {
+    elements["library-view-options"].addEventListener("click", (event) => {
+      const button = event.target.closest("[data-catalog-view]");
+      if (button) setCatalogView(button.dataset.catalogView);
+    });
     const compactCatalog = window.matchMedia("(max-width: 600px)");
     const syncAdvancedFilters = () => { elements["library-advanced-filters"].open = !compactCatalog.matches; };
     syncAdvancedFilters();
@@ -3162,6 +3164,9 @@
 
   async function boot() {
     collectElements();
+    let catalogView = "cards";
+    try { catalogView = localStorage.getItem(CATALOG_VIEW_KEY); } catch (_error) { /* Use the default view. */ }
+    setCatalogView(catalogView, false);
     installProgressPrivacyCleanup();
     loadReaderSettings();
     applyReaderSettings();
@@ -3184,6 +3189,7 @@
     refresh: () => loadWorks(),
     openAdd: (options) => openAddDialog(options || {}),
     openWork: (workId) => openDetail(workId),
+    workPrimaryAction,
     normalizeWork,
     normalizeThema,
     normalizeProgress,
