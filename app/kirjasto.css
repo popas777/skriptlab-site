@@ -2945,6 +2945,10 @@ input[type="range"] {
 .results-heading #library-result-count { display: inline; white-space: nowrap; }
 .catalog-pagination { display: grid; justify-items: center; gap: 8px; margin-top: 28px; }
 .catalog-pagination p { margin: 0; color: var(--muted); font-size: 12px; }
+.library-translation-note { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; line-height: 1.75; }
+.library-translation-note p { max-width: 78ch; margin: 0; }
+.library-translation-note p + p { margin-top: 12px; }
+.library-translation-note + .library-invitation { margin-top: 24px; }
 .library-invitation {
   display: flex;
   align-items: center;
