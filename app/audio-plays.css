@@ -1,0 +1,32 @@
+#view-audio .play-heading, #view-audio .play-card-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+#view-audio .play-heading { margin:22px 0 14px; }
+#view-audio .play-heading h3 { margin:5px 0 8px; font-size:1.5rem; }
+#view-audio .play-heading p { margin:0; }
+#view-audio .play-workspace { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); gap:20px; align-items:start; }
+#view-audio .play-workspace .card, #view-audio .play-production-card { min-width:0; padding:24px; }
+#view-audio #audio-plays-panel h4 { margin:0 0 16px; font-size:1.1rem; }
+#view-audio #audio-plays-panel label { display:block; font-size:.9rem; font-weight:600; margin:12px 0 7px; }
+#view-audio #audio-plays-panel textarea, #view-audio #audio-plays-panel select, #view-audio #audio-plays-panel input[type=text] { box-sizing:border-box; width:100%; max-width:100%; padding:11px 12px; background:#fff; border:1px solid #cbd7d1; border-radius:8px; color:#23372e; font:inherit; }
+#view-audio #play-script { min-height:390px; line-height:1.65; resize:vertical; font-family:ui-monospace,monospace; font-size:.88rem; }
+#view-audio .play-actions { display:flex; align-items:end; flex-wrap:wrap; gap:10px; margin:12px 0 16px; }
+#view-audio .play-actions .btn { white-space:normal; }
+#view-audio .play-help { font-size:.88rem; line-height:1.6; margin:12px 0 18px; }
+#view-audio .play-help summary { cursor:pointer; font-weight:600; }
+#view-audio .play-character { border-top:1px solid #dae3de; padding:18px 0; }
+#view-audio .play-character strong { display:block; font-size:1rem; margin-bottom:8px; }
+#view-audio .play-character .btn { margin-top:12px; }
+#view-audio .play-character textarea { min-height:72px; resize:vertical; }
+#view-audio .play-production-card { margin-top:20px; }
+#view-audio .play-take { display:flex; gap:12px; justify-content:space-between; align-items:center; border-top:1px solid #dae3de; padding:15px 0; }
+#view-audio .play-take p { margin:5px 0; overflow-wrap:anywhere; }
+#view-audio .play-take .play-actions { margin:0; }
+#view-audio #play-player { width:100%; margin:16px 0; }
+#view-audio #play-status { min-height:24px; overflow-wrap:anywhere; }
+#view-audio #play-status.is-error { color:#a02e2e; }
+#view-audio #audio-plays-panel :focus-visible { outline:3px solid #38664f; outline-offset:3px; }
+@media (max-width:850px) {
+ #view-audio .play-workspace { grid-template-columns:minmax(0,1fr); }
+ #view-audio .play-heading, #view-audio .play-take { align-items:flex-start; flex-direction:column; }
+ #view-audio .play-workspace .card, #view-audio .play-production-card { padding:16px; }
+ #view-audio #play-script { min-height:320px; }
+}

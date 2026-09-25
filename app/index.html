@@ -6,6 +6,7 @@
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css?v=124">
+    <link rel="stylesheet" href="audio-plays.css?v=1">
     <link rel="stylesheet" href="workflow-studio.css?v=2">
     <link rel="stylesheet" href="correction-reprints.css?v=1">
     <link rel="stylesheet" href="timeline.css?v=1">
@@ -3041,7 +3042,53 @@
                     <button class="audio-workspace-tab" id="audio-preparation-tab" type="button" data-audio-workspace-panel="audio-preparation-panel" role="tab" aria-selected="false" aria-controls="audio-preparation-panel" tabindex="-1">Äänikäsikirjoitus ja tagit</button>
                     <button class="audio-workspace-tab" id="audio-parts-tab" type="button" data-audio-workspace-panel="audio-parts-panel" role="tab" aria-selected="false" aria-controls="audio-parts-panel" tabindex="-1">Muokkaa äänikirjan osia</button>
                     <button class="audio-workspace-tab" id="audio-legacy-tab" type="button" data-audio-workspace-panel="audio-legacy-panel" role="tab" aria-selected="false" aria-controls="audio-legacy-panel" tabindex="-1">Valmistelu ja äänitestit</button>
+                    <button class="audio-workspace-tab" id="audio-plays-tab" type="button" data-audio-workspace-panel="audio-plays-panel" role="tab" aria-selected="false" aria-controls="audio-plays-panel" tabindex="-1">Näytelmät</button>
                 </div>
+
+                <section id="audio-plays-panel" class="audio-workspace-panel hidden" role="tabpanel" aria-labelledby="audio-plays-tab">
+                    <div class="play-heading">
+                        <div><p class="audio-eyebrow">Näytelmät</p><h3>Anna jokaiselle hahmolle oma ääni</h3><p>Kirjoita repliikit, kokeile roolitusta ja kokoa näytelmä kuunneltavaksi.</p></div>
+                        <div class="play-actions"><button type="button" class="btn btn-secondary" id="play-reload">Lataa tallennettu</button><button type="button" class="btn btn-secondary" id="play-save">Tallenna näytelmä</button></div>
+                    </div>
+                    <p id="play-status" role="status" aria-live="polite">Valitse tallennettu käsikirjoitus.</p>
+                    <div class="play-workspace">
+                        <article class="card glass-panel play-script-card">
+                            <div class="play-card-heading"><h4>1. Käsikirjoitus</h4><span id="play-summary" class="card-meta"></span></div>
+                            <div class="play-actions">
+                                <button type="button" class="btn btn-secondary" id="play-import-manuscript">Tuo teoksen teksti</button>
+                                <button type="button" class="btn btn-secondary" id="play-example">Kokeile esimerkkiä</button>
+                                <button type="button" class="btn btn-secondary" id="play-import">Tuo tiedosto</button>
+                                <button type="button" class="btn btn-secondary" id="play-export">Vie luonnos</button>
+                                <input type="file" id="play-file" accept=".txt,.md,.json" hidden>
+                            </div>
+                            <label for="play-script">Näytelmän repliikit ja kohtaukset</label>
+                            <textarea id="play-script" rows="18" maxlength="1000000" spellcheck="false" placeholder="# Ensimmäinen kohtaus&#10;KERTOJA: Ilta laskeutuu.&#10;ANNA [hiljaa]: Kuulitko tuon?&#10;ELIAS: Se oli vain tuuli.&#10;[TAUKO 800]"></textarea>
+                            <details class="play-help"><summary>Käsikirjoituksen merkinnät</summary><p><strong>HAHMO: Repliikki</strong> aloittaa puheen. Jokainen repliikki omalle rivilleen. <strong># Kohtauksen nimi</strong> aloittaa kohtauksen. Hahmojen nimiä ja kohtausotsikoita ei lueta ääneen.</p><p><strong>ANNA [hiljaa]: Hei.</strong> erottaa esitysohjeen puheesta. <strong>[TAUKO 800]</strong> lisää edellisen repliikin jälkeen 800 millisekunnin tauon. Muut <strong>[näyttämöohjeet]</strong> säilyvät muistiinpanoina; kirjoita kuultavaksi tarkoitettu toiminta KERTOJA-repliikeiksi.</p><p>Gemini käyttää hahmon tyyliä ja repliikin esitysohjetta. ElevenLabs v3 käyttää valittua ääntä ja hahmon lyhyitä audiotageja.</p></details>
+                            <button type="button" class="btn btn-secondary" id="play-sync-cast">Päivitä hahmot käsikirjoituksesta</button>
+                        </article>
+                        <article class="card glass-panel play-cast-card">
+                            <h4>2. Roolitus ja äänten kokeilu</h4>
+                            <label for="play-model">Äänipalvelu ja malli</label><select id="play-model"><option value="">Ladataan malleja…</option></select>
+                            <p id="play-model-help" class="card-meta"></p>
+                            <div id="play-cast"><p class="card-meta">Kirjoita repliikit ja päivitä hahmot.</p></div>
+                        </article>
+                    </div>
+                    <article class="card glass-panel play-production-card">
+                        <h4>3. Kuuntele dialogi ja tuota näytelmä</h4>
+                        <div class="play-actions">
+                            <label for="play-scene">Kohtausnäyte<select id="play-scene"><option value="">Ensimmäinen kohtaus</option></select></label>
+                            <button type="button" class="btn btn-secondary" id="play-test-scene">Testaa dialogia</button>
+                            <button type="button" class="btn btn-secondary" id="play-estimate">Laske tuotantoarvio</button>
+                            <button type="button" class="btn btn-primary" id="play-produce">Tuota koko näytelmä</button>
+                        </div>
+                        <p class="card-meta">Dialoginäyte sisältää valitun kohtauksen alusta enintään 8 repliikkiä ja 4 000 merkkiä.</p>
+                        <p id="play-estimate-result" class="card-meta">Äänikokeet ja tuotanto käyttävät tilisi audiokiintiötä. Kokeile ensin hahmoääniä ja lyhyttä dialogia.</p>
+                        <div class="play-card-heading"><h4>Otot ja valmiit äänitteet</h4><button type="button" class="btn btn-secondary" id="play-refresh">Päivitä tila</button></div>
+                        <div id="play-productions"><p class="card-meta">Tämän näytelmän äänikokeet ja tuotannot näkyvät tässä.</p></div>
+                        <audio id="play-player" controls preload="none" class="hidden" aria-label="Näytelmän tai roolin kuuntelu"></audio>
+                        <p class="card-meta">Kooste säilyttää repliikkien järjestyksen ja tauot. Kuuntele tulos ennen julkaisua; kooste ei sisällä äänenvoimakkuuden masterointia.</p>
+                    </article>
+                </section>
 
                 <section id="audio-production-panel" class="audio-workspace-panel" role="tabpanel" aria-labelledby="audio-production-tab">
                     <div class="audio-production-grid">
@@ -4497,7 +4544,8 @@
     <script src="workflow-studio.js?v=5"></script>
     <script src="correction-reprints.js?v=1"></script>
     <script src="demo-terminology.js?v=1"></script>
-    <script src="app.js?v=228"></script>
+    <script src="audio-plays.js?v=1"></script>
+    <script src="app.js?v=229"></script>
     <script src="timeline.js?v=1"></script>
 </body>
 </html>

@@ -19857,6 +19857,8 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             await initializeAudioProductionWorkspace(false);
         } else if (panelId === 'audio-preparation-panel') {
             await initializeAudioScriptPreparation(false);
+        } else if (panelId === 'audio-plays-panel') {
+            await window.SkriptLabAudioPlays?.open();
         } else if (panelId === 'audio-parts-panel') {
             await initializeAudioProductionWorkspace(false);
             await loadAudioProductionParts(false);
@@ -20355,6 +20357,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
     }
 
     function renderAudioView(force = false) {
+        window.SkriptLabAudioPlays?.projectChanged();
         if (!isViewAllowed('view-audio')) return;
         if (currentViewId !== 'view-audio') return;
         const current = document.getElementById('audio-current-project');
