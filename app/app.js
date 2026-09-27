@@ -18206,7 +18206,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 ? showcaseDemoMode
                     ? 'Gemini Batch API. Tavoiteaika enintään 24 tuntia.'
                     : 'Gemini Batch API, noin 50 % normaalihinnasta. Tavoiteaika enintään 24 tuntia.'
-                : 'Valittu äänimalli ei tue Gemini-eräajoa. Valitse Gemini 3.1 Flash TTS tai Gemini 2.5 Pro TTS.';
+                : 'Valittu äänimalli ei tue Gemini-eräajoa. Valitse eräajoa tukeva Gemini TTS -malli tai käytä suoraa ajoa.';
         }
         if (cancelButton) {
             cancelButton.classList.toggle('hidden', !active);
@@ -18698,7 +18698,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             return;
         }
         if (batch && currentAudioProductionModel()?.supports_batch !== true) {
-            setAudioProductionStatus('Valittu äänimalli ei tue eräajoa. Valitse Gemini 3.1 Flash TTS tai Gemini 2.5 Pro TTS.', true);
+            setAudioProductionStatus('Valittu äänimalli ei tue eräajoa. Valitse eräajoa tukeva Gemini TTS -malli tai käytä suoraa ajoa.', true);
             return;
         }
         payload.execution_mode = batch ? 'batch' : 'interactive';
