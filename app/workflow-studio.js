@@ -764,13 +764,13 @@
         function translationModelSupportsBatch(provider, modelName) {
             if (provider !== 'gemini') return false;
             const normalized = String(modelName || '').trim().toLowerCase();
-            return ['gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.7-flash']
-                .some(prefix => normalized.startsWith(prefix));
+            return ['gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-3.8-flash', 'gemini-3.1-pro-preview']
+                .includes(normalized);
         }
 
         function audioModelSupportsBatch(provider, modelName) {
             if (provider !== 'gemini') return false;
-            return ['gemini-3.1-flash-tts-preview', 'gemini-2.5-pro-preview-tts']
+            return ['gemini-3.8-flash-tts', 'gemini-3.1-flash-tts-preview', 'gemini-2.5-pro-preview-tts']
                 .includes(String(modelName || '').trim().toLowerCase());
         }
 

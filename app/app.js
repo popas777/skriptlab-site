@@ -22629,7 +22629,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         return modelName.includes('gemini-3.5-flash-lite')
             || modelName.includes('gemini-3.5-flash')
             || modelName.includes('gemini-3.6-flash')
-            || modelName.includes('gemini-3.7-flash');
+            || modelName === 'gemini-3.7-flash'
+            || modelName === 'gemini-3.8-flash'
+            || modelName === 'gemini-3.1-pro-preview';
     }
 
     function preferredTranslationBatchModelValue(select) {
@@ -22642,7 +22644,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             'gemini-3.5-flash-lite',
             'gemini-3.5-flash',
             'gemini-3.6-flash',
-            'gemini-3.7-flash'
+            'gemini-3.7-flash',
+            'gemini-3.8-flash',
+            'gemini-3.1-pro-preview'
         ];
         for (const preferred of preferences) {
             const match = options.find(option => String(option.value || '').toLowerCase().includes(preferred));
