@@ -1026,6 +1026,30 @@
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function searchCatalog(query) {
+    clearTimeout(state.searchTimer);
+    closeReader();
+    closeDetail(false);
+    state.scope = "all";
+    state.query = text(query).slice(0, 200);
+    state.media = state.theme = state.language = state.length = "";
+    state.sort = "newest";
+    elements["library-search-input"].value = state.query;
+    elements["library-search-clear"].hidden = !state.query;
+    ["theme", "language", "length"].forEach(key => {
+      elements[`library-${key}-filter`].value = "";
+    });
+    elements["library-sort"].value = "newest";
+    document.querySelectorAll("[data-media]").forEach(button => {
+      const selected = button.dataset.media === "";
+      button.classList.toggle("is-active", selected);
+      button.setAttribute("aria-pressed", String(selected));
+    });
+    syncScopeControls();
+    window.scrollTo({ top: 0, behavior: "auto" });
+    return loadWorks();
+  }
+
   function clearFilters() {
     state.query = "";
     state.media = "";
@@ -3181,12 +3205,19 @@
       window.SkriptLabAuth?.requireLogin?.();
       return;
     }
+    const initialQuery = new URLSearchParams(window.location.search).get("q");
+    if (initialQuery) {
+      state.query = text(initialQuery).slice(0, 200);
+      elements["library-search-input"].value = state.query;
+      elements["library-search-clear"].hidden = false;
+    }
     await loadViewer();
     await loadWorks();
   }
 
   window.SkriptLabLibrary = {
     refresh: () => loadWorks(),
+    search: searchCatalog,
     openAdd: (options) => openAddDialog(options || {}),
     openWork: (workId) => openDetail(workId),
     workPrimaryAction,

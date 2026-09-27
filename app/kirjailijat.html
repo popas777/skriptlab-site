@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="fi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#fbfaf7"><title>Kirjailijat – SkriptLab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kirjailijat.css?v=1">
+<script src="auth.js?v=5"></script><script src="kirjailijat.js?v=1" defer></script>
+</head><body>
+<a class="skip-link" href="#content">Siirry sisältöön</a>
+<div class="authors-page">
+<header class="authors-toolbar">
+<a class="directory-link" data-directory href="kirjailijat.html">Kirjailijat</a>
+<form class="author-search" role="search" action="kirjailijat.html">
+<label class="sr-only" for="author-query">Hae kirjailijaa tai teosta</label><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
+<input id="author-query" name="q" type="search" placeholder="Hae kirjailijaa tai teosta" autocomplete="off">
+<button class="clear-search" type="button" aria-label="Tyhjennä haku" hidden>×</button>
+<button class="sr-only" type="submit">Hae</button></form>
+<a class="text-link" data-library-search="" href="kirjasto.html?q=">Kirjastoon <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6"/></svg></a>
+</header>
+<main id="content" tabindex="-1">
+<section class="directory-heading"><h1>Kirjailijat</h1><p>Tutustu tarinoiden tekijöihin. Löydä uusi näkökulma tuttuun teokseen.</p></section>
+<div class="directory-summary"><h2 id="results-title">Kaikki kirjailijat</h2><p><span id="result-count" role="status">3 kirjailijaa</span><span> · Sukunimen mukaan</span></p></div>
+<section id="author-list" aria-labelledby="results-title"><article class="author-row" data-search="ironia ihmissuhteet yhteiskuntaluokka sisaruus rakkaus">
+<img class="directory-portrait" src="kirjailijat/kuvat/jane-austen.jpg" alt="" width="120" height="150">
+<div class="author-row-copy"><h2><a data-profile href="kirjailijat/jane-austen.html">Jane Austen</a></h2>
+<p class="author-meta">1775–1817 · Englanti</p><p>Tarkkoja havaintoja tunteista ja yhteiskunnasta.</p><p class="author-titles">Järki ja tunteet</p></div>
+<a class="text-link row-link" data-profile href="kirjailijat/jane-austen.html" aria-label="Tutustu kirjailijaan: Jane Austen">Tutustu kirjailijaan <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6"/></svg></a></article><article class="author-row" data-search="capek tieteiskirjallisuus robotit satiiri valta vastuu tekniikka">
+<img class="directory-portrait" src="kirjailijat/kuvat/karel-capek.jpg" alt="" width="120" height="150">
+<div class="author-row-copy"><h2><a data-profile href="kirjailijat/karel-capek.html">Karel Čapek</a></h2>
+<p class="author-meta">1890–1938 · Tšekki</p><p>Mitä tapahtuu, kun ihminen unohtaa vastuunsa?</p><p class="author-titles">R.U.R. · Salamanterisota</p></div>
+<a class="text-link row-link" data-profile href="kirjailijat/karel-capek.html" aria-label="Tutustu kirjailijaan: Karel Čapek">Tutustu kirjailijaan <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6"/></svg></a></article><article class="author-row" data-search="joulu köyhyys huumori myötätunto lontoo yhteiskunta">
+<img class="directory-portrait" src="kirjailijat/kuvat/charles-dickens.jpg" alt="" width="120" height="150">
+<div class="author-row-copy"><h2><a data-profile href="kirjailijat/charles-dickens.html">Charles Dickens</a></h2>
+<p class="author-meta">1812–1870 · Englanti</p><p>Suurkaupungin elämää, huumoria ja myötätuntoa.</p><p class="author-titles">Saiturin joulu</p></div>
+<a class="text-link row-link" data-profile href="kirjailijat/charles-dickens.html" aria-label="Tutustu kirjailijaan: Charles Dickens">Tutustu kirjailijaan <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6"/></svg></a></article></section>
+<div id="search-empty" class="search-empty" hidden><h2>Kirjailijaa ei löytynyt</h2><p>Kokeile nimeä, teoksen nimeä tai teemaa, kuten satiiri.</p><button type="button" id="reset-search">Näytä kaikki kirjailijat</button></div>
+<p class="directory-footer">Valitse kirjailija ja aloita tutustuminen.</p>
+</main></div></body></html>

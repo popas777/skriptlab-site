@@ -556,6 +556,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     let knowledgeExtractionProgress = null;
     let pendingWriteEditorChapterId = null;
     let pendingLibraryPublishRequest = null;
+    let pendingLibrarySearchRequest = null;
     let developmentSceneSuggestions = [];
     let developmentSuggestionsProjectId = null;
     const activeMultiCallRuns = new Map();
@@ -803,7 +804,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         'view-kirjoita-editoi', 'view-mobiilieditori', 'view-oikoluku',
         'view-kaannoksen-viimeistely', 'view-kuvitus',
         'view-taitto', 'view-tuotetiedot', 'view-julkaisupaketti',
-        'view-audio', 'view-viimeistely', 'view-kirjasto'
+        'view-audio', 'view-viimeistely', 'view-kirjasto', 'view-kirjailijat'
     ]);
     const accessModuleViews = {
         manuscripts: ['view-kirjani'],
@@ -836,7 +837,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         timeline: ['view-aikajana'],
         versions: ['view-viimeistely'],
         correction_reprints: ['view-korjaukset', 'view-julkaisupaketti'],
-        published_library: ['view-kirjasto']
+        published_library: ['view-kirjasto', 'view-kirjailijat']
     };
     function customAccessViews() {
         if (!Array.isArray(currentUser?.allowed_modules)) return null;
@@ -1552,7 +1553,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function renderTopVersionBadge() {
         const button = document.getElementById('top-version-btn');
         if (!button) return;
-        button.hidden = currentViewId === 'view-kirjasto' || !isViewAllowed('view-viimeistely');
+        button.hidden = currentViewId === 'view-kirjasto' || currentViewId === 'view-kirjailijat' || !isViewAllowed('view-viimeistely');
         if (button.hidden) return;
         const hasProject = Boolean(window.manuscriptData?.id);
         button.disabled = !hasProject;
@@ -5235,17 +5236,21 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const pinnedLibraryItem = canSeeAllModules
             ? availableItems.find(item => item.dataset.view === 'view-kirjasto')
             : null;
+        const pinnedAuthorsItem = pinnedLibraryItem
+            ? availableItems.find(item => item.dataset.view === 'view-kirjailijat')
+            : null;
         const activeItem = availableItems.find(item => item.classList.contains('active'));
         function reserveCollapsedItem(item, protectedItem = null) {
             if (!item || collapsedVisibleItems.has(item)) return;
             const displacedItem = Array.from(collapsedVisibleItems)
                 .reverse()
-                .find(candidate => candidate !== protectedItem);
+                .find(candidate => candidate !== protectedItem && candidate !== pinnedAuthorsItem);
             if (displacedItem) collapsedVisibleItems.delete(displacedItem);
             collapsedVisibleItems.add(item);
         }
         if (!showExpandedMenu) {
             reserveCollapsedItem(pinnedLibraryItem);
+            reserveCollapsedItem(pinnedAuthorsItem, pinnedLibraryItem);
             reserveCollapsedItem(activeItem, pinnedLibraryItem);
         }
         availableItems.forEach(item => {
@@ -5299,6 +5304,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         if (topBookName) {
             if (canonicalViewId(viewId) === 'view-kirjasto') {
                 topBookName.textContent = 'Kirjasto: julkaistut teokset';
+            } else if (canonicalViewId(viewId) === 'view-kirjailijat') {
+                topBookName.textContent = 'Kirjailijat: esittelyt ja teokset';
             } else if (window.manuscriptData) {
                 const title = window.manuscriptData.title || 'Nimetön';
                 const author = window.manuscriptData.author || 'Tuntematon';
@@ -22312,6 +22319,14 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             }
         }
 
+        if (message.type === 'skriptlab:authors-open-library') {
+            const authorsFrame = document.getElementById('kirjailijat-frame');
+            if (event.source !== authorsFrame?.contentWindow || !isViewAllowed('view-kirjasto')) return;
+            pendingLibrarySearchRequest = { query: String(message.query || '').trim().slice(0, 200) };
+            openModule('view-kirjasto');
+            return;
+        }
+
         if (message.type === 'skriptlab:open-library-publish') {
             openLibraryPublishFlow(message);
             return;
@@ -27810,6 +27825,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 frame.dataset.libraryReady = 'true';
                 postLibraryContext();
                 flushLibraryPublishRequest();
+                flushLibrarySearchRequest();
             });
         }
         if (frame.dataset.libraryReady === 'true') return true;
@@ -27843,12 +27859,24 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         return true;
     }
 
+    function flushLibrarySearchRequest() {
+        if (!pendingLibrarySearchRequest) return;
+        const frame = document.getElementById('kirjasto-frame');
+        if (!frame || !libraryFrameIsReady(frame)) return;
+        const search = frame.contentWindow?.SkriptLabLibrary?.search;
+        if (typeof search !== 'function') return;
+        const request = pendingLibrarySearchRequest;
+        pendingLibrarySearchRequest = null;
+        search(request.query);
+    }
+
     function refreshLibraryFrame() {
         const frame = document.getElementById('kirjasto-frame');
         if (!frame) return;
         libraryFrameIsReady(frame);
         postLibraryContext();
         flushLibraryPublishRequest();
+        flushLibrarySearchRequest();
     }
 
     function normalizedLibraryPublishSource(value) {

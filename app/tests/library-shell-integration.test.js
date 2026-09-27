@@ -15,24 +15,25 @@ function numericAssetVersion(source, assetName) {
   return Number(match[1]);
 }
 
-test('Library is the last module after corrections and is mounted in an accessible iframe', () => {
+test('Library follows corrections, then Authors, and is mounted in an accessible iframe', () => {
   const correctionsNav = indexHtml.indexOf('data-view="view-korjaukset"');
   const libraryNav = indexHtml.indexOf('data-view="view-kirjasto"');
   const navEnd = indexHtml.indexOf('</ul>', libraryNav);
   const libraryNavEnd = indexHtml.indexOf('</li>', libraryNav) + '</li>'.length;
   assert.ok(correctionsNav >= 0 && correctionsNav < libraryNav && libraryNav < navEnd);
-  assert.doesNotMatch(indexHtml.slice(libraryNavEnd, navEnd), /data-view=/);
+  assert.match(indexHtml.slice(libraryNavEnd, navEnd), /data-view="view-kirjailijat"/);
+  assert.match(indexHtml, /id="kirjailijat-frame"[\s\S]*?src="kirjailijat\.html\?v=1"/);
 
   assert.match(
     indexHtml,
-    /id=["']view-kirjasto["'][^>]*class=["'][^"']*view-section[^"']*hidden[^"']*["'][\s\S]*?<iframe\b(?=[^>]*id=["']kirjasto-frame["'])(?=[^>]*class=["']kirjasto-frame["'])(?=[^>]*src=["']kirjasto\.html\?v=8["'])(?=[^>]*title=["']Julkaistujen teosten kirjasto["'])/
+    /id=["']view-kirjasto["'][^>]*class=["'][^"']*view-section[^"']*hidden[^"']*["'][\s\S]*?<iframe\b(?=[^>]*id=["']kirjasto-frame["'])(?=[^>]*class=["']kirjasto-frame["'])(?=[^>]*src=["']kirjasto\.html\?v=9["'])(?=[^>]*title=["']Julkaistujen teosten kirjasto["'])/
   );
   assert.match(indexHtml, /id=["']kirjasto-frame["'][\s\S]*?loading=["']lazy["']/);
 });
 
 test('Library access is limited to full-workspace roles or an explicitly allowed access module', () => {
   assert.match(appJs, /const\s+fullWorkspaceRoles\s*=\s*new Set\(\[['"]admin['"],\s*['"]test_user['"]\]\)/);
-  assert.match(appJs, /published_library:\s*\[['"]view-kirjasto['"]\]/);
+  assert.match(appJs, /published_library:\s*\[['"]view-kirjasto['"],\s*['"]view-kirjailijat['"]\]/);
 
   const writerViews = appJs.match(/const\s+writerViews\s*=\s*new Set\(\[([^\]]+)\]\)/);
   const biographyViews = appJs.match(/const\s+biographyViews\s*=\s*new Set\(\[([^\]]+)\]\)/);
@@ -100,7 +101,7 @@ test('Library gets an independent top-bar context and a responsive full-height f
 });
 
 test('Shell assets use the current cache versions', () => {
-  assert.equal(numericAssetVersion(indexHtml, 'styles.css'), 124);
-  assert.equal(numericAssetVersion(indexHtml, 'app.js'), 229);
-  assert.equal(numericAssetVersion(indexHtml, 'kirjasto.html'), 8);
+  assert.equal(numericAssetVersion(indexHtml, 'styles.css'), 125);
+  assert.equal(numericAssetVersion(indexHtml, 'app.js'), 230);
+  assert.equal(numericAssetVersion(indexHtml, 'kirjasto.html'), 9);
 });

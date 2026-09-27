@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkriptLab MVP</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=124">
+    <link rel="stylesheet" href="styles.css?v=125">
     <link rel="stylesheet" href="audio-plays.css?v=1">
     <link rel="stylesheet" href="workflow-studio.css?v=2">
     <link rel="stylesheet" href="correction-reprints.css?v=1">
@@ -266,6 +266,7 @@
                     <li data-view="view-viimeistely">Versiot</li>
                     <li data-view="view-korjaukset">Korjaukset ja uusintapainokset</li>
                     <li data-view="view-kirjasto">Kirjasto</li>
+                    <li data-view="view-kirjailijat">Kirjailijat</li>
                 </ul>
                 <button class="sidebar-more-button" id="nav-show-more" type="button" aria-controls="nav-menu" aria-expanded="false" hidden>
                     <span>Näytä lisää</span>
@@ -1886,12 +1887,18 @@
                 <iframe
                     id="kirjasto-frame"
                     class="kirjasto-frame"
-                    src="kirjasto.html?v=8"
+                    src="kirjasto.html?v=9"
                     title="Julkaistujen teosten kirjasto"
                     allow="fullscreen"
                     allowfullscreen
                     loading="lazy"
                 ></iframe>
+            </div>
+
+            <div id="view-kirjailijat" class="view-section hidden">
+                <iframe id="kirjailijat-frame" class="kirjasto-frame"
+                    src="kirjailijat.html?v=1" title="Kirjailijat ja heidän teoksensa"
+                    loading="lazy"></iframe>
             </div>
 
             <!-- 5.2 VIEW: OIKOLUKU -->
@@ -4545,7 +4552,7 @@
     <script src="correction-reprints.js?v=1"></script>
     <script src="demo-terminology.js?v=1"></script>
     <script src="audio-plays.js?v=1"></script>
-    <script src="app.js?v=229"></script>
+    <script src="app.js?v=230"></script>
     <script src="timeline.js?v=1"></script>
 </body>
 </html>

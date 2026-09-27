@@ -5093,7 +5093,8 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
     }
 }
 
-#view-kirjasto {
+#view-kirjasto,
+#view-kirjailijat {
     min-height: 0;
 }
 
