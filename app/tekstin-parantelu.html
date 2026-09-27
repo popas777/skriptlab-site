@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tekstin parantelu · SkriptLab</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="tekstin-parantelu.css?v=2">
+    <link rel="stylesheet" href="tekstin-parantelu.css?v=3">
     <link rel="stylesheet" href="text-model-settings.css?v=1">
 <link rel="stylesheet" href="book-access.css?v=2">
-<script src="book-access.js?v=5"></script>
+<script src="book-access.js?v=6"></script>
 <script src="book-workflow.js?v=5" defer></script>
 </head>
 <body>
@@ -163,6 +163,18 @@
                         </div>
                     </header>
 
+                    <section id="ti-translation-scope-controls" class="ti-translation-scope-controls" hidden>
+                        <label class="ti-field" for="ti-translation-scope">
+                            <span>Parannettava alue</span>
+                            <select id="ti-translation-scope">
+                                <option value="selection">Valittu tekstikohta</option>
+                                <option value="chapter">Nykyinen luku</option>
+                                <option value="book">Koko teos</option>
+                            </select>
+                        </label>
+                        <p id="ti-translation-scope-help"></p>
+                    </section>
+
                     <section id="ti-keyboard-selection" class="ti-keyboard-selection" aria-labelledby="ti-keyboard-selection-label">
                         <label for="ti-keyboard-selection-text">
                             <span id="ti-keyboard-selection-label">Tarkka näppäimistövalinta</span>
@@ -182,7 +194,7 @@
                     </section>
 
                     <label class="ti-field" for="ti-instructions">
-                        <span>Lisäohje</span>
+                        <span>Paranteluohje (prompti)</span>
                         <textarea
                             id="ti-instructions"
                             rows="3"
@@ -191,6 +203,25 @@
                         ></textarea>
                         <small><span id="ti-instructions-count">0</span> / 4000</small>
                     </label>
+
+                    <section id="ti-translation-run-controls" class="ti-translation-scope-controls" hidden>
+                        <label class="ti-field" for="ti-translation-execution">
+                            <span>Käsittelytapa</span>
+                            <select id="ti-translation-execution">
+                                <option value="interactive">Heti, osa kerrallaan</option>
+                                <option value="batch">Eräajo taustalla</option>
+                            </select>
+                        </label>
+                        <p id="ti-translation-execution-help">Pidä näkymä auki käsittelyn ajan. Jokainen valmis ehdotus tallennetaan.</p>
+                        <label class="ti-repeat-control"><input id="ti-translation-repeat" type="checkbox"> Luo uudet ehdotukset myös aiemmin käsiteltyihin osiin</label>
+                        <button id="ti-translation-run" class="ti-button ti-button-primary" type="button">Paranna koko luku</button>
+                        <button id="ti-translation-stop" class="ti-button ti-button-secondary" type="button" hidden>Pysäytä tämän osan jälkeen</button>
+                    </section>
+                    <section id="ti-translation-results" class="ti-translation-scope-controls" hidden>
+                        <p id="ti-translation-progress" role="status" aria-live="polite"></p>
+                        <button id="ti-translation-refresh" class="ti-button ti-button-secondary" type="button">Päivitä tilanne</button>
+                        <button id="ti-translation-review" class="ti-button ti-button-secondary" type="button">Avaa seuraava ehdotus</button>
+                    </section>
 
                     <button id="ti-generate" class="ti-button ti-button-primary ti-generate-button" type="button" disabled>
                         <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m12 3 1.35 4.15L17.5 8.5l-4.15 1.35L12 14l-1.35-4.15L6.5 8.5l4.15-1.35z"></path><path d="m18.5 14 .75 2.25 2.25.75-2.25.75L18.5 20l-.75-2.25L15.5 17l2.25-.75z"></path></svg>
@@ -268,6 +299,6 @@
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=5"></script>
     <script src="text-model-settings.js?v=1"></script>
-    <script src="tekstin-parantelu.js?v=5"></script>
+    <script src="tekstin-parantelu.js?v=6"></script>
 </body>
 </html>

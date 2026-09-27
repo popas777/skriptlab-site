@@ -27976,7 +27976,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         const projectId = window.manuscriptData?.id || localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || '';
         if (projectId) params.set('project', projectId);
         params.set('r', embeddedProjectRevision());
-        params.set('v', '7');
+        params.set('v', '8');
         const reloaded = updateEmbeddedModuleFrame(frame, 'tekstin-parantelu.html', params);
         if (!reloaded && frame.contentWindow) {
             frame.contentWindow.postMessage({

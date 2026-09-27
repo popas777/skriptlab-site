@@ -580,3 +580,30 @@ test('workspace collapses responsively without losing the aligned translation co
   assert.match(mobile, /\.ti-target-column\s*\{[\s\S]*?border-top:/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
 });
+
+test('translation scope includes every chapter chunk without confusing raw indexes or repeated titles', () => {
+  const helpers = sourceBetween(js, 'function translationChapterKeys(item)', 'function pendingImprovements()');
+  const context = { sourceTextForChunk: chunk => chunk.source_text || '' };
+  vm.runInNewContext(`${helpers}\nObject.assign(globalThis, { improvementScopeIndexes, improvementAlreadyGenerated });`, context);
+  const item = { chunk_details: [
+    { book_location: { primary_chapter: { id: 'a', title: 'I' } } },
+    { book_location: { primary_chapter: { id: 'a', title: 'I' } } },
+    { book_location: { primary_chapter: { id: 'b', title: 'I' } } },
+  ] };
+  assert.deepEqual(Array.from(context.improvementScopeIndexes(item, 'chapter', 1)), [0, 1]);
+  assert.deepEqual(Array.from(context.improvementScopeIndexes(item, 'chapter', 2)), [2]);
+  assert.deepEqual(Array.from(context.improvementScopeIndexes(item, 'book', 2)), [0, 1, 2]);
+  const imported = { chunk_details: [
+    { imported: true, source_text: '# First chapter\n\nStart' },
+    { imported: true, source_text: 'Continuation.' },
+    { imported: true, source_text: '# Second chapter\n\nStart' },
+  ] };
+  assert.deepEqual(Array.from(context.improvementScopeIndexes(imported, 'chapter', 1)), [0, 1]);
+  assert.deepEqual(Array.from(context.improvementScopeIndexes({chunk_details: [{}]}, 'chapter', 0)), []);
+  const chunk = { translation: 'Original', improvement: { status: 'pending', checked_translation: 'Better', original_translation: 'Original', instructions: 'Keep voice', model: 'test:model' } };
+  assert.equal(context.improvementAlreadyGenerated(chunk, 'Keep voice', 'test:model'), true);
+  assert.equal(context.improvementAlreadyGenerated(chunk, 'Change rhythm', 'test:model'), false);
+  assert.equal(context.improvementAlreadyGenerated(chunk, 'Keep voice', 'other:model'), false);
+  chunk.translation = 'Manually edited';
+  assert.equal(context.improvementAlreadyGenerated(chunk, 'Keep voice', 'test:model'), false);
+});

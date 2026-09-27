@@ -47,9 +47,15 @@
         projectLoadRevision: 0,
         translationLoadRevision: 0,
         scrollSyncing: false,
+        improvementRunning: false,
+        improvementStop: false,
+        improvementJob: null,
+        improvementMessage: "",
+        improvementRefreshRevision: 0,
     };
 
     let toastTimer = null;
+    let improvementPollTimer = null;
 
     function authToken() {
         return localStorage.getItem("skriptlab_auth_token") || "";
@@ -101,7 +107,8 @@
 
         const controller = new AbortController();
         const longRequest = path === "/proofread/improve-selection";
-        const timeout = window.setTimeout(() => controller.abort(), longRequest ? 180000 : 45000);
+        const chunkCheck = /\/chunks\/\d+\/check$/.test(path);
+        const timeout = window.setTimeout(() => controller.abort(), chunkCheck ? 720000 : (longRequest ? 180000 : 45000));
         if (!requestOptions.signal) requestOptions.signal = controller.signal;
 
         try {
@@ -808,6 +815,7 @@
         $("ti-accept").disabled = state.busy || !state.suggestion || !editedSuggestion;
         $("ti-reject").disabled = state.busy || !state.suggestion;
         updateKeyboardSelectionStatus();
+        renderImprovementControls();
     }
 
     function keyboardSelectionParagraph() {
@@ -1147,6 +1155,7 @@
                 || state.translations.find((item) => translationChunks(item).length)
                 || state.translations[0]
                 || null;
+            restoreImprovementSettings();
             populateTranslationSelect();
             renderMode();
         } catch (error) {
@@ -1226,6 +1235,7 @@
                 || String(state.project?.id || "") !== requestedProjectId
             ) return;
             state.translation = translation;
+            restoreImprovementSettings();
             const index = state.translations.findIndex((item) => String(item.id) === String(translation.id));
             if (index >= 0) state.translations[index] = translation;
             else state.translations.unshift(translation);
@@ -1251,6 +1261,7 @@
     }
 
     async function setMode(mode, focusTab) {
+        if (state.improvementRunning) return;
     if (mode === "translation" && typeof window !== "undefined" && window.SkriptLabBookAccess && !window.SkriptLabBookAccess.guardTab("translation.run")) return;
         const next = mode === "translation" ? "translation" : "normal";
         if (next === "translation" && !state.canUseTranslations) {
@@ -1766,6 +1777,10 @@
     }
 
     async function acceptTranslationSuggestion(suggestion) {
+        if (suggestion.improvement) {
+            await decideImprovement(suggestion, "accepted");
+            return;
+        }
         if (!suggestion.translationId) throw new Error("Käännöstä ei ole valittu.");
         const latest = await api("/translations/" + encodeURIComponent(suggestion.translationId));
         const rawChunks = Array.isArray(latest?.chunk_details) ? latest.chunk_details : [];
@@ -1860,6 +1875,20 @@
 
     async function rejectSuggestion() {
         if (!state.suggestion) return;
+        if (state.suggestion.improvement) {
+            setBusy(true, "Tallennetaan ehdotuksen hylkäys…");
+            try {
+                await decideImprovement(state.suggestion, "rejected");
+                clearSuggestion();
+                renderMode();
+                setStatus("Ehdotus hylätty · alkuperäinen teksti säilyi");
+            } catch (error) {
+                toast(error.message);
+            } finally {
+                setBusy(false);
+            }
+            return;
+        }
         const suggestion = state.suggestion;
         let chapterProgress = { inRun: false, hasMore: false };
         if (suggestion.chapterRun) {
@@ -2018,7 +2047,255 @@
         });
     }
 
+    // Use chapter identity, never the visible segment number, to include every part of a chapter.
+    function translationChapterKeys(item) {
+        let importedChapter = null;
+        return (item?.chunk_details || []).map((chunk, index) => {
+            if (chunk.imported) {
+                const heading = sourceTextForChunk(chunk).match(/^\s{0,3}#{1,4}\s+(.+)$/m);
+                if (heading) importedChapter = "import:" + index;
+                return importedChapter;
+            }
+            const primary = chunk.book_location?.primary_chapter || {};
+            const id = primary.id || chunk.chapter_id;
+            const number = primary.index ?? chunk.chapter_index;
+            return id ? "id:" + id : (number != null ? "index:" + number : null);
+        });
+    }
+
+    function improvementScopeIndexes(item, scope, rawIndex) {
+        const chunks = item?.chunk_details || [];
+        if (scope === "book") return chunks.map((_, index) => index);
+        const keys = translationChapterKeys(item);
+        const key = keys[rawIndex];
+        if (!key) return [];
+        // Legacy chunks crossing a chapter boundary cannot safely be assigned to one chapter.
+        if (chunks.some((chunk, index) => keys[index] === key && (chunk.book_location?.chapters || []).length > 1)) return [];
+        return keys.flatMap((value, index) => value === key ? [index] : []);
+    }
+
+    function improvementAlreadyGenerated(chunk, instructions, model) {
+        const result = chunk?.improvement;
+        if (!result?.checked_translation || String(result.instructions || "") !== instructions) return false;
+        if (model && result.requested_model !== model && result.model !== model) return false;
+        const basedOn = result.status === "accepted" ? result.accepted_translation : result.original_translation;
+        return basedOn === chunk.translation;
+    }
+
+    function pendingImprovements() {
+        return translationChunks(state.translation).filter(chunk => chunk.improvement?.status === "pending");
+    }
+
+    function improvementStorageKey(kind, id = state.translation?.id) {
+        return "skriptlab_translation_improvement_" + kind + "_" + String(storedUser?.id || "") + "_" + id;
+    }
+
+    function storeImprovementSettings() {
+        if (state.mode !== "translation" || !state.translation?.id) return;
+        localStorage.setItem(improvementStorageKey("settings"), JSON.stringify({
+            instructions: $("ti-instructions").value,
+            scope: $("ti-translation-scope").value,
+            execution: $("ti-translation-execution").value,
+        }));
+    }
+
+    function restoreImprovementSettings() {
+        let saved = {};
+        try { saved = JSON.parse(localStorage.getItem(improvementStorageKey("settings")) || "{}"); } catch (_) { /* optional preference */ }
+        $("ti-instructions").value = String(saved.instructions || "").slice(0, 4000);
+        $("ti-instructions-count").textContent = String($("ti-instructions").value.length);
+        $("ti-translation-scope").value = ["chapter", "book"].includes(saved.scope) ? saved.scope : "selection";
+        $("ti-translation-execution").value = saved.execution === "batch" ? "batch" : "interactive";
+        $("ti-translation-repeat").checked = false;
+        state.improvementJob = null;
+        state.improvementMessage = "";
+        clearTimeout(improvementPollTimer);
+        if (state.translation?.id) refreshImprovementState().catch(error => {
+            state.improvementMessage = error.message;
+            renderImprovementControls();
+        });
+    }
+
+    function activeImprovementJob() {
+        return state.improvementJob && !["done", "completed", "partial", "failed", "error", "cancelled", "expired"].includes(state.improvementJob.status);
+    }
+
+    function renderImprovementControls() {
+        const isTranslation = state.mode === "translation";
+        const scope = $("ti-translation-scope").value;
+        const broad = isTranslation && scope !== "selection";
+        $("ti-translation-scope-controls").hidden = !isTranslation;
+        $("ti-translation-run-controls").hidden = !broad;
+        $("ti-translation-results").hidden = !isTranslation || !state.translation;
+        $("ti-generate").hidden = broad;
+        $("ti-keyboard-selection").hidden = broad || Boolean(state.suggestion?.improvement);
+        if (isTranslation && (broad || state.suggestion?.improvement)) {
+            $("ti-inspector-title").textContent = state.suggestion?.improvement
+                ? "Paranteluehdotus · segmentti " + (state.segmentIndex + 1)
+                : (scope === "book" ? "Paranna koko teosta" : "Paranna koko lukua");
+            $("ti-selection-help").textContent = "Alkutekstiä käytetään jokaisen osan vertailussa.";
+        }
+        const chapterIndexes = improvementScopeIndexes(state.translation, "chapter", currentChunk()?._tiRawIndex);
+        $("ti-translation-scope").querySelector('[value="chapter"]').disabled = !chapterIndexes.length;
+        const indexes = improvementScopeIndexes(state.translation, scope, currentChunk()?._tiRawIndex);
+        $("ti-translation-scope-help").textContent = broad
+            ? (indexes.length ? indexes.length + " segmenttiä. Sama paranteluohje koskee jokaista osaa. Hyväksy tai hylkää ehdotukset erikseen." : "Lukurajoja ei ole tunnistettu luotettavasti. Valitse koko teos tai tekstikohta.")
+            : "Voit parantaa tekstikohdan, nykyisen luvun tai koko teoksen.";
+        const batch = $("ti-translation-execution").value === "batch";
+        $("ti-translation-execution-help").textContent = batch
+            ? "Eräajo jatkuu taustalla, vaikka suljet sivun. Tavoiteaika on 24 tuntia. Valitse malliasetuksista eräajoa tukeva Gemini-malli."
+            : "Pidä näkymä auki käsittelyn ajan. Valmiit ehdotukset tallentuvat; voit jatkaa keskeytynyttä ajoa samalla ohjeella.";
+        $("ti-translation-run").textContent = batch ? "Käynnistä eräajo" : (scope === "book" ? "Paranna koko teos / jatka" : "Paranna koko luku / jatka");
+        $("ti-translation-run").disabled = state.busy || state.improvementRunning || Boolean(activeImprovementJob()) || Boolean(state.suggestion) || !indexes.length;
+        $("ti-translation-stop").hidden = !state.improvementRunning;
+        $("ti-translation-stop").disabled = state.improvementStop;
+        const pending = pendingImprovements();
+        const job = state.improvementJob;
+        const jobLabels = { submitting: "lähetetään", queued: "jonossa", running: "käynnissä", processing: "tallennetaan ehdotuksia", done: "valmis", completed: "valmis", partial: "osittain valmis", failed: "epäonnistui", error: "epäonnistui", cancelled: "peruttu", expired: "määräaika päättyi" };
+        const jobText = job ? ("Eräajo: " + (jobLabels[job.status] || job.status) + " · " + (job.done_chunks || 0) + "/" + job.total_chunks + ". " + (job.error || "")) : "";
+        $("ti-translation-progress").textContent = [state.improvementMessage, jobText, pending.length + " ehdotusta odottaa hyväksyntää."].filter(Boolean).join(" ");
+        $("ti-translation-review").disabled = state.busy || state.improvementRunning || Boolean(state.suggestion) || !pending.length;
+        $("ti-translation-refresh").disabled = state.busy || state.improvementRunning;
+        for (const id of ["ti-translation-scope", "ti-translation-execution", "ti-translation-repeat", "ti-instructions"]) {
+            $(id).disabled = state.busy || state.improvementRunning || Boolean(state.suggestion?.improvement);
+        }
+        if (state.improvementRunning) {
+            for (const id of ["ti-project-select", "ti-translation-project-select", "ti-translation-select", "ti-previous", "ti-next", "ti-generate", "ti-import-button", "ti-bilingual-button", "ti-empty-bilingual-button"]) $(id).disabled = true;
+            document.querySelectorAll("[data-ti-mode]").forEach(button => { button.disabled = true; });
+        }
+    }
+
+    async function refreshImprovementState() {
+        const refreshRevision = ++state.improvementRefreshRevision;
+        clearTimeout(improvementPollTimer);
+        const id = state.translation?.id;
+        if (!id) return;
+        const revision = state.translationLoadRevision;
+        const latest = await api("/translations/" + encodeURIComponent(id));
+        let job = null;
+        const savedJob = localStorage.getItem(improvementStorageKey("job", id));
+        if (savedJob) {
+            try { job = await api("/translations/jobs/" + encodeURIComponent(savedJob)); }
+            catch (error) { localStorage.removeItem(improvementStorageKey("job", id)); }
+        }
+        if (!job || !["submitting", "queued", "running", "processing"].includes(job.status)) {
+            const active = await api("/translations/" + encodeURIComponent(id) + "/review-jobs/active");
+            if (active) job = active;
+        }
+        if (state.translation?.id !== id || state.translationLoadRevision !== revision || state.improvementRefreshRevision !== refreshRevision) return;
+        state.translation = latest;
+        const index = state.translations.findIndex(item => item.id === id);
+        if (index >= 0) state.translations[index] = latest;
+        state.improvementJob = job;
+        if (job) localStorage.setItem(improvementStorageKey("job", id), String(job.job_id));
+        // Preserve an edited open suggestion; a refresh must not replace the textarea.
+        if (state.suggestion) renderImprovementControls();
+        else renderMode();
+        if (activeImprovementJob()) improvementPollTimer = window.setTimeout(() => {
+            refreshImprovementState().catch(error => {
+                state.improvementMessage = "Tilanteen päivitys epäonnistui: " + error.message + " Käytä Päivitä tilanne -painiketta.";
+                renderImprovementControls();
+            });
+        }, 15000);
+    }
+
+    async function runTranslationImprovement() {
+        if (state.busy || state.improvementRunning || state.suggestion || activeImprovementJob()) return;
+        state.improvementRunning = true;
+        state.improvementStop = false;
+        state.improvementMessage = "Valmistellaan parantelua…";
+        renderImprovementControls();
+        const id = state.translation?.id;
+        const rawIndex = currentChunk()?._tiRawIndex;
+        const scope = $("ti-translation-scope").value;
+        const instructions = $("ti-instructions").value.trim();
+        const repeat = $("ti-translation-repeat").checked;
+        storeImprovementSettings();
+        try {
+            await textModelSettings.load(false);
+            const model = textModelSettings.getModel();
+            const latest = await api("/translations/" + encodeURIComponent(id));
+            if (state.translation?.id !== id) throw new Error("Käännös vaihtui. Käynnistä parantelu uudelleen.");
+            state.translation = latest;
+            const indexes = improvementScopeIndexes(latest, scope, rawIndex);
+            if (!indexes.length) throw new Error("Valitun alueen lukurajat puuttuvat.");
+            const chunks = latest.chunk_details;
+            if (indexes.some(index => !sourceTextForChunk(chunks[index]).trim() || !translationTextForChunk(chunks[index]).trim())) {
+                throw new Error("Alueelta puuttuu alkutekstiä tai käännöstä. Täydennä puuttuvat segmentit ennen koko alueen parantelua.");
+            }
+            const pending = indexes.filter(index => repeat || !improvementAlreadyGenerated(chunks[index], instructions, model));
+            if (!pending.length) {
+                state.improvementMessage = "Alueen ehdotukset on jo luotu tällä ohjeella. Avaa ehdotukset tai valitse uusien ehdotusten luominen.";
+                return;
+            }
+            if ($("ti-translation-execution").value === "batch") {
+                const job = await api("/translations/" + encodeURIComponent(id) + "/review-jobs", jsonOptions("POST", {
+                    model, instructions, improvement: true, repeat_reviewed: true, chunk_indexes: pending,
+                }));
+                localStorage.setItem(improvementStorageKey("job", id), String(job.job_id));
+                state.improvementJob = { ...job, done_chunks: 0 };
+                state.improvementMessage = "Eräajo käynnistetty. Voit sulkea sivun ja palata myöhemmin hyväksymään ehdotukset.";
+            } else {
+                let completed = indexes.length - pending.length;
+                for (const index of pending) {
+                    if (state.improvementStop) break;
+                    state.improvementMessage = "Luodaan ehdotuksia: " + completed + "/" + indexes.length + " valmista.";
+                    renderImprovementControls();
+                    await api("/translations/" + encodeURIComponent(id) + "/chunks/" + index + "/check", jsonOptions("POST", {
+                        model, instructions, improvement: true, save: true, current_translation: chunks[index].translation,
+                    }));
+                    completed += 1;
+                }
+                state.improvementMessage = (state.improvementStop ? "Käsittely pysäytetty. " : "Ehdotukset luotu. ") + completed + "/" + indexes.length + " segmenttiä valmiina. Hyväksy tai hylkää ehdotukset.";
+            }
+        } catch (error) {
+            state.improvementMessage = "Parantelu keskeytyi: " + error.message + " Valmiit ehdotukset säilyvät.";
+            toast(error.message);
+        } finally {
+            state.improvementRunning = false;
+            try { await refreshImprovementState(); } catch (error) { toast(error.message); }
+            renderMode();
+        }
+    }
+
+    function openNextImprovement() {
+        if (state.busy || state.improvementRunning || state.suggestion) return;
+        const chunks = translationChunks(state.translation);
+        const chunk = chunks.find(item => item.improvement?.status === "pending");
+        if (!chunk) return;
+        const result = chunk.improvement;
+        state.segmentIndex = chunks.indexOf(chunk);
+        state.translationSelection = null;
+        state.suggestion = {
+            mode: "translation", improvement: true,
+            translationId: state.translation.id, rawChunkIndex: chunk._tiRawIndex,
+            original: result.original_translation, edited: result.checked_translation,
+            reason: [result.notes, result.instructions ? "Käytetty paranteluohje: " + result.instructions : ""].filter(Boolean).join("\n\n"), generatedBy: result.model, checkedAt: result.checked_at,
+        };
+        renderMode();
+        $("ti-suggestion-text").focus();
+    }
+
+    async function decideImprovement(suggestion, status) {
+        state.improvementRefreshRevision += 1;
+        const saved = await api("/translations/" + encodeURIComponent(suggestion.translationId) + "/chunks/" + suggestion.rawChunkIndex + "/improvement-decision", jsonOptions("POST", {
+            status, expected_checked_at: suggestion.checkedAt,
+            ...(status === "accepted" ? { translation: suggestion.edited } : {}),
+        }));
+        if (state.translation?.id !== suggestion.translationId) return;
+        state.translation = saved;
+        const index = state.translations.findIndex(item => item.id === saved.id);
+        if (index >= 0) state.translations[index] = saved;
+        state.translationSelection = null;
+    }
+
     function bindEvents() {
+        $("ti-translation-scope").addEventListener("change", () => { state.improvementMessage = ""; storeImprovementSettings(); renderMode(); });
+        $("ti-translation-execution").addEventListener("change", () => { storeImprovementSettings(); renderImprovementControls(); });
+        $("ti-translation-run").addEventListener("click", runTranslationImprovement);
+        $("ti-translation-stop").addEventListener("click", () => { state.improvementStop = true; renderImprovementControls(); });
+        $("ti-translation-review").addEventListener("click", openNextImprovement);
+        $("ti-translation-refresh").addEventListener("click", () => refreshImprovementState().catch(error => toast(error.message)));
         document.querySelectorAll("[data-ti-mode]").forEach((button, index, buttons) => {
             button.addEventListener("click", () => setMode(button.dataset.tiMode));
             button.addEventListener("keydown", (event) => {
@@ -2067,6 +2344,7 @@
 
         $("ti-instructions").addEventListener("input", (event) => {
             $("ti-instructions-count").textContent = String(event.target.value.length);
+            storeImprovementSettings();
         });
         $("ti-keyboard-selection-text").addEventListener("select", updateKeyboardSelectionStatus);
         $("ti-keyboard-selection-text").addEventListener("keyup", updateKeyboardSelectionStatus);
@@ -2080,7 +2358,8 @@
         $("ti-instructions").addEventListener("keydown", (event) => {
             if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
                 event.preventDefault();
-                generateSuggestion();
+                if (state.mode === "translation" && $("ti-translation-scope").value !== "selection") runTranslationImprovement();
+                else generateSuggestion();
             }
         });
         $("ti-generate").addEventListener("click", () => generateSuggestion());
@@ -2097,6 +2376,7 @@
 
         window.addEventListener("message", (event) => {
             if (event.origin !== window.location.origin) return;
+            if (state.improvementRunning || state.busy || state.suggestion) return;
             if (event.data?.type === "skriptlab:text-improvement-opened") {
                 const projectId = String(event.data.projectId || "");
                 if (!projectId) {
@@ -2157,6 +2437,9 @@
         replacementWithBoundaryWhitespace,
         replaceSelectionInParagraphModel,
         translationChunks,
+        translationChapterKeys,
+        improvementScopeIndexes,
+        improvementAlreadyGenerated,
     };
 
     document.addEventListener("skriptlab:access", event => {

@@ -290,3 +290,8 @@ test("development SSE reaches the editor before the stream has ended", { timeout
   assert.equal(new TextDecoder().decode((await reader.read()).value), "data: partial\n\n");
   controller.close(); await reader.cancel();
 });
+
+test('saved translation improvement decisions do not reserve another AI generation', () => {
+  assert.equal(access.actionForRequest('/api/translations/7/chunks/0/improvement-decision', 'POST', {status:'accepted'}), null);
+  assert.equal(access.actionForRequest('/api/translations/7/chunks/0/check', 'POST', {improvement:true}), 'translation.run');
+});

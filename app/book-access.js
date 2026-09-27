@@ -60,6 +60,7 @@
     if (path === "/audio/productions") return "audio.produce";
     if (/\/audio\/productions\/\d+\/parts\/\d+\/regenerate$/.test(path)) return "audio.repair";
     if (/^\/marketing\//.test(path) && !/\/context$/.test(path)) return "marketing.campaign";
+    if (/^\/translations\/\d+\/chunks\/\d+\/improvement-decision$/.test(path)) return null;
     if (/^\/(?:translate|translations)(?:\/|$)/.test(path) && !/(?:download|export|cancel|resume)$/.test(path)) return "translation.run";
     return null;
   }
