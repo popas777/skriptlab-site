@@ -100,6 +100,8 @@
 
     async function api(path, options) {
         const requestOptions = Object.assign({}, options || {});
+        const binaryResponse = requestOptions.binaryResponse;
+        delete requestOptions.binaryResponse;
         const headers = Object.assign({}, requestOptions.headers || {});
         const token = authToken();
         if (token) headers.Authorization = "Bearer " + token;
@@ -130,6 +132,7 @@
                 throw new Error(detail || "Pyyntö epäonnistui (" + response.status + ").");
             }
             if (response.status === 204) return null;
+            if (binaryResponse) return { blob: await response.blob(), disposition: response.headers.get("Content-Disposition") };
             return response.json();
         } catch (error) {
             if (error && error.name === "AbortError") {
@@ -2156,6 +2159,17 @@
         $("ti-translation-progress").textContent = [state.improvementMessage, jobText, pending.length + " ehdotusta odottaa hyväksyntää."].filter(Boolean).join(" ");
         $("ti-translation-review").disabled = state.busy || state.improvementRunning || Boolean(state.suggestion) || !pending.length;
         $("ti-translation-refresh").disabled = state.busy || state.improvementRunning;
+        const exportBusy = state.busy || state.improvementRunning || Boolean(activeImprovementJob());
+        $("ti-download-book").disabled = exportBusy || !state.translation?.chunk_details?.length || Boolean(state.suggestion);
+        $("ti-download-version").disabled = exportBusy;
+        $("ti-download-format").disabled = exportBusy;
+        $("ti-download-help").textContent = state.suggestion
+            ? "Hyväksy tai hylkää avoin ehdotus ennen lataamista, jotta muokkauksesi tulevat mukaan."
+            : exportBusy
+                ? "Voit ladata koko teoksen, kun käynnissä oleva ajo päättyy."
+                : $("ti-download-version").value === "draft"
+                    ? "Koko teos ja tallennetut odottavat ehdotukset. Käsittelemättömät ja hylätyt osat säilyvät nykyisessä muodossaan. Lataus ei hyväksy ehdotuksia."
+                    : "Koko tallennettu teos hyväksytyillä muutoksilla. Odottavat ehdotukset eivät tule mukaan.";
         for (const id of ["ti-translation-scope", "ti-translation-execution", "ti-translation-repeat", "ti-instructions"]) {
             $(id).disabled = state.busy || state.improvementRunning || Boolean(state.suggestion?.improvement);
         }
@@ -2289,7 +2303,38 @@
         state.translationSelection = null;
     }
 
+    async function downloadImprovedBook() {
+        if ($("ti-download-book").disabled || !state.translation?.id) return;
+        const id = state.translation.id;
+        const format = $("ti-download-format").value;
+        const version = $("ti-download-version").value;
+        const extension = format === "bilingual-docx" ? "docx" : format;
+        setBusy(true, "Valmistellaan koko teoksen latausta…");
+        try {
+            const query = new URLSearchParams({ format, version });
+            const result = await api("/translations/" + encodeURIComponent(id) + "/improvement-export?" + query, { binaryResponse: true });
+            const fileName = result.disposition?.match(/filename="([^"]+)"/i)?.[1]
+                || "kaannos-" + (version === "draft" ? "paranneltu-luonnos" : "hyvaksytyt-muutokset") + "." + extension;
+            const url = URL.createObjectURL(result.blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+            setStatus(version === "draft" ? "Paranneltu luonnos ladattu" : "Versio hyväksytyillä muutoksilla ladattu");
+        } catch (error) {
+            setStatus("Teoksen lataus epäonnistui");
+            toast(error.message);
+        } finally {
+            setBusy(false);
+        }
+    }
+
     function bindEvents() {
+        $("ti-download-version").addEventListener("change", renderImprovementControls);
+        $("ti-download-book").addEventListener("click", downloadImprovedBook);
         $("ti-translation-scope").addEventListener("change", () => { state.improvementMessage = ""; storeImprovementSettings(); renderMode(); });
         $("ti-translation-execution").addEventListener("change", () => { storeImprovementSettings(); renderImprovementControls(); });
         $("ti-translation-run").addEventListener("click", runTranslationImprovement);

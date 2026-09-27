@@ -221,6 +221,24 @@
                         <p id="ti-translation-progress" role="status" aria-live="polite"></p>
                         <button id="ti-translation-refresh" class="ti-button ti-button-secondary" type="button">Päivitä tilanne</button>
                         <button id="ti-translation-review" class="ti-button ti-button-secondary" type="button">Avaa seuraava ehdotus</button>
+                        <label class="ti-field" for="ti-download-version">
+                            <span>Ladattava teosversio</span>
+                            <select id="ti-download-version">
+                                <option value="draft">Paranneltu luonnos</option>
+                                <option value="accepted">Vain hyväksytyt muutokset</option>
+                            </select>
+                        </label>
+                        <label class="ti-field" for="ti-download-format">
+                            <span>Tiedostomuoto</span>
+                            <select id="ti-download-format">
+                                <option value="docx">Word (.docx)</option>
+                                <option value="txt">Tekstitiedosto (.txt)</option>
+                                <option value="md">Markdown (.md)</option>
+                                <option value="bilingual-docx">Rinnakkainen Word (.docx)</option>
+                            </select>
+                        </label>
+                        <p id="ti-download-help">Luonnoksen voi ladata heti ajon jälkeen. Lataus ei hyväksy ehdotuksia eikä muuta tallennettua käännöstä.</p>
+                        <button id="ti-download-book" class="ti-button ti-button-primary" type="button" aria-describedby="ti-download-help">Lataa paranneltu teos</button>
                     </section>
 
                     <button id="ti-generate" class="ti-button ti-button-primary ti-generate-button" type="button" disabled>
@@ -299,6 +317,6 @@
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=5"></script>
     <script src="text-model-settings.js?v=1"></script>
-    <script src="tekstin-parantelu.js?v=6"></script>
+    <script src="tekstin-parantelu.js?v=7"></script>
 </body>
 </html>

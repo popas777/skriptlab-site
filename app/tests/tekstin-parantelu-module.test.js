@@ -607,3 +607,42 @@ test('translation scope includes every chapter chunk without confusing raw index
   chunk.translation = 'Manually edited';
   assert.equal(context.improvementAlreadyGenerated(chunk, 'Keep voice', 'test:model'), false);
 });
+
+test('download requests authenticated binary snapshots and reports API errors without creating a file', async () => {
+  const controls = { 'ti-download-book': { disabled: false }, 'ti-download-format': { value: 'docx' }, 'ti-download-version': { value: 'draft' } };
+  const requests = [], links = [], messages = [], busy = [];
+  let fail = false;
+  const context = {
+    $: id => controls[id], state: { translation: { id: 7 } },
+    API_BASE: '/api', authToken: () => 'token', AbortController, URLSearchParams,
+    window: { setTimeout: () => 1, clearTimeout: () => {} },
+    fetch: async (url, options) => {
+      requests.push({url, options});
+      return { ok: !fail, status: fail ? 409 : 200,
+        headers: { get: () => 'attachment; filename="book.docx"' },
+        blob: async () => 'document-bytes', json: async () => ({detail: 'Vanhentunut ehdotus'}) };
+    },
+    URL: { createObjectURL: blob => { assert.equal(blob, 'document-bytes'); return 'blob:book'; }, revokeObjectURL: () => {} },
+    document: { body: { appendChild: () => {} }, createElement: () => {
+      const link = { click() { links.push({href: this.href, download: this.download}); }, remove() {} }; return link;
+    } },
+    setBusy: value => busy.push(value), setStatus: value => messages.push(value), toast: value => messages.push(value),
+  };
+  vm.runInNewContext(sourceBetween(js, 'function apiErrorDetail(value)', 'function toast(message)') + '\n' + sourceBetween(js, 'async function downloadImprovedBook()', 'function bindEvents()'), context);
+  await context.downloadImprovedBook();
+  assert.equal(requests[0].url, '/api/translations/7/improvement-export?format=docx&version=draft');
+  assert.equal(requests[0].options.headers.Authorization, 'Bearer token');
+  assert.equal(requests[0].options.method, undefined);
+  assert.equal(requests[0].options.binaryResponse, undefined);
+  assert.deepEqual(links, [{href: 'blob:book', download: 'book.docx'}]);
+  controls['ti-download-version'].value = 'accepted';
+  fail = true;
+  await context.downloadImprovedBook();
+  assert.match(requests[1].url, /version=accepted/);
+  assert.equal(links.length, 1);
+  assert.ok(messages.includes('Vanhentunut ehdotus'));
+  assert.deepEqual(busy, [true, false, true, false]);
+  controls['ti-download-book'].disabled = true;
+  await context.downloadImprovedBook();
+  assert.equal(requests.length, 2);
+});
