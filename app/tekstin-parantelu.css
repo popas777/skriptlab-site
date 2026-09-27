@@ -306,7 +306,7 @@ textarea:focus-visible,
 }
 
 .ti-editor-grid[data-mode="translation"] {
-    grid-template-columns: minmax(0, 2.12fr) minmax(340px, 0.88fr);
+    grid-template-columns: minmax(0, 1fr) 310px;
 }
 
 .ti-document-region,
@@ -327,7 +327,7 @@ textarea:focus-visible,
 .ti-translation-region {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     overflow: hidden;
     background: var(--ti-surface);
 }
@@ -338,8 +338,32 @@ textarea:focus-visible,
     overflow: hidden;
 }
 
-.ti-target-column {
+.ti-target-column,
+.ti-draft-column {
     border-left: 1px solid var(--ti-line);
+}
+
+.ti-draft-column {
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    background: #f9f8fd;
+}
+
+.ti-translation-region .ti-region-header {
+    padding: 12px 20px;
+    flex-wrap: wrap;
+    align-content: center;
+}
+
+.ti-draft-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--ti-line);
+}
+
+.ti-draft-actions .ti-button-primary {
+    flex: 1 0 100%;
 }
 
 .ti-region-header {
@@ -1014,7 +1038,8 @@ textarea:focus-visible,
         min-height: 42dvh;
     }
 
-    .ti-target-column {
+    .ti-target-column,
+    .ti-draft-column {
         border-top: 1px solid var(--ti-line);
         border-left: 0;
     }

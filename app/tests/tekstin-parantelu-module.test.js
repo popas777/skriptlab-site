@@ -563,8 +563,22 @@ test('source and target advance together and keep guarded bidirectional scroll s
   assert.match(scroll, /const sourceMax = source\.scrollHeight - source\.clientHeight/);
   assert.match(scroll, /target\.scrollTop = \(source\.scrollTop \/ sourceMax\) \* targetMax/);
   assert.match(scroll, /window\.requestAnimationFrame\(\(\) =>/);
-  assert.match(js, /\$\(["']ti-source-reader["']\)\.addEventListener\(["']scroll["'], \(\) => syncScroll\(\$\(["']ti-source-reader["']\), \$\(["']ti-target-reader["']\)\)\)/);
-  assert.match(js, /\$\(["']ti-target-reader["']\)\.addEventListener\(["']scroll["'], \(\) => syncScroll\(\$\(["']ti-target-reader["']\), \$\(["']ti-source-reader["']\)\)\)/);
+  const readers = {
+    'ti-source-reader': { scrollHeight: 1000, clientHeight: 200, scrollTop: 400 },
+    'ti-target-reader': { scrollHeight: 1400, clientHeight: 200, scrollTop: 0 },
+    'ti-draft-reader': { scrollHeight: 1800, clientHeight: 200, scrollTop: 0 },
+  };
+  let unlock;
+  const context = { state: { scrollSyncing: false }, $: id => readers[id], window: { requestAnimationFrame: callback => { unlock = callback; } } };
+  vm.runInNewContext(sourceBetween(js, 'function syncScroll(source, target)', '// Use chapter identity'), context);
+  context.syncScroll(readers['ti-source-reader']);
+  assert.equal(readers['ti-target-reader'].scrollTop, 600);
+  assert.equal(readers['ti-draft-reader'].scrollTop, 800);
+  unlock();
+  readers['ti-draft-reader'].scrollTop = 400;
+  context.syncScroll(readers['ti-draft-reader']);
+  assert.equal(readers['ti-source-reader'].scrollTop, 200);
+  assert.equal(readers['ti-target-reader'].scrollTop, 300);
 });
 
 test('workspace collapses responsively without losing the aligned translation columns', () => {
@@ -577,7 +591,7 @@ test('workspace collapses responsively without losing the aligned translation co
   const mobile = sourceBetween(css, '@media (max-width: 720px)', '@media (max-width: 430px)');
   assert.match(mobile, /\.ti-tab\s*\{[\s\S]*?flex:\s*1 1 50%/);
   assert.match(mobile, /\.ti-translation-region\s*\{[\s\S]*?grid-template-columns:\s*1fr/);
-  assert.match(mobile, /\.ti-target-column\s*\{[\s\S]*?border-top:/);
+  assert.match(mobile, /\.ti-target-column,\s*\.ti-draft-column\s*\{[\s\S]*?border-top:/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
 });
 
@@ -609,7 +623,7 @@ test('translation scope includes every chapter chunk without confusing raw index
 });
 
 test('download requests authenticated binary snapshots and reports API errors without creating a file', async () => {
-  const controls = { 'ti-download-book': { disabled: false }, 'ti-download-format': { value: 'docx' }, 'ti-download-version': { value: 'draft' } };
+  const controls = { 'ti-download-book': { disabled: false }, 'ti-download-scope': { value: 'book' }, 'ti-download-format': { value: 'docx' }, 'ti-download-version': { value: 'draft' } };
   const requests = [], links = [], messages = [], busy = [];
   let fail = false;
   const context = {
@@ -636,13 +650,79 @@ test('download requests authenticated binary snapshots and reports API errors wi
   assert.equal(requests[0].options.binaryResponse, undefined);
   assert.deepEqual(links, [{href: 'blob:book', download: 'book.docx'}]);
   controls['ti-download-version'].value = 'accepted';
+  controls['ti-download-scope'].value = 'changes';
   fail = true;
   await context.downloadImprovedBook();
-  assert.match(requests[1].url, /version=accepted/);
+  assert.match(requests[1].url, /version=accepted&scope=changes/);
   assert.equal(links.length, 1);
   assert.ok(messages.includes('Vanhentunut ehdotus'));
   assert.deepEqual(busy, [true, false, true, false]);
   controls['ti-download-book'].disabled = true;
   await context.downloadImprovedBook();
   assert.equal(requests.length, 2);
+});
+
+test('third column previews a selected-passage edit inside the whole current segment', () => {
+  const helperSource = [
+    sourceBetween(js, 'function splitParagraphs(value)', 'function paragraphModel(value)'),
+    sourceBetween(js, 'function paragraphModel(value)', 'function replaceSelectionInParagraphModel(model, selection, replacement)'),
+    sourceBetween(js, 'function replaceSelectionInParagraphModel(model, selection, replacement)', 'function chapterTitle(chapter, index)'),
+    sourceBetween(js, 'function replacementWithBoundaryWhitespace(original, replacement)', 'function textOffsetInside(paragraph, node, offset)'),
+    sourceBetween(js, 'function translationDraftText(chunk, suggestion)', 'function renderTranslationDraft()'),
+  ].join('\n');
+  const context = { translationTextForChunk: chunk => chunk.translation };
+  vm.runInNewContext(helperSource, context);
+  const chunk = { translation: 'Alku. Nykyinen lause. Loppu.\n\n\nToinen kappale.', improvement: { status: 'pending', checked_translation: 'Kokonaan uusi luonnos.' } };
+  const before = JSON.stringify(chunk);
+  assert.equal(context.translationDraftText(chunk), 'Kokonaan uusi luonnos.');
+  assert.equal(context.translationDraftText(chunk, { improvement: true, edited: 'Muokattu luonnos.' }), 'Muokattu luonnos.');
+  assert.equal(context.translationDraftText(chunk, { original: 'Nykyinen lause.', edited: 'Uusi lause.', selection: {startParagraph: 0, endParagraph: 0, startOffset: 6, endOffset: 21} }), 'Alku. Uusi lause. Loppu.\n\n\nToinen kappale.');
+  assert.equal(JSON.stringify(chunk), before);
+  chunk.improvement.status = 'accepted';
+  assert.equal(context.translationDraftText(chunk), '');
+});
+
+test('standalone translation improvement supplies the shared authentication URL helper', () => {
+  const init = sourceBetween(js, 'const rootConfig', 'const ACTIVE_PROJECT_KEY');
+  const context = { window: { SKRIPTLAB_CONFIG: {API_BASE_URL: 'https://example.test/'} } };
+  vm.runInNewContext(init, context);
+  assert.equal(context.window.apiUrl('/api/access/me'), 'https://example.test/api/access/me');
+  const existing = path => 'existing:' + path;
+  const alreadyConfigured = {window: {apiUrl: existing}};
+  vm.runInNewContext(init, alreadyConfigured);
+  assert.equal(alreadyConfigured.window.apiUrl, existing);
+});
+
+test('accept all sends every pending raw index and an open edit, while failure preserves the draft', async () => {
+  const item = {id: 9, chunk_details: [
+    {improvement: {status: 'rejected'}},
+    {improvement: {status: 'pending', checked_at: 'first'}},
+    {improvement: {status: 'pending', checked_at: 'second'}},
+  ]};
+  const opened = {improvement: true, rawChunkIndex: 2, edited: 'Oma viimeistely'};
+  let fail = true; const requests = [], messages = [];
+  const state = {translation: item, translations: [item], suggestion: opened, improvementRefreshRevision: 0};
+  const saved = {id: 9, chunk_details: []};
+  const context = {
+    state, $: () => ({disabled: false}),
+    jsonOptions: (method, body) => ({method, body}),
+    api: async (path, options) => { requests.push({path, options}); if (fail) throw new Error('Vanhentunut luonnos'); return saved; },
+    setBusy: () => {}, setStatus: message => messages.push(message), toast: message => messages.push(message),
+    renderAll: () => {}, clearSuggestion: () => { state.suggestion = null; },
+  };
+  vm.runInNewContext(sourceBetween(js, 'function pendingImprovements()', 'function improvementStorageKey') + '\n' + sourceBetween(js, 'async function acceptAllDrafts()', 'async function decideImprovement'), context);
+  await context.acceptAllDrafts();
+  assert.equal(state.suggestion, opened);
+  assert.equal(state.translation, item);
+  assert.ok(messages.includes('Vanhentunut luonnos'));
+  assert.equal(requests[0].path, '/translations/9/improvements/accept-all');
+  assert.deepEqual(JSON.parse(JSON.stringify(requests[0].options.body)), {suggestions: [
+    {chunk_index: 1, expected_checked_at: 'first'},
+    {chunk_index: 2, expected_checked_at: 'second', translation: 'Oma viimeistely'},
+  ]});
+  fail = false;
+  await context.acceptAllDrafts();
+  assert.equal(state.translation, saved);
+  assert.equal(state.translations[0], saved);
+  assert.equal(state.suggestion, null);
 });

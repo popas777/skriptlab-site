@@ -3,6 +3,11 @@
 
     const rootConfig = window.SKRIPTLAB_CONFIG || {};
     const API_BASE = String(rootConfig.API_BASE_URL || "").replace(/\/$/, "") + "/api";
+    // The shared authentication/access client also runs in this standalone iframe.
+    if (typeof window.apiUrl !== "function") {
+        window.apiUrl = (path) => String(rootConfig.API_BASE_URL || "").replace(/\/$/, "")
+            + (String(path).startsWith("/") ? path : "/" + path);
+    }
     const ACTIVE_PROJECT_KEY = "skriptlab_active_project_id";
     const MODE_KEY = "skriptlab_text_improvement_mode";
     const MANUAL_SELECTION_MAX_CHARACTERS = 12000;
@@ -993,6 +998,54 @@
         return labels[String(code || "").toLowerCase()] || fallback;
     }
 
+    function currentDraftSuggestion(chunk = currentChunk()) {
+        const suggestion = state.suggestion;
+        return suggestion?.mode === "translation" && suggestion.translationId === state.translation?.id
+            && suggestion.rawChunkIndex === chunk?._tiRawIndex ? suggestion : null;
+    }
+
+    function translationDraftText(chunk, suggestion) {
+        if (suggestion) {
+            if (suggestion.improvement) return suggestion.edited;
+            return replaceSelectionInParagraphModel(
+                paragraphModel(translationTextForChunk(chunk)), suggestion.selection,
+                replacementWithBoundaryWhitespace(suggestion.original, suggestion.edited)
+            );
+        }
+        const result = chunk?.improvement;
+        if (result?.status === "pending") return result.checked_translation || "";
+        return "";
+    }
+
+    function renderTranslationDraft() {
+        const chunk = currentChunk();
+        const suggestion = currentDraftSuggestion(chunk);
+        const pending = chunk?.improvement?.status === "pending";
+        const hasDraft = Boolean(suggestion || pending);
+        const reader = $("ti-draft-reader");
+        const scrollTop = reader.scrollTop;
+        if (hasDraft) {
+            renderParagraphs(reader, splitParagraphs(translationDraftText(chunk, suggestion)), null, {
+                numbered: true, numberPrefix: String(state.segmentIndex + 1),
+            });
+        } else {
+            const status = chunk?.improvement?.status;
+            renderReaderMessage(reader,
+                status === "accepted" ? "Luonnos hyväksytty" : status === "rejected" ? "Luonnos hylätty" : "Ei vielä luonnosta",
+                status === "accepted" ? "Hyväksytty teksti näkyy nykyisessä versiossa."
+                    : "Luo paranteluehdotus tekstikohdalle, luvulle tai koko teokselle."
+            );
+        }
+        reader.scrollTop = scrollTop;
+        $("ti-draft-status").textContent = hasDraft ? (suggestion ? "Muokattavissa" : "Odottaa hyväksyntää")
+            : chunk?.improvement?.status === "accepted" ? "Hyväksytty" : chunk?.improvement?.status === "rejected" ? "Hylätty" : "Ei luonnosta";
+        $("ti-draft-actions").hidden = !hasDraft;
+        const blocked = state.busy || state.improvementRunning || Boolean(activeImprovementJob());
+        $("ti-draft-edit").disabled = blocked;
+        $("ti-draft-reject").disabled = blocked;
+        $("ti-draft-accept").disabled = blocked || !String(suggestion ? suggestion.edited : chunk?.improvement?.checked_translation || "").trim();
+    }
+
     function renderTranslation() {
         const chunks = translationChunks(state.translation);
         const hasAlignedTranslation = Boolean(state.translation && chunks.length);
@@ -1000,6 +1053,7 @@
         if (!hasAlignedTranslation) {
             $("ti-source-reader").replaceChildren();
             $("ti-target-reader").replaceChildren();
+            $("ti-draft-reader").replaceChildren();
             $("ti-unit-title").textContent = "Ei bilingual-aineistoa";
             $("ti-unit-position").textContent = "0 / 0";
             state.translationSelection = null;
@@ -2041,10 +2095,13 @@
     function syncScroll(source, target) {
         if (state.scrollSyncing) return;
         const sourceMax = source.scrollHeight - source.clientHeight;
-        const targetMax = target.scrollHeight - target.clientHeight;
-        if (sourceMax <= 0 || targetMax <= 0) return;
+        if (sourceMax <= 0) return;
+        const targets = target ? [target] : [$("ti-source-reader"), $("ti-target-reader"), $("ti-draft-reader")].filter(reader => reader !== source);
         state.scrollSyncing = true;
-        target.scrollTop = (source.scrollTop / sourceMax) * targetMax;
+        for (const target of targets) {
+            const targetMax = target.scrollHeight - target.clientHeight;
+            if (targetMax > 0) target.scrollTop = (source.scrollTop / sourceMax) * targetMax;
+        }
         window.requestAnimationFrame(() => {
             state.scrollSyncing = false;
         });
@@ -2086,7 +2143,8 @@
     }
 
     function pendingImprovements() {
-        return translationChunks(state.translation).filter(chunk => chunk.improvement?.status === "pending");
+        return (state.translation?.chunk_details || []).map((chunk, index) => ({ ...chunk, _tiRawIndex: index }))
+            .filter(chunk => chunk.improvement?.status === "pending");
     }
 
     function improvementStorageKey(kind, id = state.translation?.id) {
@@ -2142,7 +2200,7 @@
         $("ti-translation-scope").querySelector('[value="chapter"]').disabled = !chapterIndexes.length;
         const indexes = improvementScopeIndexes(state.translation, scope, currentChunk()?._tiRawIndex);
         $("ti-translation-scope-help").textContent = broad
-            ? (indexes.length ? indexes.length + " segmenttiä. Sama paranteluohje koskee jokaista osaa. Hyväksy tai hylkää ehdotukset erikseen." : "Lukurajoja ei ole tunnistettu luotettavasti. Valitse koko teos tai tekstikohta.")
+            ? (indexes.length ? indexes.length + " segmenttiä. Sama paranteluohje koskee jokaista osaa. Voit hyväksyä luonnokset yksitellen tai kaikki kerralla." : "Lukurajoja ei ole tunnistettu luotettavasti. Valitse koko teos tai tekstikohta.")
             : "Voit parantaa tekstikohdan, nykyisen luvun tai koko teoksen.";
         const batch = $("ti-translation-execution").value === "batch";
         $("ti-translation-execution-help").textContent = batch
@@ -2160,13 +2218,27 @@
         $("ti-translation-review").disabled = state.busy || state.improvementRunning || Boolean(state.suggestion) || !pending.length;
         $("ti-translation-refresh").disabled = state.busy || state.improvementRunning;
         const exportBusy = state.busy || state.improvementRunning || Boolean(activeImprovementJob());
+        $("ti-accept-all-drafts").textContent = "Hyväksy kaikki luonnokset (" + pending.length + ")";
+        $("ti-accept-all-drafts").disabled = exportBusy || !pending.length || Boolean(state.suggestion && !state.suggestion.improvement)
+            || Boolean(state.suggestion?.improvement && !state.suggestion.edited.trim());
+        $("ti-accept-all-help").textContent = state.suggestion && !state.suggestion.improvement
+            ? "Hyväksy tai hylkää avoin tekstikohdan ehdotus ensin."
+            : "Hyväksyy koko teoksen " + pending.length + " odottavaa luonnosta. Avoimeen luonnokseen tekemäsi muokkaukset tulevat mukaan.";
+        if (isTranslation) renderTranslationDraft();
         $("ti-download-book").disabled = exportBusy || !state.translation?.chunk_details?.length || Boolean(state.suggestion);
+        const changesOnly = $("ti-download-scope").value === "changes";
+        $("ti-download-scope").disabled = exportBusy;
+        $("ti-download-book").textContent = changesOnly ? "Lataa vain muutokset" : "Lataa paranneltu teos";
+        $("ti-download-format").querySelector('[value="bilingual-docx"]').disabled = changesOnly;
+        if (changesOnly && $("ti-download-format").value === "bilingual-docx") $("ti-download-format").value = "docx";
         $("ti-download-version").disabled = exportBusy;
         $("ti-download-format").disabled = exportBusy;
         $("ti-download-help").textContent = state.suggestion
             ? "Hyväksy tai hylkää avoin ehdotus ennen lataamista, jotta muokkauksesi tulevat mukaan."
             : exportBusy
                 ? "Voit ladata koko teoksen, kun käynnissä oleva ajo päättyy."
+                : changesOnly
+                    ? "Vain muuttuneet kappaleet: ennen muutosta, uusi versio, luku, tekstiosa ja kappalenumero. Luonnosversiossa ovat mukana myös odottavat ehdotukset."
                 : $("ti-download-version").value === "draft"
                     ? "Koko teos ja tallennetut odottavat ehdotukset. Käsittelemättömät ja hylätyt osat säilyvät nykyisessä muodossaan. Lataus ei hyväksy ehdotuksia."
                     : "Koko tallennettu teos hyväksytyillä muutoksilla. Odottavat ehdotukset eivät tule mukaan.";
@@ -2272,13 +2344,13 @@
         }
     }
 
-    function openNextImprovement() {
-        if (state.busy || state.improvementRunning || state.suggestion) return;
+    function openImprovement(chunk) {
+        if (state.busy || state.improvementRunning || state.suggestion || !chunk) return false;
         const chunks = translationChunks(state.translation);
-        const chunk = chunks.find(item => item.improvement?.status === "pending");
-        if (!chunk) return;
         const result = chunk.improvement;
-        state.segmentIndex = chunks.indexOf(chunk);
+        if (result?.status !== "pending") return false;
+        state.segmentIndex = chunks.findIndex(item => item._tiRawIndex === chunk._tiRawIndex);
+        if (state.segmentIndex < 0) return false;
         state.translationSelection = null;
         state.suggestion = {
             mode: "translation", improvement: true,
@@ -2287,7 +2359,56 @@
             reason: [result.notes, result.instructions ? "Käytetty paranteluohje: " + result.instructions : ""].filter(Boolean).join("\n\n"), generatedBy: result.model, checkedAt: result.checked_at,
         };
         renderMode();
-        $("ti-suggestion-text").focus();
+        return true;
+    }
+
+    function openNextImprovement() {
+        const chunks = translationChunks(state.translation);
+        const next = chunks.find((item, index) => index >= state.segmentIndex && item.improvement?.status === "pending")
+            || chunks.find(item => item.improvement?.status === "pending");
+        if (openImprovement(next)) $("ti-suggestion-text").focus();
+    }
+
+    function editCurrentDraft() {
+        if (currentDraftSuggestion() || openImprovement(currentChunk())) $("ti-suggestion-text").focus();
+    }
+
+    async function decideCurrentDraft(accept) {
+        if ($(accept ? "ti-draft-accept" : "ti-draft-reject").disabled) return;
+        if (!currentDraftSuggestion() && !openImprovement(currentChunk())) return;
+        if (accept) await acceptSuggestion();
+        else await rejectSuggestion();
+    }
+
+    async function acceptAllDrafts() {
+        if ($("ti-accept-all-drafts").disabled || !state.translation?.id) return;
+        const id = state.translation.id;
+        const opened = state.suggestion;
+        const suggestions = pendingImprovements().map(chunk => ({
+            chunk_index: chunk._tiRawIndex, expected_checked_at: chunk.improvement.checked_at,
+            ...(opened?.improvement && opened.rawChunkIndex === chunk._tiRawIndex
+                ? { translation: opened.edited } : {}),
+        }));
+        setBusy(true, "Hyväksytään koko teoksen luonnokset…");
+        state.improvementRefreshRevision += 1;
+        try {
+            const saved = await api("/translations/" + encodeURIComponent(id) + "/improvements/accept-all", jsonOptions("POST", { suggestions }));
+            if (state.translation?.id !== id) return;
+            state.translation = saved;
+            const index = state.translations.findIndex(item => item.id === id);
+            if (index >= 0) state.translations[index] = saved;
+            clearSuggestion();
+            state.translationSelection = null;
+            state.improvementMessage = suggestions.length + " luonnosta hyväksytty ja tallennettu.";
+            renderAll();
+            setStatus("Kaikki luonnokset hyväksytty");
+            state.focusAfterBusy = $("ti-target-reader");
+        } catch (error) {
+            setStatus("Luonnosten hyväksyminen epäonnistui");
+            toast(error.message);
+        } finally {
+            setBusy(false);
+        }
     }
 
     async function decideImprovement(suggestion, status) {
@@ -2309,12 +2430,14 @@
         const format = $("ti-download-format").value;
         const version = $("ti-download-version").value;
         const extension = format === "bilingual-docx" ? "docx" : format;
-        setBusy(true, "Valmistellaan koko teoksen latausta…");
+        const changesOnly = $("ti-download-scope").value === "changes";
+        setBusy(true, changesOnly ? "Valmistellaan muutoskoostetta…" : "Valmistellaan koko teoksen latausta…");
         try {
             const query = new URLSearchParams({ format, version });
+            if (changesOnly) query.set("scope", "changes");
             const result = await api("/translations/" + encodeURIComponent(id) + "/improvement-export?" + query, { binaryResponse: true });
             const fileName = result.disposition?.match(/filename="([^"]+)"/i)?.[1]
-                || "kaannos-" + (version === "draft" ? "paranneltu-luonnos" : "hyvaksytyt-muutokset") + "." + extension;
+                || "kaannos-" + (changesOnly ? "vain-muutokset-" : "") + (version === "draft" ? "paranneltu-luonnos" : "hyvaksytyt-muutokset") + "." + extension;
             const url = URL.createObjectURL(result.blob);
             const link = document.createElement("a");
             link.href = url;
@@ -2323,7 +2446,7 @@
             link.click();
             link.remove();
             window.setTimeout(() => URL.revokeObjectURL(url), 60000);
-            setStatus(version === "draft" ? "Paranneltu luonnos ladattu" : "Versio hyväksytyillä muutoksilla ladattu");
+            setStatus(changesOnly ? "Muutoskooste ladattu" : (version === "draft" ? "Paranneltu luonnos ladattu" : "Versio hyväksytyillä muutoksilla ladattu"));
         } catch (error) {
             setStatus("Teoksen lataus epäonnistui");
             toast(error.message);
@@ -2333,6 +2456,11 @@
     }
 
     function bindEvents() {
+        $("ti-draft-edit").addEventListener("click", editCurrentDraft);
+        $("ti-draft-accept").addEventListener("click", () => decideCurrentDraft(true));
+        $("ti-draft-reject").addEventListener("click", () => decideCurrentDraft(false));
+        $("ti-accept-all-drafts").addEventListener("click", acceptAllDrafts);
+        $("ti-download-scope").addEventListener("change", renderImprovementControls);
         $("ti-download-version").addEventListener("change", renderImprovementControls);
         $("ti-download-book").addEventListener("click", downloadImprovedBook);
         $("ti-translation-scope").addEventListener("change", () => { state.improvementMessage = ""; storeImprovementSettings(); renderMode(); });
@@ -2384,8 +2512,9 @@
         $("ti-target-reader").addEventListener("keydown", (event) => {
             handleReaderKeyboardSelection("translation", event);
         });
-        $("ti-source-reader").addEventListener("scroll", () => syncScroll($("ti-source-reader"), $("ti-target-reader")));
-        $("ti-target-reader").addEventListener("scroll", () => syncScroll($("ti-target-reader"), $("ti-source-reader")));
+        ["ti-source-reader", "ti-target-reader", "ti-draft-reader"].forEach(id => {
+            $(id).addEventListener("scroll", () => syncScroll($(id)));
+        });
 
         $("ti-instructions").addEventListener("input", (event) => {
             $("ti-instructions-count").textContent = String(event.target.value.length);

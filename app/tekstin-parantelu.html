@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tekstin parantelu · SkriptLab</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="tekstin-parantelu.css?v=3">
+    <link rel="stylesheet" href="tekstin-parantelu.css?v=4">
     <link rel="stylesheet" href="text-model-settings.css?v=1">
 <link rel="stylesheet" href="book-access.css?v=2">
 <script src="book-access.js?v=6"></script>
@@ -135,7 +135,7 @@
                 </article>
                 <article class="ti-aligned-column ti-target-column">
                     <header class="ti-region-header">
-                        <h2>Käännös</h2>
+                        <h2>Nykyinen versio</h2>
                         <span id="ti-target-label">Kohdeteksti</span>
                     </header>
                     <div
@@ -145,6 +145,18 @@
                         aria-label="Käännös. Maalaa parannettava kohta tai valitse kappale nuolinäppäimillä."
                         aria-describedby="ti-selection-help"
                     ></div>
+                </article>
+                <article class="ti-aligned-column ti-draft-column">
+                    <header class="ti-region-header">
+                        <h2>Uusi luonnos</h2>
+                        <span id="ti-draft-status" role="status" aria-live="polite">Ei luonnosta</span>
+                    </header>
+                    <div id="ti-draft-reader" class="ti-prose ti-aligned-prose" tabindex="0" aria-label="Uusi luonnos"></div>
+                    <footer id="ti-draft-actions" class="ti-draft-actions" hidden>
+                        <button id="ti-draft-edit" class="ti-button ti-button-secondary" type="button">Muokkaa</button>
+                        <button id="ti-draft-reject" class="ti-button ti-button-secondary" type="button">Hylkää</button>
+                        <button id="ti-draft-accept" class="ti-button ti-button-primary" type="button">Hyväksy luonnos</button>
+                    </footer>
                 </article>
                 <div id="ti-translation-empty" class="ti-empty-state" hidden>
                     <svg aria-hidden="true" viewBox="0 0 48 48"><path d="M8 9h14v28H8z"></path><path d="M26 9h14v28H26z"></path><path d="M22 15h4M22 24h4M22 33h4"></path></svg>
@@ -221,6 +233,15 @@
                         <p id="ti-translation-progress" role="status" aria-live="polite"></p>
                         <button id="ti-translation-refresh" class="ti-button ti-button-secondary" type="button">Päivitä tilanne</button>
                         <button id="ti-translation-review" class="ti-button ti-button-secondary" type="button">Avaa seuraava ehdotus</button>
+                        <button id="ti-accept-all-drafts" class="ti-button ti-button-primary" type="button" aria-describedby="ti-accept-all-help">Hyväksy kaikki luonnokset</button>
+                        <p id="ti-accept-all-help">Hyväksyy koko teoksen odottavat luonnokset nykyiseen versioon.</p>
+                        <label class="ti-field" for="ti-download-scope">
+                            <span>Ladattava sisältö</span>
+                            <select id="ti-download-scope">
+                                <option value="book">Koko teos</option>
+                                <option value="changes">Vain muutokset ja niiden sijainnit</option>
+                            </select>
+                        </label>
                         <label class="ti-field" for="ti-download-version">
                             <span>Ladattava teosversio</span>
                             <select id="ti-download-version">
@@ -317,6 +338,6 @@
     <script src="config.js?v=1"></script>
     <script src="auth.js?v=5"></script>
     <script src="text-model-settings.js?v=1"></script>
-    <script src="tekstin-parantelu.js?v=7"></script>
+    <script src="tekstin-parantelu.js?v=8"></script>
 </body>
 </html>
