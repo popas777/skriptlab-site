@@ -106,7 +106,7 @@ test('Kirjasto is a cache-versioned, semantic Finnish iframe module', () => {
   assert.match(html, /kirjasto\.css\?v=\d+/);
   assert.match(html, /kirjasto\.js\?v=\d+/);
   assert.match(html, /@phosphor-icons\/web/);
-  assert.match(html, /Fraunces/);
+  assert.match(html, /Source\+Serif\+4/);
 
   [
     'library-title',

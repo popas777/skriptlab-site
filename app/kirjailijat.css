@@ -8,7 +8,7 @@
   --forest: #14583f;
   --forest-soft: #e7f0eb;
   --ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --display: "Fraunces", Georgia, serif;
+  --display: "Source Serif 4", Georgia, serif;
 }
 body[data-shell-theme="dark"] {
   color-scheme: dark;

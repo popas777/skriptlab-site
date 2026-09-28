@@ -19,7 +19,7 @@
   --radius-md: 16px;
   --radius-lg: 24px;
   --ui-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --display-font: "Fraunces", Georgia, serif;
+  --display-font: "Source Serif 4", Georgia, serif;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
