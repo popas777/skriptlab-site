@@ -259,6 +259,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         ? window.SkriptLabAuth.isShowcaseDemoUser(currentUser)
         : ['Demo', 'Kustantamodemo'].includes(String(currentUser?.access_group_name || ''));
     document.body.classList.toggle('showcase-demo-mode', showcaseDemoMode);
+    const libraryReaderMode = currentUser?.role === 'library_reader'
+        || currentUser?.access_plan_key === 'library_reader';
+    document.body.classList.toggle('library-reader-mode', libraryReaderMode);
+    if (libraryReaderMode) window.SkriptLabAuth.clearWorkspaceData();
 
     function demoUiText(value) {
         const text = String(value == null ? '' : value);
@@ -510,6 +514,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     let writerDeskAssistantDraftKind = '';
     let writerDeskStructureVisible = localStorage.getItem(WRITER_DESK_STRUCTURE_VISIBLE_KEY) === 'true';
     function defaultViewForUser() {
+        if (libraryReaderMode) return 'view-kirjasto';
         if (showcaseDemoMode) return 'view-kirjani';
         if (Array.isArray(currentUser?.allowed_modules)) {
             const allowedModules = new Set(currentUser.allowed_modules);
@@ -854,7 +859,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         toimittaja: 'Toimittaja',
         kaantaja: 'Kääntäjä',
         kirjailija: 'Kirjailija',
-        elamakerta: 'Elämäkerta'
+        elamakerta: 'Elämäkerta',
+        library_reader: 'Kirjaston lukija'
     };
 	    const writerStageConfig = {
 	        writing: {
@@ -5168,6 +5174,10 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     function isViewAllowed(viewId) {
         viewId = canonicalViewId(viewId);
+        if (libraryReaderMode) {
+            return currentUser?.allowed_modules?.includes('published_library')
+                && ['view-kirjasto', 'view-kirjailijat'].includes(viewId);
+        }
         if (showcaseDemoMode) return showcaseDemoViews.has(navViewFor(viewId));
         if (isBasicNavigation() && basicHiddenViews.has(viewId)) return false;
         // Other plans can discover modules; the server guards their actions.
@@ -29878,7 +29888,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
         }
     };
 
-    {
+    if (!libraryReaderMode) {
         loadUsage();
         loadTranslationModels();
         loadMiscModels();

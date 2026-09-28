@@ -9,9 +9,10 @@ const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
 const navViews = [...html.slice(html.indexOf('<ul id="nav-menu">'), html.indexOf('</ul>', html.indexOf('<ul id="nav-menu">'))).matchAll(/data-view="([^"]+)"/g)].map(match => match[1]);
 const demoViews = ['view-kirjani', 'view-analyysi', 'view-kirjoita-editoi', 'view-kaannokset', 'view-kuvitus', 'view-audio', 'view-video', 'view-3d-studio'];
 
-function navigation(showcaseDemoMode, planKey = '') {
+function navigation(showcaseDemoMode, planKey = '', libraryReaderMode = false) {
   const context = vm.createContext({
     showcaseDemoMode,
+    libraryReaderMode,
     currentUser: { access_plan_key: planKey, allowed_modules: ['skill', 'biography', 'published_library'] },
     window: { SkriptLabBookAccess: { getSnapshot: () => ({ plan_key: planKey }) } },
   });
@@ -27,6 +28,13 @@ test('demo navigation exposes exactly the eight requested modules despite old br
   assert.equal(allowed('view-rakenne'), true, 'analysis structure remains usable');
   assert.equal(allowed('view-kirjoita'), false, 'the separate mobile editor stays outside the demo');
   assert.equal(allowed('view-muut-toiminnot'), false);
+  assert.equal(allowed('view-unknown'), false);
+});
+
+test('library readers see exactly Library and Authors even with stale broad grants', () => {
+  const allowed = navigation(false, 'library_reader', true);
+  assert.deepEqual(navViews.filter(allowed), ['view-kirjasto', 'view-kirjailijat']);
+  assert.equal(allowed('view-kirjoita'), false);
   assert.equal(allowed('view-unknown'), false);
 });
 

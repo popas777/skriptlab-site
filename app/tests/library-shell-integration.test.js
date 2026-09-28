@@ -101,7 +101,7 @@ test('Library gets an independent top-bar context and a responsive full-height f
 });
 
 test('Shell assets use the current cache versions', () => {
-  assert.equal(numericAssetVersion(indexHtml, 'styles.css'), 125);
-  assert.equal(numericAssetVersion(indexHtml, 'app.js'), 232);
+  assert.equal(numericAssetVersion(indexHtml, 'styles.css'), 126);
+  assert.equal(numericAssetVersion(indexHtml, 'app.js'), 236);
   assert.equal(numericAssetVersion(indexHtml, 'kirjasto.html'), 9);
 });

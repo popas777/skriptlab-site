@@ -13412,3 +13412,11 @@ html.library-reader-expanded #kirjasto-frame {
     display: block; position: absolute; inset: 0; border: 0;
     width: 100% !important; height: 100% !important; min-height: 0 !important;
 }
+
+.library-reader-mode #help-agent-toggle,
+.library-reader-mode #feedback-open-btn,
+.library-reader-mode #usage-box,
+.library-reader-mode .ai-meta-box,
+.library-reader-mode #toggle-mobile {
+    display: none !important;
+}
