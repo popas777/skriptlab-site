@@ -373,6 +373,7 @@
       <div class="dialog-notice" id="add-work-notice" role="status" aria-live="polite" hidden></div>
 
       <div class="add-step" id="add-work-source-step">
+        <p><button class="text-action" id="add-open-saved" type="button">Avaa omat tallennetut teokset</button></p>
         <div class="dialog-tabs" role="tablist" aria-label="Teoksen lähde">
           <button id="add-tab-import" type="button" role="tab" aria-selected="true" aria-controls="add-panel-import" data-add-source="import">
             <i class="ph ph-upload-simple" aria-hidden="true"></i>
@@ -582,6 +583,6 @@
     window.apiUrl = (path) => `${window.API_BASE_URL}${path}`;
   </script>
   <script src="auth.js?v=5"></script>
-  <script src="kirjasto.js?v=11"></script>
+  <script src="kirjasto.js?v=12"></script>
 </body>
 </html>

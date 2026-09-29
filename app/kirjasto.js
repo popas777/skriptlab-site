@@ -221,6 +221,7 @@
       "add-work-cover",
       "add-work-audio",
       "add-cancel",
+      "add-open-saved",
       "add-work-classification-step",
       "classification-title",
       "thema-review-list",
@@ -2743,7 +2744,7 @@
 
       if (intent === "draft") {
         closeAddDialog();
-        showNotice("Teos tallennettiin luonnokseksi. Thema-ehdotukset voi tarkistaa Omat teokset -näkymässä.");
+        showNotice("Teos tallennettiin luonnokseksi. Löydät sen Lisää teos -ikkunan omista tallennetuista teoksista.");
         await loadWorks({ silent: true });
         return;
       }
@@ -3174,6 +3175,13 @@
     elements["library-add-form"].addEventListener("submit", handleAddSubmit);
     elements["add-work-close"].addEventListener("click", closeAddDialog);
     elements["add-cancel"].addEventListener("click", closeAddDialog);
+    elements["add-open-saved"].addEventListener("click", () => {
+      if (state.addBusy || !canPublish()) return;
+      closeAddDialog();
+      state.scope = "mine";
+      syncScopeControls();
+      clearFilters();
+    });
     elements["library-add-dialog"].addEventListener("cancel", (event) => {
       event.preventDefault();
       closeAddDialog();
