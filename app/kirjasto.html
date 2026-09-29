@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400..700&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
-  <link rel="stylesheet" href="kirjasto.css?v=11">
+  <link rel="stylesheet" href="kirjasto.css?v=12">
 <link rel="stylesheet" href="book-access.css?v=2">
 <script src="book-access.js?v=5"></script>
 <script src="book-workflow.js?v=5" defer></script>
@@ -28,25 +28,24 @@
     </div>
 
     <section class="library-screen browser-screen" id="library-browser">
-      <header class="library-header">
-        <div>
-          <h1 id="library-title">Kirjasto</h1>
-          <p>Löydä seuraava tarinasi. Lue tai kuuntele omaan tahtiisi.</p>
-        </div>
-        <button class="primary-action add-work-action" id="library-add-work" type="button" hidden>
-          <i class="ph ph-plus" aria-hidden="true"></i>
-          <span>Lisää teos</span>
-        </button>
-      </header>
-
+      <h1 class="sr-only" id="library-title">Kirjasto</h1>
+      <div class="library-navigation">
       <nav class="scope-tabs" id="library-scope-tabs" aria-label="Kirjaston näkymät">
         <button type="button" data-scope="all" aria-current="page">Kirjasto</button>
         <button type="button" data-scope="shared">Jaetut</button>
         <button type="button" data-scope="continue">Jatka</button>
+        <button type="button" data-scope="finished">Luetut</button>
+        <button type="button" data-scope="favorites">Suosikit</button>
         <button type="button" data-scope="mine">Omat teokset</button>
       </nav>
+        <button class="primary-action add-work-action" id="library-add-work" type="button" hidden>
+          <i class="ph ph-plus" aria-hidden="true"></i>
+          <span>Lisää teos</span>
+        </button>
+      </div>
 
       <form class="library-search" id="library-search-form" role="search">
+        <div class="library-search-row">
         <label class="search-field" for="library-search-input">
           <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
           <span class="sr-only">Hae kirjastosta</span>
@@ -55,6 +54,13 @@
             <i class="ph ph-x" aria-hidden="true"></i>
           </button>
         </label>
+          <label class="library-sort-label"><span class="sr-only">Järjestys</span><select id="library-sort">
+            <option value="newest">Uusimmat ensin</option>
+            <option value="title">Teoksen nimi A–Ö</option>
+            <option value="author">Tekijä A–Ö</option>
+            <option value="shortest">Lyhyimmät ensin</option>
+          </select></label>
+        </div>
         <button class="sr-only" type="submit">Hae</button>
 
         <div class="filter-row" aria-label="Rajaa teoksia">
@@ -71,25 +77,8 @@
             </select>
             <i class="ph ph-caret-down" aria-hidden="true"></i>
           </label>
+          <button class="filter-chip" id="library-children-filter" type="button" aria-pressed="false">Lapset ja nuoret</button>
         </div>
-        <details class="catalog-advanced" id="library-advanced-filters" open>
-          <summary>Tarkenna hakua ja järjestä</summary>
-          <div class="catalog-options">
-          <label>Kieli<select id="library-language-filter"><option value="">Kaikki kielet</option></select></label>
-          <label>Pituus<select id="library-length-filter">
-            <option value="">Kaikki pituudet</option>
-            <option value="short">Lyhyt · alle 10 000 sanaa</option>
-            <option value="medium">Keskipitkä · 10 000–50 000</option>
-            <option value="long">Pitkä · vähintään 50 000</option>
-          </select></label>
-          <label>Järjestys<select id="library-sort">
-            <option value="newest">Uusimmat ensin</option>
-            <option value="title">Teoksen nimi A–Ö</option>
-            <option value="author">Tekijä A–Ö</option>
-            <option value="shortest">Lyhyimmät ensin</option>
-          </select></label>
-          </div>
-        </details>
         <div class="catalog-filter-summary" id="library-filter-summary" hidden>
           <span id="library-active-filters"></span>
           <button type="button" id="library-reset-filters">Poista rajaukset</button>
@@ -109,7 +98,7 @@
       <section class="results-section" id="library-results" aria-labelledby="library-results-title" tabindex="-1">
         <header class="results-heading">
           <div class="results-heading-copy">
-            <h2 id="library-results-title">Tutustu teoksiin</h2>
+            <h2 id="library-results-title" tabindex="-1">Tutustu teoksiin</h2>
             <p class="results-description" id="library-results-description" hidden></p>
           </div>
           <div class="results-controls">
@@ -204,6 +193,14 @@
             </button>
           </div>
 
+          <div class="detail-shelf-actions">
+            <button class="secondary-action" id="detail-favorite" type="button" aria-pressed="false">
+              <i class="ph ph-heart" aria-hidden="true"></i><span>Lisää suosikkeihin</span>
+            </button>
+            <button class="secondary-action" id="detail-finished" type="button" aria-pressed="false">
+              <i class="ph ph-check-circle" aria-hidden="true"></i><span>Merkitse valmiiksi</span>
+            </button>
+          </div>
           <dl class="detail-meta" id="detail-meta"></dl>
         </article>
       </div>
@@ -573,9 +570,9 @@
 
   <nav class="mobile-library-nav" id="mobile-library-nav" aria-label="Kirjaston päänavigaatio">
     <button class="is-active" type="button" data-mobile-action="all" aria-current="page"><i class="ph ph-book-open" aria-hidden="true"></i><span>Kirjasto</span></button>
-    <button type="button" data-mobile-action="shared"><i class="ph ph-users-three" aria-hidden="true"></i><span>Jaetut</span></button>
-    <button type="button" data-mobile-action="search"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><span>Haku</span></button>
     <button type="button" data-mobile-action="continue"><i class="ph ph-play-circle" aria-hidden="true"></i><span>Jatka</span></button>
+    <button type="button" data-mobile-action="finished"><i class="ph ph-check-circle" aria-hidden="true"></i><span>Luetut</span></button>
+    <button type="button" data-mobile-action="favorites"><i class="ph ph-heart" aria-hidden="true"></i><span>Suosikit</span></button>
     <button type="button" data-mobile-action="mine"><i class="ph ph-user" aria-hidden="true"></i><span>Omat</span></button>
   </nav>
 
@@ -585,6 +582,6 @@
     window.apiUrl = (path) => `${window.API_BASE_URL}${path}`;
   </script>
   <script src="auth.js?v=5"></script>
-  <script src="kirjasto.js?v=9"></script>
+  <script src="kirjasto.js?v=10"></script>
 </body>
 </html>

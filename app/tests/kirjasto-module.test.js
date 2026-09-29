@@ -42,7 +42,7 @@ test('swipes ignore taps, vertical scrolling, diagonal movements and long select
 });
 
 test('catalog pages and facets come from the server and load-more preserves results', () => {
-  for (const id of ['library-load-more', 'library-language-filter', 'library-length-filter', 'library-sort', 'library-reset-filters']) expectId(id);
+  for (const id of ['library-load-more', 'library-children-filter', 'library-sort', 'library-reset-filters']) expectId(id);
   assert.match(js, /params\.set\("catalog", "true"\)/);
   assert.match(js, /params\.set\("after", state\.nextCursor\)/);
   assert.match(js, /payload\?\.total/);
@@ -162,8 +162,7 @@ test('backend work payloads normalize cover, content, Thema, ownership and signe
 
 test('Shared scope presents managed examples without exposing management actions', () => {
   assert.match(html, /data-scope=["']shared["'][^>]*>Jaetut</);
-  assert.match(html, /data-mobile-action=["']shared["'][^>]*>[\s\S]{0,120}<span>Jaetut<\/span>/);
-  assert.match(js, /\[["']all["'], ["']shared["'], ["']continue["'], ["']mine["']\]\.includes\(scope\)/);
+  assert.match(js, /\[["']all["'], ["']shared["'], ["']continue["'], ["']mine["'], ["']finished["'], ["']favorites["']\]\.includes\(scope\)/);
   assert.match(js, /const managedExample = booleanValue\(firstValue\(source, \[["']managed_example["']/);
   assert.match(js, /const shared = managedExample \|\| booleanValue\(firstValue\(source, \[["']shared["']/);
   assert.match(js, /if \(work\.managedExample \|\| work\.shared\) return false/);
@@ -388,9 +387,32 @@ test('book cards open unread and draft details, but resume the saved reading or 
   work.progress.percent = 0;
   work.progress.updatedAt = '2026-09-21T12:00:00Z';
   work.progress.media = 'pdf';
+  assert.equal(workPrimaryAction(work), 'detail');
+  work.progress.pdfPage = 2;
   assert.equal(workPrimaryAction(work), 'read');
   work.hasText = false;
   assert.equal(workPrimaryAction(work), 'audio');
   work.hasAudio = false;
   assert.equal(workPrimaryAction(work), 'detail');
+});
+
+test('favorites do not start unread books and finished books leave Continue without losing their position', () => {
+  const context = {window: {}, document: {readyState: 'loading', addEventListener() {}}};
+  require('node:vm').runInNewContext(js, context);
+  const {normalizeWork, workMatchesContinue, workPrimaryAction} = context.window.SkriptLabLibrary;
+  const work = normalizeWork({id: 8, status: 'published', has_audio: true,
+    progress: {favorite: true, updated_at: '2026-09-29T12:00:00Z'}});
+  assert.equal(work.progress.favorite, true);
+  assert.equal(workPrimaryAction(work), 'detail');
+  assert.equal(workMatchesContinue(work), false);
+  work.progress.percent = 30;
+  work.progress.audioPosition = 20;
+  work.progress.audioDuration = 60;
+  assert.equal(workMatchesContinue(work), true);
+  work.progress.finished = true;
+  assert.equal(workMatchesContinue(work), false);
+  assert.equal(workPrimaryAction(work), 'detail');
+  work.progress.finished = false;
+  assert.equal(workMatchesContinue(work), true);
+  assert.equal(work.progress.audioPosition, 20);
 });

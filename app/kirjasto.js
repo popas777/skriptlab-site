@@ -19,8 +19,7 @@
     query: "",
     media: "",
     theme: "",
-    language: "",
-    length: "",
+    audience: "",
     sort: "newest",
     total: 0,
     nextCursor: null,
@@ -87,6 +86,7 @@
   };
 
   const elements = {};
+  const shelfUpdates = new Set();
 
   class LibraryApiError extends Error {
     constructor(message, status, payload) {
@@ -110,6 +110,7 @@
       "library-notice-action",
       "library-notice-close",
       "library-browser",
+      "library-children-filter",
       "library-add-work",
       "library-scope-tabs",
       "library-search-form",
@@ -117,10 +118,7 @@
       "library-search-clear",
       "library-media-filters",
       "library-theme-filter",
-      "library-language-filter",
-      "library-length-filter",
       "library-sort",
-      "library-advanced-filters",
       "library-filter-summary",
       "library-active-filters",
       "library-reset-filters",
@@ -163,6 +161,8 @@
       "detail-progress-bar",
       "detail-read",
       "detail-listen",
+      "detail-favorite",
+      "detail-finished",
       "detail-meta",
       "library-reader",
       "reader-back",
@@ -461,6 +461,8 @@
     // The API uses percentages (0.5 means half a percent, not 50 percent).
     return {
       percent: clamp(percent, 0, 100),
+      favorite: source.favorite === true,
+      finished: source.finished === true,
       media: ["audio", "pdf"].includes(source.media) ? source.media : "read",
       audioTrackId: text(firstValue(source, ["audio_track_id", "audioTrackId"], "")),
       pdfPage: Math.max(1, Math.floor(finiteNumber(firstValue(source, ["pdf_page", "pdfPage"], 1)))),
@@ -589,6 +591,7 @@
   }
 
   function renderCover(container, work, options = {}) {
+    container.classList.toggle("is-audiobook-cover", work.hasAudio && !work.hasText);
     container.replaceChildren();
     const fallback = document.createElement("span");
     fallback.className = "cover-fallback";
@@ -634,15 +637,15 @@
   }
 
   function workMatchesContinue(work) {
-    return (work.progress.percent > 0 && work.progress.percent < 100)
-      || (work.progress.audioPosition > 0 && (!work.progress.audioDuration || work.progress.audioPosition < work.progress.audioDuration));
+    return !work.progress.finished && ((work.progress.percent > 0 && work.progress.percent < 100)
+      || (work.progress.audioPosition > 0 && (!work.progress.audioDuration || work.progress.audioPosition < work.progress.audioDuration)));
   }
 
   function workPrimaryAction(work) {
     const progress = work.progress || {};
-    const started = Boolean(progress.updatedAt || progress.percent > 0 || progress.audioPosition > 0
+    const started = Boolean(progress.percent > 0 || progress.audioPosition > 0
       || progress.chapterId || progress.chapterIndex > 0 || progress.pdfPage > 1);
-    if (work.status === "draft" || !started) return "detail";
+    if (work.status === "draft" || progress.finished || !started) return "detail";
     if (work.hasAudio && (progress.media === "audio" || !work.hasText)) return "audio";
     return work.hasText ? "read" : "detail";
   }
@@ -777,7 +780,7 @@
     const facts = document.createElement("p");
     facts.className = "work-facts";
     facts.textContent = [languageLabel(work.language), readingTimeLabel(work),
-      work.hasAudio ? "Myös kuunneltavissa" : ""].filter(Boolean).join(" · ");
+      work.hasAudio ? (work.hasText ? "Myös kuunneltavissa" : "Äänikirja") : ""].filter(Boolean).join(" · ");
     copy.append(facts);
 
     const theme = firstThemeLabel(work);
@@ -790,6 +793,26 @@
 
     article.append(cover, copy);
     appendDetailAction(article, work);
+    if (work.status === "published") {
+      article.classList.add("has-shelf-actions");
+      const heart = document.createElement("button");
+      heart.type = "button";
+      heart.className = "work-favorite";
+      heart.disabled = shelfUpdates.has(work.id);
+      heart.dataset.favoriteWork = work.id;
+      heart.setAttribute("aria-pressed", String(work.progress.favorite));
+      heart.setAttribute("aria-label", `${work.progress.favorite ? "Poista suosikeista" : "Lisää suosikkeihin"}: ${work.title}, ${work.author}`);
+      heart.title = work.progress.favorite ? "Poista suosikeista" : "Lisää suosikkeihin";
+      heart.append(makeIcon("heart"));
+      heart.addEventListener("click", () => toggleShelf(work, "favorite"));
+      article.append(heart);
+    }
+    if (work.progress.finished) {
+      const finished = document.createElement("p");
+      finished.className = "work-finished";
+      finished.append(makeIcon("check-circle"), document.createTextNode("Valmis"));
+      copy.append(finished);
+    }
 
     if (work.progress.percent > 0) {
       const progress = document.createElement("div");
@@ -804,6 +827,8 @@
   }
 
   function resultsHeading(scope) {
+    if (scope === "finished") return "Luetut";
+    if (scope === "favorites") return "Suosikit";
     if (scope === "shared") return hasFilters() ? "Jaetut hakutulokset" : "Jaetut teokset";
     if (scope === "continue") return "Jatka lukemista ja kuuntelua";
     if (scope === "mine") return "Omat teokset";
@@ -812,6 +837,8 @@
   }
 
   function resultsDescription(scope) {
+    if (scope === "finished") return "Loppuun luetut, kuunnellut ja valmiiksi merkityt teokset.";
+    if (scope === "favorites") return "Sydämellä tallettamasi teokset.";
     if (scope === "shared") return "Muiden kirjaston käyttäjille julkaisemat teokset ja SkriptLabin esimerkit.";
     return "";
   }
@@ -828,6 +855,16 @@
       elements["library-empty-copy"].textContent = "Kokeile toista hakusanaa tai poista yksi rajauksista.";
       elements["library-empty-add"].hidden = true;
       elements["library-clear-filters"].hidden = false;
+      return;
+    }
+    if (["finished", "favorites"].includes(state.scope)) {
+      const favorites = state.scope === "favorites";
+      elements["library-empty-title"].textContent = favorites ? "Ei vielä suosikkeja" : "Ei vielä valmiita teoksia";
+      elements["library-empty-copy"].textContent = favorites
+        ? "Lisää teos suosikkeihin painamalla sen sydäntä."
+        : "Loppuun luetut ja kuunnellut teokset löytyvät täältä. Voit myös merkitä teoksen valmiiksi sen esittelyssä.";
+      elements["library-empty-add"].hidden = true;
+      elements["library-clear-filters"].hidden = true;
       return;
     }
     if (state.scope === "continue") {
@@ -874,12 +911,11 @@
     elements["library-filter-summary"].hidden = !hasFilters();
     elements["library-active-filters"].textContent = [state.query ? `Haku: ${state.query}` : "",
       state.media === "audio" ? "Kuunneltavat" : (state.media === "read" ? "Luettavat" : ""),
-      state.availableThemes.get(state.theme) || state.theme, languageLabel(state.language),
-      state.length ? elements["library-length-filter"].selectedOptions[0].textContent : ""].filter(Boolean).join(" · ");
+      state.availableThemes.get(state.theme) || state.theme, state.audience ? "Lapset ja nuoret" : ""].filter(Boolean).join(" · ");
   }
 
   function hasFilters() {
-    return Boolean(state.query || state.media || state.theme || state.language || state.length);
+    return Boolean(state.query || state.media || state.theme || state.audience);
   }
 
   function updateThemeOptions() {
@@ -935,8 +971,7 @@
     if (state.query) params.set("q", state.query);
     if (state.media) params.set("media", state.media);
     if (state.theme) params.set("theme", state.theme);
-    if (state.language) params.set("language", state.language);
-    if (state.length) params.set("length", state.length);
+    if (state.audience) params.set("audience", state.audience);
     params.set("sort", state.sort);
     params.set("catalog", "true");
     params.set("limit", "24");
@@ -977,10 +1012,7 @@
       if (continued) state.continuations = unwrapWorks(continued).map(normalizeWork).filter(workMatchesContinue);
       if (payload?.facets) {
         state.availableThemes = new Map(payload.facets.themes.map((theme) => [theme.value, theme.label]));
-        const languages = [new Option("Kaikki kielet", ""), ...payload.facets.languages.map((code) => new Option(languageLabel(code), code))];
-        if (state.language && !payload.facets.languages.includes(state.language)) languages.push(new Option(languageLabel(state.language), state.language));
-        elements["library-language-filter"].replaceChildren(...languages);
-        elements["library-language-filter"].value = state.language;
+
       }
       updateThemeOptions();
       renderWorks();
@@ -1018,7 +1050,7 @@
   }
 
   function setScope(scope) {
-    if (!["all", "shared", "continue", "mine"].includes(scope)) return;
+    if (!["all", "shared", "continue", "mine", "finished", "favorites"].includes(scope)) return;
     state.scope = scope;
     syncScopeControls();
     closeDetail(false);
@@ -1032,11 +1064,12 @@
     closeDetail(false);
     state.scope = "all";
     state.query = text(query).slice(0, 200);
-    state.media = state.theme = state.language = state.length = "";
+    state.media = state.theme = state.audience = "";
+    syncAudienceControl();
     state.sort = "newest";
     elements["library-search-input"].value = state.query;
     elements["library-search-clear"].hidden = !state.query;
-    ["theme", "language", "length"].forEach(key => {
+    ["theme"].forEach(key => {
       elements[`library-${key}-filter`].value = "";
     });
     elements["library-sort"].value = "newest";
@@ -1054,13 +1087,11 @@
     state.query = "";
     state.media = "";
     state.theme = "";
-    state.language = "";
-    state.length = "";
+    state.audience = "";
+    syncAudienceControl();
     elements["library-search-input"].value = "";
     elements["library-search-clear"].hidden = true;
     elements["library-theme-filter"].value = "";
-    elements["library-language-filter"].value = "";
-    elements["library-length-filter"].value = "";
     document.querySelectorAll("[data-media]").forEach((button) => {
       const selected = button.dataset.media === "";
       button.classList.toggle("is-active", selected);
@@ -1074,6 +1105,61 @@
     if (!partial) return normalized;
     const mergedRaw = { ...partial.raw, ...normalized.raw };
     return normalizeWork(mergedRaw);
+  }
+
+  function syncAudienceControl() {
+    const button = elements["library-children-filter"];
+    button.setAttribute("aria-pressed", String(Boolean(state.audience)));
+    button.classList.toggle("is-active", Boolean(state.audience));
+  }
+
+  function setShelfBusy(workId, busy) {
+    document.querySelectorAll("[data-favorite-work]").forEach((button) => {
+      if (button.dataset.favoriteWork === workId) button.disabled = busy;
+    });
+    if (state.selectedWork?.id === workId) {
+      elements["detail-favorite"].disabled = busy;
+      elements["detail-finished"].disabled = busy;
+    }
+  }
+
+  async function toggleShelf(work, field) {
+    if (!work?.id || shelfUpdates.has(work.id)) return;
+    const workId = work.id;
+    const focusedCard = document.activeElement?.dataset.favoriteWork === workId;
+    shelfUpdates.add(workId);
+    setShelfBusy(workId, true);
+    hideNotice();
+    try {
+      await flushProgress();
+      const current = state.selectedWork?.id === workId ? state.selectedProgress || work.progress : work.progress;
+      const response = await requestJson(`${API_ROOT}/works/${encodeURIComponent(workId)}/progress`, {
+        method: "PATCH", body: JSON.stringify({ [field]: !current[field] }),
+      });
+      const saved = normalizeProgress(response);
+      const flags = { favorite: saved.favorite, finished: saved.finished };
+      writeLocalProgress(workId, flags);
+      [work, ...state.works, ...state.continuations, state.selectedWork, state.audioWork].forEach((item) => {
+        if (item?.id === workId) item.progress = { ...item.progress, ...flags };
+      });
+      if (state.selectedWork?.id === workId) {
+        state.selectedProgress = { ...state.selectedProgress, ...flags };
+        renderDetail(state.selectedWork);
+      }
+      await loadWorks({ silent: true });
+      showNotice(field === "favorite"
+        ? (saved.favorite ? "Teos lisätty suosikkeihin." : "Teos poistettu suosikeista.")
+        : (saved.finished ? "Teos merkitty valmiiksi. Löydät sen Luetut-osiosta." : "Teos merkitty keskeneräiseksi."));
+    } catch (error) {
+      showNotice(errorMessage(error, "Merkintää ei voitu tallentaa. Yritä uudelleen."));
+    } finally {
+      shelfUpdates.delete(workId);
+      setShelfBusy(workId, false);
+      if (focusedCard) {
+        const button = [...document.querySelectorAll("[data-favorite-work]")].find((item) => item.dataset.favoriteWork === workId);
+        (button || elements["library-results-title"]).focus({ preventScroll: true });
+      }
+    }
   }
 
   function languageLabel(code) {
@@ -1157,10 +1243,19 @@
     elements["detail-themes"].hidden = work.themes.length === 0;
 
     const progress = state.selectedProgress || work.progress;
+    const favoriteButton = elements["detail-favorite"];
+    const finishedButton = elements["detail-finished"];
+    favoriteButton.disabled = finishedButton.disabled = shelfUpdates.has(work.id);
+    favoriteButton.hidden = finishedButton.hidden = work.status !== "published";
+    favoriteButton.setAttribute("aria-pressed", String(progress.favorite));
+    favoriteButton.querySelector("span").textContent = progress.favorite ? "Poista suosikeista" : "Lisää suosikkeihin";
+    favoriteButton.querySelector("i").className = "ph ph-heart";
+    finishedButton.setAttribute("aria-pressed", String(progress.finished));
+    finishedButton.querySelector("span").textContent = progress.finished ? "Merkitse keskeneräiseksi" : "Merkitse valmiiksi";
     const hasProgress = progress.percent > 0 || progress.audioPosition > 0;
     elements["detail-progress"].hidden = !hasProgress;
     if (hasProgress) {
-      elements["detail-progress-label"].textContent = progress.chapterTitle || "Jatka teosta";
+      elements["detail-progress-label"].textContent = progress.finished ? "Valmis" : progress.chapterTitle || "Jatka teosta";
       elements["detail-progress-value"].textContent = `${Math.round(progress.percent)} %`;
       elements["detail-progress-bar"].style.width = `${progress.percent}%`;
     }
@@ -1407,8 +1502,10 @@
     try {
       const payload = await requestJson(`${API_ROOT}/works/${encodeURIComponent(workId)}/progress`);
       const normalized = normalizeProgress(payload?.progress || payload?.data || payload || {});
-      if (hasProgressValue(local) && progressUpdatedTime(local) > progressUpdatedTime(normalized)) return local;
-      return hasProgressValue(normalized) ? normalized : local;
+      const position = hasProgressValue(local) && progressUpdatedTime(local) > progressUpdatedTime(normalized)
+        ? local : hasProgressValue(normalized) ? normalized : local;
+      // Personal shelves always use account state, even when a newer offline position exists.
+      return { ...position, favorite: normalized.favorite, finished: normalized.finished };
     } catch (error) {
       if (error instanceof LibraryApiError && error.status === 404) return local;
       return local;
@@ -1431,6 +1528,8 @@
       progress_percent: previous.percent, audio_position_seconds: previous.audioPosition,
       audio_duration_seconds: previous.audioDuration, bookmarks: previous.bookmarks,
       audio_track_id: previous.audioTrackId, pdf_page: previous.pdfPage,
+      favorite: previous.favorite,
+      finished: previous.finished || (previous.percent < 100 && patch.progress_percent >= 100),
       ...state.progressPayload,
     });
     const localProgress = readLocalProgress(workId);
@@ -2274,12 +2373,14 @@
 
   function handleAudioLoaded() {
     const audio = elements["library-audio"];
+    audio.playbackRate = finiteNumber(elements["audio-speed"].value, 1);
     elements["audio-seek"].max = String(Number.isFinite(audio.duration) ? audio.duration : 100);
     elements["audio-time-duration"].textContent = formatTime(audio.duration);
     if (state.pendingAudioPosition > 0 && state.pendingAudioPosition < audio.duration) {
       audio.currentTime = state.pendingAudioPosition;
     }
     state.pendingAudioPosition = 0;
+    handleAudioTimeUpdate();
     if (state.audioResumeAfterLoad) {
       state.audioResumeAfterLoad = false;
       state.audioIntentPlaying = true;
@@ -2912,10 +3013,6 @@
       const button = event.target.closest("[data-catalog-view]");
       if (button) setCatalogView(button.dataset.catalogView);
     });
-    const compactCatalog = window.matchMedia("(max-width: 600px)");
-    const syncAdvancedFilters = () => { elements["library-advanced-filters"].open = !compactCatalog.matches; };
-    syncAdvancedFilters();
-    compactCatalog.addEventListener("change", syncAdvancedFilters);
     elements["library-notice-action"].addEventListener("click", () => state.noticeAction?.());
     elements["library-notice-close"].addEventListener("click", hideNotice);
     elements["library-add-work"].addEventListener("click", () => openAddDialog());
@@ -2923,7 +3020,7 @@
     elements["library-clear-filters"].addEventListener("click", clearFilters);
     elements["library-reset-filters"].addEventListener("click", clearFilters);
     elements["library-load-more"].addEventListener("click", () => loadWorks({ append: true }));
-    [["library-language-filter", "language"], ["library-length-filter", "length"], ["library-sort", "sort"]].forEach(([id, key]) => {
+    [["library-sort", "sort"]].forEach(([id, key]) => {
       elements[id].addEventListener("change", () => {
         state[key] = elements[id].value;
         loadWorks();
@@ -2970,6 +3067,11 @@
       state.theme = elements["library-theme-filter"].value;
       loadWorks();
     });
+    elements["library-children-filter"].addEventListener("click", () => {
+      state.audience = state.audience ? "" : "children_youth";
+      syncAudienceControl();
+      loadWorks();
+    });
 
     elements["detail-back"].addEventListener("click", () => closeDetail());
     elements["detail-edition"].addEventListener("click", openEditionDialog);
@@ -2989,6 +3091,8 @@
       document.body.style.setProperty("--library-audio-height", `${elements["library-audio-dock"].getBoundingClientRect().height + 16}px`);
     }).observe(elements["library-audio-dock"]);
     elements["detail-listen"].addEventListener("click", () => startAudio(state.selectedWork, true));
+    elements["detail-favorite"].addEventListener("click", () => toggleShelf(state.selectedWork, "favorite"));
+    elements["detail-finished"].addEventListener("click", () => toggleShelf(state.selectedWork, "finished"));
     elements["detail-delete"].addEventListener("click", deleteSelectedDraft);
     elements["detail-unpublish"].addEventListener("click", unpublishSelectedWork);
     elements["detail-review"].addEventListener("click", () => state.selectedWork && openDraftReview(state.selectedWork));
@@ -3221,6 +3325,7 @@
     openAdd: (options) => openAddDialog(options || {}),
     openWork: (workId) => openDetail(workId),
     workPrimaryAction,
+    workMatchesContinue,
     normalizeWork,
     normalizeThema,
     normalizeProgress,

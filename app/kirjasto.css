@@ -3188,3 +3188,54 @@ body.has-audio .reader-page-controls { margin-bottom: var(--library-audio-height
   .work-grid[data-view="list"] .work-facts { font-size: 10px; }
   #library-continue-card { grid-auto-columns: minmax(250px, 82%); gap: 12px; }
 }
+
+/* Personal collections and audiobook editions. */
+.scope-tabs { gap: clamp(16px, 3vw, 30px); overflow-x: auto; }
+.scope-tabs button { flex-shrink: 0; }
+.work-favorite { position: absolute; top: 4px; right: 4px; z-index: 2; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 8px; background: var(--surface); color: var(--muted); font-size: 23px; }
+.work-favorite:hover { background: var(--forest-soft); }
+.work-favorite[aria-pressed="true"], #detail-favorite[aria-pressed="true"] { color: #9c384b; background: #fff0f2; }
+.work-favorite[aria-pressed="true"] i::before, #detail-favorite[aria-pressed="true"] i::before { content: "♥"; font-family: Arial, sans-serif; }
+.work-favorite:focus-visible { outline: 3px solid var(--forest); outline-offset: -3px; }
+.work-card.has-shelf-actions .work-card-copy { padding-right: 32px; }
+.work-card.has-shelf-actions .work-detail-action { top: 48px; transform: none; }
+.work-grid[data-view="compact"] .work-card.has-shelf-actions .work-card-copy { padding-right: 0; }
+.work-grid[data-view="compact"] .work-card.has-shelf-actions .work-cover { margin-top: 34px; }
+.work-grid[data-view="compact"] .work-card.has-shelf-actions .work-detail-action { top: 4px; right: 48px; }
+.work-grid[data-view="list"] .work-card.has-detail-action { min-height: 102px; }
+.work-finished { display: flex; align-items: center; gap: 5px; margin: 8px 0 0; color: var(--forest); font-size: 12px; font-weight: 600; }
+.detail-shelf-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.detail-shelf-actions button { min-height: 44px; padding: 10px 14px; font-size: 13px; }
+#detail-finished[aria-pressed="true"] { background: var(--forest-soft); color: var(--forest); }
+.work-cover.is-audiobook-cover, .detail-cover.is-audiobook-cover { aspect-ratio: 1; }
+.work-cover.is-audiobook-cover img, .detail-cover.is-audiobook-cover img, .continue-cover.is-audiobook-cover img { object-fit: contain; }
+.detail-cover.is-audiobook-cover::after { display: none; }
+.work-grid[data-view="compact"] .work-cover.is-audiobook-cover { height: 90px; }
+.work-grid[data-view="list"] .work-cover.is-audiobook-cover { height: 48px; }
+#library-continue-card .continue-cover.is-audiobook-cover { height: 62px; }
+@media (max-width: 600px) {
+  .scope-tabs { display: flex; margin: 18px 0 12px; gap: 20px; }
+  .scope-tabs button { min-height: 44px; font-size: 13px; }
+  .detail-shelf-actions { flex-direction: column; align-items: stretch; }
+}
+
+/* A compact catalog toolbar: search and order share the first row. */
+.library-navigation { display: flex; align-items: center; gap: 16px; }
+.library-navigation .scope-tabs { flex: 1; min-width: 0; margin: 0; }
+.library-navigation .add-work-action { flex-shrink: 0; margin: 0; }
+.library-search { margin-top: 18px; }
+.library-search-row { display: grid; grid-template-columns: minmax(0, 1fr) 185px; gap: 12px; }
+.library-sort-label { display: flex; min-width: 0; }
+.library-sort-label select { width: 100%; min-width: 0; min-height: 56px; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; }
+.filter-row { flex-wrap: wrap; }
+@media (max-width: 600px) {
+  .library-navigation { gap: 8px; }
+  .library-search-row { grid-template-columns: minmax(0, 1fr) 126px; gap: 8px; }
+  .library-sort-label select { padding: 8px; font-size: 12px; }
+  .search-field { gap: 6px; padding: 0 10px; }
+  .search-field input { font-size: 16px; }
+  .filter-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 9px; }
+  .media-filters { grid-column: 1 / -1; }
+  .theme-filter { min-width: 0; margin: 0; }
+  .theme-filter select { min-width: 0; }
+}
