@@ -111,6 +111,7 @@
       "library-notice-close",
       "library-browser",
       "library-children-filter",
+      "library-adults-filter",
       "library-add-work",
       "library-scope-tabs",
       "library-search-form",
@@ -911,7 +912,8 @@
     elements["library-filter-summary"].hidden = !hasFilters();
     elements["library-active-filters"].textContent = [state.query ? `Haku: ${state.query}` : "",
       state.media === "audio" ? "Kuunneltavat" : (state.media === "read" ? "Luettavat" : ""),
-      state.availableThemes.get(state.theme) || state.theme, state.audience ? "Lapset ja nuoret" : ""].filter(Boolean).join(" · ");
+      state.availableThemes.get(state.theme) || state.theme,
+      state.audience === "children_youth" ? "Lapset ja nuoret" : (state.audience === "adults" ? "Aikuiset" : "")].filter(Boolean).join(" · ");
   }
 
   function hasFilters() {
@@ -1108,9 +1110,11 @@
   }
 
   function syncAudienceControl() {
-    const button = elements["library-children-filter"];
-    button.setAttribute("aria-pressed", String(Boolean(state.audience)));
-    button.classList.toggle("is-active", Boolean(state.audience));
+    document.querySelectorAll("[data-audience]").forEach((button) => {
+      const selected = button.dataset.audience === state.audience;
+      button.setAttribute("aria-pressed", String(selected));
+      button.classList.toggle("is-active", selected);
+    });
   }
 
   function setShelfBusy(workId, busy) {
@@ -3067,10 +3071,12 @@
       state.theme = elements["library-theme-filter"].value;
       loadWorks();
     });
-    elements["library-children-filter"].addEventListener("click", () => {
-      state.audience = state.audience ? "" : "children_youth";
-      syncAudienceControl();
-      loadWorks();
+    document.querySelectorAll("[data-audience]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.audience = state.audience === button.dataset.audience ? "" : button.dataset.audience;
+        syncAudienceControl();
+        loadWorks();
+      });
     });
 
     elements["detail-back"].addEventListener("click", () => closeDetail());

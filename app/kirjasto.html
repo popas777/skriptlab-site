@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400..700&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
-  <link rel="stylesheet" href="kirjasto.css?v=12">
+  <link rel="stylesheet" href="kirjasto.css?v=13">
 <link rel="stylesheet" href="book-access.css?v=2">
 <script src="book-access.js?v=5"></script>
 <script src="book-workflow.js?v=5" defer></script>
@@ -32,11 +32,9 @@
       <div class="library-navigation">
       <nav class="scope-tabs" id="library-scope-tabs" aria-label="Kirjaston näkymät">
         <button type="button" data-scope="all" aria-current="page">Kirjasto</button>
-        <button type="button" data-scope="shared">Jaetut</button>
         <button type="button" data-scope="continue">Jatka</button>
         <button type="button" data-scope="finished">Luetut</button>
         <button type="button" data-scope="favorites">Suosikit</button>
-        <button type="button" data-scope="mine">Omat teokset</button>
       </nav>
         <button class="primary-action add-work-action" id="library-add-work" type="button" hidden>
           <i class="ph ph-plus" aria-hidden="true"></i>
@@ -77,7 +75,10 @@
             </select>
             <i class="ph ph-caret-down" aria-hidden="true"></i>
           </label>
-          <button class="filter-chip" id="library-children-filter" type="button" aria-pressed="false">Lapset ja nuoret</button>
+          <div class="audience-filters" role="group" aria-label="Teoksen kohderyhmä">
+            <button class="filter-chip" id="library-children-filter" type="button" data-audience="children_youth" aria-pressed="false">Lapset ja nuoret</button>
+            <button class="filter-chip" id="library-adults-filter" type="button" data-audience="adults" aria-pressed="false">Aikuiset</button>
+          </div>
         </div>
         <div class="catalog-filter-summary" id="library-filter-summary" hidden>
           <span id="library-active-filters"></span>
@@ -573,7 +574,6 @@
     <button type="button" data-mobile-action="continue"><i class="ph ph-play-circle" aria-hidden="true"></i><span>Jatka</span></button>
     <button type="button" data-mobile-action="finished"><i class="ph ph-check-circle" aria-hidden="true"></i><span>Luetut</span></button>
     <button type="button" data-mobile-action="favorites"><i class="ph ph-heart" aria-hidden="true"></i><span>Suosikit</span></button>
-    <button type="button" data-mobile-action="mine"><i class="ph ph-user" aria-hidden="true"></i><span>Omat</span></button>
   </nav>
 
   <script src="config.js?v=1"></script>
@@ -582,6 +582,6 @@
     window.apiUrl = (path) => `${window.API_BASE_URL}${path}`;
   </script>
   <script src="auth.js?v=5"></script>
-  <script src="kirjasto.js?v=10"></script>
+  <script src="kirjasto.js?v=11"></script>
 </body>
 </html>

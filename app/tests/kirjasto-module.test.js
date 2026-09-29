@@ -42,7 +42,7 @@ test('swipes ignore taps, vertical scrolling, diagonal movements and long select
 });
 
 test('catalog pages and facets come from the server and load-more preserves results', () => {
-  for (const id of ['library-load-more', 'library-children-filter', 'library-sort', 'library-reset-filters']) expectId(id);
+  for (const id of ['library-load-more', 'library-children-filter', 'library-adults-filter', 'library-sort', 'library-reset-filters']) expectId(id);
   assert.match(js, /params\.set\("catalog", "true"\)/);
   assert.match(js, /params\.set\("after", state\.nextCursor\)/);
   assert.match(js, /payload\?\.total/);
@@ -125,7 +125,7 @@ test('Kirjasto is a cache-versioned, semantic Finnish iframe module', () => {
     'mobile-library-nav',
   ].forEach(expectId);
 
-  for (const label of ['Kirjasto', 'Jaetut', 'Jatka', 'Omat teokset', 'Luettavat', 'Kuunneltavat', 'Lisää teos']) {
+  for (const label of ['Kirjasto', 'Jatka', 'Luetut', 'Suosikit', 'Luettavat', 'Kuunneltavat', 'Lapset ja nuoret', 'Aikuiset', 'Lisää teos']) {
     assert.match(html, new RegExp(label));
   }
 });
@@ -160,8 +160,8 @@ test('backend work payloads normalize cover, content, Thema, ownership and signe
   assert.doesNotMatch(js, /SkriptLabAuth\?\.getToken[\s\S]{0,400}\/audio\?token/);
 });
 
-test('Shared scope presents managed examples without exposing management actions', () => {
-  assert.match(html, /data-scope=["']shared["'][^>]*>Jaetut</);
+test('shared and own collections stay out of navigation while managed examples remain protected', () => {
+  assert.doesNotMatch(html, /data-(?:scope|mobile-action)=["'](?:shared|mine)["']/);
   assert.match(js, /\[["']all["'], ["']shared["'], ["']continue["'], ["']mine["'], ["']finished["'], ["']favorites["']\]\.includes\(scope\)/);
   assert.match(js, /const managedExample = booleanValue\(firstValue\(source, \[["']managed_example["']/);
   assert.match(js, /const shared = managedExample \|\| booleanValue\(firstValue\(source, \[["']shared["']/);
@@ -172,7 +172,7 @@ test('Shared scope presents managed examples without exposing management actions
   assert.match(js, /state\.scope === ["']shared["'][\s\S]{0,180}Ei vielä jaettuja teoksia/);
   assert.match(js, /state\.scope === ["']shared["'] \? ["']Ladataan jaettuja teoksia…["']/);
   assert.match(js, /sharedError \? ["']Jaettuja teoksia ei voitu ladata["']/);
-  assert.match(css, /grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/);
+  assert.match(css, /grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/);
   assert.match(css, /\.work-status\.is-managed-example/);
 });
 
@@ -367,7 +367,7 @@ test('Library can shrink into the shell mobile simulator at a 300px iframe width
   assert.match(css, /html\s*{[^}]*min-width:\s*0/);
   assert.match(css, /body\s*{[^}]*min-width:\s*0/);
   assert.doesNotMatch(css, /(?:html|body)\s*{[^}]*min-width:\s*320px/);
-  assert.match(css, /\.mobile-library-nav\s*{[^}]*grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\.mobile-library-nav\s*{[^}]*grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/);
 });
 
 
