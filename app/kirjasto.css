@@ -991,6 +991,39 @@ body.has-audio .library-screen {
   margin: 3px 0 0;
 }
 
+.detail-audio-info {
+  max-width: 600px;
+  margin-top: 18px;
+}
+
+.detail-audio-info summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  color: var(--forest);
+  cursor: pointer;
+  font-size: 14px;
+  list-style: none;
+}
+
+.detail-audio-info summary::-webkit-details-marker {
+  display: none;
+}
+
+.detail-audio-info summary::after {
+  content: "+";
+  margin-left: auto;
+}
+
+.detail-audio-info[open] summary::after {
+  content: "−";
+}
+
+.detail-audio-info .detail-meta {
+  margin-top: 0;
+}
+
 /* Add work dialog */
 .add-work-dialog {
   width: min(880px, calc(100% - 32px));

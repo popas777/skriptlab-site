@@ -26,7 +26,7 @@ test('Library follows corrections, then Authors, and is mounted in an accessible
 
   assert.match(
     indexHtml,
-    /id=["']view-kirjasto["'][^>]*class=["'][^"']*view-section[^"']*hidden[^"']*["'][\s\S]*?<iframe\b(?=[^>]*id=["']kirjasto-frame["'])(?=[^>]*class=["']kirjasto-frame["'])(?=[^>]*src=["']kirjasto\.html\?v=10["'])(?=[^>]*title=["']Julkaistujen teosten kirjasto["'])/
+    /id=["']view-kirjasto["'][^>]*class=["'][^"']*view-section[^"']*hidden[^"']*["'][\s\S]*?<iframe\b(?=[^>]*id=["']kirjasto-frame["'])(?=[^>]*class=["']kirjasto-frame["'])(?=[^>]*src=["']kirjasto\.html\?v=11["'])(?=[^>]*title=["']Julkaistujen teosten kirjasto["'])/
   );
   assert.match(indexHtml, /id=["']kirjasto-frame["'][\s\S]*?loading=["']lazy["']/);
 });
@@ -103,5 +103,5 @@ test('Library gets an independent top-bar context and a responsive full-height f
 test('Shell assets use the current cache versions', () => {
   assert.equal(numericAssetVersion(indexHtml, 'styles.css'), 126);
   assert.equal(numericAssetVersion(indexHtml, 'app.js'), 236);
-  assert.equal(numericAssetVersion(indexHtml, 'kirjasto.html'), 10);
+  assert.equal(numericAssetVersion(indexHtml, 'kirjasto.html'), 11);
 });

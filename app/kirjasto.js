@@ -155,6 +155,8 @@
       "detail-author",
       "detail-media-labels",
       "detail-description",
+      "detail-audio-info",
+      "detail-audio-meta",
       "detail-themes",
       "detail-progress",
       "detail-progress-label",
@@ -486,6 +488,32 @@
     };
   }
 
+  function audioDescriptionPresentation(description) {
+    // Legacy imports appended production notes to the synopsis. Keep the raw
+    // record intact and expose only listening facts in the reader's info panel.
+    const sections = description.split(/(?:^|(?<=[.!?])\s+|\n+)(?=(?:Kuunteluversio\s+v\d+|Kesto\s+\d+|Tekoälyäänet\s*:|Toimituksellinen tila\s*:|(?:Koko teoksen\s+)?kuuntelutarkastus\b))/iu);
+    const synopsis = [];
+    const info = { duration: "", contents: "", voices: "" };
+    sections.forEach((section) => {
+      const value = section.trim();
+      if (/^(?:Kuunteluversio\s+v\d+|Toimituksellinen tila\s*:|(?:Koko teoksen\s+)?kuuntelutarkastus\b)/iu.test(value)) return;
+      if (/^Kesto\s+\d+/iu.test(value)) {
+        const match = value.match(/^Kesto\s+((?:\d+\s*(?:h|min|s)\s*)+)(?:;\s*((?:esipuhe,\s*)?\d+\s+lukua(?:\s+ja\s+epilogi)?))?\.?$/iu);
+        if (match) {
+          info.duration = match[1].trim();
+          info.contents = match[2] || "";
+        }
+        return;
+      }
+      if (/^Tekoälyäänet\s*:/iu.test(value)) {
+        info.voices = value.replace(/^Tekoälyäänet\s*:\s*/iu, "").split(/(?<=[.!?])\s+/u)[0].replace(/\.$/u, "");
+        return;
+      }
+      if (value) synopsis.push(value);
+    });
+    return { description: synopsis.join(" "), info };
+  }
+
   function normalizeWork(raw) {
     const source = raw && typeof raw === "object" ? raw : {};
     const media = source.media && typeof source.media === "object" && !Array.isArray(source.media) ? source.media : {};
@@ -514,12 +542,15 @@
     const suggestions = themaSubjects.filter((item) => item.status !== "confirmed");
     const managedExample = booleanValue(firstValue(source, ["managed_example", "managedExample", "is_managed_example"], false));
     const shared = managedExample || booleanValue(firstValue(source, ["shared", "is_shared", "shared_work"], false));
+    const description = text(firstValue(source, ["description", "summary", "synopsis"], ""));
+    const presentation = hasAudio ? audioDescriptionPresentation(description) : { description, info: null };
 
     return {
       id: text(firstValue(source, ["id", "work_id", "uuid"], "")),
       title: text(firstValue(source, ["title", "name", "work_title"], ""), "Nimetön teos"),
       author: text(firstValue(source, ["author", "creator", "author_name"], ""), "Tekijä tuntematon"),
-      description: text(firstValue(source, ["description", "summary", "synopsis"], "")),
+      description: presentation.description,
+      audioInfo: presentation.info,
       coverUrl: mediaUrl(firstValue(source, ["cover_data_url", "cover_url", "cover_image_url", "cover", "thumbnail_url"], media.cover_url || "")),
       status,
       language: text(firstValue(source, ["language", "language_code"], "")),
@@ -1199,7 +1230,6 @@
       ["Lukuja", work.chapterCount ? String(work.chapterCount) : ""],
       ["Arvioitu lukuaika", readingTimeLabel(work).replace("Lukuaika noin ", "")],
       ["Sanoja", work.wordCount ? work.wordCount.toLocaleString("fi-FI") : ""],
-      ["Äänitteen kesto", durationLabel(work.durationSeconds)],
       ["Julkaistu", dateLabel(work.publishedAt)],
     ];
     values.forEach(([label, value]) => {
@@ -1216,11 +1246,32 @@
     elements["detail-meta"].hidden = rows.length === 0;
   }
 
+  function renderAudioInfo(work) {
+    const values = work.hasAudio ? [
+      ["Kesto", work.audioInfo?.duration || durationLabel(work.durationSeconds)],
+      ["Sisältö", work.audioInfo?.contents],
+      ["Tekoälyäänet", work.audioInfo?.voices],
+    ] : [];
+    const rows = values.filter(([, value]) => value).map(([label, value]) => {
+      const row = document.createElement("div");
+      const term = document.createElement("dt");
+      const detail = document.createElement("dd");
+      term.textContent = label;
+      detail.textContent = value;
+      row.append(term, detail);
+      return row;
+    });
+    elements["detail-audio-meta"].replaceChildren(...rows);
+    elements["detail-audio-info"].hidden = rows.length === 0;
+    elements["detail-audio-info"].open = false;
+  }
+
   function renderDetail(work) {
     renderCover(elements["detail-cover"], work, { eager: true });
     elements["detail-title"].textContent = work.title;
     elements["detail-author"].textContent = work.author;
     elements["detail-description"].textContent = work.description || "Teokselle ei ole vielä lisätty kuvausta.";
+    renderAudioInfo(work);
 
     const statusLabel = workStatusLabel(work);
     elements["detail-status"].hidden = !statusLabel;

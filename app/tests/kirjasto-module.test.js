@@ -69,6 +69,34 @@ test('fractional API percentages remain percentages, not fractions', () => {
   }
 });
 
+test('audiobook import notes stay out of the synopsis and info, with the source record preserved', () => {
+  const context = {window: {}, document: {readyState: 'loading', addEventListener() {}}};
+  require('node:vm').runInNewContext(js, context);
+  const synopsis = 'Pariisin oopperan kulisseissa salaperäinen kummitus kietoo Christinen ja Raoulin kohtalot yhteen.';
+  const description = synopsis + ' Kuunteluversio v003, 1.10.2026: alun toistunut teoksen nimi poistettu. Kesto 11 h 39 min 26 s; esipuhe, 27 lukua ja epilogi. Tekoälyäänet: Gemini 3.8 Flash TTS, kertoja Algieba. Koko teoksen kuuntelutarkastus on vielä tekemättä.';
+  const work = context.window.SkriptLabLibrary.normalizeWork({id: 90, has_audio: true, description});
+  assert.equal(work.description, synopsis);
+  assert.equal(work.audioInfo.duration, '11 h 39 min 26 s');
+  assert.equal(work.audioInfo.contents, 'esipuhe, 27 lukua ja epilogi');
+  assert.equal(work.audioInfo.voices, 'Gemini 3.8 Flash TTS, kertoja Algieba');
+  assert.doesNotMatch(JSON.stringify(work.audioInfo), /v003|poistettu|kuuntelutarkastus/);
+  assert.equal(work.raw.description, description);
+});
+
+test('ordinary descriptions remain intact, including words used in production notes', () => {
+  const context = {window: {}, document: {readyState: 'loading', addEventListener() {}}};
+  require('node:vm').runInNewContext(js, context);
+  const description = 'Kesto ja ääni kiehtovat kertojaa. Hän etsii kuunteluversiota muistostaan.\nUusi kappale jatkaa tarinaa.';
+  for (const has_audio of [false, true]) {
+    const work = context.window.SkriptLabLibrary.normalizeWork({description, has_audio});
+    assert.equal(work.description, description);
+  }
+  const notes = 'Tekoälyäänet: Gemini 3.8 Flash TTS, kertoja Algieba. Tarkastus on kesken.\nToimituksellinen tila: odottaa hyväksyntää.';
+  const work = context.window.SkriptLabLibrary.normalizeWork({has_audio: true, description: notes});
+  assert.equal(work.description, '');
+  assert.equal(work.audioInfo.voices, 'Gemini 3.8 Flash TTS, kertoja Algieba');
+});
+
 test('PDF-only work and format-specific locations normalize without losing text progress', () => {
   const vm = require('node:vm');
   const context = {window: {}, document: {readyState: 'loading', addEventListener() {}}};

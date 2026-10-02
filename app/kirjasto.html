@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400..700&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
-  <link rel="stylesheet" href="kirjasto.css?v=13">
+  <link rel="stylesheet" href="kirjasto.css?v=14">
 <link rel="stylesheet" href="book-access.css?v=2">
 <script src="book-access.js?v=5"></script>
 <script src="book-workflow.js?v=5" defer></script>
@@ -203,6 +203,10 @@
             </button>
           </div>
           <dl class="detail-meta" id="detail-meta"></dl>
+          <details class="detail-audio-info" id="detail-audio-info" hidden>
+            <summary><i class="ph ph-info" aria-hidden="true"></i> Tietoa äänikirjasta</summary>
+            <dl class="detail-meta" id="detail-audio-meta"></dl>
+          </details>
         </article>
       </div>
     </section>
@@ -552,11 +556,17 @@
     <label class="audio-speed" for="audio-speed">
       <span class="sr-only">Toistonopeus</span>
       <select id="audio-speed" aria-label="Toistonopeus">
-        <option value="0.75">0,75×</option>
+        <option value="0.6">0,6×</option>
+        <option value="0.7">0,7×</option>
+        <option value="0.8">0,8×</option>
+        <option value="0.9">0,9×</option>
         <option value="1" selected>1×</option>
-        <option value="1.25">1,25×</option>
+        <option value="1.1">1,1×</option>
+        <option value="1.2">1,2×</option>
+        <option value="1.3">1,3×</option>
+        <option value="1.4">1,4×</option>
         <option value="1.5">1,5×</option>
-        <option value="2">2×</option>
+        <option value="1.6">1,6×</option>
       </select>
     </label>
 
@@ -583,6 +593,6 @@
     window.apiUrl = (path) => `${window.API_BASE_URL}${path}`;
   </script>
   <script src="auth.js?v=5"></script>
-  <script src="kirjasto.js?v=12"></script>
+  <script src="kirjasto.js?v=13"></script>
 </body>
 </html>
