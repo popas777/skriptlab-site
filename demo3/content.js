@@ -71,13 +71,13 @@ export const translations = {
 
 export const voices = {
   fi: {
-    name: 'Suomi', src: '/demo/assets/narrator-fi.m4a', lang: 'fi',
-    label: 'Vihreä ovi, suomenkielinen koneääninäyte',
-    transcript: 'Eräänä iltana vajaat kolme kuukautta sitten Lionel Wallace uskoutui minulle ja kertoi tämän tarinan muurissa olevasta ovesta. Ja silloin ajattelin, että ainakin hänelle itselleen se oli tosi.',
+    name: 'Suomi', src: '/demo/assets/vihrea-ovi-kahden-aanen-nayte-v003.mp3', lang: 'fi',
+    label: 'Vihreä ovi, suomenkielinen kahden äänen näyte', note: 'H. G. Wells: Vihreä ovi · 1:09. Tekoälyllä tuotetut äänet: Redmond ja Lionel Wallace.',
+    transcript: 'Wallace mietti hetken ennen kuin jatkoi kertomustaan. ”Siellä oli”, hän sanoi, ja hänen äänessään oli sen ihmisen epävarmuutta, joka pysähtyy uskomattoman asian äärelle, ”kaksi suurta pantteria … Niin, täplikkäitä panttereita. Enkä minä pelännyt. Siellä oli pitkä ja leveä käytävä, jonka molemmin puolin oli marmorireunaisia kukkapenkkejä, ja nuo kaksi valtavaa, samettista eläintä leikkivät siellä pallolla. Toinen nosti katseensa ja tuli minua kohti, hiukan uteliaana, siltä näytti. Se tuli aivan luokseni, hieroi pehmeää, pyöreää korvaansa hyvin hellästi pientä ojennettua kättäni vasten ja kehräsi. Se oli, usko pois, lumottu puutarha. Minä tiedän. Ja sen koko? Oi, se ulottui kauas ja laajalle, joka suuntaan. Kaukana taisi olla kukkuloita. Taivas tietää, minne West Kensington oli äkkiä joutunut. Ja jotenkin se oli aivan kuin olisi tullut kotiin.',
   },
   en: {
     name: 'Englanti', src: '/demo/assets/narrator-en.m4a', lang: 'en',
-    label: 'The Door in the Wall, englanninkielinen koneääninäyte',
+    label: 'The Door in the Wall, englanninkielinen koneääninäyte', note: 'Ennalta tuotettu englanninkielinen koneääninäyte.',
     transcript: 'One confidential evening, not three months ago, Lionel Wallace told me this story of the Door in the Wall. And at the time I thought that so far as he was concerned it was a true story.',
   },
 };
@@ -158,6 +158,7 @@ export function renderOutput(id, { language = 'fi', audioLanguage = 'fi', campai
     return `<h3 class="sample-title">Kuuntele esimerkki</h3>
       ${choices(voices, lang, 'audio-language', 'Ääninäytteen kieli')}
       <audio class="output-audio" controls preload="none" src="${escapeHTML(voice.src)}" aria-label="${escapeHTML(voice.label)}">Selaimesi ei tue äänisoitinta. <a href="${escapeHTML(voice.src)}">Avaa ääninäyte</a>.</audio>
+      <p class="output-note">${escapeHTML(voice.note)}</p>
       <details class="output-details"><summary>Ääninäytteen teksti</summary><p class="output-body audio-transcript" lang="${voice.lang}">${escapeHTML(voice.transcript)}</p></details>${footer}`;
   }
 

@@ -110,6 +110,7 @@
     player.load();
     $('#audio-transcript').textContent = voice.transcript;
     $('#audio-transcript').lang = voice.lang;
+    $('#audio-note').textContent = voice.note;
     $$('[data-voice]').forEach((option) => option.setAttribute('aria-pressed', String(option === button)));
   }));
 

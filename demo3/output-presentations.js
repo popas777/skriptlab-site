@@ -23,7 +23,7 @@ export const outputPresentations = {
     caption: 'Äänituotanto – Tarinan ja kohtausten tunne välittyy kertojan ja henkilöiden ääneen ja sävyyn.',
     lead: 'Konteksti antaa äänelle kertojan, rytmin ja sävyn.',
     sections: [
-      { title: 'Kokeile tarinan ääntä.', text: 'Valmiit suomen- ja englanninkieliset koneääninäytteet antavat kuultavan esimerkin novellin alusta. Voit avata myös näytteen tekstin ja seurata kerrontaa.' },
+      { title: 'Kokeile tarinan ääntä.', text: 'Kuuntele Vihreän oven suomenkielinen kahden äänen näyte, jossa Wallace muistelee lumottua puutarhaa. Englanninkielinen näyte kertoo novellin alun. Voit avata myös näytteen tekstin ja seurata kerrontaa.' },
       { title: 'Sama teksti, tarkka äänen suunta.', text: 'Kehyskertoja Redmond ja muistoaan kuvaava Wallace ovat eri ääniä. Wallacen lapsuusmuisto ei muuta aikuista kertojaa lapseksi, eikä painotus saa ratkaista tarinan arvoitusta.' },
     ],
     process: [

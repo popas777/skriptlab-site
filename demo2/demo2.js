@@ -17,12 +17,12 @@ function contentPanel(branch) {
     </div><p class="d2-caveat">${escape(ui.translationCaveat)}</p>`;
   if (branch.id === 'audio') return `
     <label class="d2-control">${escape(ui.voiceLabel)}<select data-voice>${options(demo.voices)}</select></label>
-    <div class="d2-audio"><p>${escape(ui.audioChapter)}</p>
+    <div class="d2-audio"><p data-audio-chapter>${escape(ui.audioChapter)}</p>
       <div class="d2-player"><button type="button" data-play aria-label="${escape(ui.play)}">${icon('play')}</button><div><span data-play-label>${escape(ui.play)}</span><div class="d2-time"><time data-elapsed>0:00</time><span>/</span><time data-duration>0:00</time></div></div></div>
       <progress data-progress max="1" value="0" aria-label="${escape(ui.audioTime)}"></progress>
-      <audio preload="auto" data-audio></audio>
+      <audio preload="metadata" data-audio></audio>
     </div><p class="d2-caption">${escape(ui.transcript)}</p><p class="d2-transcript" lang="fi" data-transcript>${escape(demo.translations.fi.text)}</p>
-    <p class="d2-caveat">${escape(ui.audioCaveat)}</p><p class="d2-audio-error" data-audio-error role="status"></p>`;
+    <p class="d2-caveat" data-audio-note>${escape(ui.audioCaveat)}</p><p class="d2-audio-error" data-audio-error role="status"></p>`;
   if (branch.id === 'illustration') return `
     <figure class="d2-illustration"><img src="${media.illustration}" width="1672" height="941" alt="${escape(ui.imageAlt)}"><figcaption>${escape(ui.imageCaption)}</figcaption></figure>
     <p class="d2-caption">${escape(ui.imagePrompt)}</p><p class="d2-prompt">${escape(demo.illustration)}</p><p class="d2-caveat">${escape(ui.illustrationCaveat)}</p>`;
@@ -70,7 +70,18 @@ const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const state = { phase: 0, count: 0, selected: 'translation', manual: false, started: false };
 const timers = new Set();
 const audio = q('[data-audio]');
-audio.src = media.voices.fi;
+function setVoice(lang) {
+  const voice = demo.voices.find((item) => item.id === lang);
+  audio.pause();
+  audio.src = media.voices[lang];
+  audio.setAttribute('aria-label', voice.label);
+  q('[data-transcript]').textContent = voice.transcript || demo.source;
+  q('[data-transcript]').lang = lang;
+  q('[data-audio-chapter]').textContent = voice.chapter || ui.audioChapter;
+  q('[data-audio-note]').textContent = voice.note || ui.audioCaveat;
+  q('[data-audio-error]').textContent = '';
+}
+setVoice('fi');
 
 function stopAutomation() {
   state.manual = true;
@@ -183,12 +194,7 @@ q('[data-play]').addEventListener('click', async () => {
 });
 q('[data-voice]').addEventListener('change', (event) => {
   stopAutomation();
-  audio.pause();
-  const lang = event.target.value;
-  audio.src = media.voices[lang];
-  q('[data-transcript]').textContent = lang === 'fi' ? demo.translations.fi.text : demo.source;
-  q('[data-transcript]').lang = lang;
-  q('[data-audio-error]').textContent = '';
+  setVoice(event.target.value);
 });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { audio.pause(); if (state.started) { stopAutomation(); state.phase = 3; state.count = fields.length; update(); } }

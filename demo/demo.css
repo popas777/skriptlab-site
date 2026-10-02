@@ -835,6 +835,9 @@ figcaption {
   font:400 23px/1.65 var(--serif);
   margin:26px 0;
 }
+.audio-transcript-details { margin-top: 20px; }
+.audio-transcript-details summary { cursor: pointer; }
+.audio-transcript-details blockquote { margin-bottom: 0; }
 .audio-visual audio {
   width:100%;
   height:45px;
