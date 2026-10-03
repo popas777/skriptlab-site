@@ -8,6 +8,7 @@
   const AUTH_TOKEN_KEY = "skriptlab_auth_token";
   const AUTH_USER_KEY = "skriptlab_auth_user";
   const AUDIO_TIMING_FEATURE_ENABLED = false;
+  const discovery = window.SkriptLabLibraryDiscovery;
   const FONT_SIZES = ["small", "medium", "large", "xlarge"];
   const SHELL_MESSAGE_TYPES = new Set([
     "skriptlab:library-context-changed",
@@ -28,6 +29,9 @@
     readerSequence: 0,
     browserScroll: 0,
     works: [],
+    discoveryWorks: null,
+    topMissing: [],
+    topAvailabilityKnown: false,
     availableThemes: new Map(),
     selectedWork: null,
     selectedProgress: null,
@@ -119,6 +123,12 @@
       "library-search-clear",
       "library-media-filters",
       "library-theme-filter",
+      "library-ranked-sort",
+      "library-top-info",
+      "library-top-info-summary",
+      "library-top-info-copy",
+      "library-top-missing",
+      "library-top-sources",
       "library-sort",
       "library-filter-summary",
       "library-active-filters",
@@ -946,11 +956,21 @@
     renderContinueCards(continuations);
 
     const visibleWorks = state.works;
-    elements["library-results-title"].textContent = resultsHeading(state.scope);
-    const description = resultsDescription(state.scope);
+    const list = discovery?.listFor(state.theme);
+    const group = discovery?.groupFor(state.theme);
+    const selectionLabel = list?.label || group?.label;
+    elements["library-results-title"].textContent = selectionLabel
+      ? (state.scope === "all" ? selectionLabel : `${resultsHeading(state.scope)} · ${selectionLabel}`)
+      : resultsHeading(state.scope);
+    const description = list ? `Kirjaston valikoima. ${list.description}` : resultsDescription(state.scope);
     elements["library-results-description"].textContent = description;
     elements["library-results-description"].hidden = !description;
     elements["library-result-count"].textContent = `${state.total} ${state.total === 1 ? "teos" : "teosta"}`;
+    if (list && state.topAvailabilityKnown) {
+      const available = list.entries.length - state.topMissing.length;
+      elements["library-result-count"].textContent = `${available} / ${list.entries.length} teosta kirjastossa`;
+    }
+    renderTopInfo(list);
     elements["library-work-grid"].replaceChildren(...visibleWorks.map(createWorkCard));
     renderEmptyState(visibleWorks, continuations.length > 0);
     elements["library-results"].hidden = visibleWorks.length === 0 && continuations.length > 0;
@@ -964,6 +984,39 @@
       state.audience === "children_youth" ? "Lapset ja nuoret" : (state.audience === "adults" ? "Aikuiset" : "")].filter(Boolean).join(" · ");
   }
 
+  function renderTopInfo(list) {
+    elements["library-top-info"].hidden = !list;
+    if (!list) return;
+    const missing = state.topMissing;
+    elements["library-top-info-summary"].textContent = missing.length
+      ? `Valikoiman muut teokset (${missing.length}) ja lähteet` : "Valikoiman lähteet";
+    elements["library-top-info-copy"].textContent = missing.length
+      ? "Nämä valikoiman teokset eivät vielä ole kirjastossa. Ne tulevat listan hakutuloksiin, kun ne lisätään kirjastoon."
+      : "Kirjaston oma valikoima hyödyntää klassikkolukulistoja. Järjestys on toimituksellinen.";
+    elements["library-top-missing"].replaceChildren(...missing.map(item => {
+      const node = document.createElement("li");
+      node.textContent = `${item.title} — ${item.author}`;
+      return node;
+    }));
+    elements["library-top-missing"].hidden = !missing.length;
+    const links = list.sources.map(source => {
+      const node = document.createElement("a");
+      node.href = source.url;
+      node.textContent = source.label;
+      node.target = "_blank";
+      node.rel = "noopener noreferrer";
+      return node;
+    });
+    elements["library-top-sources"].replaceChildren(...links.flatMap((link, i) => i ? [document.createTextNode(" · "), link] : [link]));
+  }
+
+  function syncDiscoverySort() {
+    const list = discovery?.listFor(state.theme);
+    elements["library-ranked-sort"].hidden = !list;
+    if (!list && state.sort === "curated") state.sort = "newest";
+    elements["library-sort"].value = state.sort;
+  }
+
   function hasFilters() {
     return Boolean(state.query || state.media || state.theme || state.audience);
   }
@@ -971,26 +1024,22 @@
   function updateThemeOptions() {
     const select = elements["library-theme-filter"];
     const current = state.theme;
-    if (current && !state.availableThemes.has(current)) state.availableThemes.set(current, current);
-    state.works.forEach((work) => {
-      work.themes.forEach((theme) => {
-        const value = theme.code || theme.label;
-        if (value && !state.availableThemes.has(value)) {
-          state.availableThemes.set(value, theme.label || theme.code);
-        }
-      });
-    });
     const options = [document.createElement("option")];
     options[0].value = "";
-    options[0].textContent = "Kaikki teemat";
-    [...state.availableThemes.entries()]
-      .sort((a, b) => a[1].localeCompare(b[1], "fi"))
-      .forEach(([value, label]) => {
+    options[0].textContent = "Teemat ja TOP-listat";
+    state.availableThemes = new Map();
+    for (const [label, values, prefix] of [["TOP 20 -valikoimat", discovery?.lists || [], "top"], ["Teemat", discovery?.groups || [], "group"]]) {
+      const section = document.createElement("optgroup");
+      section.label = label;
+      values.forEach(item => {
         const option = document.createElement("option");
-        option.value = value;
-        option.textContent = label;
-        options.push(option);
+        option.value = `${prefix}:${item.id}`;
+        option.textContent = item.label;
+        state.availableThemes.set(option.value, item.label);
+        section.append(option);
       });
+      options.push(section);
+    }
     select.replaceChildren(...options);
     select.value = current;
   }
@@ -1012,19 +1061,36 @@
 
   async function loadWorks(options = {}) {
     window.clearTimeout(state.searchTimer);
+    const queryList = discovery?.searchFilter(state.query);
+    if (queryList) {
+      state.theme = `top:${queryList}`;
+      state.query = "";
+      state.sort = "curated";
+      elements["library-search-input"].value = "";
+      elements["library-search-clear"].hidden = true;
+    }
+    syncDiscoverySort();
     const append = Boolean(options.append && state.nextCursor);
     const previousCount = state.works.length;
+    const discoveryFilter = Boolean(discovery?.isDiscoveryFilter(state.theme));
+    if (append && discoveryFilter && state.discoveryWorks) {
+      state.works = state.discoveryWorks.slice(0, previousCount + 24);
+      state.nextCursor = state.works.length < state.discoveryWorks.length ? String(state.works.length) : null;
+      renderWorks();
+      elements["library-work-grid"].children[previousCount]?.querySelector("button")?.focus({ preventScroll: true });
+      return;
+    }
     const sequence = ++state.listSequence;
     state.listController?.abort();
     state.listController = new AbortController();
     const params = new URLSearchParams({ scope: state.scope });
     if (state.query) params.set("q", state.query);
     if (state.media) params.set("media", state.media);
-    if (state.theme) params.set("theme", state.theme);
+    if (state.theme && !discoveryFilter) params.set("theme", state.theme);
     if (state.audience) params.set("audience", state.audience);
-    params.set("sort", state.sort);
+    params.set("sort", state.sort === "curated" ? "newest" : state.sort);
     params.set("catalog", "true");
-    params.set("limit", "24");
+    params.set("limit", discoveryFilter ? "100" : "24");
     if (append) params.set("after", state.nextCursor);
 
     elements["library-loading-text"].textContent = state.scope === "shared" ? "Ladataan jaettuja teoksia…" : "Ladataan kirjastoa…";
@@ -1037,6 +1103,10 @@
       state.works = [];
       state.continuations = [];
       state.nextCursor = null;
+      state.discoveryWorks = null;
+      state.topMissing = [];
+      state.topAvailabilityKnown = false;
+      elements["library-top-info"].hidden = true;
       elements["library-work-grid"].replaceChildren();
       elements["library-continue-section"].hidden = true;
       elements["library-pagination"].hidden = true;
@@ -1056,9 +1126,32 @@
       ]);
       if (sequence !== state.listSequence) return;
       const works = unwrapWorks(payload).map(normalizeWork).filter((work) => work.id);
-      state.works = append ? [...state.works, ...works.filter((work) => !state.works.some((old) => old.id === work.id))] : works;
-      state.total = finiteNumber(payload?.total, state.works.length);
-      state.nextCursor = payload?.next_cursor || null;
+      if (discoveryFilter) {
+        // Group membership can span several raw themes. Read every authorised
+        // metadata page, then filter; the first page alone is never the catalogue.
+        let cursor = payload?.next_cursor;
+        const cursors = new Set();
+        while (cursor) {
+          if (cursors.has(cursor)) throw new Error("Kirjaston sivutus muuttui. Yritä uudelleen.");
+          cursors.add(cursor);
+          params.set("after", cursor);
+          const page = await requestJson(`${API_ROOT}/works?${params.toString()}`, { signal });
+          if (sequence !== state.listSequence) return;
+          works.push(...unwrapWorks(page).map(normalizeWork).filter(work => work.id));
+          cursor = page?.next_cursor;
+        }
+        const unique = [...new Map(works.map(work => [work.id, work])).values()];
+        state.discoveryWorks = discovery.selectWorks(unique, state.theme, state.sort === "curated");
+        state.topAvailabilityKnown = state.scope === "all" && !state.query && !state.media && !state.audience;
+        state.topMissing = state.topAvailabilityKnown ? discovery.missingEntries(unique, state.theme) : [];
+        state.works = state.discoveryWorks.slice(0, 24);
+        state.total = state.discoveryWorks.length;
+        state.nextCursor = state.total > 24 ? "24" : null;
+      } else {
+        state.works = append ? [...state.works, ...works.filter((work) => !state.works.some((old) => old.id === work.id))] : works;
+        state.total = finiteNumber(payload?.total, state.works.length);
+        state.nextCursor = payload?.next_cursor || null;
+      }
       if (continued) state.continuations = unwrapWorks(continued).map(normalizeWork).filter(workMatchesContinue);
       if (payload?.facets) {
         state.availableThemes = new Map(payload.facets.themes.map((theme) => [theme.value, theme.label]));
@@ -3137,6 +3230,7 @@
     });
     elements["library-theme-filter"].addEventListener("change", () => {
       state.theme = elements["library-theme-filter"].value;
+      if (discovery?.listFor(state.theme)) state.sort = "curated";
       loadWorks();
     });
     document.querySelectorAll("[data-audience]").forEach((button) => {
@@ -3373,6 +3467,7 @@
 
   async function boot() {
     collectElements();
+    updateThemeOptions();
     let catalogView = "cards";
     try { catalogView = localStorage.getItem(CATALOG_VIEW_KEY); } catch (_error) { /* Use the default view. */ }
     setCatalogView(catalogView, false);

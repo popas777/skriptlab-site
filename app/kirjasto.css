@@ -639,6 +639,21 @@ body.has-audio .library-screen {
   font-size: 14px;
 }
 
+.discovery-list-info {
+  margin: 20px 0;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.discovery-list-info summary { cursor: pointer; color: var(--ink); }
+.discovery-list-info ol { padding-left: 24px; }
+.discovery-list-info a { color: var(--forest); }
+
 .results-heading span {
   color: var(--muted);
   font-size: 13px;

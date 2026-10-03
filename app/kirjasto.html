@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400..700&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
-  <link rel="stylesheet" href="kirjasto.css?v=14">
+  <link rel="stylesheet" href="kirjasto.css?v=15">
 <link rel="stylesheet" href="book-access.css?v=2">
 <script src="book-access.js?v=5"></script>
 <script src="book-workflow.js?v=5" defer></script>
@@ -53,6 +53,7 @@
           </button>
         </label>
           <label class="library-sort-label"><span class="sr-only">Järjestys</span><select id="library-sort">
+            <option value="curated" id="library-ranked-sort" hidden>TOP-listan järjestys</option>
             <option value="newest">Uusimmat ensin</option>
             <option value="title">Teoksen nimi A–Ö</option>
             <option value="author">Tekijä A–Ö</option>
@@ -69,9 +70,9 @@
           </div>
           <span class="filter-divider" aria-hidden="true"></span>
           <label class="theme-filter" for="library-theme-filter">
-            <span class="sr-only">Rajaa teeman mukaan</span>
+            <span class="sr-only">Teemat ja TOP-listat</span>
             <select id="library-theme-filter" name="theme">
-              <option value="">Kaikki teemat</option>
+              <option value="">Teemat ja TOP-listat</option>
             </select>
             <i class="ph ph-caret-down" aria-hidden="true"></i>
           </label>
@@ -112,6 +113,12 @@
           </div>
         </header>
         <div class="work-grid" id="library-work-grid" aria-live="polite" aria-busy="false"></div>
+        <details class="discovery-list-info" id="library-top-info" hidden>
+          <summary id="library-top-info-summary">Valikoiman tiedot</summary>
+          <p id="library-top-info-copy"></p>
+          <ol id="library-top-missing"></ol>
+          <p id="library-top-sources"></p>
+        </details>
         <div class="catalog-pagination" id="library-pagination" hidden>
           <p id="library-page-summary" role="status"></p>
           <button class="secondary-action" id="library-load-more" type="button">Näytä lisää teoksia</button>
@@ -585,6 +592,7 @@
     window.apiUrl = (path) => `${window.API_BASE_URL}${path}`;
   </script>
   <script src="auth.js?v=5"></script>
-  <script src="kirjasto.js?v=14"></script>
+  <script src="library-discovery.js?v=1"></script>
+  <script src="kirjasto.js?v=15"></script>
 </body>
 </html>
