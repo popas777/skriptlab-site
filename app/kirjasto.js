@@ -488,6 +488,12 @@
     };
   }
 
+  function readerDescription(description) {
+    return description
+      .replace(/\bSkriptLab(?:in|issa)\s+(?=uu(?:si|det|tena)\s+suomenn(?:os|ok))/giu, "")
+      .replace(/(^|[.!?]\s+)(uusi suomennos)/giu, (_, prefix, value) => prefix + value[0].toUpperCase() + value.slice(1));
+  }
+
   function audioDescriptionPresentation(description) {
     // Legacy imports appended production notes to the synopsis. Keep the raw
     // record intact and expose only listening facts in the reader's info panel.
@@ -495,7 +501,10 @@
     const synopsis = [];
     const info = { duration: "", contents: "", voices: "" };
     sections.forEach((section) => {
-      const value = section.trim();
+      const value = section.trim()
+        .replace(/,?\s+(?:versio|version)\s+v\d+(?:\.\d+)*\b/giu, "")
+        .replace(/(?:^|(?<=[.!?])\s+)[^.!?\n]*(?:puhetta on hidastettu|sävelkorkeutta muuttamatta)[^.!?\n]*[.!?]?/giu, "")
+        .trim();
       if (/^(?:Kuunteluversio\s+v\d+|Toimituksellinen tila\s*:|(?:Koko teoksen\s+)?kuuntelutarkastus\b)/iu.test(value)) return;
       if (/^Kesto\s+\d+/iu.test(value)) {
         const match = value.match(/^Kesto\s+((?:\d+\s*(?:h|min|s)\s*)+)(?:;\s*((?:esipuhe,\s*)?\d+\s+lukua(?:\s+ja\s+epilogi)?))?\.?$/iu);
@@ -509,7 +518,13 @@
         info.voices = value.replace(/^Tekoälyäänet\s*:\s*/iu, "").split(/(?<=[.!?])\s+/u)[0].replace(/\.$/u, "");
         return;
       }
-      if (value) synopsis.push(value);
+      const trackFacts = value.match(/(?:^|(?<=[.!?])\s+)(\d+\s+äänilukua),\s+kokonaiskesto\s+(?:noin\s+)?((?:\d+\s*(?:h|min|s)\s*)+)\.?/iu);
+      if (trackFacts) {
+        info.contents = trackFacts[1];
+        info.duration = trackFacts[2].trim();
+      }
+      const synopsisValue = trackFacts ? value.replace(trackFacts[0], " ").replace(/[ \t]{2,}/gu, " ").trim() : value;
+      if (synopsisValue) synopsis.push(synopsisValue);
     });
     return { description: synopsis.join(" "), info };
   }
@@ -542,12 +557,13 @@
     const suggestions = themaSubjects.filter((item) => item.status !== "confirmed");
     const managedExample = booleanValue(firstValue(source, ["managed_example", "managedExample", "is_managed_example"], false));
     const shared = managedExample || booleanValue(firstValue(source, ["shared", "is_shared", "shared_work"], false));
-    const description = text(firstValue(source, ["description", "summary", "synopsis"], ""));
+    const description = readerDescription(text(firstValue(source, ["description", "summary", "synopsis"], "")));
     const presentation = hasAudio ? audioDescriptionPresentation(description) : { description, info: null };
 
     return {
       id: text(firstValue(source, ["id", "work_id", "uuid"], "")),
-      title: text(firstValue(source, ["title", "name", "work_title"], ""), "Nimetön teos"),
+      title: text(firstValue(source, ["title", "name", "work_title"], ""), "Nimetön teos")
+        .replace(/\s*\((?:versio\s+)?v\d+(?:\.\d+)*\)\s*$/iu, ""),
       author: text(firstValue(source, ["author", "creator", "author_name"], ""), "Tekijä tuntematon"),
       description: presentation.description,
       audioInfo: presentation.info,

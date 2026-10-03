@@ -97,6 +97,23 @@ test('ordinary descriptions remain intact, including words used in production no
   assert.equal(work.audioInfo.voices, 'Gemini 3.8 Flash TTS, kertoja Algieba');
 });
 
+test('current audiobook notes and branding disappear from reader presentation without changing the edition', () => {
+  const context = {window: {}, document: {readyState: 'loading', addEventListener() {}}};
+  require('node:vm').runInNewContext(js, context);
+  const raw = {id: 111, title: 'Oopperan kummitus – äänikirja (v004)', has_audio: true,
+    description: 'Oopperan kummituksen moniääninen suomenkielinen äänikirja, versio v004. Meg Giryn, Jammesin ja balettityttöjen puhetta on hidastettu 10 prosenttia sävelkorkeutta muuttamatta. 29 äänilukua, kokonaiskesto noin 11 h 40 min. SkriptLabin uusi suomennos.'};
+  const work = context.window.SkriptLabLibrary.normalizeWork(raw);
+  assert.equal(work.title, 'Oopperan kummitus – äänikirja');
+  assert.equal(work.description, 'Oopperan kummituksen moniääninen suomenkielinen äänikirja. Uusi suomennos.');
+  assert.equal(work.audioInfo.duration, '11 h 40 min');
+  assert.equal(work.audioInfo.contents, '29 äänilukua');
+  assert.equal(work.id, '111');
+  assert.equal(work.raw.title, raw.title);
+  assert.equal(work.raw.description, raw.description);
+  assert.equal(context.window.SkriptLabLibrary.normalizeWork({title: 'Kertomuksia IV', description: 'Romaani SkriptLabin uutena suomennoksena.'}).description, 'Romaani uutena suomennoksena.');
+  assert.equal(context.window.SkriptLabLibrary.normalizeWork({title: 'Kertomuksia IV'}).title, 'Kertomuksia IV');
+});
+
 test('PDF-only work and format-specific locations normalize without losing text progress', () => {
   const vm = require('node:vm');
   const context = {window: {}, document: {readyState: 'loading', addEventListener() {}}};
