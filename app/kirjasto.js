@@ -262,6 +262,7 @@
       "audio-mute",
       "audio-volume",
       "audio-collapse",
+      "audio-close",
       "mobile-library-nav",
     ].forEach((id) => {
       elements[id] = byId(id);
@@ -2408,7 +2409,7 @@
     elements["audio-chapter"].textContent = tracks[state.audioTrackIndex]?.title || "Äänite";
     elements["audio-track-select"].replaceChildren(...tracks.map((track, index) => {
       const option = document.createElement("option"); option.value = String(index);
-      option.textContent = `${index + 1}. ${track.title}`; return option;
+      option.textContent = track.title; return option;
     }));
     elements["audio-track-select"].value = String(state.audioTrackIndex);
     renderCover(elements["audio-cover"], work, { eager: true });
@@ -2480,6 +2481,37 @@
         showNotice("Selain odottaa, että käynnistät äänitteen toistopainikkeesta.");
       }
     }
+  }
+
+  function closeAudio() {
+    state.audioSequence += 1;
+    state.audioIntentPlaying = false;
+    state.audioResumeAfterLoad = false;
+    saveAudioProgress();
+    const audio = elements["library-audio"];
+    audio.pause();
+    flushProgress();
+    state.audioWork = null;
+    state.pendingAudioPosition = 0;
+    audio.removeAttribute("src");
+    audio.load();
+    const dock = elements["library-audio-dock"];
+    dock.hidden = true;
+    dock.classList.remove("is-collapsed");
+    elements["audio-collapse"].setAttribute("aria-expanded", "true");
+    elements["audio-collapse"].setAttribute("aria-label", "Pienennä soitin");
+    document.body.classList.remove("has-audio");
+    setPlayIcon(false);
+    if (navigator.mediaSession) {
+      navigator.mediaSession.metadata = null;
+      navigator.mediaSession.playbackState = "none";
+      ["play", "pause", "seekbackward", "seekforward"].forEach((action) => {
+        try { navigator.mediaSession.setActionHandler(action, null); } catch (_error) { /* Optional OS control. */ }
+      });
+    }
+    const focusTarget = !elements["library-reader"].hidden ? elements["reader-back"]
+      : !elements["library-detail"].hidden ? elements["detail-listen"] : elements["library-results-title"];
+    focusTarget.focus({ preventScroll: true });
   }
 
   async function toggleAudio() {
@@ -2559,6 +2591,7 @@
   async function handleAudioError() {
     const work = state.audioWork;
     if (!work?.id || state.audioRefreshInFlight) return;
+    const sequence = state.audioSequence;
     const now = Date.now();
     const throttled = state.audioRefreshWorkId === work.id && now - state.audioRefreshAttemptedAt < 60_000;
     if (throttled) {
@@ -2574,6 +2607,7 @@
     state.audioRefreshAttemptedAt = now;
     try {
       const payload = await requestJson(`${API_ROOT}/works/${encodeURIComponent(work.id)}`);
+      if (sequence !== state.audioSequence || state.audioWork?.id !== work.id) return;
       const freshWork = mergeWork(work, unwrapWork(payload));
       const freshSource = workAudioUrl(freshWork);
       if (!freshSource) throw new LibraryApiError("Uutta toistolinkkiä ei saatu.", 404, payload);
@@ -2585,6 +2619,7 @@
       audio.src = freshSource;
       audio.load();
     } catch (error) {
+      if (sequence !== state.audioSequence || state.audioWork?.id !== work.id) return;
       state.audioResumeAfterLoad = false;
       state.audioIntentPlaying = false;
       showNotice(errorMessage(error, "Äänitteen turvallisen toistolinkin uusiminen epäonnistui."));
@@ -3381,6 +3416,7 @@
       elements["audio-mute"].replaceChildren(makeIcon(elements["library-audio"].volume === 0 ? "speaker-slash" : "speaker-high"));
     });
     elements["audio-mute"].addEventListener("click", toggleMute);
+    elements["audio-close"].addEventListener("click", closeAudio);
     elements["audio-collapse"].addEventListener("click", () => {
       const collapsed = elements["library-audio-dock"].classList.toggle("is-collapsed");
       elements["audio-collapse"].setAttribute("aria-expanded", String(!collapsed));

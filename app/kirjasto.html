@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400..700&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
-  <link rel="stylesheet" href="kirjasto.css?v=15">
+  <link rel="stylesheet" href="kirjasto.css?v=16">
 <link rel="stylesheet" href="book-access.css?v=2">
 <script src="book-access.js?v=5"></script>
 <script src="book-workflow.js?v=5" defer></script>
@@ -574,9 +574,14 @@
       <input id="audio-volume" type="range" min="0" max="1" value="1" step="0.05" aria-label="Äänenvoimakkuus">
     </div>
 
-    <button class="audio-collapse" id="audio-collapse" type="button" aria-label="Pienennä soitin" aria-expanded="true">
-      <i class="ph ph-caret-down" aria-hidden="true"></i>
-    </button>
+    <div class="audio-dock-actions">
+      <button class="audio-collapse" id="audio-collapse" type="button" aria-label="Pienennä soitin" aria-expanded="true">
+        <i class="ph ph-caret-down" aria-hidden="true"></i>
+      </button>
+      <button class="audio-close" id="audio-close" type="button" aria-label="Sulje äänikirjasoitin">
+        <i class="ph ph-x" aria-hidden="true"></i>
+      </button>
+    </div>
   </section>
 
   <nav class="mobile-library-nav" id="mobile-library-nav" aria-label="Kirjaston päänavigaatio">
@@ -593,6 +598,6 @@
   </script>
   <script src="auth.js?v=5"></script>
   <script src="library-discovery.js?v=1"></script>
-  <script src="kirjasto.js?v=15"></script>
+  <script src="kirjasto.js?v=16"></script>
 </body>
 </html>
