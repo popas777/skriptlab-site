@@ -9,6 +9,7 @@
   const AUTH_USER_KEY = "skriptlab_auth_user";
   const AUDIO_TIMING_FEATURE_ENABLED = false;
   const discovery = window.SkriptLabLibraryDiscovery;
+  const pricing = window.SkriptLabLibraryPricing;
   const FONT_SIZES = ["small", "medium", "large", "xlarge"];
   const SHELL_MESSAGE_TYPES = new Set([
     "skriptlab:library-context-changed",
@@ -851,6 +852,13 @@
       copy.append(themeNode);
     }
 
+    const price = pricing?.forWork(work);
+    if (price) {
+      const badge = document.createElement('p');
+      badge.className = 'work-premium';
+      badge.textContent = `Lisämaksullinen · ${price.multiplier}× · hinnoitteludemo`;
+      copy.append(badge);
+    }
     article.append(cover, copy);
     appendDetailAction(article, work);
     if (work.status === "published") {
@@ -887,6 +895,7 @@
   }
 
   function resultsHeading(scope) {
+    if (scope === "paid") return "Lisämaksulliset kirjat";
     if (scope === "finished") return "Luetut";
     if (scope === "favorites") return "Suosikit";
     if (scope === "shared") return hasFilters() ? "Jaetut hakutulokset" : "Jaetut teokset";
@@ -897,6 +906,7 @@
   }
 
   function resultsDescription(scope) {
+    if (scope === "paid") return "Kirjat, joilla on oma kuuntelukerroin ja kertaostohinta. Hinnoitteludemo: oikeita krediittejä ei vielä veloiteta.";
     if (scope === "finished") return "Loppuun luetut, kuunnellut ja valmiiksi merkityt teokset.";
     if (scope === "favorites") return "Sydämellä tallettamasi teokset.";
     if (scope === "shared") return "Muiden kirjaston käyttäjille julkaisemat teokset ja SkriptLabin esimerkit.";
@@ -937,6 +947,13 @@
     if (state.scope === "shared") {
       elements["library-empty-title"].textContent = "Ei vielä jaettuja teoksia";
       elements["library-empty-copy"].textContent = "SkriptLabin esimerkkiteokset ilmestyvät tähän, kun ne ovat saatavilla.";
+      elements["library-empty-add"].hidden = true;
+      elements["library-clear-filters"].hidden = true;
+      return;
+    }
+    if (state.scope === "paid") {
+      elements["library-empty-title"].textContent = "Ei vielä lisämaksullisia kirjoja";
+      elements["library-empty-copy"].textContent = "Saatavillasi ei ole tähän hinnoitteludemon osioon kuuluvia teoksia.";
       elements["library-empty-add"].hidden = true;
       elements["library-clear-filters"].hidden = true;
       return;
@@ -1074,7 +1091,9 @@
     const append = Boolean(options.append && state.nextCursor);
     const previousCount = state.works.length;
     const discoveryFilter = Boolean(discovery?.isDiscoveryFilter(state.theme));
-    if (append && discoveryFilter && state.discoveryWorks) {
+    const paidFilter = state.scope === "paid";
+    const clientFilter = discoveryFilter || paidFilter;
+    if (append && clientFilter && state.discoveryWorks) {
       state.works = state.discoveryWorks.slice(0, previousCount + 24);
       state.nextCursor = state.works.length < state.discoveryWorks.length ? String(state.works.length) : null;
       renderWorks();
@@ -1084,14 +1103,14 @@
     const sequence = ++state.listSequence;
     state.listController?.abort();
     state.listController = new AbortController();
-    const params = new URLSearchParams({ scope: state.scope });
+    const params = new URLSearchParams({ scope: paidFilter ? "all" : state.scope });
     if (state.query) params.set("q", state.query);
     if (state.media) params.set("media", state.media);
     if (state.theme && !discoveryFilter) params.set("theme", state.theme);
     if (state.audience) params.set("audience", state.audience);
     params.set("sort", state.sort === "curated" ? "newest" : state.sort);
     params.set("catalog", "true");
-    params.set("limit", discoveryFilter ? "100" : "24");
+    params.set("limit", clientFilter ? "100" : "24");
     if (append) params.set("after", state.nextCursor);
 
     elements["library-loading-text"].textContent = state.scope === "shared" ? "Ladataan jaettuja teoksia…" : "Ladataan kirjastoa…";
@@ -1127,7 +1146,7 @@
       ]);
       if (sequence !== state.listSequence) return;
       const works = unwrapWorks(payload).map(normalizeWork).filter((work) => work.id);
-      if (discoveryFilter) {
+      if (clientFilter) {
         // Group membership can span several raw themes. Read every authorised
         // metadata page, then filter; the first page alone is never the catalogue.
         let cursor = payload?.next_cursor;
@@ -1142,7 +1161,8 @@
           cursor = page?.next_cursor;
         }
         const unique = [...new Map(works.map(work => [work.id, work])).values()];
-        state.discoveryWorks = discovery.selectWorks(unique, state.theme, state.sort === "curated");
+        const selected = discoveryFilter ? discovery.selectWorks(unique, state.theme, state.sort === "curated") : unique;
+        state.discoveryWorks = paidFilter ? selected.filter(work => pricing?.forWork(work)) : selected;
         state.topAvailabilityKnown = state.scope === "all" && !state.query && !state.media && !state.audience;
         state.topMissing = state.topAvailabilityKnown ? discovery.missingEntries(unique, state.theme) : [];
         state.works = state.discoveryWorks.slice(0, 24);
@@ -1194,7 +1214,7 @@
   }
 
   function setScope(scope) {
-    if (!["all", "shared", "continue", "mine", "finished", "favorites"].includes(scope)) return;
+    if (!["all", "paid", "shared", "continue", "mine", "finished", "favorites"].includes(scope)) return;
     state.scope = scope;
     syncScopeControls();
     closeDetail(false);
@@ -1381,6 +1401,24 @@
     elements["detail-title"].textContent = work.title;
     elements["detail-author"].textContent = work.author;
     elements["detail-description"].textContent = work.description || "Teokselle ei ole vielä lisätty kuvausta.";
+    document.getElementById('detail-pricing')?.remove();
+    const price = pricing?.forWork(work);
+    if (price) {
+      const box = document.createElement('aside');
+      box.id = 'detail-pricing';
+      box.className = 'detail-pricing';
+      const copy = document.createElement('p');
+      copy.textContent = `Lisämaksullinen kirja · hinnoitteludemo. Kuuntelu ${price.multiplier}× (${price.multiplier} kr/min), koko kirja ${price.listeningCredits} krediittiä. Kertaosto ${price.purchaseCredits} krediittiä. Kesto ${Math.floor(price.durationMs / 60000)} min ${((price.durationMs % 60000) / 1000).toLocaleString("fi-FI")} s.`;
+      const note = document.createElement('p');
+      note.textContent = 'Kertaosto antaa lukuoikeuden heti, kuuntelu vasta koko teoksen valmistuttua. Oikeita krediittejä ei vielä veloiteta.';
+      const link = document.createElement('a');
+      link.href = 'tilaukset.html#book-title';
+      link.target = '_blank';
+      link.rel = 'noopener';
+      link.textContent = 'Kokeile kirjan hintaa laskurissa (uusi välilehti)';
+      box.append(copy, note, link);
+      elements['detail-description'].after(box);
+    }
     renderAudioInfo(work);
 
     const statusLabel = workStatusLabel(work);

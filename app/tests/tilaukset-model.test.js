@@ -4,7 +4,9 @@ const M = require('../tilaukset-model.js');
 
 test('subscription quantities and the top-up reference value agree with the proposed prices', () => {
   assert.deepEqual(M.PLANS.map(p => [p.cents, p.credits / 60, p.users]), [[590, 30, 1], [990, 60, 2], [1890, 120, 5]]);
-  assert.equal(M.CAP * M.TOPUP.cents / M.TOPUP.credits, 10000);
+  assert.equal(M.TOPUP.cents, 250);
+  assert.equal(M.TOPUPS[1].credits, M.CAP);
+  assert.equal(M.TOPUPS[1].cents, 10000);
 });
 test('credits carry over, then expire exactly three calendar months after each grant', () => {
   const state = M.create('basic', '2026-10-08');
@@ -35,18 +37,37 @@ test('spending uses the earliest expiry first and new top-ups do not renew older
   assert.equal(state.lots[2].expires, '2027-02-08');
   assert.equal(M.balance(state), 2200);
 });
-test('family balance never exceeds cap and overflow is recorded instead of silently hidden', () => {
+test('three family grants fit and top-ups never partially charge above the new cap', () => {
   const state = M.create('family', '2026-10-08');
   M.nextMonth(state);
-  assert.deepEqual(M.nextMonth(state), { expired: 0, accepted: 5600, overflow: 1600 });
-  assert.equal(M.balance(state), 20000);
-  assert.match(state.events[0].detail, /1600/);
-  assert.equal(state.paidCents, 5670);
+  assert.deepEqual(M.nextMonth(state), { expired: 0, accepted: 7200, overflow: 0 });
+  assert.equal(M.balance(state), 21600);
+  for (let i = 0; i < 5; i++) M.topup(state);
   const before = JSON.stringify(state);
   assert.throws(() => M.topup(state), /ei mahdu/);
   assert.equal(JSON.stringify(state), before);
-  assert.deepEqual(M.nextMonth(state), { expired: 7200, accepted: 7200, overflow: 0 });
-  assert.equal(M.balance(state), 20000);
+  assert.equal(M.balance(state), 24600);
+});
+test('large package fills an empty wallet, keeps its acquisition value and expires after three months', () => {
+  const state = M.create('none', '2026-10-08');
+  M.topup(state, 'large');
+  assert.equal(M.balance(state), 25000);
+  assert.equal(state.paidCents, 10000);
+  assert.equal(state.lots[0].unitCents, .4);
+  assert.throws(() => M.topup(state, 'large'), /ei mahdu/);
+  M.nextMonth(state); M.nextMonth(state);
+  assert.equal(M.balance(state), 25000);
+  assert.equal(M.nextMonth(state).expired, 25000);
+  assert.equal(M.balance(state), 0);
+  assert.throws(() => M.topup(state, 'invalid'));
+});
+test('monthly overflow is explicit and unit value remains tied to the original package', () => {
+  const state = M.create('family', '2026-10-08');
+  for (let i = 0; i < 25; i++) M.topup(state);
+  assert.deepEqual(M.nextMonth(state), { expired: 0, accepted: 2800, overflow: 4400 });
+  assert.equal(M.balance(state), 25000);
+  assert.match(state.events[0].detail, /4400/);
+  assert.equal(state.lots.at(-1).unitCents, 1890 / 7200);
 });
 test('insufficient or invalid spending leaves the wallet unchanged', () => {
   const state = M.create('basic', '2026-10-08');
@@ -60,7 +81,7 @@ test('publisher quotes distinguish the whole-book price from a per-minute rate',
   assert.equal(M.bookQuote({ mode: 'time', minutes: 100, rate: 1.1 }), 110);
   assert.equal(M.bookQuote({ mode: 'fixed', minutes: 360, fixed: 1200 }), 1200);
   for (const rate of [0, -1, NaN, 101]) assert.throws(() => M.bookQuote({ mode: 'time', minutes: 360, rate }));
-  assert.throws(() => M.bookQuote({ mode: 'fixed', minutes: 360, fixed: 20001 }));
+  assert.throws(() => M.bookQuote({ mode: 'fixed', minutes: 360, fixed: 25001 }));
 });
 test('a new scenario starts from its own first grant with no shared state', () => {
   const first = M.create('basic', '2026-10-08');
@@ -131,7 +152,7 @@ test('80/20 at full use pays rightsholders from each plan actual acquisition pri
   assert.equal(result.expiredRevenue, 0);
   assert.equal(result.remainder, 378);
   assert.equal(1000 * M.planFor('family').cents / M.planFor('family').credits * .8, 210);
-  assert.equal(1000 * M.TOPUP.cents / M.TOPUP.credits * .8, 400);
+  assert.ok(Math.abs(1000 * M.TOPUP.cents / M.TOPUP.credits * .8 - 333.3333333333) < 1e-6);
 });
 test('expiry and costs are separate from the platform share of actual consumption', () => {
   const result = M.economics({ ...M.planFor('family'), publisherPercent: 80, usePercent: 50, monthlyCostCents: 100, hourlyCostCents: 2 });
@@ -148,4 +169,32 @@ test('the calculator exposes losses without assuming expiry and rejects invalid 
   assert.throws(() => M.economics({ ...inputs, usePercent: 101 }));
   assert.throws(() => M.economics({ ...inputs, monthlyCostCents: -1 }));
   assert.throws(() => M.economics({ ...inputs, publisherPercent: NaN }));
+});
+
+test('mixed credit lots settle listening at 75 percent and purchases at 80 percent', () => {
+  const state = M.create('basic', '2026-10-08');
+  M.topup(state);
+  M.spend(state, 1700);
+  const book = M.createBook({ title: 'Sekasaldo', minutes: 175 / 10, rate: 10, fixed: 175 });
+  M.listenBook(state, book, 60);
+  const royalty = state.royalties[0];
+  assert.deepEqual(royalty.allocations.map(a => a.credits), [100, 75]);
+  assert.equal(royalty.share, 75);
+  assert.equal(royalty.cents, 100 * 590 / 1800 + 75 * 250 / 600);
+  assert.equal(royalty.publisherCents, royalty.cents * .75);
+  M.buyBook(state, M.createBook({ title: 'Osto', minutes: 1, rate: 1, fixed: 100 }));
+  assert.equal(state.royalties[1].share, 80);
+  assert.ok(Math.abs(state.royalties[1].publisherCents - state.royalties[1].cents * .8) < 1e-9);
+});
+test('Delfiini fractional duration and 1.3 multiplier retain split-session rounding and grant completion', () => {
+  for (const rate of [1.3, 10]) {
+    const state = M.create('basic', '2026-10-08');
+    const book = M.createBook({title: 'Delfiini', minutes: 1044.76 / 60, rate, fixed: 175});
+    for (let i = 0; i < 17; i++) M.listenBook(state, book, 1);
+    assert.equal(book.owned, false);
+    M.listenBook(state, book, 1);
+    assert.equal(book.owned, true);
+    assert.equal(book.listeningCredits, Math.ceil(1044.76 / 60 * rate));
+    assert.equal(M.listenBook(state, book, 60).credits, 0);
+  }
 });

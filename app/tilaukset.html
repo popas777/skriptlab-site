@@ -8,10 +8,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400..700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="tilaukset.css?v=2">
+  <link rel="stylesheet" href="tilaukset.css?v=3">
   <script src="auth.js?v=5"></script>
-  <script src="tilaukset-model.js?v=2" defer></script>
-  <script src="tilaukset.js?v=2" defer></script>
+  <script src="tilaukset-model.js?v=3" defer></script>
+  <script src="library-pricing.js?v=1" defer></script>
+  <script src="tilaukset.js?v=3" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#content">Siirry sisältöön</a>
@@ -36,8 +37,8 @@
           <p class="eyebrow" id="wallet-plan"></p>
           <p class="balance"><strong id="balance">0</strong> <span>krediittiä</span></p>
           <p id="balance-hours"></p>
-          <progress id="balance-meter" value="0" max="20000" aria-label="Krediittisaldo, enintään 20 000"></progress>
-          <div class="meter-labels"><span>0</span><span>Enintään 20 000</span></div>
+          <progress id="balance-meter" value="0" max="25000" aria-label="Krediittisaldo, enintään 25 000"></progress>
+          <div class="meter-labels"><span>0</span><span>Enintään 25 000</span></div>
           <p class="expiry" id="next-expiry"></p>
           <div class="simulation-date"><span>Demon päivämäärä</span><strong id="demo-date"></strong></div>
           <button type="button" class="primary-button" id="next-month">Siirry seuraavaan kuukauteen →</button>
@@ -47,13 +48,15 @@
           <form id="use-form">
             <h3>Käytä klassikkoaikaa</h3>
             <label for="use-minutes">Luku- tai kuunteluaika minuutteina</label>
-            <div class="input-action"><input id="use-minutes" type="number" min="1" max="20000" step="1" value="60" required><button type="submit" class="secondary-button">Käytä aikaa demossa</button></div>
+            <div class="input-action"><input id="use-minutes" type="number" min="1" max="25000" step="1" value="60" required><button type="submit" class="secondary-button">Käytä aikaa demossa</button></div>
             <p class="caption">Vanhimmin vanheneva krediittierä käytetään ensin.</p>
           </form>
           <div class="topup">
-            <div><h3>Vielä yksi kirja?</h3><p><strong>3 €</strong> / 10 klassikkotuntia</p><p class="caption">600 krediittiä · voimassa 3 kuukautta</p></div>
+            <div><h3>Vielä yksi kirja?</h3><p><strong>2,50 €</strong> / 10 klassikkotuntia</p><p class="caption">600 krediittiä · voimassa 3 kuukautta</p></div>
             <button type="button" class="secondary-button" id="topup">Lisää 600 krediittiä demoon</button>
           </div>
+          <div class="topup"><div><h3>Isompi krediittipaketti</h3><p><strong>100 €</strong> / 25 000 krediittiä</p><p class="caption">4 % alennus normaalista yksikköhinnasta · voimassa 3 kuukautta. Paketti mahtuu vain tyhjään saldoon.</p></div><button type="button" class="secondary-button" id="topup-large">Lisää 25 000 krediittiä demoon</button></div>
+          <button type="button" class="text-button" id="no-plan">Aloita tyhjästä ilman tilausta</button>
           <p class="caption" id="demo-total"></p>
         </div>
       </div>
@@ -69,13 +72,13 @@
       <p class="section-intro">Osta kirja kerralla tai kuuntele vähitellen. Kertaosto antaa heti lukuoikeuden ja kirjan omaan hyllyyn. Kuuntelussa saat ne, kun koko kirja on kuunneltu.</p>
       <div class="book-grid">
         <form id="book-form" class="book-controls">
-          <label for="book-name">Esimerkkikirjan nimi</label><input id="book-name" type="text" maxlength="120" value="Omakustanteen esimerkkikirja">
-          <p class="caption">Vaihda nimi ja luvut omaan teokseesi. Tämä on laskentaesimerkki, ei kirjastoon lisätty teos.</p>
+          <label for="book-name">Esimerkkikirjan nimi</label><input id="book-name" type="text" maxlength="120" value="Delfiinin ilta lahdella">
+          <p class="caption">Esimerkki: J. Murto · Delfiinin ilta lahdella, 17 min 24,76 s. Katalogin oletuskerroin 10×. Voit muuttaa lukuja vain tämän kokeilun ajaksi.</p>
           <label for="book-mode">Hankintatapa</label><select id="book-mode"><option value="time">Kuuntele vähitellen</option><option value="fixed">Osta kerralla · lukuoikeus heti</option></select>
           <div class="field-pair">
-            <div><label for="book-minutes">Kirjan kesto (min)</label><input id="book-minutes" type="number" min="1" max="60000" step="1" value="360" required></div>
-            <div id="rate-field"><label for="book-rate">Krediittiä / minuutti</label><input id="book-rate" type="number" min="0.1" max="100" step="0.1" value="3" required></div>
-            <div id="fixed-field"><label for="book-fixed">Kertaosto (krediittiä)</label><input id="book-fixed" type="number" min="1" max="20000" step="1" value="1200" required></div>
+            <div><label for="book-minutes">Kesto: minuutit</label><input id="book-minutes" type="number" min="0" max="60000" step="1" value="17" required></div><div><label for="book-seconds">Kesto: sekunnit</label><input id="book-seconds" type="number" min="0" max="59.99" step="0.01" value="24.76" required></div>
+            <div id="rate-field"><label for="book-rate">Kuuntelukerroin (kr/min)</label><input id="book-rate" type="number" min="0.1" max="20" step="0.1" value="10" required></div>
+            <div id="fixed-field"><label for="book-fixed">Kertaosto (krediittiä)</label><input id="book-fixed" type="number" min="1" max="25000" step="1" value="175" required></div>
           </div>
           <div id="listen-field"><label for="listen-minutes">Kuuntele seuraavaksi (min)</label><input id="listen-minutes" type="number" min="1" max="60000" step="1" value="60" required></div>
           <button type="submit" class="primary-button" id="use-book">Kuuntele demossa</button>
@@ -88,7 +91,7 @@
           <p class="quote"><strong id="book-credits"></strong><span> krediittiä</span></p>
           <p id="classic-comparison"></p>
           <div class="price-comparison"><h4>Sama määrä eri tavoilla hankittuna</h4><dl id="book-values"></dl></div>
-          <p class="caption">Hankintahinnan laskennallinen osuus, kun kaikki krediitit käytetään. Alla olevalla jako-oletuksella näet myös oikeudenhaltijan ja alustan osuudet. Tämä ei ole erillinen euromaksu tai vahvistettu tilitys.</p>
+          <p class="caption">Hankintahinnan laskennallinen osuus, kun kaikki krediitit käytetään. Kuuntelun 75 %:n ja kertaoston 80 %:n jaolla näet myös oikeudenhaltijan ja alustan osuudet. Tämä ei ole erillinen euromaksu tai vahvistettu tilitys.</p>
           <p class="caption" id="book-affordability"></p>
           <div class="book-ownership">
             <h4 id="ownership-title">Kuuntelu ja oma hylly</h4>
@@ -102,10 +105,10 @@
     </section>
 
     <section class="economics-section" aria-labelledby="economics-title">
-      <div class="section-heading"><h2 id="economics-title">Suurin osa kirjan tekijälle</h2><span>80 / 20 · suunniteltu jako</span></div>
-      <p class="section-intro">Lähtökohtana on 80 % oikeudenhaltijalle ja 20 % alustalle. Omakustanteessa oikeudenhaltija on kirjailija itse; kustantamon kirjassa tilitys menee kustantamolle, joka sopii kirjailijan korvauksesta erikseen.</p>
+      <div class="section-heading"><h2 id="economics-title">Suurin osa kirjan tekijälle</h2><span>Kuuntelu 75 % · kertaosto 80 %</span></div>
+      <p class="section-intro">Oikeudenhaltijalle tilitetään kuuntelusta 75 % ja kirjan kertaostosta 80 % teokseen kohdistuvasta maksusta. Alustan osuudet ovat vastaavasti 25 % ja 20 %. Omakustanteessa oikeudenhaltija on kirjailija itse; kustantamon kirjassa tilitys menee kustantamolle, joka sopii kirjailijan korvauksesta erikseen.</p>
       <div class="economics-controls" id="economics-controls">
-        <div><label for="publisher-share">Oikeudenhaltijan osuus (%)</label><input id="publisher-share" type="number" min="0" max="100" step="1" value="80" required></div>
+        <div><label for="publisher-share">Kuuntelun osuus (%)</label><input id="publisher-share" type="number" min="0" max="100" step="1" value="75" required readonly></div>
         <div><label for="credit-use">Käytetään ennen vanhenemista (%)</label><input id="credit-use" type="number" min="0" max="100" step="1" value="100" required></div>
         <div><label for="monthly-cost">Muut kulut / tilaus / kk (€)</label><input id="monthly-cost" type="number" min="0" max="1000" step="0.01" value="0" required></div>
         <div><label for="hourly-cost">Kulut / käytetty klassikkotunti (€)</label><input id="hourly-cost" type="number" min="0" max="100" step="0.01" value="0" required></div>
@@ -122,7 +125,7 @@
       <details class="model-notes"><summary>Mistä tilitys kannattaa laskea?</summary>
         <p><strong>Ehdotus:</strong> tilitä sovittu prosentti kirjaan käytettyjen krediittien hankintahinnasta. Näin samalla krediittimäärällä saa Perhe-tilauksessa pienemmän euromääräisen tilityksen kuin lisäostossa. Kirjakohtainen laskuri näyttää eron. Varsinainen verojen ja kulujen käsittely tilityspohjassa pitää vielä sopia.</p>
         <p><strong>Vanheneva osuus:</strong> laskuri olettaa käyttämättä vanhentuneiden krediittien tuoton jäävän alustalle ilman teoskohtaista tilitystä. Ennen vanhenemista sama summa on sidottu jäljellä olevaan käyttöoikeuteen. Tätä osuutta ei esitetä varmana tuottona etukäteen.</p>
-        <p><strong>Selkeä lupaus:</strong> ”Oikeudenhaltija saa 80 % teokseen kohdistuvasta maksusta.” Se on eri lupaus kuin 80 % palvelun koko tilausmyynnistä, etenkin jos krediittejä vanhenee. Kustantamon saama osuus ei sellaisenaan ole kirjailijan henkilökohtainen korvaus.</p>
+        <p><strong>Selkeä lupaus:</strong> ”Oikeudenhaltija saa kuuntelusta 75 % ja kertaostosta 80 % teokseen kohdistuvasta maksusta.” Tämä ei tarkoita samaa osuutta palvelun koko tilausmyynnistä, etenkin jos krediittejä vanhenee. Kustantamon saama osuus ei sellaisenaan ole kirjailijan henkilökohtainen korvaus.</p>
       </details>
     </section>
 
@@ -131,12 +134,13 @@
       <div class="rules-grid">
         <div><span class="rule-number">01</span><h3>Aika kertyy</h3><p>Tilaus tuo joka kuukausi uuden krediittierän. Käyttämätön osuus säilyy erän voimassaolon ajan.</p></div>
         <div><span class="rule-number">02</span><h3>Kolme kuukautta</h3><p>Jokainen erä vanhenee kolmen kalenterikuukauden kuluttua hankinnasta. Uusi osto ei pidennä vanhojen erien voimassaoloa.</p></div>
-        <div><span class="rule-number">03</span><h3>Yhteinen enimmäissaldo</h3><p>Saldo on enintään 20 000 krediittiä. Se vastaa 333 h 20 min klassikkoaikaa ja lisäajan yksikköhinnalla 100 €.</p></div>
+        <div><span class="rule-number">03</span><h3>Yhteinen enimmäissaldo</h3><p>Saldo on enintään 25 000 krediittiä. Se vastaa 416 h 40 min klassikkoaikaa. Isossa paketissa se maksaa 100 €, normaalilla yksikköhinnalla noin 104,17 €.</p></div>
       </div>
+      <p class="caption">Demon hinnoittelurajat: kerroin 0,1–20,0 yhden desimaalin tarkkuudella (esimerkiksi 1,3×), kertaosto 1–25 000 krediittiä. Rajat ovat alustava ehdotus. Katalogin oletusta voidaan muuttaa teoskohtaisella poikkeuksella; kampanja tarvitsee oman voimassaolon ja hintaversion.</p>
       <details class="model-notes"><summary>Mallin avoimet päätökset ja laskennalliset huomiot</summary>
-        <p><strong>Saldoraja:</strong> Perhe-tilauksen kolme erää ovat yhteensä 21 600 krediittiä. Demo jättää rajan ylittävät tilauskrediitit hyvittämättä ja veloittaa laskennallisesti täyden kuukausihinnan. Lisäpaketin voi lisätä vain kokonaisena. Tämä on kokeiltava oletus, ei vahvistettu tilausehto.</p>
-        <p><strong>Kustantajan korvaus:</strong> lisäostossa 1 000 krediitin hankintahinta on 5 €, Perhe-tilauksessa noin 2,63 €. Ehdotetulla 80 % jaolla oikeudenhaltijan osuus olisi vastaavasti 4 € ja 2,10 € ennen tilityspohjan vero- ja kulutarkennuksia. 100 € on enimmäissaldon vertailuarvo, ei nostettavaa rahaa.</p>
-        <p><strong>Mitä aika mittaa?</strong> Demo käyttää syötettyjä minuutteja. Äänikirjan alkuperäisen keston tai todellisen kuunteluajan käyttö, toistokerrat sekä e-kirjan lukemisen mittaus ovat vielä päätettäviä.</p>
+        <p><strong>Saldoraja:</strong> Perhe-tilauksen kolme erää ovat yhteensä 21 600 krediittiä ja mahtuvat 25 000 krediitin saldoon. Lisäostot voivat silti täyttää saldon. Demo jättää rajan ylittävät tilauskrediitit hyvittämättä ja veloittaa laskennallisesti täyden kuukausihinnan. Lisäpaketin voi lisätä vain kokonaisena. Tämä on kokeiltava oletus, ei vahvistettu tilausehto.</p>
+        <p><strong>Kustantajan korvaus:</strong> normaalissa lisäostossa 1 000 krediitin hankintahinta on noin 4,17 €, Perhe-tilauksessa noin 2,63 €. Kuuntelun 75 % jaolla oikeudenhaltijan osuus olisi noin 3,13 € ja 1,97 € ennen tilityspohjan vero- ja kulutarkennuksia. 100 € on enimmäissaldon vertailuarvo, ei nostettavaa rahaa.</p>
+        <p><strong>Mitä aika mittaa?</strong> Demo käyttää teoksen alkuperäistä sisältöaikaa, myös sekunnin osia. Toistonopeus ei muuta hintaa. Kokonaiskulutus pyöristetään ylöspäin vasta krediittitasolla, eikä kuuntelun pilkkominen muuta loppuhintaa. Oikean soittimen kattavuusmittaus ja e-kirjojen kulutus ovat vielä toteutettavia.</p>
         <p><strong>Lukuoikeus ja oma hylly:</strong> kertaosto antaa lukuoikeuden heti. Käytön mukaan kuunneltu kirja antaa lukuoikeuden ja jää omaan hyllyyn vasta koko kirjan valmistuttua. Hankittu oikeus säilyy demossa krediittien vanhentuessa, ja uusintakuuntelu on maksuton. Demo ei siirrä teosta oikeaan kirjastoon.</p>
         <p><strong>Kesken kuuntelun tehtävä kertaosto:</strong> demo veloittaa koko kertaostohinnan; aiempaa kuuntelua ei hyvitetä. Mahdollinen hyvitys sekä eri formaattien ja perheen yhteisten lukuoikeuksien ehdot ovat vielä avoimia.</p>
         <p><strong>Tilauksen elinkaari:</strong> tilaustason valinta aloittaa uuden kokeilun. Tasonvaihdot, peruutus ja jäljelle jäävien krediittien käyttö eivät ole tässä tilausjärjestelmän toteutuksia.</p>

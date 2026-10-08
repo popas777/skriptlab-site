@@ -177,7 +177,7 @@ test('Kirjasto is a cache-versioned, semantic Finnish iframe module', () => {
 
 test('catalog browsing follows the agreed authenticated snake_case API contract', () => {
   assert.match(js, /window\.SkriptLabAuth\.fetch\(path, requestOptions\)/);
-  assert.match(js, /new URLSearchParams\(\{ scope: state\.scope \}\)/);
+  assert.match(js, /new URLSearchParams\(\{ scope: paidFilter \? "all" : state\.scope \}\)/);
   assert.match(js, /params\.set\(["']q["'], state\.query\)/);
   assert.match(js, /params\.set\(["']media["'], state\.media\)/);
   assert.match(js, /params\.set\(["']theme["'], state\.theme\)/);
@@ -207,7 +207,7 @@ test('backend work payloads normalize cover, content, Thema, ownership and signe
 
 test('shared and own collections stay out of navigation while managed examples remain protected', () => {
   assert.doesNotMatch(html, /data-(?:scope|mobile-action)=["'](?:shared|mine)["']/);
-  assert.match(js, /\[["']all["'], ["']shared["'], ["']continue["'], ["']mine["'], ["']finished["'], ["']favorites["']\]\.includes\(scope\)/);
+  assert.match(js, /\[["']all["'], ["']paid["'], ["']shared["'], ["']continue["'], ["']mine["'], ["']finished["'], ["']favorites["']\]\.includes\(scope\)/);
   assert.match(js, /const managedExample = booleanValue\(firstValue\(source, \[["']managed_example["']/);
   assert.match(js, /const shared = managedExample \|\| booleanValue\(firstValue\(source, \[["']shared["']/);
   assert.match(js, /if \(work\.managedExample \|\| work\.shared\) return false/);

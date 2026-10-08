@@ -3302,3 +3302,9 @@ body.has-audio .reader-page-controls { margin-bottom: var(--library-audio-height
   .theme-filter select { min-width: 0; }
   .audience-filters { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; }
 }
+
+/* Pricing examples stay visible in compact cards as well as the detail view. */
+.work-card .work-premium { display: block; margin: 8px 0 0; font-size: 11px; line-height: 1.5; color: var(--text-secondary, #68645e); }
+.detail-pricing { margin: 18px 0; padding: 16px; border: 1px solid currentColor; border-radius: 10px; font-size: 13px; line-height: 1.6; }
+.detail-pricing p { margin: 0 0 10px; }
+.detail-pricing a { color: inherit; text-underline-offset: 3px; }

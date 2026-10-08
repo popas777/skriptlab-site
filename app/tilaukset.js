@@ -6,6 +6,8 @@
   if ((reader && !user?.allowed_modules?.includes('published_library')) || window.SkriptLabAuth.isShowcaseDemoUser(user)) return;
   document.getElementById('content').hidden = false;
   const M = window.SkriptLabSubscriptionsDemo;
+  const P = window.SkriptLabLibraryPricing;
+  const sample = P.quote(P.WORKS['122']);
   const $ = id => document.getElementById(id);
   const number = value => new Intl.NumberFormat('fi-FI', { maximumFractionDigits: 2 }).format(value);
   const euro = cents => new Intl.NumberFormat('fi-FI', { style: 'currency', currency: 'EUR' }).format(cents / 100);
@@ -14,6 +16,11 @@
   const duration = credits => `${number(Math.floor(credits / 60))} h ${credits % 60 ? number(credits % 60) + ' min' : ''}`.trim();
   let state = M.create('basic', today);
   let bookState = null;
+  $('book-name').value = sample.title;
+  $('book-minutes').value = Math.floor(sample.durationMs / 60000);
+  $('book-seconds').value = (sample.durationMs % 60000) / 1000;
+  $('book-rate').value = sample.multiplier;
+  $('book-fixed').value = sample.purchaseCredits;
 
   try {
     const root = window.parent.document.documentElement;
@@ -60,7 +67,7 @@
     return li;
   }
   function editorBook() {
-    return M.createBook({ title: $('book-name').value, minutes: Number($('book-minutes').value), rate: Number($('book-rate').value), fixed: Number($('book-fixed').value) });
+    return M.createBook({ title: $('book-name').value, minutes: Number($('book-minutes').value) + Number($('book-seconds').value) / 60, rate: Number($('book-rate').value), fixed: Number($('book-fixed').value) });
   }
   function actionCost(book) {
     if (book.owned) return 0;
@@ -72,7 +79,7 @@
     const fixed = $('book-mode').value === 'fixed';
     $('listen-field').hidden = fixed;
     $('listen-minutes').disabled = fixed;
-    for (const id of ['book-name', 'book-minutes', 'book-rate', 'book-fixed']) $(id).readOnly = Boolean(bookState);
+    for (const id of ['book-name', 'book-minutes', 'book-seconds', 'book-rate', 'book-fixed']) $(id).readOnly = Boolean(bookState);
     $('book-assumption').textContent = fixed
       ? 'Kertaosto antaa lukuoikeuden heti. Mahdollista aiempaa kuuntelukuluasi ei hyvitetä tässä demossa.'
       : 'Krediittejä kuluu kuunnellun ajan mukaan. Lukuoikeus ja paikka omassa hyllyssä syntyvät, kun koko kirja on kuunneltu.';
@@ -83,9 +90,9 @@
       const book = bookState || editorBook();
       const credits = M.bookQuote({ mode: fixed ? 'fixed' : 'time', minutes: book.minutes, rate: book.rate, fixed: book.fixed });
       $('book-credits').textContent = number(credits);
-      $('classic-comparison').textContent = `Saman mittainen klassikko: ${number(book.minutes)} krediittiä (${duration(book.minutes)}).`;
+      $('classic-comparison').textContent = `Saman mittainen klassikko: ${number(Math.ceil(book.minutes))} krediittiä (${number(book.minutes)} min).`;
       $('book-values').replaceChildren();
-      [...M.PLANS, { name: 'Lisäaikana', ...M.TOPUP }].forEach(plan => {
+      [...M.PLANS, ...M.TOPUPS].forEach(plan => {
         const row = document.createElement('div');
         const dt = document.createElement('dt');
         const dd = document.createElement('dd');
@@ -93,7 +100,7 @@
         dd.textContent = euro(credits * plan.cents / plan.credits);
         if ($('publisher-share').validity.valid) {
           const value = credits * plan.cents / plan.credits;
-          const share = Number($('publisher-share').value) / 100;
+          const share = (fixed ? M.SHARES.purchase : M.SHARES.listening) / 100;
           const split = document.createElement('small');
           split.textContent = `Oikeudenhaltijalle ${euro(value * share)} · alustalle ${euro(value * (1 - share))}`;
           dd.append(split);
@@ -179,12 +186,16 @@
     if (!lots.length) $('lots').append(listItem('Ei voimassa olevia eriä.', '', ''));
     $('events').replaceChildren(...state.events.map(event => listItem(event.label, `${displayDate(event.date)}${event.detail ? ' · ' + event.detail : ''}`, `${event.delta > 0 ? '+' : ''}${number(event.delta)} kr`)));
     $('topup').disabled = balance + M.TOPUP.credits > M.CAP;
-    $('topup').textContent = $('topup').disabled ? 'Paketti ei mahdu 20 000 krediitin saldoon' : 'Lisää 600 krediittiä demoon';
+    $('topup').textContent = $('topup').disabled ? 'Paketti ei mahdu 25 000 krediitin saldoon' : 'Lisää 600 krediittiä demoon';
+    $('topup-large').disabled = balance + M.TOPUPS[1].credits > M.CAP;
+    $('topup-large').textContent = $('topup-large').disabled ? '25 000 krediitin paketti vaatii tyhjän saldon' : 'Lisää 25 000 krediittiä demoon';
     renderBook();
     renderEconomics();
   }
   $('reset').addEventListener('click', () => reset(state.planId));
-  $('topup').addEventListener('click', () => act(() => M.topup(state), 'Demoon lisättiin 600 krediittiä (3 €). Oikeaa maksua ei tehty.'));
+  $('topup').addEventListener('click', () => act(() => M.topup(state), 'Demoon lisättiin 600 krediittiä (2,50 €). Oikeaa maksua ei tehty.'));
+  $('no-plan').addEventListener('click', () => reset('none'));
+  $('topup-large').addEventListener('click', () => act(() => M.topup(state, 'large'), 'Demoon lisättiin 25 000 krediittiä (100 €). Oikeaa maksua ei tehty.'));
   $('next-month').addEventListener('click', () => act(() => M.nextMonth(state), result => `Kuukausi vaihtui. Lisätty ${number(result.accepted)} krediittiä.${result.expired ? ` Vanhentui ${number(result.expired)} krediittiä.` : ''}${result.overflow ? ` Saldorajan vuoksi ${number(result.overflow)} krediittiä jäi hyvittämättä.` : ''}`));
   $('use-form').addEventListener('submit', event => {
     event.preventDefault();
@@ -208,6 +219,10 @@
       render();
       $('book-status').textContent = result.replay ? 'Uusintakuuntelu: 0 krediittiä. Kirja säilyy omassa hyllyssä.'
         : `${fixed ? 'Kertaosto' : `Kuunneltu ${number(result.minutes)} min`}: ${number(result.credits)} krediittiä.${result.acquired ? ' Lukuoikeus hankittu ja kirja lisätty demon omaan hyllyyn.' : ' Voit jatkaa kuuntelua seuraavalla kerralla.'}`;
+      if (result.credits) {
+        const royalty = state.royalties.at(-1);
+        $('book-status').textContent += ` Erien hankintahinnasta ${euro(royalty.cents)}: oikeudenhaltijalle ${royalty.share} % (${euro(royalty.publisherCents)}), alustalle ${euro(royalty.platformCents)}. Bruttoesimerkki.`;
+      }
       $('book-status').classList.remove('error');
     } catch (error) {
       $('book-status').textContent = error.message;

@@ -5,8 +5,11 @@
   else root.SkriptLabSubscriptionsDemo = model;
 })(typeof window === 'undefined' ? globalThis : window, function () {
   'use strict';
-  const CAP = 20000;
-  const TOPUP = Object.freeze({ credits: 600, cents: 300 });
+  const CAP = 25000;
+  const SHARES = Object.freeze({ listening: 75, purchase: 80 });
+  const TOPUP = Object.freeze({ id: 'small', name: 'Lisäpaketti', credits: 600, cents: 250 });
+  const TOPUPS = Object.freeze([TOPUP, Object.freeze({ id: 'large', name: 'Iso lisäpaketti', credits: 25000, cents: 10000 })]);
+  const NO_PLAN = Object.freeze({ id: 'none', name: 'Ilman tilausta', cents: 0, credits: 0, users: 1 });
   const PLANS = Object.freeze([
     Object.freeze({ id: 'basic', name: 'Perustilaus', cents: 590, credits: 1800, users: 1 }),
     Object.freeze({ id: 'pro', name: 'Pro', cents: 990, credits: 3600, users: 2 }),
@@ -32,7 +35,7 @@
     return d.toISOString().slice(0, 10);
   }
   function planFor(id) {
-    const plan = PLANS.find(p => p.id === id);
+    const plan = id === 'none' ? NO_PLAN : PLANS.find(p => p.id === id);
     if (!plan) throw new Error('Tuntematon tilaustaso.');
     return plan;
   }
@@ -52,45 +55,51 @@
   }
   function grant(state, requested, label, cents) {
     const accepted = Math.min(requested, CAP - balance(state));
-    if (accepted) state.lots.push({ created: state.today, expires: addMonths(state.today, 3), remaining: accepted, label });
+    if (accepted) state.lots.push({ id: state.lots.length + 1, created: state.today, expires: addMonths(state.today, 3), remaining: accepted, issued: accepted, unitCents: cents / requested, label });
     state.paidCents += cents;
     record(state, label, accepted, accepted < requested ? `${requested - accepted} krediittiä jäi saldorajan vuoksi hyvittämättä.` : '');
     return { accepted, overflow: requested - accepted };
   }
   function create(planId, today) {
     const plan = planFor(planId);
-    const state = { planId, today: date(today), start: today, month: 0, lots: [], events: [], paidCents: 0 };
-    grant(state, plan.credits, `${plan.name} · kuukausierä`, plan.cents);
+    const state = { planId, today: date(today), start: today, month: 0, lots: [], events: [], royalties: [], paidCents: 0 };
+    if (plan.credits) grant(state, plan.credits, `${plan.name} · kuukausierä`, plan.cents);
     return state;
   }
-  function topup(state) {
+  function topup(state, packageId = 'small') {
+    const pack = TOPUPS.find(item => item.id === packageId);
+    if (!pack) throw new Error('Tuntematon krediittipaketti.');
     expire(state);
-    if (balance(state) + TOPUP.credits > CAP) throw new Error('600 krediitin paketti ei mahdu saldoon. Käytä ensin krediittejä.');
-    return grant(state, TOPUP.credits, 'Lisäaika · 10 klassikkotuntia', TOPUP.cents);
+    if (balance(state) + pack.credits > CAP) throw new Error('Paketti ei mahdu saldoon. Käytä ensin krediittejä.');
+    return grant(state, pack.credits, `${pack.name} · ${pack.credits} krediittiä`, pack.cents);
   }
   function spend(state, credits, label = 'Käytetty lukuaika') {
     integer(credits, 1);
     expire(state);
     if (credits > balance(state)) throw new Error('Krediitit eivät riitä. Kokeile pienempää määrää tai lisää lukuaikaa.');
     let remaining = credits;
+    const allocations = [];
     [...state.lots].sort((a, b) => a.expires.localeCompare(b.expires)).forEach(lot => {
       const take = Math.min(lot.remaining, remaining);
+      if (take) allocations.push({ lotId: lot.id, credits: take, cents: take * lot.unitCents });
       lot.remaining -= take;
       remaining -= take;
     });
     record(state, label, -credits);
+    return { allocations, cents: allocations.reduce((sum, item) => sum + item.cents, 0) };
   }
   function nextMonth(state) {
     state.month += 1;
     state.today = addMonths(state.start, state.month);
     const expired = expire(state);
     const plan = planFor(state.planId);
+    if (!plan.credits) return { expired, accepted: 0, overflow: 0 };
     return { expired, ...grant(state, plan.credits, `${plan.name} · kuukausierä`, plan.cents) };
   }
   function bookQuote({ mode, minutes, rate, fixed }) {
-    integer(minutes, 1, 60000);
+    if (!Number.isFinite(minutes) || minutes <= 0 || minutes > 60000) throw new Error('Anna kelvollinen kesto.');
     if (mode === 'fixed') return integer(fixed, 1, CAP);
-    if (mode !== 'time' || !Number.isFinite(rate) || rate < 0.1 || rate > 100) throw new Error('Anna kelvollinen krediittihinta.');
+    if (mode !== 'time' || !Number.isFinite(rate) || rate < 0.1 || rate > 20 || Math.abs(rate * 10 - Math.round(rate * 10)) > 1e-8) throw new Error('Anna kelvollinen krediittihinta.');
     // Round only the total so a decimal per-minute rate does not compound rounding.
     return Math.ceil(Number((minutes * rate).toFixed(8)));
   }
@@ -100,17 +109,17 @@
     return { title: String(title).trim() || 'Omakustanteen esimerkkikirja', minutes, rate, fixed, listened: 0, listeningCredits: 0, owned: false, acquiredBy: null, acquiredOn: null };
   }
   function listenBook(state, book, minutes) {
-    integer(minutes, 1, 60000);
+    if (!Number.isFinite(minutes) || minutes <= 0 || minutes > 60000) throw new Error('Anna kelvollinen kesto.');
     // An acquired book can be replayed without another charge.
     if (book.owned) return { credits: 0, minutes, acquired: false, replay: true };
-    const played = Math.min(minutes, book.minutes - book.listened);
+    const played = Math.min(Math.round(minutes * 60000), Math.round((book.minutes - book.listened) * 60000)) / 60000;
     const cumulative = bookQuote({ mode: 'time', minutes: book.listened + played, rate: book.rate });
     const credits = cumulative - book.listeningCredits;
-    if (credits > 0) spend(state, credits, `${book.title} · kuuntelu ${played} min`);
+    if (credits > 0) settle(state, book, 'listening', spend(state, credits, `${book.title} · kuuntelu ${played} min`));
     else record(state, `${book.title} · kuuntelu ${played} min`, 0);
-    book.listened += played;
+    book.listened = Math.min(book.minutes, Math.round((book.listened + played) * 60000) / 60000);
     book.listeningCredits = cumulative;
-    const acquired = book.listened === book.minutes;
+    const acquired = Math.round(book.listened * 60000) >= Math.round(book.minutes * 60000);
     if (acquired) {
       book.owned = true;
       book.acquiredBy = 'listening';
@@ -121,12 +130,17 @@
   }
   function buyBook(state, book) {
     if (book.owned) return { credits: 0, acquired: false };
-    spend(state, book.fixed, `${book.title} · kertaosto`);
+    settle(state, book, 'purchase', spend(state, book.fixed, `${book.title} · kertaosto`));
     book.owned = true;
     book.acquiredBy = 'purchase';
     book.acquiredOn = state.today;
     record(state, `${book.title} · lukuoikeus ja oma hylly`, 0, 'Kertaosto.');
     return { credits: book.fixed, acquired: true };
+  }
+  function settle(state, book, mode, payment) {
+    const publisherCents = payment.cents * SHARES[mode] / 100;
+    state.royalties.push({ title: book.title, mode, date: state.today, share: SHARES[mode],
+      ...payment, publisherCents, platformCents: payment.cents - publisherCents });
   }
   function economics({ cents, credits, publisherPercent, usePercent, monthlyCostCents, hourlyCostCents }) {
     for (const value of [cents, credits, publisherPercent, usePercent, monthlyCostCents, hourlyCostCents]) {
@@ -140,5 +154,5 @@
     const costs = monthlyCostCents + credits / 60 * usePercent / 100 * hourlyCostCents;
     return { publisher, platformUsage, expiredRevenue, costs, remainder: platformUsage + expiredRevenue - costs };
   }
-  return { CAP, TOPUP, PLANS, addMonths, planFor, balance, create, topup, spend, nextMonth, bookQuote, createBook, listenBook, buyBook, economics };
+  return { CAP, SHARES, TOPUP, TOPUPS, PLANS, addMonths, planFor, balance, create, topup, spend, nextMonth, bookQuote, createBook, listenBook, buyBook, economics };
 });
