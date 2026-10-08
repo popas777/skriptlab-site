@@ -40,7 +40,7 @@ body[data-shell-theme="dark"] .primary-button { color: #14291f; }
 button:hover:not(:disabled) { filter: brightness(.94); }
 .text-button { background: transparent; border: 0; padding: 10px 0 10px 10px; color: var(--forest); text-decoration: underline; text-underline-offset: 4px; font-size: 13px; }
 .caption { color: var(--muted); font-size: 12px; line-height: 1.6; margin-top: 10px; }
-.wallet-section, .book-section, .rules { margin-top: 44px; padding-top: 32px; border-top: 1px solid var(--line); }
+.wallet-section, .book-section, .economics-section, .rules { margin-top: 44px; padding-top: 32px; border-top: 1px solid var(--line); }
 .wallet-grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 30px; }
 .balance-panel { background: var(--soft); border-radius: 12px; padding: 26px; }
 .balance { margin: 12px 0 0; }
@@ -89,6 +89,21 @@ summary { cursor: pointer; min-height: 44px; padding: 12px 0; font-size: 13px; f
 dl { margin: 12px 0 0; }
 dl > div { display: flex; justify-content: space-between; gap: 16px; font-size: 13px; padding: 5px 0; }
 dd { margin: 0; font-weight: 600; }
+.price-comparison dd { text-align: right; }
+.price-comparison dd small { display: block; max-width: 230px; color: var(--muted); font-size: 11px; font-weight: 400; }
+.economics-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.economics-controls label { min-height: 40px; }
+.economics-table-scroll { overflow-x: auto; margin-top: 24px; }
+.economics-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.economics-table caption { text-align: left; font-size: 13px; margin-bottom: 14px; font-weight: 600; }
+.economics-table th, .economics-table td { padding: 14px 12px; border-bottom: 1px solid var(--line); text-align: right; }
+.economics-table th { font-weight: 600; }
+.economics-table th:first-child { text-align: left; padding-left: 0; }
+.economics-table td { white-space: nowrap; }
+.economics-table td:last-child { font-weight: 700; color: var(--forest); }
+.economics-table td.negative { color: #b13f32; }
+body[data-shell-theme="dark"] .economics-table td.negative { color: #ffa293; }
+.economics-section details p { font-size: 13px; color: var(--muted); }
 .rules-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; margin-top: 28px; }
 .rule-number { font: 15px var(--display); color: var(--forest); }
 .rules-grid h3 { font-size: 21px; margin-top: 12px; }
@@ -104,6 +119,7 @@ footer { display: flex; gap: 20px; justify-content: space-between; border-top: 1
   .plan h3 { font-size: 22px; }
   .plan-price strong { font-size: 27px; }
   .wallet-grid, .book-grid { grid-template-columns: 1fr; gap: 22px; }
+  .economics-controls { grid-template-columns: 1fr 1fr; }
   .section-heading { align-items: flex-start; }
   .section-heading > span { max-width: 140px; text-align: right; }
   .rules-grid { gap: 18px; }

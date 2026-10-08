@@ -91,6 +91,13 @@
         const dd = document.createElement('dd');
         dt.textContent = plan.name;
         dd.textContent = euro(credits * plan.cents / plan.credits);
+        if ($('publisher-share').validity.valid) {
+          const value = credits * plan.cents / plan.credits;
+          const share = Number($('publisher-share').value) / 100;
+          const split = document.createElement('small');
+          split.textContent = `Oikeudenhaltijalle ${euro(value * share)} · alustalle ${euro(value * (1 - share))}`;
+          dd.append(split);
+        }
         row.append(dt, dd);
         $('book-values').append(row);
       });
@@ -118,6 +125,36 @@
       $('use-book').disabled = true;
     }
   }
+  function renderEconomics() {
+    const inputs = [...$('economics-controls').querySelectorAll('input')];
+    if (!inputs.every(input => input.validity.valid)) {
+      $('economics-rows').replaceChildren();
+      $('economics-status').textContent = 'Tarkista prosentit (0–100) ja kulut (vähintään 0 €).';
+      return;
+    }
+    const publisherPercent = Number($('publisher-share').value);
+    const usePercent = Number($('credit-use').value);
+    const monthlyCostCents = Number($('monthly-cost').value) * 100;
+    const hourlyCostCents = Number($('hourly-cost').value) * 100;
+    const results = M.PLANS.map(plan => ({ plan, ...M.economics({ ...plan, publisherPercent, usePercent, monthlyCostCents, hourlyCostCents }) }));
+    $('economics-rows').replaceChildren(...results.map(result => {
+      const row = document.createElement('tr');
+      const label = document.createElement('th');
+      label.scope = 'row';
+      label.textContent = `${result.plan.name} · ${euro(result.plan.cents)}`;
+      row.append(label);
+      for (const key of ['publisher', 'platformUsage', 'expiredRevenue', 'costs', 'remainder']) {
+        const cell = document.createElement('td');
+        cell.textContent = euro(result[key]);
+        if (key === 'remainder' && result[key] < 0) cell.className = 'negative';
+        row.append(cell);
+      }
+      return row;
+    }));
+    const family = results.find(result => result.plan.id === 'family');
+    const fullyUsed = M.economics({ ...family.plan, publisherPercent, usePercent: 100, monthlyCostCents: 0, hourlyCostCents: 0 });
+    $('economics-status').textContent = `Perhe, 100 % käytöllä: alustalle ${euro(fullyUsed.platformUsage)} ennen muita kuluja. Syötetyllä ${number(usePercent)} % käyttöasteella jäämä kulujen jälkeen ${euro(family.remainder)}.${usePercent < 100 ? ` Tästä laskelmasta ${euro(family.expiredRevenue)} perustuu käyttämättä vanhenevaan osuuteen.` : ''}`;
+  }
   function render() {
     const plan = M.planFor(state.planId);
     const balance = M.balance(state);
@@ -144,6 +181,7 @@
     $('topup').disabled = balance + M.TOPUP.credits > M.CAP;
     $('topup').textContent = $('topup').disabled ? 'Paketti ei mahdu 20 000 krediitin saldoon' : 'Lisää 600 krediittiä demoon';
     renderBook();
+    renderEconomics();
   }
   $('reset').addEventListener('click', () => reset(state.planId));
   $('topup').addEventListener('click', () => act(() => M.topup(state), 'Demoon lisättiin 600 krediittiä (3 €). Oikeaa maksua ei tehty.'));
@@ -154,6 +192,7 @@
   });
   $('book-form').addEventListener('input', renderBook);
   $('book-form').addEventListener('change', renderBook);
+  $('economics-controls').addEventListener('input', () => { renderEconomics(); renderBook(); });
   $('reset-book').addEventListener('click', () => {
     bookState = null;
     renderBook();

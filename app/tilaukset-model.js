@@ -128,5 +128,17 @@
     record(state, `${book.title} · lukuoikeus ja oma hylly`, 0, 'Kertaosto.');
     return { credits: book.fixed, acquired: true };
   }
-  return { CAP, TOPUP, PLANS, addMonths, planFor, balance, create, topup, spend, nextMonth, bookQuote, createBook, listenBook, buyBook };
+  function economics({ cents, credits, publisherPercent, usePercent, monthlyCostCents, hourlyCostCents }) {
+    for (const value of [cents, credits, publisherPercent, usePercent, monthlyCostCents, hourlyCostCents]) {
+      if (!Number.isFinite(value) || value < 0) throw new Error('Anna kelvolliset laskennan lähtöarvot.');
+    }
+    if (credits <= 0 || publisherPercent > 100 || usePercent > 100) throw new Error('Prosentin pitää olla välillä 0–100.');
+    const consumedRevenue = cents * usePercent / 100;
+    const publisher = consumedRevenue * publisherPercent / 100;
+    const platformUsage = consumedRevenue - publisher;
+    const expiredRevenue = cents - consumedRevenue;
+    const costs = monthlyCostCents + credits / 60 * usePercent / 100 * hourlyCostCents;
+    return { publisher, platformUsage, expiredRevenue, costs, remainder: platformUsage + expiredRevenue - costs };
+  }
+  return { CAP, TOPUP, PLANS, addMonths, planFor, balance, create, topup, spend, nextMonth, bookQuote, createBook, listenBook, buyBook, economics };
 });

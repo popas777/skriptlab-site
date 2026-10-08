@@ -123,3 +123,29 @@ test('owned rights survive expiry and fractional rates cost the same across sess
   assert.equal(book.owned, true);
   assert.equal(M.buyBook(state, book).credits, 0);
 });
+
+test('80/20 at full use pays rightsholders from each plan actual acquisition price', () => {
+  const result = M.economics({ ...M.planFor('family'), publisherPercent: 80, usePercent: 100, monthlyCostCents: 0, hourlyCostCents: 0 });
+  assert.equal(result.publisher, 1512);
+  assert.equal(result.platformUsage, 378);
+  assert.equal(result.expiredRevenue, 0);
+  assert.equal(result.remainder, 378);
+  assert.equal(1000 * M.planFor('family').cents / M.planFor('family').credits * .8, 210);
+  assert.equal(1000 * M.TOPUP.cents / M.TOPUP.credits * .8, 400);
+});
+test('expiry and costs are separate from the platform share of actual consumption', () => {
+  const result = M.economics({ ...M.planFor('family'), publisherPercent: 80, usePercent: 50, monthlyCostCents: 100, hourlyCostCents: 2 });
+  assert.equal(result.publisher, 756);
+  assert.equal(result.platformUsage, 189);
+  assert.equal(result.expiredRevenue, 945);
+  assert.equal(result.costs, 220);
+  assert.equal(result.remainder, 914);
+  assert.equal(result.publisher + result.costs + result.remainder, 1890);
+});
+test('the calculator exposes losses without assuming expiry and rejects invalid rates', () => {
+  const inputs = { ...M.planFor('family'), publisherPercent: 80, usePercent: 100, monthlyCostCents: 400, hourlyCostCents: 1 };
+  assert.equal(M.economics(inputs).remainder, -142);
+  assert.throws(() => M.economics({ ...inputs, usePercent: 101 }));
+  assert.throws(() => M.economics({ ...inputs, monthlyCostCents: -1 }));
+  assert.throws(() => M.economics({ ...inputs, publisherPercent: NaN }));
+});

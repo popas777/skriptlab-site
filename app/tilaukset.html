@@ -8,10 +8,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400..700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="tilaukset.css?v=1">
+  <link rel="stylesheet" href="tilaukset.css?v=2">
   <script src="auth.js?v=5"></script>
-  <script src="tilaukset-model.js?v=1" defer></script>
-  <script src="tilaukset.js?v=1" defer></script>
+  <script src="tilaukset-model.js?v=2" defer></script>
+  <script src="tilaukset.js?v=2" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#content">Siirry sisältöön</a>
@@ -88,7 +88,7 @@
           <p class="quote"><strong id="book-credits"></strong><span> krediittiä</span></p>
           <p id="classic-comparison"></p>
           <div class="price-comparison"><h4>Sama määrä eri tavoilla hankittuna</h4><dl id="book-values"></dl></div>
-          <p class="caption">Laskennallinen osuus hankintahinnasta, kun kaikki krediitit käytetään. Ei kirjan erillinen euromaksu eikä kustantamolle maksettava korvaus.</p>
+          <p class="caption">Hankintahinnan laskennallinen osuus, kun kaikki krediitit käytetään. Alla olevalla jako-oletuksella näet myös oikeudenhaltijan ja alustan osuudet. Tämä ei ole erillinen euromaksu tai vahvistettu tilitys.</p>
           <p class="caption" id="book-affordability"></p>
           <div class="book-ownership">
             <h4 id="ownership-title">Kuuntelu ja oma hylly</h4>
@@ -101,6 +101,31 @@
       </div>
     </section>
 
+    <section class="economics-section" aria-labelledby="economics-title">
+      <div class="section-heading"><h2 id="economics-title">Suurin osa kirjan tekijälle</h2><span>80 / 20 · suunniteltu jako</span></div>
+      <p class="section-intro">Lähtökohtana on 80 % oikeudenhaltijalle ja 20 % alustalle. Omakustanteessa oikeudenhaltija on kirjailija itse; kustantamon kirjassa tilitys menee kustantamolle, joka sopii kirjailijan korvauksesta erikseen.</p>
+      <div class="economics-controls" id="economics-controls">
+        <div><label for="publisher-share">Oikeudenhaltijan osuus (%)</label><input id="publisher-share" type="number" min="0" max="100" step="1" value="80" required></div>
+        <div><label for="credit-use">Käytetään ennen vanhenemista (%)</label><input id="credit-use" type="number" min="0" max="100" step="1" value="100" required></div>
+        <div><label for="monthly-cost">Muut kulut / tilaus / kk (€)</label><input id="monthly-cost" type="number" min="0" max="1000" step="0.01" value="0" required></div>
+        <div><label for="hourly-cost">Kulut / käytetty klassikkotunti (€)</label><input id="hourly-cost" type="number" min="0" max="100" step="0.01" value="0" required></div>
+      </div>
+      <p class="caption">Kulut ovat aluksi nolla. Syötä omat maksu-, ylläpito- ja käyttöön liittyvät kulusi arvioidaksesi jäämää. Tuntikustannus käyttää klassikkoaikaa (60 krediittiä), ei kalliimman teoksen todellista kestoa.</p>
+      <div class="economics-table-scroll" role="region" aria-label="Tilaustasojen tulonjako" tabindex="0">
+        <table class="economics-table"><caption>Yhden kuukausierän lopputulos sen voimassaolon päätyttyä</caption>
+          <thead><tr><th scope="col">Tilaus</th><th scope="col">Oikeudenhaltijalle</th><th scope="col">Alustalle käytöstä</th><th scope="col">Vanhenevien osuus</th><th scope="col">Muut kulut</th><th scope="col">Alustalle jää</th></tr></thead>
+          <tbody id="economics-rows"></tbody>
+        </table>
+      </div>
+      <p class="status" id="economics-status" role="status" aria-live="polite"></p>
+      <p class="caption">Bruttolaskelma käyttäjän antamista hinnoista, kun koko kuukausierä mahtuu saldoon. Verot, maksunvälityksen kulut, hyvitykset ja muut kulut eivät vähenny automaattisesti. Kaikki käytetyt krediitit oletetaan tässä oikeudenhaltijalle tilitettäviksi. Tämä ei ole kirjanpidollinen tulos tai lupaus kannattavuudesta.</p>
+      <details class="model-notes"><summary>Mistä tilitys kannattaa laskea?</summary>
+        <p><strong>Ehdotus:</strong> tilitä sovittu prosentti kirjaan käytettyjen krediittien hankintahinnasta. Näin samalla krediittimäärällä saa Perhe-tilauksessa pienemmän euromääräisen tilityksen kuin lisäostossa. Kirjakohtainen laskuri näyttää eron. Varsinainen verojen ja kulujen käsittely tilityspohjassa pitää vielä sopia.</p>
+        <p><strong>Vanheneva osuus:</strong> laskuri olettaa käyttämättä vanhentuneiden krediittien tuoton jäävän alustalle ilman teoskohtaista tilitystä. Ennen vanhenemista sama summa on sidottu jäljellä olevaan käyttöoikeuteen. Tätä osuutta ei esitetä varmana tuottona etukäteen.</p>
+        <p><strong>Selkeä lupaus:</strong> ”Oikeudenhaltija saa 80 % teokseen kohdistuvasta maksusta.” Se on eri lupaus kuin 80 % palvelun koko tilausmyynnistä, etenkin jos krediittejä vanhenee. Kustantamon saama osuus ei sellaisenaan ole kirjailijan henkilökohtainen korvaus.</p>
+      </details>
+    </section>
+
     <section class="rules" aria-labelledby="rules-title">
       <h2 id="rules-title">Näin krediitit toimivat tässä demossa</h2>
       <div class="rules-grid">
@@ -110,7 +135,7 @@
       </div>
       <details class="model-notes"><summary>Mallin avoimet päätökset ja laskennalliset huomiot</summary>
         <p><strong>Saldoraja:</strong> Perhe-tilauksen kolme erää ovat yhteensä 21 600 krediittiä. Demo jättää rajan ylittävät tilauskrediitit hyvittämättä ja veloittaa laskennallisesti täyden kuukausihinnan. Lisäpaketin voi lisätä vain kokonaisena. Tämä on kokeiltava oletus, ei vahvistettu tilausehto.</p>
-        <p><strong>Kustantajan korvaus:</strong> lisäostossa 1 000 krediitin hankintahinta on 5 €, Perhe-tilauksessa noin 2,63 €. Mahdollinen kustantajatilitys, palvelun osuus ja kulut on sovittava erikseen; 100 € on saldon vertailuarvo, ei nostettavaa rahaa.</p>
+        <p><strong>Kustantajan korvaus:</strong> lisäostossa 1 000 krediitin hankintahinta on 5 €, Perhe-tilauksessa noin 2,63 €. Ehdotetulla 80 % jaolla oikeudenhaltijan osuus olisi vastaavasti 4 € ja 2,10 € ennen tilityspohjan vero- ja kulutarkennuksia. 100 € on enimmäissaldon vertailuarvo, ei nostettavaa rahaa.</p>
         <p><strong>Mitä aika mittaa?</strong> Demo käyttää syötettyjä minuutteja. Äänikirjan alkuperäisen keston tai todellisen kuunteluajan käyttö, toistokerrat sekä e-kirjan lukemisen mittaus ovat vielä päätettäviä.</p>
         <p><strong>Lukuoikeus ja oma hylly:</strong> kertaosto antaa lukuoikeuden heti. Käytön mukaan kuunneltu kirja antaa lukuoikeuden ja jää omaan hyllyyn vasta koko kirjan valmistuttua. Hankittu oikeus säilyy demossa krediittien vanhentuessa, ja uusintakuuntelu on maksuton. Demo ei siirrä teosta oikeaan kirjastoon.</p>
         <p><strong>Kesken kuuntelun tehtävä kertaosto:</strong> demo veloittaa koko kertaostohinnan; aiempaa kuuntelua ei hyvitetä. Mahdollinen hyvitys sekä eri formaattien ja perheen yhteisten lukuoikeuksien ehdot ovat vielä avoimia.</p>
