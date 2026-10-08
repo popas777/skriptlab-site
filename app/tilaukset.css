@@ -91,7 +91,7 @@ dl > div { display: flex; justify-content: space-between; gap: 16px; font-size: 
 dd { margin: 0; font-weight: 600; }
 .price-comparison dd { text-align: right; }
 .price-comparison dd small { display: block; max-width: 230px; color: var(--muted); font-size: 11px; font-weight: 400; }
-.economics-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.economics-controls { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; }
 .economics-controls label { min-height: 40px; }
 .economics-table-scroll { overflow-x: auto; margin-top: 24px; }
 .economics-table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -151,3 +151,5 @@ footer { display: flex; gap: 20px; justify-content: space-between; border-top: 1
 .annual-saving { display: inline-block; margin-top: 10px; padding: 3px 8px; border-radius: 4px; background: var(--soft); color: var(--forest); font-size: 12px; font-weight: 600; }
 .plan .annual-option button { margin-top: 16px; }
 #billing-status { margin-bottom: 18px; }
+
+.economics-table td small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; margin-top: 3px; }

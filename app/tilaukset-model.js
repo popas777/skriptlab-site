@@ -159,17 +159,18 @@
     state.royalties.push({ title: book.title, mode, date: state.today, share: SHARES[mode],
       ...payment, publisherCents, platformCents: payment.cents - publisherCents });
   }
-  function economics({ cents, credits, publisherPercent, usePercent, monthlyCostCents, hourlyCostCents }) {
-    for (const value of [cents, credits, publisherPercent, usePercent, monthlyCostCents, hourlyCostCents]) {
+  function economics({ cents, credits, publisherPercent, usePercent, classicPercent = 0, monthlyCostCents, hourlyCostCents }) {
+    for (const value of [cents, credits, publisherPercent, usePercent, classicPercent, monthlyCostCents, hourlyCostCents]) {
       if (!Number.isFinite(value) || value < 0) throw new Error('Anna kelvolliset laskennan lähtöarvot.');
     }
-    if (credits <= 0 || publisherPercent > 100 || usePercent > 100) throw new Error('Prosentin pitää olla välillä 0–100.');
-    const consumedRevenue = cents * usePercent / 100;
-    const publisher = consumedRevenue * publisherPercent / 100;
+    if (credits <= 0 || publisherPercent > 100 || usePercent > 100 || classicPercent > 100) throw new Error('Prosentin pitää olla välillä 0–100.');
+    const consumedRevenue = cents * (usePercent / 100);
+    const classicRevenue = consumedRevenue * (classicPercent / 100);
+    const publisher = consumedRevenue * (1 - classicPercent / 100) * publisherPercent / 100;
     const platformUsage = consumedRevenue - publisher;
-    const expiredRevenue = cents - consumedRevenue;
+    const expiredRevenue = cents * (1 - usePercent / 100);
     const costs = monthlyCostCents + credits / 60 * usePercent / 100 * hourlyCostCents;
-    return { publisher, platformUsage, expiredRevenue, costs, remainder: platformUsage + expiredRevenue - costs };
+    return { publisher, classicRevenue, platformUsage, expiredRevenue, costs, remainder: platformUsage + expiredRevenue - costs };
   }
   return { CAP, SHARES, TOPUP, TOPUPS, PLANS, addMonths, planFor, offerFor, subscriptionOffers, balance, create, topup, spend, nextMonth, bookQuote, createBook, listenBook, buyBook, economics };
 });

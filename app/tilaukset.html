@@ -111,18 +111,20 @@
       <div class="economics-controls" id="economics-controls">
         <div><label for="publisher-share">Kuuntelun osuus (%)</label><input id="publisher-share" type="number" min="0" max="100" step="1" value="75" required readonly></div>
         <div><label for="credit-use">Käytetään ennen vanhenemista (%)</label><input id="credit-use" type="number" min="0" max="100" step="1" value="100" required></div>
+        <div><label for="classic-share">Klassikoiden osuus kulutuksesta (%)</label><input id="classic-share" type="number" min="0" max="100" step="1" value="0" aria-describedby="classics-help" required></div>
         <div><label for="monthly-cost">Muut kulut / tilaus / kk (€)</label><input id="monthly-cost" type="number" min="0" max="1000" step="0.01" value="0" required></div>
         <div><label for="hourly-cost">Kulut / käytetty klassikkotunti (€)</label><input id="hourly-cost" type="number" min="0" max="100" step="0.01" value="0" required></div>
       </div>
+      <p class="caption" id="classics-help">Osuus käytetyistä krediiteistä, ei kuunteluminuuteista: kirjan kerroin vaikuttaa kulutukseen. Alustan omista klassikoista ei makseta ulos tekijä- tai kustantajakorvausta. Niiden tuotto sisältyy alustan osuuteen, mutta käyttö- ja ylläpitokulut vähennetään edelleen.</p>
       <p class="caption">Vuositilauksen riveillä vuosimaksusta kohdistetaan 1/12 kuukaudelle, ja käyttökulut arvioidaan jokaiselle kuukaudelle. Kulut ovat aluksi nolla. Syötä omat maksu-, ylläpito- ja käyttöön liittyvät kulusi arvioidaksesi jäämää. Tuntikustannus käyttää klassikkoaikaa (60 krediittiä), ei kalliimman teoksen todellista kestoa.</p>
       <div class="economics-table-scroll" role="region" aria-label="Tilaustasojen tulonjako" tabindex="0">
         <table class="economics-table"><caption>Kuukausierän laskennallinen tulonjako · vuosimaksusta kohdistettu 1/12</caption>
-          <thead><tr><th scope="col">Tilaus</th><th scope="col">Oikeudenhaltijalle</th><th scope="col">Alustalle käytöstä</th><th scope="col">Vanhenevien osuus</th><th scope="col">Muut kulut</th><th scope="col">Alustalle jää</th></tr></thead>
+          <thead><tr><th scope="col">Tilaus</th><th scope="col">Ulos oikeudenhaltijalle</th><th scope="col">Alustalle käytöstä</th><th scope="col">Vanhenevien osuus</th><th scope="col">Muut kulut</th><th scope="col">Alustalle jää</th></tr></thead>
           <tbody id="economics-rows"></tbody>
         </table>
       </div>
       <p class="status" id="economics-status" role="status" aria-live="polite"></p>
-      <p class="caption">Bruttolaskelma käyttäjän antamista hinnoista, kun koko kuukausierä mahtuu saldoon. Verot, maksunvälityksen kulut, hyvitykset ja muut kulut eivät vähenny automaattisesti. Kaikki käytetyt krediitit oletetaan tässä oikeudenhaltijalle tilitettäviksi. Tämä ei ole kirjanpidollinen tulos tai lupaus kannattavuudesta.</p>
+      <p class="caption">Bruttolaskelma käyttäjän antamista hinnoista, kun koko kuukausierä mahtuu saldoon. Verot, maksunvälityksen kulut, hyvitykset ja muut kulut eivät vähenny automaattisesti. Ulos tilitettävä 75 % lasketaan vain lisämaksullisten kirjojen kulutuksesta. Klassikoiden osuus perustuu yllä annettuun arvioon. Tämä ei ole kirjanpidollinen tulos tai lupaus kannattavuudesta.</p>
       <details class="model-notes"><summary>Mistä tilitys kannattaa laskea?</summary>
         <p><strong>Ehdotus:</strong> tilitä sovittu prosentti kirjaan käytettyjen krediittien hankintahinnasta. Näin samalla krediittimäärällä saa Perhe-tilauksessa pienemmän euromääräisen tilityksen kuin lisäostossa. Kirjakohtainen laskuri näyttää eron. Varsinainen verojen ja kulujen käsittely tilityspohjassa pitää vielä sopia.</p>
         <p><strong>Vanheneva osuus:</strong> laskuri olettaa käyttämättä vanhentuneiden krediittien tuoton jäävän alustalle ilman teoskohtaista tilitystä. Ennen vanhenemista sama summa on sidottu jäljellä olevaan käyttöoikeuteen. Tätä osuutta ei esitetä varmana tuottona etukäteen.</p>

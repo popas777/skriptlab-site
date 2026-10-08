@@ -256,3 +256,42 @@ test('annual royalties use the discounted unit price while extra credits keep th
   const result = M.economics({ ...M.offerFor('family', 'annual'), publisherPercent: 75, usePercent: 100, monthlyCostCents: 0, hourlyCostCents: 0 });
   assert.equal(result.platformUsage, 393.75);
 });
+
+test('platform classics have no external royalty while their usage still incurs costs', () => {
+  const input = { ...M.planFor('family'), publisherPercent: 75, usePercent: 100, monthlyCostCents: 100, hourlyCostCents: 2 };
+  const none = M.economics({ ...input, classicPercent: 0 });
+  assert.equal(none.publisher, 1417.5);
+  assert.equal(none.classicRevenue, 0);
+  const half = M.economics({ ...input, classicPercent: 50 });
+  assert.equal(half.publisher, 708.75);
+  assert.equal(half.classicRevenue, 945);
+  assert.equal(half.platformUsage, 1181.25);
+  const all = M.economics({ ...input, classicPercent: 100 });
+  assert.equal(all.publisher, 0);
+  assert.equal(all.classicRevenue, 1890);
+  assert.equal(all.platformUsage, 1890);
+  assert.equal(all.costs, 340);
+  assert.equal(all.costs, none.costs);
+  assert.equal(all.remainder, 1550);
+});
+test('classic share applies only to consumed credits and preserves annual discounts and expiry', () => {
+  const input = { ...M.offerFor('family', 'annual'), publisherPercent: 75, usePercent: 50, classicPercent: 50, monthlyCostCents: 0, hourlyCostCents: 0 };
+  const result = M.economics(input);
+  assert.equal(result.classicRevenue, 393.75);
+  assert.equal(result.publisher, 295.3125);
+  assert.equal(result.platformUsage, 492.1875);
+  assert.equal(result.expiredRevenue, 787.5);
+  assert.equal(result.remainder + result.publisher, input.cents);
+  const unused = M.economics({ ...input, usePercent: 0, classicPercent: 100 });
+  assert.equal(unused.classicRevenue, 0);
+  assert.equal(unused.publisher, 0);
+  assert.equal(unused.expiredRevenue, input.cents);
+  for (const classicPercent of [-1, 101, Infinity, NaN]) assert.throws(() => M.economics({ ...input, classicPercent }));
+});
+
+test('fully consumed annual grants never display negative zero as expired revenue', () => {
+  for (const plan of M.PLANS) {
+    const result = M.economics({ ...M.offerFor(plan.id, 'annual'), publisherPercent: 75, usePercent: 100, classicPercent: 50, monthlyCostCents: 0, hourlyCostCents: 0 });
+    assert.equal(result.expiredRevenue, 0);
+  }
+});

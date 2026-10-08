@@ -143,9 +143,10 @@
     }
     const publisherPercent = Number($('publisher-share').value);
     const usePercent = Number($('credit-use').value);
+    const classicPercent = Number($('classic-share').value);
     const monthlyCostCents = Number($('monthly-cost').value) * 100;
     const hourlyCostCents = Number($('hourly-cost').value) * 100;
-    const results = M.subscriptionOffers().map(plan => ({ plan, ...M.economics({ ...plan, publisherPercent, usePercent, monthlyCostCents, hourlyCostCents }) }));
+    const results = M.subscriptionOffers().map(plan => ({ plan, ...M.economics({ ...plan, publisherPercent, usePercent, classicPercent, monthlyCostCents, hourlyCostCents }) }));
     $('economics-rows').replaceChildren(...results.map(result => {
       const row = document.createElement('tr');
       const label = document.createElement('th');
@@ -155,6 +156,11 @@
       for (const key of ['publisher', 'platformUsage', 'expiredRevenue', 'costs', 'remainder']) {
         const cell = document.createElement('td');
         cell.textContent = euro(result[key]);
+        if (key === 'platformUsage' && classicPercent > 0) {
+          const detail = document.createElement('small');
+          detail.textContent = `josta klassikoista ${euro(result.classicRevenue)}`;
+          cell.append(detail);
+        }
         if (key === 'remainder' && result[key] < 0) cell.className = 'negative';
         row.append(cell);
       }
@@ -162,9 +168,9 @@
     }));
     const family = results.find(result => result.plan.id === 'family' && result.plan.billingCycle === 'monthly');
     const annualFamily = results.find(result => result.plan.id === 'family' && result.plan.billingCycle === 'annual');
-    const annualFullyUsed = M.economics({ ...annualFamily.plan, publisherPercent, usePercent: 100, monthlyCostCents: 0, hourlyCostCents: 0 });
-    const fullyUsed = M.economics({ ...family.plan, publisherPercent, usePercent: 100, monthlyCostCents: 0, hourlyCostCents: 0 });
-    $('economics-status').textContent = `Perhe, 100 % käytöllä: alustalle ${euro(fullyUsed.platformUsage)} ennen muita kuluja / kk. Vuositilauksessa vastaavasti ${euro(annualFullyUsed.platformUsage)} / kk. Syötetyllä ${number(usePercent)} % käyttöasteella jäämä kulujen jälkeen: kuukausitilaus ${euro(family.remainder)}, vuositilaus ${euro(annualFamily.remainder)} / kk.${usePercent < 100 ? ` Kuukausitilauksen jäämästä ${euro(family.expiredRevenue)} ja vuositilauksen jäämästä ${euro(annualFamily.expiredRevenue)} perustuu käyttämättä vanhenevaan osuuteen.` : ''}`;
+    const annualFullyUsed = M.economics({ ...annualFamily.plan, publisherPercent, classicPercent, usePercent: 100, monthlyCostCents: 0, hourlyCostCents: 0 });
+    const fullyUsed = M.economics({ ...family.plan, publisherPercent, classicPercent, usePercent: 100, monthlyCostCents: 0, hourlyCostCents: 0 });
+    $('economics-status').textContent = `Perhe, klassikoita ${number(classicPercent)} % kulutuksesta ja käyttöaste 100 %: alustalle ${euro(fullyUsed.platformUsage)} ennen muita kuluja / kk. Vuositilauksessa vastaavasti ${euro(annualFullyUsed.platformUsage)} / kk. Syötetyllä ${number(usePercent)} % käyttöasteella jäämä kulujen jälkeen: kuukausitilaus ${euro(family.remainder)}, vuositilaus ${euro(annualFamily.remainder)} / kk.${usePercent < 100 ? ` Kuukausitilauksen jäämästä ${euro(family.expiredRevenue)} ja vuositilauksen jäämästä ${euro(annualFamily.expiredRevenue)} perustuu käyttämättä vanhenevaan osuuteen.` : ''}`;
   }
   function render() {
     const plan = M.offerFor(state.planId, state.billingCycle);
