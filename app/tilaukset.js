@@ -39,19 +39,21 @@
     try { const result = action(); render(); status(typeof message === 'function' ? message(result) : message); }
     catch (error) { status(error.message, true); }
   }
-  function reset(planId) {
-    state = M.create(planId, today);
+  function reset(planId, billingCycle = 'monthly') {
+    state = M.create(planId, today, billingCycle);
     bookState = null;
     $('book-status').textContent = '';
     render();
-    status(`${M.planFor(planId).name}: uusi kokeilu aloitettu. Aiemman kokeilun tapahtumat nollattiin.`);
+    status(`${M.offerFor(planId, billingCycle).name}: uusi kokeilu aloitettu. Aiemman kokeilun tapahtumat nollattiin.`);
   }
   for (const plan of M.PLANS) {
     const article = document.createElement('article');
     article.className = 'plan';
     article.dataset.plan = plan.id;
-    article.innerHTML = `<h3>${plan.name}</h3><p class="plan-price"><strong>${euro(plan.cents)}</strong> / kk</p><p class="plan-hours">${number(plan.credits / 60)} tuntia / kk</p><p class="plan-credits">${number(plan.credits)} krediittiä kuukaudessa</p><p class="plan-users">${plan.users === 1 ? 'Yksi käyttäjä' : `Enintään ${plan.users} käyttäjää · yhteinen saldo`}</p><button type="button" class="secondary-button" aria-pressed="false"></button>`;
-    article.querySelector('button').addEventListener('click', () => reset(plan.id));
+    const annual = M.offerFor(plan.id, 'annual');
+    article.innerHTML = `<h3>${plan.name}</h3><p class="plan-price"><strong>${euro(plan.cents)}</strong> / kk</p><p class="plan-hours">${number(plan.credits / 60)} tuntia / kk</p><p class="plan-credits">${number(plan.credits)} krediittiä kuukaudessa</p><p class="plan-users">${plan.users === 1 ? 'Yksi käyttäjä' : `Enintään ${plan.users} käyttäjää · yhteinen saldo`}</p><button type="button" class="secondary-button" data-cycle="monthly" aria-pressed="false"></button>
+      <div class="annual-option"><h4>Vuositilaus</h4><p class="annual-price"><strong>${euro(annual.upfrontCents)}</strong> / vuosi</p><p class="annual-equivalent">Vastaa ${euro(annual.cents)} / kk · maksetaan kerralla</p><p class="annual-saving">2 kuukautta ilmaiseksi</p><p class="caption">Säästät ${euro(plan.cents * 2)} verrattuna 12 kuukausimaksuun. Samat ${number(plan.credits)} krediittiä joka kuukausi.</p><button type="button" class="secondary-button" data-cycle="annual" aria-pressed="false"></button></div>`;
+    article.querySelectorAll('[data-cycle]').forEach(button => button.addEventListener('click', () => reset(plan.id, button.dataset.cycle)));
     $('plans').append(article);
   }
   function listItem(main, detail, amount) {
@@ -92,7 +94,7 @@
       $('book-credits').textContent = number(credits);
       $('classic-comparison').textContent = `Saman mittainen klassikko: ${number(Math.ceil(book.minutes))} krediittiä (${number(book.minutes)} min).`;
       $('book-values').replaceChildren();
-      [...M.PLANS, ...M.TOPUPS].forEach(plan => {
+      [...M.subscriptionOffers(), ...M.TOPUPS].forEach(plan => {
         const row = document.createElement('div');
         const dt = document.createElement('dt');
         const dd = document.createElement('dd');
@@ -143,12 +145,12 @@
     const usePercent = Number($('credit-use').value);
     const monthlyCostCents = Number($('monthly-cost').value) * 100;
     const hourlyCostCents = Number($('hourly-cost').value) * 100;
-    const results = M.PLANS.map(plan => ({ plan, ...M.economics({ ...plan, publisherPercent, usePercent, monthlyCostCents, hourlyCostCents }) }));
+    const results = M.subscriptionOffers().map(plan => ({ plan, ...M.economics({ ...plan, publisherPercent, usePercent, monthlyCostCents, hourlyCostCents }) }));
     $('economics-rows').replaceChildren(...results.map(result => {
       const row = document.createElement('tr');
       const label = document.createElement('th');
       label.scope = 'row';
-      label.textContent = `${result.plan.name} · ${euro(result.plan.cents)}`;
+      label.textContent = `${result.plan.name} · ${euro(result.plan.cents)} / kk`;
       row.append(label);
       for (const key of ['publisher', 'platformUsage', 'expiredRevenue', 'costs', 'remainder']) {
         const cell = document.createElement('td');
@@ -158,22 +160,30 @@
       }
       return row;
     }));
-    const family = results.find(result => result.plan.id === 'family');
+    const family = results.find(result => result.plan.id === 'family' && result.plan.billingCycle === 'monthly');
+    const annualFamily = results.find(result => result.plan.id === 'family' && result.plan.billingCycle === 'annual');
+    const annualFullyUsed = M.economics({ ...annualFamily.plan, publisherPercent, usePercent: 100, monthlyCostCents: 0, hourlyCostCents: 0 });
     const fullyUsed = M.economics({ ...family.plan, publisherPercent, usePercent: 100, monthlyCostCents: 0, hourlyCostCents: 0 });
-    $('economics-status').textContent = `Perhe, 100 % käytöllä: alustalle ${euro(fullyUsed.platformUsage)} ennen muita kuluja. Syötetyllä ${number(usePercent)} % käyttöasteella jäämä kulujen jälkeen ${euro(family.remainder)}.${usePercent < 100 ? ` Tästä laskelmasta ${euro(family.expiredRevenue)} perustuu käyttämättä vanhenevaan osuuteen.` : ''}`;
+    $('economics-status').textContent = `Perhe, 100 % käytöllä: alustalle ${euro(fullyUsed.platformUsage)} ennen muita kuluja / kk. Vuositilauksessa vastaavasti ${euro(annualFullyUsed.platformUsage)} / kk. Syötetyllä ${number(usePercent)} % käyttöasteella jäämä kulujen jälkeen: kuukausitilaus ${euro(family.remainder)}, vuositilaus ${euro(annualFamily.remainder)} / kk.${usePercent < 100 ? ` Kuukausitilauksen jäämästä ${euro(family.expiredRevenue)} ja vuositilauksen jäämästä ${euro(annualFamily.expiredRevenue)} perustuu käyttämättä vanhenevaan osuuteen.` : ''}`;
   }
   function render() {
-    const plan = M.planFor(state.planId);
+    const plan = M.offerFor(state.planId, state.billingCycle);
     const balance = M.balance(state);
     document.querySelectorAll('.plan').forEach(article => {
-      const selected = article.dataset.plan === state.planId;
-      article.classList.toggle('selected', selected);
-      const button = article.querySelector('button');
-      button.setAttribute('aria-pressed', String(selected));
-      button.textContent = selected ? 'Valittu demoon' : `Kokeile: ${M.planFor(article.dataset.plan).name}`;
-      button.className = selected ? 'primary-button' : 'secondary-button';
+      article.classList.toggle('selected', article.dataset.plan === state.planId);
+      article.querySelectorAll('[data-cycle]').forEach(button => {
+        const selected = article.dataset.plan === state.planId && button.dataset.cycle === state.billingCycle;
+        button.setAttribute('aria-pressed', String(selected));
+        button.textContent = selected ? (state.billingCycle === 'annual' ? 'Vuositilaus valittu demoon' : 'Kuukausitilaus valittu demoon') : `${button.dataset.cycle === 'annual' ? 'Kokeile vuotta' : 'Kokeile kuukautta'}: ${M.planFor(article.dataset.plan).name}`;
+        button.className = selected ? 'primary-button' : 'secondary-button';
+      });
     });
     $('wallet-plan').textContent = `${plan.name} · ${plan.users === 1 ? 'oma demosaldo' : 'yhteinen demosaldo'}`;
+    $('billing-status').textContent = state.billingCycle === 'annual'
+      ? state.month < 12
+        ? `Maksettu kerralla ${euro(plan.upfrontCents)}. Kuukausierä ${state.month + 1}/12. Maksettu kausi päättyy ${displayDate(state.paidThrough)}. Vuotta ei uusita automaattisesti demossa.`
+        : `Maksettu vuosi päättyi ${displayDate(state.paidThrough)}. Uusia tilauskrediittejä ei enää lisätä. Jäljellä olevat erät voi käyttää niiden vanhenemiseen asti.`
+      : state.planId === 'none' ? 'Ei toistuvia maksuja tai kuukausieriä.' : `Kuukausimaksu ${euro(plan.cents)} jokaisen uuden kuukausierän yhteydessä.`;
     $('balance').textContent = number(balance);
     $('balance-hours').textContent = `${duration(balance)} klassikkojen luku- ja kuunteluaikaa`;
     $('balance-meter').value = balance;
@@ -192,7 +202,7 @@
     renderBook();
     renderEconomics();
   }
-  $('reset').addEventListener('click', () => reset(state.planId));
+  $('reset').addEventListener('click', () => reset(state.planId, state.billingCycle));
   $('topup').addEventListener('click', () => act(() => M.topup(state), 'Demoon lisättiin 600 krediittiä (2,50 €). Oikeaa maksua ei tehty.'));
   $('no-plan').addEventListener('click', () => reset('none'));
   $('topup-large').addEventListener('click', () => act(() => M.topup(state, 'large'), 'Demoon lisättiin 25 000 krediittiä (100 €). Oikeaa maksua ei tehty.'));

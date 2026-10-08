@@ -39,6 +39,18 @@
     if (!plan) throw new Error('Tuntematon tilaustaso.');
     return plan;
   }
+  function offerFor(id, billingCycle = 'monthly') {
+    const plan = planFor(id);
+    if (!['monthly', 'annual'].includes(billingCycle) || (id === 'none' && billingCycle === 'annual')) throw new Error('Tuntematon maksukausi.');
+    const annual = billingCycle === 'annual';
+    return { ...plan, billingCycle, name: annual ? `${plan.name} · vuosi` : plan.name,
+      // A prepaid year funds 12 monthly credit grants, each at the discounted value.
+      cents: annual ? plan.cents * 10 / 12 : plan.cents,
+      upfrontCents: annual ? plan.cents * 10 : plan.cents, months: annual ? 12 : 1 };
+  }
+  function subscriptionOffers() {
+    return PLANS.flatMap(plan => [offerFor(plan.id), offerFor(plan.id, 'annual')]);
+  }
   function balance(state) {
     return state.lots.filter(lot => lot.expires > state.today).reduce((total, lot) => total + lot.remaining, 0);
   }
@@ -53,17 +65,22 @@
     if (expired) record(state, 'Krediittejä vanheni', -expired);
     return expired;
   }
-  function grant(state, requested, label, cents) {
+  function grant(state, requested, label, cents, chargedCents = cents) {
     const accepted = Math.min(requested, CAP - balance(state));
     if (accepted) state.lots.push({ id: state.lots.length + 1, created: state.today, expires: addMonths(state.today, 3), remaining: accepted, issued: accepted, unitCents: cents / requested, label });
-    state.paidCents += cents;
+    state.paidCents += chargedCents;
     record(state, label, accepted, accepted < requested ? `${requested - accepted} krediittiä jäi saldorajan vuoksi hyvittämättä.` : '');
     return { accepted, overflow: requested - accepted };
   }
-  function create(planId, today) {
-    const plan = planFor(planId);
-    const state = { planId, today: date(today), start: today, month: 0, lots: [], events: [], royalties: [], paidCents: 0 };
-    if (plan.credits) grant(state, plan.credits, `${plan.name} · kuukausierä`, plan.cents);
+  function create(planId, today, billingCycle = 'monthly') {
+    const plan = offerFor(planId, billingCycle);
+    const state = { planId, billingCycle, today: date(today), start: today, month: 0, lots: [], events: [], royalties: [], paidCents: 0,
+      paidThrough: billingCycle === 'annual' ? addMonths(today, 12) : null };
+    if (billingCycle === 'annual') {
+      state.paidCents = plan.upfrontCents;
+      record(state, `${plan.name} · vuosimaksu`, 0, '12 kuukautta maksettu etukäteen. Krediitit lisätään kuukausittain.');
+    }
+    if (plan.credits) grant(state, plan.credits, `${plan.name} · kuukausierä`, plan.cents, billingCycle === 'annual' ? 0 : plan.cents);
     return state;
   }
   function topup(state, packageId = 'small') {
@@ -92,9 +109,9 @@
     state.month += 1;
     state.today = addMonths(state.start, state.month);
     const expired = expire(state);
-    const plan = planFor(state.planId);
-    if (!plan.credits) return { expired, accepted: 0, overflow: 0 };
-    return { expired, ...grant(state, plan.credits, `${plan.name} · kuukausierä`, plan.cents) };
+    const plan = offerFor(state.planId, state.billingCycle);
+    if (!plan.credits || (state.billingCycle === 'annual' && state.month >= 12)) return { expired, accepted: 0, overflow: 0 };
+    return { expired, ...grant(state, plan.credits, `${plan.name} · kuukausierä`, plan.cents, state.billingCycle === 'annual' ? 0 : plan.cents) };
   }
   function bookQuote({ mode, minutes, rate, fixed }) {
     if (!Number.isFinite(minutes) || minutes <= 0 || minutes > 60000) throw new Error('Anna kelvollinen kesto.');
@@ -154,5 +171,5 @@
     const costs = monthlyCostCents + credits / 60 * usePercent / 100 * hourlyCostCents;
     return { publisher, platformUsage, expiredRevenue, costs, remainder: platformUsage + expiredRevenue - costs };
   }
-  return { CAP, SHARES, TOPUP, TOPUPS, PLANS, addMonths, planFor, balance, create, topup, spend, nextMonth, bookQuote, createBook, listenBook, buyBook, economics };
+  return { CAP, SHARES, TOPUP, TOPUPS, PLANS, addMonths, planFor, offerFor, subscriptionOffers, balance, create, topup, spend, nextMonth, bookQuote, createBook, listenBook, buyBook, economics };
 });

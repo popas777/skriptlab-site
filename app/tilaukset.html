@@ -8,11 +8,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400..700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="tilaukset.css?v=3">
+  <link rel="stylesheet" href="tilaukset.css?v=4">
   <script src="auth.js?v=5"></script>
-  <script src="tilaukset-model.js?v=3" defer></script>
+  <script src="tilaukset-model.js?v=4" defer></script>
   <script src="library-pricing.js?v=1" defer></script>
-  <script src="tilaukset.js?v=3" defer></script>
+  <script src="tilaukset.js?v=4" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#content">Siirry sisältöön</a>
@@ -27,7 +27,7 @@
     <section aria-labelledby="plans-title">
       <div class="section-heading"><h2 id="plans-title">Tilaukset</h2><span>Kuukausittain yhteiseen saldoon</span></div>
       <div class="plans" id="plans"></div>
-      <p class="caption">Klassikoissa 1 krediitti = 1 minuutti. Pro- ja Perhe-tilauksessa aika jaetaan käyttäjien kesken.</p>
+      <p class="caption">Klassikoissa 1 krediitti = 1 minuutti. Pro- ja Perhe-tilauksessa aika jaetaan käyttäjien kesken. Vuositilaus antaa 12 kuukautta kymmenen hinnalla: koko maksu heti, krediitit kuukausittain.</p>
     </section>
 
     <section class="wallet-section" aria-labelledby="wallet-title">
@@ -35,6 +35,7 @@
       <div class="wallet-grid">
         <div class="balance-panel">
           <p class="eyebrow" id="wallet-plan"></p>
+          <p class="caption" id="billing-status"></p>
           <p class="balance"><strong id="balance">0</strong> <span>krediittiä</span></p>
           <p id="balance-hours"></p>
           <progress id="balance-meter" value="0" max="25000" aria-label="Krediittisaldo, enintään 25 000"></progress>
@@ -113,9 +114,9 @@
         <div><label for="monthly-cost">Muut kulut / tilaus / kk (€)</label><input id="monthly-cost" type="number" min="0" max="1000" step="0.01" value="0" required></div>
         <div><label for="hourly-cost">Kulut / käytetty klassikkotunti (€)</label><input id="hourly-cost" type="number" min="0" max="100" step="0.01" value="0" required></div>
       </div>
-      <p class="caption">Kulut ovat aluksi nolla. Syötä omat maksu-, ylläpito- ja käyttöön liittyvät kulusi arvioidaksesi jäämää. Tuntikustannus käyttää klassikkoaikaa (60 krediittiä), ei kalliimman teoksen todellista kestoa.</p>
+      <p class="caption">Vuositilauksen riveillä vuosimaksusta kohdistetaan 1/12 kuukaudelle, ja käyttökulut arvioidaan jokaiselle kuukaudelle. Kulut ovat aluksi nolla. Syötä omat maksu-, ylläpito- ja käyttöön liittyvät kulusi arvioidaksesi jäämää. Tuntikustannus käyttää klassikkoaikaa (60 krediittiä), ei kalliimman teoksen todellista kestoa.</p>
       <div class="economics-table-scroll" role="region" aria-label="Tilaustasojen tulonjako" tabindex="0">
-        <table class="economics-table"><caption>Yhden kuukausierän lopputulos sen voimassaolon päätyttyä</caption>
+        <table class="economics-table"><caption>Kuukausierän laskennallinen tulonjako · vuosimaksusta kohdistettu 1/12</caption>
           <thead><tr><th scope="col">Tilaus</th><th scope="col">Oikeudenhaltijalle</th><th scope="col">Alustalle käytöstä</th><th scope="col">Vanhenevien osuus</th><th scope="col">Muut kulut</th><th scope="col">Alustalle jää</th></tr></thead>
           <tbody id="economics-rows"></tbody>
         </table>
@@ -133,7 +134,7 @@
       <h2 id="rules-title">Näin krediitit toimivat tässä demossa</h2>
       <div class="rules-grid">
         <div><span class="rule-number">01</span><h3>Aika kertyy</h3><p>Tilaus tuo joka kuukausi uuden krediittierän. Käyttämätön osuus säilyy erän voimassaolon ajan.</p></div>
-        <div><span class="rule-number">02</span><h3>Kolme kuukautta</h3><p>Jokainen erä vanhenee kolmen kalenterikuukauden kuluttua hankinnasta. Uusi osto ei pidennä vanhojen erien voimassaoloa.</p></div>
+        <div><span class="rule-number">02</span><h3>Kolme kuukautta</h3><p>Jokainen erä vanhenee kolmen kalenterikuukauden kuluttua erän lisäämisestä saldoon. Vuositilauksessa aika lasketaan kunkin kuukausierän myöntämisestä, ei vuosimaksun päivästä. Uusi osto ei pidennä vanhojen erien voimassaoloa.</p></div>
         <div><span class="rule-number">03</span><h3>Yhteinen enimmäissaldo</h3><p>Saldo on enintään 25 000 krediittiä. Se vastaa 416 h 40 min klassikkoaikaa. Isossa paketissa se maksaa 100 €, normaalilla yksikköhinnalla noin 104,17 €.</p></div>
       </div>
       <p class="caption">Demon hinnoittelurajat: kerroin 0,1–20,0 yhden desimaalin tarkkuudella (esimerkiksi 1,3×), kertaosto 1–25 000 krediittiä. Rajat ovat alustava ehdotus. Katalogin oletusta voidaan muuttaa teoskohtaisella poikkeuksella; kampanja tarvitsee oman voimassaolon ja hintaversion.</p>
@@ -143,6 +144,7 @@
         <p><strong>Mitä aika mittaa?</strong> Demo käyttää teoksen alkuperäistä sisältöaikaa, myös sekunnin osia. Toistonopeus ei muuta hintaa. Kokonaiskulutus pyöristetään ylöspäin vasta krediittitasolla, eikä kuuntelun pilkkominen muuta loppuhintaa. Oikean soittimen kattavuusmittaus ja e-kirjojen kulutus ovat vielä toteutettavia.</p>
         <p><strong>Lukuoikeus ja oma hylly:</strong> kertaosto antaa lukuoikeuden heti. Käytön mukaan kuunneltu kirja antaa lukuoikeuden ja jää omaan hyllyyn vasta koko kirjan valmistuttua. Hankittu oikeus säilyy demossa krediittien vanhentuessa, ja uusintakuuntelu on maksuton. Demo ei siirrä teosta oikeaan kirjastoon.</p>
         <p><strong>Kesken kuuntelun tehtävä kertaosto:</strong> demo veloittaa koko kertaostohinnan; aiempaa kuuntelua ei hyvitetä. Mahdollinen hyvitys sekä eri formaattien ja perheen yhteisten lukuoikeuksien ehdot ovat vielä avoimia.</p>
+        <p><strong>Vuosimaksu ja kassavirta:</strong> 59 €, 99 € tai 189 € maksetaan heti 12 kuukauden jaksosta. Krediitit myönnetään 12 kuukausieränä. Krediitin hankinta-arvo on vuosimaksu jaettuna vuoden kaikilla krediiteillä. Tilitykset syntyvät krediittejä käytettäessä. Ennakkomaksun rinnalla on siis vielä tulevien kuukausien käyttö ja kustannukset. Vuositilaus ei uusiudu automaattisesti tässä demossa.</p>
         <p><strong>Tilauksen elinkaari:</strong> tilaustason valinta aloittaa uuden kokeilun. Tasonvaihdot, peruutus ja jäljelle jäävien krediittien käyttö eivät ole tässä tilausjärjestelmän toteutuksia.</p>
       </details>
     </section>

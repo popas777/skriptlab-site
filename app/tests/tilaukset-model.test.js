@@ -198,3 +198,61 @@ test('Delfiini fractional duration and 1.3 multiplier retain split-session round
     assert.equal(M.listenBook(state, book, 60).credits, 0);
   }
 });
+
+test('annual offers charge ten monthly prices and allocate that payment across twelve grants', () => {
+  assert.deepEqual(M.PLANS.map(p => M.offerFor(p.id, 'annual').upfrontCents), [5900, 9900, 18900]);
+  assert.equal(M.subscriptionOffers().length, 6);
+  for (const plan of M.PLANS) {
+    const offer = M.offerFor(plan.id, 'annual');
+    assert.equal(offer.credits, plan.credits);
+    assert.equal(offer.users, plan.users);
+    assert.ok(Math.abs(offer.cents * 12 - offer.upfrontCents) < 1e-9);
+  }
+  assert.throws(() => M.create('none', '2026-10-08', 'annual'));
+  assert.throws(() => M.create('basic', '2026-10-08', 'invalid'));
+});
+test('a prepaid year grants monthly credits without charging again and stops after twelve grants', () => {
+  for (const plan of M.PLANS) {
+    const state = M.create(plan.id, '2026-10-08', 'annual');
+    assert.equal(M.balance(state), plan.credits);
+    assert.equal(state.paidCents, plan.cents * 10);
+    assert.equal(state.paidThrough, '2027-10-08');
+    for (let i = 1; i < 12; i++) {
+      assert.equal(M.nextMonth(state).accepted, plan.credits);
+      assert.equal(state.paidCents, plan.cents * 10);
+    }
+    assert.equal(state.lots.length, 12);
+    assert.equal(state.lots.reduce((sum, lot) => sum + lot.issued, 0), plan.credits * 12);
+    assert.equal(M.nextMonth(state).accepted, 0);
+    assert.equal(state.lots.length, 12);
+    assert.equal(state.paidCents, plan.cents * 10);
+    assert.equal(M.balance(state), plan.credits * 2);
+    M.nextMonth(state); M.nextMonth(state);
+    assert.equal(M.balance(state), 0);
+  }
+});
+test('annual credit expiry starts at each monthly grant and keeps the month-end anchor', () => {
+  const state = M.create('basic', '2026-01-31', 'annual');
+  M.nextMonth(state); M.nextMonth(state);
+  assert.equal(state.lots[0].created, '2026-01-31');
+  assert.equal(state.lots[1].created, '2026-02-28');
+  assert.equal(state.lots[1].expires, '2026-05-28');
+  assert.equal(state.lots[2].created, '2026-03-31');
+  assert.equal(state.lots[2].expires, '2026-06-30');
+  assert.equal(state.paidThrough, '2027-01-31');
+});
+test('annual royalties use the discounted unit price while extra credits keep their own price', () => {
+  const state = M.create('family', '2026-10-08', 'annual');
+  const unit = 18900 / (12 * 7200);
+  assert.equal(state.lots[0].unitCents, unit);
+  const book = M.createBook({ title: 'Vuosi', minutes: 17.5, rate: 10, fixed: 175 });
+  M.listenBook(state, book, 60);
+  assert.ok(Math.abs(state.royalties[0].publisherCents - 175 * unit * .75) < 1e-9);
+  M.buyBook(state, M.createBook({ title: 'Osto', minutes: 1, rate: 1, fixed: 175 }));
+  assert.ok(Math.abs(state.royalties[1].publisherCents - 175 * unit * .8) < 1e-9);
+  M.topup(state);
+  assert.equal(state.paidCents, 19150);
+  assert.equal(state.lots[1].unitCents, 250 / 600);
+  const result = M.economics({ ...M.offerFor('family', 'annual'), publisherPercent: 75, usePercent: 100, monthlyCostCents: 0, hourlyCostCents: 0 });
+  assert.equal(result.platformUsage, 393.75);
+});

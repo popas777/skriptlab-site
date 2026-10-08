@@ -29,7 +29,7 @@
       $('pricing-summary').textContent = `${resolved.inherited ? 'Katalogista peritty' : 'Teoskohtainen'} kerroin ${resolved.multiplier.toLocaleString('fi-FI')}×. Koko kuuntelu ${resolved.listeningCredits} krediittiä · kertaosto ${resolved.purchaseCredits} krediittiä.`;
       $('pricing-summary').classList.remove('error');
       $('download-draft').disabled = false;
-      for (const pack of [...M.PLANS, ...M.TOPUPS]) {
+      for (const pack of [...M.subscriptionOffers(), ...M.TOPUPS]) {
         const listen = resolved.listeningCredits * pack.cents / pack.credits;
         const purchase = resolved.purchaseCredits * pack.cents / pack.credits;
         const row = document.createElement('tr');
