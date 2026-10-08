@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fbfaf7">
+  <title>Tilaukset – SkriptLab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400..700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="tilaukset.css?v=1">
+  <script src="auth.js?v=5"></script>
+  <script src="tilaukset-model.js?v=1" defer></script>
+  <script src="tilaukset.js?v=1" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Siirry sisältöön</a>
+  <main id="content" class="subscriptions-page" tabindex="-1" hidden>
+    <header class="page-heading">
+      <div class="eyebrow">SkriptLab Kirjasto <span>Hinnoitteludemo</span></div>
+      <h1>Aikaa hyville kirjoille.</h1>
+      <p class="lead">Valitse oma lukurytmisi. Käyttämätön aika kulkee mukanasi.</p>
+      <p class="demo-note">Kokeile suunniteltua hinnoittelua. Valinnat muuttavat vain tätä demoa, eivät tilaustasi tai oikeaa saldoasi. Maksuja ei veloiteta.</p>
+    </header>
+
+    <section aria-labelledby="plans-title">
+      <div class="section-heading"><h2 id="plans-title">Tilaukset</h2><span>Kuukausittain yhteiseen saldoon</span></div>
+      <div class="plans" id="plans"></div>
+      <p class="caption">Klassikoissa 1 krediitti = 1 minuutti. Pro- ja Perhe-tilauksessa aika jaetaan käyttäjien kesken.</p>
+    </section>
+
+    <section class="wallet-section" aria-labelledby="wallet-title">
+      <div class="section-heading"><h2 id="wallet-title">Kokeile omaa lukurytmiä</h2><button type="button" class="text-button" id="reset">Aloita alusta</button></div>
+      <div class="wallet-grid">
+        <div class="balance-panel">
+          <p class="eyebrow" id="wallet-plan"></p>
+          <p class="balance"><strong id="balance">0</strong> <span>krediittiä</span></p>
+          <p id="balance-hours"></p>
+          <progress id="balance-meter" value="0" max="20000" aria-label="Krediittisaldo, enintään 20 000"></progress>
+          <div class="meter-labels"><span>0</span><span>Enintään 20 000</span></div>
+          <p class="expiry" id="next-expiry"></p>
+          <div class="simulation-date"><span>Demon päivämäärä</span><strong id="demo-date"></strong></div>
+          <button type="button" class="primary-button" id="next-month">Siirry seuraavaan kuukauteen →</button>
+          <p class="caption">Kuukausi vaihtuu, vanhentuvat erät poistuvat ja uusi tilausaika lisätään.</p>
+        </div>
+        <div class="wallet-actions">
+          <form id="use-form">
+            <h3>Käytä klassikkoaikaa</h3>
+            <label for="use-minutes">Luku- tai kuunteluaika minuutteina</label>
+            <div class="input-action"><input id="use-minutes" type="number" min="1" max="20000" step="1" value="60" required><button type="submit" class="secondary-button">Käytä aikaa demossa</button></div>
+            <p class="caption">Vanhimmin vanheneva krediittierä käytetään ensin.</p>
+          </form>
+          <div class="topup">
+            <div><h3>Vielä yksi kirja?</h3><p><strong>3 €</strong> / 10 klassikkotuntia</p><p class="caption">600 krediittiä · voimassa 3 kuukautta</p></div>
+            <button type="button" class="secondary-button" id="topup">Lisää 600 krediittiä demoon</button>
+          </div>
+          <p class="caption" id="demo-total"></p>
+        </div>
+      </div>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+      <details class="ledger"><summary>Krediittierät ja tapahtumat</summary>
+        <h3>Voimassa olevat erät</h3><ul id="lots" class="lot-list"></ul>
+        <h3>Tapahtumat</h3><ol id="events" class="event-list"></ol>
+      </details>
+    </section>
+
+    <section class="book-section" aria-labelledby="book-title">
+      <div class="section-heading"><h2 id="book-title">Sama krediitti, erilaisia kirjoja</h2><span>Kustantamon hinnoittelu</span></div>
+      <p class="section-intro">Osta kirja kerralla tai kuuntele vähitellen. Kertaosto antaa heti lukuoikeuden ja kirjan omaan hyllyyn. Kuuntelussa saat ne, kun koko kirja on kuunneltu.</p>
+      <div class="book-grid">
+        <form id="book-form" class="book-controls">
+          <label for="book-name">Esimerkkikirjan nimi</label><input id="book-name" type="text" maxlength="120" value="Omakustanteen esimerkkikirja">
+          <p class="caption">Vaihda nimi ja luvut omaan teokseesi. Tämä on laskentaesimerkki, ei kirjastoon lisätty teos.</p>
+          <label for="book-mode">Hankintatapa</label><select id="book-mode"><option value="time">Kuuntele vähitellen</option><option value="fixed">Osta kerralla · lukuoikeus heti</option></select>
+          <div class="field-pair">
+            <div><label for="book-minutes">Kirjan kesto (min)</label><input id="book-minutes" type="number" min="1" max="60000" step="1" value="360" required></div>
+            <div id="rate-field"><label for="book-rate">Krediittiä / minuutti</label><input id="book-rate" type="number" min="0.1" max="100" step="0.1" value="3" required></div>
+            <div id="fixed-field"><label for="book-fixed">Kertaosto (krediittiä)</label><input id="book-fixed" type="number" min="1" max="20000" step="1" value="1200" required></div>
+          </div>
+          <div id="listen-field"><label for="listen-minutes">Kuuntele seuraavaksi (min)</label><input id="listen-minutes" type="number" min="1" max="60000" step="1" value="60" required></div>
+          <button type="submit" class="primary-button" id="use-book">Kuuntele demossa</button>
+          <button type="button" class="text-button" id="reset-book">Nollaa esimerkkikirjan kokeilu</button>
+          <p class="caption" id="book-assumption"></p>
+          <p class="status" id="book-status" role="status" aria-live="polite"></p>
+        </form>
+        <div class="book-result" aria-live="polite">
+          <p class="eyebrow">Koko kirjan laskelma</p><h3 id="quote-name"></h3>
+          <p class="quote"><strong id="book-credits"></strong><span> krediittiä</span></p>
+          <p id="classic-comparison"></p>
+          <div class="price-comparison"><h4>Sama määrä eri tavoilla hankittuna</h4><dl id="book-values"></dl></div>
+          <p class="caption">Laskennallinen osuus hankintahinnasta, kun kaikki krediitit käytetään. Ei kirjan erillinen euromaksu eikä kustantamolle maksettava korvaus.</p>
+          <p class="caption" id="book-affordability"></p>
+          <div class="book-ownership">
+            <h4 id="ownership-title">Kuuntelu ja oma hylly</h4>
+            <progress id="book-progress" value="0" max="100" aria-label="Kirjan kuuntelun eteneminen"></progress>
+            <p id="book-progress-text"></p>
+            <p id="ownership-status"></p>
+            <p class="caption" id="owned-book" hidden></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="rules" aria-labelledby="rules-title">
+      <h2 id="rules-title">Näin krediitit toimivat tässä demossa</h2>
+      <div class="rules-grid">
+        <div><span class="rule-number">01</span><h3>Aika kertyy</h3><p>Tilaus tuo joka kuukausi uuden krediittierän. Käyttämätön osuus säilyy erän voimassaolon ajan.</p></div>
+        <div><span class="rule-number">02</span><h3>Kolme kuukautta</h3><p>Jokainen erä vanhenee kolmen kalenterikuukauden kuluttua hankinnasta. Uusi osto ei pidennä vanhojen erien voimassaoloa.</p></div>
+        <div><span class="rule-number">03</span><h3>Yhteinen enimmäissaldo</h3><p>Saldo on enintään 20 000 krediittiä. Se vastaa 333 h 20 min klassikkoaikaa ja lisäajan yksikköhinnalla 100 €.</p></div>
+      </div>
+      <details class="model-notes"><summary>Mallin avoimet päätökset ja laskennalliset huomiot</summary>
+        <p><strong>Saldoraja:</strong> Perhe-tilauksen kolme erää ovat yhteensä 21 600 krediittiä. Demo jättää rajan ylittävät tilauskrediitit hyvittämättä ja veloittaa laskennallisesti täyden kuukausihinnan. Lisäpaketin voi lisätä vain kokonaisena. Tämä on kokeiltava oletus, ei vahvistettu tilausehto.</p>
+        <p><strong>Kustantajan korvaus:</strong> lisäostossa 1 000 krediitin hankintahinta on 5 €, Perhe-tilauksessa noin 2,63 €. Mahdollinen kustantajatilitys, palvelun osuus ja kulut on sovittava erikseen; 100 € on saldon vertailuarvo, ei nostettavaa rahaa.</p>
+        <p><strong>Mitä aika mittaa?</strong> Demo käyttää syötettyjä minuutteja. Äänikirjan alkuperäisen keston tai todellisen kuunteluajan käyttö, toistokerrat sekä e-kirjan lukemisen mittaus ovat vielä päätettäviä.</p>
+        <p><strong>Lukuoikeus ja oma hylly:</strong> kertaosto antaa lukuoikeuden heti. Käytön mukaan kuunneltu kirja antaa lukuoikeuden ja jää omaan hyllyyn vasta koko kirjan valmistuttua. Hankittu oikeus säilyy demossa krediittien vanhentuessa, ja uusintakuuntelu on maksuton. Demo ei siirrä teosta oikeaan kirjastoon.</p>
+        <p><strong>Kesken kuuntelun tehtävä kertaosto:</strong> demo veloittaa koko kertaostohinnan; aiempaa kuuntelua ei hyvitetä. Mahdollinen hyvitys sekä eri formaattien ja perheen yhteisten lukuoikeuksien ehdot ovat vielä avoimia.</p>
+        <p><strong>Tilauksen elinkaari:</strong> tilaustason valinta aloittaa uuden kokeilun. Tasonvaihdot, peruutus ja jäljelle jäävien krediittien käyttö eivät ole tässä tilausjärjestelmän toteutuksia.</p>
+      </details>
+    </section>
+    <footer>Suunnitellaan lukemisen arvoista palvelua. <span>SkriptLab · Tilaukset</span></footer>
+  </main>
+  <noscript>Tilauksien hinnoitteludemo tarvitsee JavaScriptin.</noscript>
+</body>
+</html>

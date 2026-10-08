@@ -809,7 +809,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         'view-kirjoita-editoi', 'view-mobiilieditori', 'view-oikoluku',
         'view-kaannoksen-viimeistely', 'view-kuvitus',
         'view-taitto', 'view-tuotetiedot', 'view-julkaisupaketti',
-        'view-audio', 'view-viimeistely', 'view-kirjasto', 'view-kirjailijat'
+        'view-audio', 'view-viimeistely', 'view-kirjasto', 'view-kirjailijat', 'view-tilaukset'
     ]);
     const accessModuleViews = {
         manuscripts: ['view-kirjani'],
@@ -842,7 +842,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         timeline: ['view-aikajana'],
         versions: ['view-viimeistely'],
         correction_reprints: ['view-korjaukset', 'view-julkaisupaketti'],
-        published_library: ['view-kirjasto', 'view-kirjailijat']
+        published_library: ['view-kirjasto', 'view-kirjailijat', 'view-tilaukset']
     };
     function customAccessViews() {
         if (!Array.isArray(currentUser?.allowed_modules)) return null;
@@ -1559,7 +1559,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     function renderTopVersionBadge() {
         const button = document.getElementById('top-version-btn');
         if (!button) return;
-        button.hidden = currentViewId === 'view-kirjasto' || currentViewId === 'view-kirjailijat' || !isViewAllowed('view-viimeistely');
+        button.hidden = ['view-kirjasto', 'view-kirjailijat', 'view-tilaukset'].includes(currentViewId) || !isViewAllowed('view-viimeistely');
         if (button.hidden) return;
         const hasProject = Boolean(window.manuscriptData?.id);
         button.disabled = !hasProject;
@@ -5176,7 +5176,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         viewId = canonicalViewId(viewId);
         if (libraryReaderMode) {
             return currentUser?.allowed_modules?.includes('published_library')
-                && ['view-kirjasto', 'view-kirjailijat'].includes(viewId);
+                && ['view-kirjasto', 'view-kirjailijat', 'view-tilaukset'].includes(viewId);
         }
         if (showcaseDemoMode) return showcaseDemoViews.has(navViewFor(viewId));
         if (isBasicNavigation() && basicHiddenViews.has(viewId)) return false;
@@ -5249,18 +5249,22 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const pinnedAuthorsItem = pinnedLibraryItem
             ? availableItems.find(item => item.dataset.view === 'view-kirjailijat')
             : null;
+        const pinnedSubscriptionsItem = pinnedLibraryItem
+            ? availableItems.find(item => item.dataset.view === 'view-tilaukset')
+            : null;
         const activeItem = availableItems.find(item => item.classList.contains('active'));
         function reserveCollapsedItem(item, protectedItem = null) {
             if (!item || collapsedVisibleItems.has(item)) return;
             const displacedItem = Array.from(collapsedVisibleItems)
                 .reverse()
-                .find(candidate => candidate !== protectedItem && candidate !== pinnedAuthorsItem);
+                .find(candidate => candidate !== protectedItem && candidate !== pinnedAuthorsItem && candidate !== pinnedSubscriptionsItem);
             if (displacedItem) collapsedVisibleItems.delete(displacedItem);
             collapsedVisibleItems.add(item);
         }
         if (!showExpandedMenu) {
             reserveCollapsedItem(pinnedLibraryItem);
             reserveCollapsedItem(pinnedAuthorsItem, pinnedLibraryItem);
+            reserveCollapsedItem(pinnedSubscriptionsItem, pinnedLibraryItem);
             reserveCollapsedItem(activeItem, pinnedLibraryItem);
         }
         availableItems.forEach(item => {
@@ -5316,6 +5320,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 topBookName.textContent = 'Kirjasto: julkaistut teokset';
             } else if (canonicalViewId(viewId) === 'view-kirjailijat') {
                 topBookName.textContent = 'Kirjailijat: esittelyt ja teokset';
+            } else if (canonicalViewId(viewId) === 'view-tilaukset') {
+                topBookName.textContent = 'Tilaukset: hinnoitteludemo';
             } else if (window.manuscriptData) {
                 const title = window.manuscriptData.title || 'Nimetön';
                 const author = window.manuscriptData.author || 'Tuntematon';

@@ -33,7 +33,7 @@ test('Library follows corrections, then Authors, and is mounted in an accessible
 
 test('Library access is limited to full-workspace roles or an explicitly allowed access module', () => {
   assert.match(appJs, /const\s+fullWorkspaceRoles\s*=\s*new Set\(\[['"]admin['"],\s*['"]test_user['"]\]\)/);
-  assert.match(appJs, /published_library:\s*\[['"]view-kirjasto['"],\s*['"]view-kirjailijat['"]\]/);
+  assert.match(appJs, /published_library:\s*\[['"]view-kirjasto['"],\s*['"]view-kirjailijat['"],\s*['"]view-tilaukset['"]\]/);
 
   const writerViews = appJs.match(/const\s+writerViews\s*=\s*new Set\(\[([^\]]+)\]\)/);
   const biographyViews = appJs.match(/const\s+biographyViews\s*=\s*new Set\(\[([^\]]+)\]\)/);
@@ -93,7 +93,7 @@ test('Production and correction flows can open the Library publish form through 
 
 test('Library gets an independent top-bar context and a responsive full-height frame', () => {
   assert.match(appJs, /canonicalViewId\(viewId\)\s*===\s*['"]view-kirjasto['"][\s\S]*?Kirjasto: julkaistut teokset/);
-  assert.match(appJs, /button\.hidden\s*=\s*currentViewId\s*===\s*['"]view-kirjasto['"]/);
+  assert.match(appJs, /button\.hidden\s*=\s*\['view-kirjasto', 'view-kirjailijat', 'view-tilaukset'\]\.includes\(currentViewId\)/);
   assert.match(appCss, /\.kirjasto-frame,/);
   assert.match(appCss, /\.kirjasto-frame\s*\{[\s\S]*?height:\s*calc\(100dvh\s*-\s*var\(--topbar-height\)/);
   assert.match(appCss, /@media\s*\(max-width:\s*860px\)[\s\S]*?\.kirjasto-frame\s*\{/);
@@ -101,7 +101,7 @@ test('Library gets an independent top-bar context and a responsive full-height f
 });
 
 test('Shell assets use the current cache versions', () => {
-  assert.equal(numericAssetVersion(indexHtml, 'styles.css'), 126);
-  assert.equal(numericAssetVersion(indexHtml, 'app.js'), 236);
+  assert.equal(numericAssetVersion(indexHtml, 'styles.css'), 127);
+  assert.equal(numericAssetVersion(indexHtml, 'app.js'), 237);
   assert.equal(numericAssetVersion(indexHtml, 'kirjasto.html'), 12);
 });

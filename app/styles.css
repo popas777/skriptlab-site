@@ -5094,7 +5094,8 @@ h1, h2, h3 { font-family: 'Outfit', sans-serif; font-weight: 600; }
 }
 
 #view-kirjasto,
-#view-kirjailijat {
+#view-kirjailijat,
+#view-tilaukset {
     min-height: 0;
 }
 
