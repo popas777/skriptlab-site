@@ -13,19 +13,18 @@ const catalog = [
     model_name: 'gemini-3.5-flash-lite',
     display_name: 'Gemini 3.5 Flash-Lite',
     model_tier: 'flash',
-    is_default: true,
+    is_default: false,
     is_demanding_default: false,
   },
   {
     provider: 'gemini',
-    model_name: 'gemini-3.7-flash',
-    display_name: 'Gemini 3.7 Flash',
+    model_name: 'gemini-3.8-flash',
+    display_name: 'Gemini 3.8 Flash',
     model_tier: 'flash',
-    is_default: false,
+    is_default: true,
     is_demanding_default: true,
   },
   ...[
-    ['gemini-3.8-flash', 'Gemini 3.8 Flash', 'flash'],
     ['gemini-3.1-pro-preview', 'Gemini 3.1 Pro Preview', 'pro'],
   ].map(([model_name, display_name, model_tier]) => ({
     provider: 'gemini', model_name, display_name, model_tier, is_default: false,
@@ -302,19 +301,19 @@ test('catalog loading is authenticated, accessible and returns only a saved cata
   const select = harness.document.getElementById(`${dialog.id}-select`);
   assert.deepEqual(
     Array.from(select.children, (option) => option.value),
-    ['', 'gemini:gemini-3.5-flash-lite', 'gemini:gemini-3.7-flash', 'gemini:gemini-3.8-flash', 'gemini:gemini-3.1-pro-preview'],
+    ['', 'gemini:gemini-3.5-flash-lite', 'gemini:gemini-3.8-flash', 'gemini:gemini-3.1-pro-preview'],
   );
-  select.value = 'gemini:gemini-3.7-flash';
+  select.value = 'gemini:gemini-3.8-flash';
   select.dispatch('change');
   harness.findByClass('text-model-settings-save').click();
-  assert.equal(settings.getModel(), 'gemini:gemini-3.7-flash');
-  assert.equal(harness.storage.get(storageKey), 'gemini:gemini-3.7-flash');
+  assert.equal(settings.getModel(), 'gemini:gemini-3.8-flash');
+  assert.equal(harness.storage.get(storageKey), 'gemini:gemini-3.8-flash');
 
   trigger.click();
   select.value = 'anthropic:not-in-catalog';
   harness.findByClass('text-model-settings-save').click();
-  assert.equal(settings.getModel(), 'gemini:gemini-3.7-flash');
-  assert.equal(harness.storage.get(storageKey), 'gemini:gemini-3.7-flash');
+  assert.equal(settings.getModel(), 'gemini:gemini-3.8-flash');
+  assert.equal(harness.storage.get(storageKey), 'gemini:gemini-3.8-flash');
   assert.match(status.textContent, /ei ole enää käytettävissä/i);
 });
 
@@ -336,7 +335,7 @@ test('stale stored choices are cleared and storage events synchronize only catal
   await settings.load(false);
   assert.equal(settings.getModel(), null);
   assert.equal(harness.storage.has(storageKey), false);
-  assert.match(settings.getLabel(), /^Automaattinen · Gemini 3\.7 Flash$/);
+  assert.match(settings.getLabel(), /^Automaattinen · Gemini 3\.8 Flash$/);
   assert.match(harness.findByClass('text-model-settings-status').textContent, /Vaihdettiin automaattiseen oletukseen/);
 
   harness.emitStorage(storageKey, 'gemini:gemini-3.5-flash-lite');

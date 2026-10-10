@@ -22609,9 +22609,9 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                 note: 'paras kirjalliseen laatuun; 2 000 sopii vaikeaan suomennokseen, 3 000-4 000 nopeampaan kokonaisuuteen'
             };
         }
-        if (model.includes('3.7-flash')) {
+        if (model.includes('3.8-flash') || model.includes('3.7-flash')) {
             return {
-                label: 'Gemini 3.7 Flash',
+                label: 'Gemini 3.8 Flash',
                 min: 1000,
                 max: 2000,
                 ideal: 2000,

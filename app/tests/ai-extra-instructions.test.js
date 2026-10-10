@@ -271,5 +271,5 @@ test('instruction styling remains responsive and cachebusters load the new asset
     );
 
     assert.match(indexSource, /href="styles\.css\?v=127"/);
-    assert.match(indexSource, /src="app\.js\?v=237"/);
+    assert.match(indexSource, /src="app\.js\?v=238"/);
 });
