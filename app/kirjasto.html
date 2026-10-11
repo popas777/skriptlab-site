@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400..700&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
-  <link rel="stylesheet" href="kirjasto.css?v=17">
+  <link rel="stylesheet" href="kirjasto.css?v=18">
 <link rel="stylesheet" href="book-access.css?v=2">
 <script src="book-access.js?v=5"></script>
 <script src="book-workflow.js?v=5" defer></script>
@@ -268,22 +268,30 @@
           </form>
         </aside>
 
-        <div class="reader-scroll" id="reader-scroll" tabindex="0">
-          <section id="reader-pdf" class="pdf-reader" aria-label="PDF-lukija" hidden></section>
-          <article class="reader-page" id="reader-page">
-            <h1 id="reader-chapter-title" tabindex="-1">Luku</h1>
-            <div class="reader-text" id="reader-text"></div>
-            <nav class="reader-chapter-navigation" aria-label="Vaihda lukua">
-              <button class="secondary-action" id="reader-previous-chapter" type="button">Edellinen luku</button>
-              <span id="reader-chapter-position"></span>
-              <button class="primary-action" id="reader-next-chapter" type="button">Seuraava luku</button>
-            </nav>
-            <footer class="reader-page-progress" aria-label="Lukemisen eteneminen">
-              <span></span>
-              <strong id="reader-progress-percent">0 %</strong>
-              <span></span>
-            </footer>
-          </article>
+        <div class="reader-reading-area">
+          <div class="reader-scroll" id="reader-scroll" tabindex="0">
+            <section id="reader-pdf" class="pdf-reader" aria-label="PDF-lukija" hidden></section>
+            <article class="reader-page" id="reader-page">
+              <h1 id="reader-chapter-title" tabindex="-1">Luku</h1>
+              <div class="reader-text" id="reader-text"></div>
+              <nav class="reader-chapter-navigation" aria-label="Vaihda lukua">
+                <button class="secondary-action" id="reader-previous-chapter" type="button">Edellinen luku</button>
+                <span id="reader-chapter-position"></span>
+                <button class="primary-action" id="reader-next-chapter" type="button">Seuraava luku</button>
+              </nav>
+              <footer class="reader-page-progress" aria-label="Lukemisen eteneminen">
+                <span></span>
+                <strong id="reader-progress-percent">0 %</strong>
+                <span></span>
+              </footer>
+            </article>
+          </div>
+
+          <nav class="reader-page-controls" aria-label="Vaihda sivua">
+            <button class="secondary-action" id="reader-previous-page" type="button" aria-keyshortcuts="ArrowLeft PageUp" disabled><i class="ph ph-caret-left" aria-hidden="true"></i><span>Edellinen sivu</span></button>
+            <span id="reader-page-position" role="status" aria-live="polite"></span>
+            <button class="primary-action" id="reader-next-page" type="button" aria-keyshortcuts="ArrowRight PageDown" disabled><span>Seuraava sivu</span><i class="ph ph-caret-right" aria-hidden="true"></i></button>
+          </nav>
         </div>
 
         <aside class="reader-settings" id="reader-settings" aria-labelledby="reader-settings-title">
@@ -294,11 +302,22 @@
             </button>
           </header>
 
+          <fieldset class="reader-setting-group reader-font-setting">
+            <legend>Kirjasin</legend>
+            <label class="sr-only" for="reader-font-family">Tekstin kirjasin</label>
+            <select id="reader-font-family">
+              <option value="serif">Source Serif</option>
+              <option value="georgia">Georgia</option>
+              <option value="inter">Inter</option>
+              <option value="arial">Arial</option>
+            </select>
+          </fieldset>
+
           <fieldset class="reader-setting-group">
             <legend>Tekstin koko</legend>
             <div class="setting-scale">
               <button id="reader-font-decrease" type="button" aria-label="Pienennä tekstin kokoa">A−</button>
-              <span aria-hidden="true">A</span>
+              <span id="reader-font-size-label" aria-live="polite">20 px</span>
               <button id="reader-font-increase" type="button" aria-label="Suurenna tekstin kokoa">A+</button>
             </div>
           </fieldset>
@@ -315,9 +334,17 @@
           <fieldset class="reader-setting-group">
             <legend>Palstan leveys</legend>
             <div class="setting-options" id="reader-width-options">
-              <button type="button" data-column-width="narrow" aria-label="Kapea tekstipalsta"><i class="ph ph-text-columns" aria-hidden="true"></i></button>
-              <button class="is-selected" type="button" data-column-width="medium" aria-label="Tavallinen tekstipalsta"><i class="ph ph-text-align-center" aria-hidden="true"></i></button>
-              <button type="button" data-column-width="wide" aria-label="Leveä tekstipalsta"><i class="ph ph-text-align-justify" aria-hidden="true"></i></button>
+              <button type="button" data-column-width="narrow" aria-label="Kapea tekstipalsta">Kapea</button>
+              <button class="is-selected" type="button" data-column-width="medium" aria-label="Tavallinen tekstipalsta">Tavallinen</button>
+              <button type="button" data-column-width="wide" aria-label="Leveä tekstipalsta">Leveä</button>
+            </div>
+          </fieldset>
+
+          <fieldset class="reader-setting-group">
+            <legend>Tekstin tasaus</legend>
+            <div class="setting-options setting-alignment" id="reader-alignment-options">
+              <button class="is-selected" type="button" data-text-align="left" aria-label="Tasaa vasempaan reunaan"><i class="ph ph-text-align-left" aria-hidden="true"></i><span>Vasen</span></button>
+              <button type="button" data-text-align="justify" aria-label="Tasaa molempiin reunoihin"><i class="ph ph-text-align-justify" aria-hidden="true"></i><span>Tasattu</span></button>
             </div>
           </fieldset>
 
@@ -340,11 +367,7 @@
           </label>
         </aside>
       </div>
-      <nav class="reader-page-controls" aria-label="Vaihda sivua">
-        <button class="secondary-action" id="reader-previous-page" type="button" aria-keyshortcuts="ArrowLeft PageUp" disabled><i class="ph ph-caret-left" aria-hidden="true"></i><span>Edellinen sivu</span></button>
-        <span id="reader-page-position" role="status" aria-live="polite"></span>
-        <button class="primary-action" id="reader-next-page" type="button" aria-keyshortcuts="ArrowRight PageDown" disabled><span>Seuraava sivu</span><i class="ph ph-caret-right" aria-hidden="true"></i></button>
-      </nav>
+
     </section>
   </main>
 
@@ -600,6 +623,6 @@
   <script src="auth.js?v=5"></script>
   <script src="library-discovery.js?v=1"></script>
   <script src="library-pricing.js?v=1"></script>
-  <script src="kirjasto.js?v=17"></script>
+  <script src="kirjasto.js?v=18"></script>
 </body>
 </html>

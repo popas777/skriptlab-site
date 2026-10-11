@@ -10,7 +10,7 @@
   const AUDIO_TIMING_FEATURE_ENABLED = false;
   const discovery = window.SkriptLabLibraryDiscovery;
   const pricing = window.SkriptLabLibraryPricing;
-  const FONT_SIZES = ["small", "medium", "large", "xlarge"];
+  const FONT_SIZES = ["xsmall", "small", "medium", "large", "xlarge"];
   const SHELL_MESSAGE_TYPES = new Set([
     "skriptlab:library-context-changed",
     "skriptlab:library-open-publish",
@@ -83,6 +83,8 @@
     viewer: null,
     readerSettings: {
       fontSize: "medium",
+      fontFamily: "georgia",
+      textAlign: "left",
       lineHeight: "comfortable",
       columnWidth: "medium",
       theme: "light",
@@ -203,6 +205,7 @@
       "reader-text",
       "reader-progress-percent",
       "reader-settings",
+      "reader-font-family", "reader-font-size-label", "reader-alignment-options",
       "reader-font-decrease",
       "reader-font-increase",
       "reader-line-height-options",
@@ -2034,12 +2037,23 @@
   function applyReaderSettings() {
     const reader = elements["library-reader"];
     reader.dataset.fontSize = state.readerSettings.fontSize;
+    reader.dataset.fontFamily = state.readerSettings.fontFamily;
+    reader.dataset.textAlign = state.readerSettings.textAlign;
+    elements["reader-font-family"].value = state.readerSettings.fontFamily;
+    const sizeIndex = FONT_SIZES.indexOf(state.readerSettings.fontSize);
+    elements["reader-font-decrease"].disabled = sizeIndex === 0;
+    elements["reader-font-increase"].disabled = sizeIndex === FONT_SIZES.length - 1;
     reader.dataset.lineHeight = state.readerSettings.lineHeight;
     reader.dataset.columnWidth = state.readerSettings.columnWidth;
     reader.dataset.readerTheme = state.readerSettings.theme;
     syncAudioTimingControls();
     elements["reader-follow-audio"].checked = Boolean(state.readerSettings.followAudio);
 
+    document.querySelectorAll("button[data-text-align]").forEach((button) => {
+      const selected = button.dataset.textAlign === state.readerSettings.textAlign;
+      button.classList.toggle("is-selected", selected);
+      button.setAttribute("aria-pressed", String(selected));
+    });
     document.querySelectorAll("button[data-line-height]").forEach((button) => {
       const selected = button.dataset.lineHeight === state.readerSettings.lineHeight;
       button.classList.toggle("is-selected", selected);
@@ -2056,6 +2070,15 @@
       button.setAttribute("aria-pressed", String(selected));
     });
     persistReaderSettings();
+    requestAnimationFrame(() => {
+      syncReaderFontSizeLabel();
+      syncReaderPageControls();
+    });
+  }
+
+  function syncReaderFontSizeLabel() {
+    const sizes = window.matchMedia("(max-width: 600px)").matches ? [15, 16, 18, 21, 24] : [15, 17, 20, 23, 27];
+    elements["reader-font-size-label"].textContent = `${sizes[FONT_SIZES.indexOf(state.readerSettings.fontSize)]} px`;
   }
 
   function loadReaderSettings() {
@@ -2063,6 +2086,8 @@
       const saved = JSON.parse(localStorage.getItem(READER_SETTINGS_KEY) || "null");
       if (!saved || typeof saved !== "object") return;
       if (FONT_SIZES.includes(saved.fontSize)) state.readerSettings.fontSize = saved.fontSize;
+      if (["serif", "georgia", "inter", "arial"].includes(saved.fontFamily)) state.readerSettings.fontFamily = saved.fontFamily;
+      if (["left", "justify"].includes(saved.textAlign)) state.readerSettings.textAlign = saved.textAlign;
       if (["compact", "comfortable", "relaxed"].includes(saved.lineHeight)) state.readerSettings.lineHeight = saved.lineHeight;
       if (["narrow", "medium", "wide"].includes(saved.columnWidth)) state.readerSettings.columnWidth = saved.columnWidth;
       if (["light", "sepia", "dark"].includes(saved.theme)) state.readerSettings.theme = saved.theme;
@@ -3350,6 +3375,16 @@
       button.addEventListener("click", closeReaderPanels);
     });
     elements["reader-bookmark"].addEventListener("click", toggleBookmark);
+    elements["reader-font-family"].addEventListener("change", () => {
+      state.readerSettings.fontFamily = elements["reader-font-family"].value;
+      applyReaderSettings();
+    });
+    elements["reader-alignment-options"].addEventListener("click", (event) => {
+      const button = event.target.closest("[data-text-align]");
+      if (!button) return;
+      state.readerSettings.textAlign = button.dataset.textAlign;
+      applyReaderSettings();
+    });
     elements["reader-font-decrease"].addEventListener("click", () => changeFontSize(-1));
     elements["reader-font-increase"].addEventListener("click", () => changeFontSize(1));
     elements["reader-line-height-options"].addEventListener("click", (event) => {
@@ -3504,6 +3539,7 @@
     window.addEventListener("storage", handleAuthStorageChange);
     window.addEventListener("keydown", handleKeyboard);
     window.addEventListener("resize", syncReaderBackdrop);
+    window.addEventListener("resize", syncReaderFontSizeLabel);
     window.addEventListener("pagehide", () => { saveAudioProgress(); flushProgress(); });
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") { saveAudioProgress(); flushProgress(); }
