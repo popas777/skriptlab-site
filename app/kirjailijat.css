@@ -26,7 +26,7 @@ body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.65 v
 [hidden] { display: none !important; }
 a { color: var(--forest); text-underline-offset: 4px; }
 a:hover { text-decoration: underline; }
-button, input { font: inherit; color: inherit; }
+button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: 3px solid #b65330; outline-offset: 5px; }
 h1, h2, h3, p, figure { margin: 0; }
@@ -54,6 +54,9 @@ svg { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; s
 .directory-summary { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 17px 0; border-block: 1px solid var(--line); }
 .directory-summary h2 { font: 500 16px var(--ui); }
 .directory-summary p { color: var(--muted); font-size: 13px; }
+.author-sort { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+.author-sort select { min-height: 44px; max-width: 100%; padding: 8px 32px 8px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); font-size: 14px; }
+.recognition-note { margin-top: 10px; font-size: 12px; color: var(--muted); }
 .author-row { display: grid; grid-template-columns: 120px minmax(0,1fr) auto; align-items: center; gap: 32px; padding: 24px 0; border-bottom: 1px solid var(--line); }
 .directory-portrait { display: block; width: 120px; height: 150px; object-fit: cover; object-position: center 25%; }
 .author-row h2 { font-size: 31px; margin-bottom: 5px; }
@@ -113,8 +116,8 @@ svg { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; s
   .author-search { order: 3; width: 100%; }
   html { scroll-padding-top: 150px; }
   .directory-heading { padding: 26px 0; }
-  .directory-summary { align-items: flex-start; gap: 10px; }
-  .directory-summary p > span:last-child { display: none; }
+  .directory-summary { align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+  .author-sort { flex-wrap: wrap; }
   .author-row { grid-template-columns: 82px minmax(0,1fr); gap: 12px 18px; padding: 22px 0; align-items: start; }
   .directory-portrait { width: 82px; height: 106px; grid-row: span 2; }
   .author-row h2 { font-size: 25px; }

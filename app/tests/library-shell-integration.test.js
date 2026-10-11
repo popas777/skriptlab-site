@@ -22,7 +22,7 @@ test('Library follows corrections, then Authors, and is mounted in an accessible
   const libraryNavEnd = indexHtml.indexOf('</li>', libraryNav) + '</li>'.length;
   assert.ok(correctionsNav >= 0 && correctionsNav < libraryNav && libraryNav < navEnd);
   assert.match(indexHtml.slice(libraryNavEnd, navEnd), /data-view="view-kirjailijat"/);
-  assert.match(indexHtml, /id="kirjailijat-frame"[\s\S]*?src="kirjailijat\.html\?v=2"/);
+  assert.match(indexHtml, /id="kirjailijat-frame"[\s\S]*?src="kirjailijat\.html\?v=3"/);
 
   assert.match(
     indexHtml,
