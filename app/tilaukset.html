@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400..700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="tilaukset.css?v=5">
   <script src="auth.js?v=5"></script>
-  <script src="tilaukset-model.js?v=6" defer></script>
+  <script src="tilaukset-model.js?v=7" defer></script>
   <script src="library-pricing.js?v=1" defer></script>
   <script src="tilaukset.js?v=5" defer></script>
 </head>
@@ -27,7 +27,7 @@
     <section aria-labelledby="plans-title">
       <div class="section-heading"><h2 id="plans-title">Tilaukset</h2><span>Kuukausittain yhteiseen saldoon</span></div>
       <div class="plans" id="plans"></div>
-      <p class="caption">Klassikoissa 1 krediitti = 1 minuutti. Pro- ja Perhe-tilauksessa aika jaetaan käyttäjien kesken. Vuositilauksen koko maksu maksetaan heti, krediitit myönnetään kuukausittain. Jokainen krediittierä on voimassa 2 kuukautta.</p>
+      <p class="caption">Klassikoissa 1 krediitti = 1 minuutti. Pro- ja Perhe-tilauksessa aika jaetaan käyttäjien kesken. Vuositilauksen koko maksu maksetaan heti, krediitit myönnetään kuukausittain. Tilauskrediitit ovat voimassa 2 kuukautta. Lisäkrediittipaketit ovat voimassa 4 tai 12 kuukautta.</p>
     </section>
 
     <section class="wallet-section" aria-labelledby="wallet-title">
@@ -53,10 +53,10 @@
             <p class="caption">Vanhimmin vanheneva krediittierä käytetään ensin.</p>
           </form>
           <div class="topup">
-            <div><h3>Vielä yksi kirja?</h3><p><strong>2,50 €</strong> / 10 klassikkotuntia</p><p class="caption">600 krediittiä · voimassa 2 kuukautta</p></div>
+            <div><h3>Vielä yksi kirja?</h3><p><strong>2,50 €</strong> / 10 klassikkotuntia</p><p class="caption">600 krediittiä · voimassa 4 kuukautta</p></div>
             <button type="button" class="secondary-button" id="topup">Lisää 600 krediittiä demoon</button>
           </div>
-          <div class="topup"><div><h3>Isompi krediittipaketti</h3><p><strong>100 €</strong> / 25 000 krediittiä</p><p class="caption">4 % alennus normaalista yksikköhinnasta · voimassa 2 kuukautta. Paketti mahtuu vain tyhjään saldoon.</p></div><button type="button" class="secondary-button" id="topup-large">Lisää 25 000 krediittiä demoon</button></div>
+          <div class="topup"><div><h3>Isompi krediittipaketti</h3><p><strong>100 €</strong> / 25 000 krediittiä</p><p class="caption">4 % alennus normaalista yksikköhinnasta · voimassa 12 kuukautta. Paketti mahtuu vain tyhjään saldoon.</p></div><button type="button" class="secondary-button" id="topup-large">Lisää 25 000 krediittiä demoon</button></div>
           <button type="button" class="text-button" id="no-plan">Aloita tyhjästä ilman tilausta</button>
           <p class="caption" id="demo-total"></p>
         </div>
@@ -136,7 +136,7 @@
       <h2 id="rules-title">Näin krediitit toimivat tässä demossa</h2>
       <div class="rules-grid">
         <div><span class="rule-number">01</span><h3>Aika kertyy</h3><p>Tilaus tuo joka kuukausi uuden krediittierän. Käyttämätön osuus säilyy erän voimassaolon ajan.</p></div>
-        <div><span class="rule-number">02</span><h3>Kaksi kuukautta</h3><p>Jokainen erä vanhenee kahden kalenterikuukauden kuluttua erän lisäämisestä saldoon. Vuositilauksessa aika lasketaan kunkin kuukausierän myöntämisestä, ei vuosimaksun päivästä. Uusi osto ei pidennä vanhojen erien voimassaoloa.</p></div>
+        <div><span class="rule-number">02</span><h3>Krediittien voimassaolo</h3><p>Tilauskrediitit ovat voimassa 2 kalenterikuukautta. Lisäpaketti 600 krediittiä on voimassa 4 kuukautta ja paketti 25 000 krediittiä 12 kuukautta. Voimassaolo alkaa kunkin erän myöntämisestä, myös vuositilauksessa. Uusi osto ei pidennä vanhojen erien voimassaoloa.</p></div>
         <div><span class="rule-number">03</span><h3>Yhteinen enimmäissaldo</h3><p>Saldo on enintään 25 000 krediittiä. Se vastaa 416 h 40 min klassikkoaikaa. Isossa paketissa se maksaa 100 €, normaalilla yksikköhinnalla noin 104,17 €.</p></div>
       </div>
       <p class="caption">Demon hinnoittelurajat: kerroin 0,1–20,0 yhden desimaalin tarkkuudella (esimerkiksi 1,3×), kertaosto 1–25 000 krediittiä. Rajat ovat alustava ehdotus. Katalogin oletusta voidaan muuttaa teoskohtaisella poikkeuksella; kampanja tarvitsee oman voimassaolon ja hintaversion.</p>

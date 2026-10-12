@@ -42,16 +42,14 @@ test('calendar month arithmetic clamps month ends and renewal keeps its original
   assert.equal(state.today, '2026-03-31');
   assert.equal(state.lots[0].expires, '2026-03-31');
 });
-test('all subscription and top-up lots expire at the two-month boundary, including February', () => {
+test('subscription lots expire at the two-month boundary, including February', () => {
   for (const [created, expires, lastValid] of [
     ['2026-10-12', '2026-12-12', '2026-12-11'],
     ['2026-12-31', '2027-02-28', '2027-02-27'],
     ['2027-12-31', '2028-02-29', '2028-02-28']
   ]) {
-    for (const type of ['monthly', 'annual', 'small', 'large']) {
-      const subscription = ['monthly', 'annual'].includes(type);
-      const state = M.create(subscription ? 'pro' : 'none', created, subscription ? type : 'monthly');
-      if (!subscription) M.topup(state, type);
+    for (const type of ['monthly', 'annual']) {
+      const state = M.create('pro', created, type);
       assert.equal(state.lots[0].expires, expires);
       const issued = M.balance(state);
       state.today = lastValid;
@@ -63,6 +61,26 @@ test('all subscription and top-up lots expire at the two-month boundary, includi
     }
   }
 });
+test('small and large top-ups expire after four and twelve calendar months, including leap days', () => {
+  for (const [pack, created, expires, lastValid] of [
+    ['small', '2026-10-12', '2027-02-12', '2027-02-11'],
+    ['small', '2026-10-31', '2027-02-28', '2027-02-27'],
+    ['small', '2027-10-31', '2028-02-29', '2028-02-28'],
+    ['large', '2026-10-12', '2027-10-12', '2027-10-11'],
+    ['large', '2028-02-29', '2029-02-28', '2029-02-27']
+  ]) {
+    const state = M.create('none', created);
+    M.topup(state, pack);
+    assert.equal(state.lots[0].expires, expires);
+    const issued = M.balance(state);
+    state.today = lastValid;
+    assert.equal(M.balance(state), issued);
+    state.today = expires;
+    assert.equal(M.balance(state), 0);
+    assert.throws(() => M.spend(state, 1), /eivät riitä/);
+    assert.equal(state.lots[0].remaining, 0);
+  }
+});
 test('spending uses the earliest expiry first and new top-ups do not renew older credits', () => {
   const state = M.create('basic', '2026-10-08');
   M.nextMonth(state);
@@ -70,7 +88,7 @@ test('spending uses the earliest expiry first and new top-ups do not renew older
   M.spend(state, 2000);
   assert.deepEqual(state.lots.map(lot => lot.remaining), [0, 1600, 600]);
   assert.equal(state.lots[0].expires, '2026-12-08');
-  assert.equal(state.lots[2].expires, '2027-01-08');
+  assert.equal(state.lots[2].expires, '2027-03-08');
   assert.equal(M.balance(state), 2200);
 });
 test('two family grants remain active and top-ups never partially charge above the cap', () => {
@@ -84,18 +102,45 @@ test('two family grants remain active and top-ups never partially charge above t
   assert.equal(JSON.stringify(state), before);
   assert.equal(M.balance(state), 24600);
 });
-test('large package fills an empty wallet, keeps its acquisition value and expires after two months', () => {
+test('large package fills an empty wallet, keeps its acquisition value and expires after twelve months', () => {
   const state = M.create('none', '2026-10-08');
   M.topup(state, 'large');
   assert.equal(M.balance(state), 25000);
   assert.equal(state.paidCents, 10000);
   assert.equal(state.lots[0].unitCents, .4);
   assert.throws(() => M.topup(state, 'large'), /ei mahdu/);
-  M.nextMonth(state);
-  assert.equal(M.balance(state), 25000);
+  for (let month = 1; month < 12; month++) {
+    assert.equal(M.nextMonth(state).expired, 0);
+    assert.equal(M.balance(state), 25000);
+  }
   assert.equal(M.nextMonth(state).expired, 25000);
   assert.equal(M.balance(state), 0);
   assert.throws(() => M.topup(state, 'invalid'));
+});
+test('shorter subscription grants are spent before an older large top-up', () => {
+  const state = M.create('basic', '2026-10-12');
+  M.spend(state, 1800);
+  M.topup(state, 'large');
+  M.spend(state, 1800);
+  M.nextMonth(state);
+  const result = M.spend(state, 900);
+  assert.deepEqual(result.allocations.map(a => a.lotId), [3]);
+  assert.equal(result.cents, 295);
+  assert.equal(state.lots[1].remaining, 23200);
+  assert.equal(state.lots[2].remaining, 900);
+  assert.equal(state.lots[1].expires, '2027-10-12');
+  assert.equal(state.lots[2].expires, '2027-01-12');
+});
+test('new small top-ups keep their own four-month deadline and never extend older lots', () => {
+  const state = M.create('none', '2026-10-12');
+  M.topup(state);
+  M.nextMonth(state); M.nextMonth(state);
+  M.topup(state);
+  assert.equal(state.lots[0].expires, '2027-02-12');
+  assert.equal(state.lots[1].expires, '2027-04-12');
+  M.nextMonth(state);
+  assert.deepEqual(M.nextMonth(state), { expired: 600, accepted: 0, overflow: 0 });
+  assert.equal(M.balance(state), 600);
 });
 test('monthly overflow is explicit and unit value remains tied to the original package', () => {
   const state = M.create('family', '2026-10-08');

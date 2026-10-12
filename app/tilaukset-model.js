@@ -7,8 +7,8 @@
   'use strict';
   const CAP = 25000;
   const SHARES = Object.freeze({ listening: 75, purchase: 80 });
-  const TOPUP = Object.freeze({ id: 'small', name: 'Lisäpaketti', credits: 600, cents: 250 });
-  const TOPUPS = Object.freeze([TOPUP, Object.freeze({ id: 'large', name: 'Iso lisäpaketti', credits: 25000, cents: 10000 })]);
+  const TOPUP = Object.freeze({ id: 'small', name: 'Lisäpaketti', credits: 600, cents: 250, validityMonths: 4 });
+  const TOPUPS = Object.freeze([TOPUP, Object.freeze({ id: 'large', name: 'Iso lisäpaketti', credits: 25000, cents: 10000, validityMonths: 12 })]);
   const NO_PLAN = Object.freeze({ id: 'none', name: 'Ilman tilausta', cents: 0, credits: 0, users: 1 });
   const PLANS = Object.freeze([
     Object.freeze({ id: 'mini', name: 'Mini', cents: 390, annualCents: 3900, credits: 600, users: 1 }),
@@ -66,9 +66,9 @@
     if (expired) record(state, 'Krediittejä vanheni', -expired);
     return expired;
   }
-  function grant(state, requested, label, cents, chargedCents = cents) {
+  function grant(state, requested, label, cents, chargedCents = cents, validityMonths = 2) {
     const accepted = Math.min(requested, CAP - balance(state));
-    if (accepted) state.lots.push({ id: state.lots.length + 1, created: state.today, expires: addMonths(state.today, 2), remaining: accepted, issued: accepted, unitCents: cents / requested, label });
+    if (accepted) state.lots.push({ id: state.lots.length + 1, created: state.today, expires: addMonths(state.today, validityMonths), remaining: accepted, issued: accepted, unitCents: cents / requested, label });
     state.paidCents += chargedCents;
     record(state, label, accepted, accepted < requested ? `${requested - accepted} krediittiä jäi saldorajan vuoksi hyvittämättä.` : '');
     return { accepted, overflow: requested - accepted };
@@ -89,7 +89,7 @@
     if (!pack) throw new Error('Tuntematon krediittipaketti.');
     expire(state);
     if (balance(state) + pack.credits > CAP) throw new Error('Paketti ei mahdu saldoon. Käytä ensin krediittejä.');
-    return grant(state, pack.credits, `${pack.name} · ${pack.credits} krediittiä`, pack.cents);
+    return grant(state, pack.credits, `${pack.name} · ${pack.credits} krediittiä`, pack.cents, pack.cents, pack.validityMonths);
   }
   function spend(state, credits, label = 'Käytetty lukuaika') {
     integer(credits, 1);
