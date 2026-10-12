@@ -3326,6 +3326,15 @@ body.has-audio .reader-page-controls { margin-bottom: var(--library-audio-height
   .audience-filters { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; }
 }
 
+/* Original-work chronology and optional bibliographic sources. */
+.publication-source-info { margin-top: 8px; color: var(--muted); font-size: 12px; font-weight: 400; }
+.publication-source-info summary { min-height: 44px; padding-block: 10px; cursor: pointer; }
+.publication-source-info p { margin: 8px 0; }
+.publication-source-info a { color: var(--forest); text-underline-offset: 3px; }
+.browser-screen[data-sort^="original-"] .library-search-row { grid-template-columns: minmax(0, 1fr) 235px; }
+@media (max-width: 600px) {
+  .browser-screen[data-sort^="original-"] .library-search-row { grid-template-columns: minmax(0, 1fr); }
+}
 /* Pricing examples stay visible in compact cards as well as the detail view. */
 .work-card .work-premium { display: block; margin: 8px 0 0; font-size: 11px; line-height: 1.5; color: var(--text-secondary, #68645e); }
 .detail-pricing { margin: 18px 0; padding: 16px; border: 1px solid currentColor; border-radius: 10px; font-size: 13px; line-height: 1.6; }

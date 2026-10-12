@@ -10,6 +10,7 @@
   const AUDIO_TIMING_FEATURE_ENABLED = false;
   const discovery = window.SkriptLabLibraryDiscovery;
   const pricing = window.SkriptLabLibraryPricing;
+  const publication = window.SkriptLabLibraryPublication;
   const FONT_SIZES = ["xsmall", "small", "medium", "large", "xlarge"];
   const SHELL_MESSAGE_TYPES = new Set([
     "skriptlab:library-context-changed",
@@ -600,6 +601,7 @@
       wordCount: Math.max(0, finiteNumber(source.word_count)),
       durationSeconds: Math.max(0, finiteNumber(firstValue(source, ["audio_duration_seconds", "duration_seconds", "audio_duration"], 0))),
       publishedAt: text(firstValue(source, ["published_at", "publication_date"], "")),
+      originalPublication: publication?.forWork(source) || null,
       updatedAt: text(firstValue(source, ["updated_at", "modified_at"], "")),
       raw: source,
     };
@@ -849,7 +851,7 @@
     copy.append(description);
     const facts = document.createElement("p");
     facts.className = "work-facts";
-    facts.textContent = [languageLabel(work.language), readingTimeLabel(work),
+    facts.textContent = [languageLabel(work.language), work.originalPublication ? `Alkuteos ${work.originalPublication.label}` : "", readingTimeLabel(work),
       work.hasAudio ? (work.hasText ? "Myös kuunneltavissa" : "Äänikirja") : ""].filter(Boolean).join(" · ");
     copy.append(facts);
 
@@ -871,7 +873,7 @@
     const coverAction = createWorkPrimaryAction(work);
     coverAction.classList.add("work-cover-action");
     coverAction.textContent = "";
-    coverAction.title = `${work.title} — ${work.author}`;
+    coverAction.title = `${work.title} — ${work.author}${work.originalPublication ? ` · Alkuteos ${work.originalPublication.label}` : ""}`;
     article.append(cover, copy, coverAction);
     appendDetailAction(article, work);
     if (work.status === "published") {
@@ -993,7 +995,8 @@
     elements["library-results-title"].textContent = selectionLabel
       ? (state.scope === "all" ? selectionLabel : `${resultsHeading(state.scope)} · ${selectionLabel}`)
       : resultsHeading(state.scope);
-    const description = list ? `Kirjaston valikoima. ${list.description}` : resultsDescription(state.scope);
+    const description = [list ? `Kirjaston valikoima. ${list.description}` : resultsDescription(state.scope),
+      publication?.isChronologicalSort(state.sort) ? "Alkuteosten ilmestymisajan mukaan. Vuosisadat ovat arvioita; tuntemattomat ilmestymisajat ovat viimeisinä." : ""].filter(Boolean).join(" ");
     elements["library-results-description"].textContent = description;
     elements["library-results-description"].hidden = !description;
     elements["library-result-count"].textContent = `${state.total} ${state.total === 1 ? "teos" : "teosta"}`;
@@ -1046,6 +1049,7 @@
     elements["library-ranked-sort"].hidden = !list;
     if (!list && state.sort === "curated") state.sort = "newest";
     elements["library-sort"].value = state.sort;
+    elements["library-browser"].dataset.sort = state.sort;
   }
 
   function hasFilters() {
@@ -1096,7 +1100,7 @@
     if (queryList) {
       state.theme = `top:${queryList}`;
       state.query = "";
-      state.sort = "curated";
+      if (!publication?.isChronologicalSort(state.sort)) state.sort = "curated";
       elements["library-search-input"].value = "";
       elements["library-search-clear"].hidden = true;
     }
@@ -1105,7 +1109,8 @@
     const previousCount = state.works.length;
     const discoveryFilter = Boolean(discovery?.isDiscoveryFilter(state.theme));
     const paidFilter = state.scope === "paid";
-    const clientFilter = discoveryFilter || paidFilter;
+    const chronologicalSort = Boolean(publication?.isChronologicalSort(state.sort));
+    const clientFilter = discoveryFilter || paidFilter || chronologicalSort;
     if (append && clientFilter && state.discoveryWorks) {
       state.works = state.discoveryWorks.slice(0, previousCount + 24);
       state.nextCursor = state.works.length < state.discoveryWorks.length ? String(state.works.length) : null;
@@ -1121,7 +1126,7 @@
     if (state.media) params.set("media", state.media);
     if (state.theme && !discoveryFilter) params.set("theme", state.theme);
     if (state.audience) params.set("audience", state.audience);
-    params.set("sort", state.sort === "curated" ? "newest" : state.sort);
+    params.set("sort", state.sort === "curated" || chronologicalSort ? "newest" : state.sort);
     params.set("catalog", "true");
     params.set("limit", clientFilter ? "100" : "24");
     if (append) params.set("after", state.nextCursor);
@@ -1160,8 +1165,8 @@
       if (sequence !== state.listSequence) return;
       const works = unwrapWorks(payload).map(normalizeWork).filter((work) => work.id);
       if (clientFilter) {
-        // Group membership can span several raw themes. Read every authorised
-        // metadata page, then filter; the first page alone is never the catalogue.
+        // Read every authorised metadata page before filtering or ordering.
+        // The first page alone cannot establish an order for the whole catalogue.
         let cursor = payload?.next_cursor;
         const cursors = new Set();
         while (cursor) {
@@ -1175,7 +1180,8 @@
         }
         const unique = [...new Map(works.map(work => [work.id, work])).values()];
         const selected = discoveryFilter ? discovery.selectWorks(unique, state.theme, state.sort === "curated") : unique;
-        state.discoveryWorks = paidFilter ? selected.filter(work => pricing?.forWork(work)) : selected;
+        const filtered = paidFilter ? selected.filter(work => pricing?.forWork(work)) : selected;
+        state.discoveryWorks = chronologicalSort ? publication.sortWorks(filtered, state.sort) : filtered;
         state.topAvailabilityKnown = state.scope === "all" && !state.query && !state.media && !state.audience;
         state.topMissing = state.topAvailabilityKnown ? discovery.missingEntries(unique, state.theme) : [];
         state.works = state.discoveryWorks.slice(0, 24);
@@ -1370,10 +1376,11 @@
     const values = [
       ["Teostyyppi", work.managedExample ? "SkriptLab-esimerkki" : (work.shared ? "Jaettu teos" : "")],
       ["Kieli", languageLabel(work.language)],
+      ["Alkuteoksen ilmestymisaika", work.originalPublication?.label || ""],
       ["Lukuja", work.chapterCount ? String(work.chapterCount) : ""],
       ["Arvioitu lukuaika", readingTimeLabel(work).replace("Lukuaika noin ", "")],
       ["Sanoja", work.wordCount ? work.wordCount.toLocaleString("fi-FI") : ""],
-      ["Julkaistu", dateLabel(work.publishedAt)],
+      ["Julkaistu kirjastossa", dateLabel(work.publishedAt)],
     ];
     values.forEach(([label, value]) => {
       if (!value) return;
@@ -1382,6 +1389,27 @@
       const description = document.createElement("dd");
       term.textContent = label;
       description.textContent = value;
+      if (label === "Alkuteoksen ilmestymisaika" && (work.originalPublication.note || work.originalPublication.sources.length)) {
+        const info = document.createElement("details");
+        info.className = "publication-source-info";
+        const summary = document.createElement("summary");
+        summary.textContent = "Ilmestymisajan tiedot";
+        info.append(summary);
+        if (work.originalPublication.note) {
+          const note = document.createElement("p");
+          note.textContent = work.originalPublication.note;
+          info.append(note);
+        }
+        work.originalPublication.sources.forEach((url, index) => {
+          const link = document.createElement("a");
+          link.href = url;
+          link.textContent = `Lähde ${index + 1}`;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          info.append(link, document.createTextNode(" "));
+        });
+        description.append(info);
+      }
       wrapper.append(term, description);
       rows.push(wrapper);
     });
@@ -3338,7 +3366,7 @@
     });
     elements["library-theme-filter"].addEventListener("change", () => {
       state.theme = elements["library-theme-filter"].value;
-      if (discovery?.listFor(state.theme)) state.sort = "curated";
+      if (discovery?.listFor(state.theme) && !publication?.isChronologicalSort(state.sort)) state.sort = "curated";
       loadWorks();
     });
     document.querySelectorAll("[data-audience]").forEach((button) => {
