@@ -780,18 +780,24 @@
 
   function renderContinueCards(works) {
     elements["library-continue-card"].replaceChildren(...works.map(createContinueCard));
-    elements["library-continue-section"].hidden = !works.length;
+    elements["library-continue-section"].hidden = !works.length || state.catalogView === "compact";
   }
 
   function setCatalogView(view, persist = true) {
     state.catalogView = ["cards", "compact", "list"].includes(view) ? view : "cards";
     elements["library-work-grid"].dataset.view = state.catalogView;
+    elements["library-continue-section"].hidden = state.catalogView === "compact" || !elements["library-continue-card"].children.length;
     elements["library-view-options"].querySelectorAll("[data-catalog-view]").forEach((button) => {
       button.setAttribute("aria-pressed", String(button.dataset.catalogView === state.catalogView));
     });
     if (persist) {
       try { localStorage.setItem(CATALOG_VIEW_KEY, state.catalogView); } catch (_error) { /* Storage is optional. */ }
     }
+  }
+
+  function focusWorkCard(card) {
+    const selector = state.catalogView === "compact" ? ".work-cover-action" : ".work-card-copy .work-primary-action";
+    card?.querySelector(selector)?.focus({ preventScroll: true });
   }
 
   function workStatusLabel(work) {
@@ -862,7 +868,11 @@
       badge.textContent = `Lisämaksullinen · ${price.multiplier}× · hinnoitteludemo`;
       copy.append(badge);
     }
-    article.append(cover, copy);
+    const coverAction = createWorkPrimaryAction(work);
+    coverAction.classList.add("work-cover-action");
+    coverAction.textContent = "";
+    coverAction.title = `${work.title} — ${work.author}`;
+    article.append(cover, copy, coverAction);
     appendDetailAction(article, work);
     if (work.status === "published") {
       article.classList.add("has-shelf-actions");
@@ -1100,7 +1110,7 @@
       state.works = state.discoveryWorks.slice(0, previousCount + 24);
       state.nextCursor = state.works.length < state.discoveryWorks.length ? String(state.works.length) : null;
       renderWorks();
-      elements["library-work-grid"].children[previousCount]?.querySelector("button")?.focus({ preventScroll: true });
+      focusWorkCard(elements["library-work-grid"].children[previousCount]);
       return;
     }
     const sequence = ++state.listSequence;
@@ -1183,7 +1193,7 @@
       }
       updateThemeOptions();
       renderWorks();
-      if (append) elements["library-work-grid"].children[previousCount]?.querySelector("button")?.focus({ preventScroll: true });
+      if (append) focusWorkCard(elements["library-work-grid"].children[previousCount]);
     } catch (error) {
       if (error?.name === "AbortError") return;
       if (sequence !== state.listSequence) return;
@@ -1524,7 +1534,7 @@
     document.body.classList.remove("is-detail");
     window.scrollTo(0, state.browserScroll);
     if (restoreFocus && workId) {
-      document.querySelector(`[data-work-id="${CSS.escape(workId)}"] .work-primary-action`)?.focus({ preventScroll: true });
+      focusWorkCard(document.querySelector(`[data-work-id="${CSS.escape(workId)}"]`));
     }
   }
 
