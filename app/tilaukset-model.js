@@ -11,6 +11,7 @@
   const TOPUPS = Object.freeze([TOPUP, Object.freeze({ id: 'large', name: 'Iso lisäpaketti', credits: 25000, cents: 10000 })]);
   const NO_PLAN = Object.freeze({ id: 'none', name: 'Ilman tilausta', cents: 0, credits: 0, users: 1 });
   const PLANS = Object.freeze([
+    Object.freeze({ id: 'mini', name: 'Mini', cents: 390, annualCents: 3900, credits: 600, users: 1 }),
     Object.freeze({ id: 'basic', name: 'Perustilaus', cents: 590, annualCents: 5900, credits: 1800, users: 1 }),
     Object.freeze({ id: 'pro', name: 'Pro', cents: 1090, annualCents: 9900, credits: 3600, users: 2 }),
     Object.freeze({ id: 'family', name: 'Perhe', cents: 1990, annualCents: 19900, credits: 7200, users: 5 })

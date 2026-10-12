@@ -4,7 +4,7 @@ const M = require('../tilaukset-model.js');
 const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} ≈ ${expected}`);
 
 test('subscription quantities and the top-up reference value agree with the proposed prices', () => {
-  assert.deepEqual(M.PLANS.map(p => [p.cents, p.credits / 60, p.users]), [[590, 30, 1], [1090, 60, 2], [1990, 120, 5]]);
+  assert.deepEqual(M.PLANS.map(p => [p.cents, p.credits / 60, p.users]), [[390, 10, 1], [590, 30, 1], [1090, 60, 2], [1990, 120, 5]]);
   assert.equal(M.TOPUP.cents, 250);
   assert.equal(M.TOPUPS[1].credits, M.CAP);
   assert.equal(M.TOPUPS[1].cents, 10000);
@@ -17,6 +17,21 @@ test('credits carry over, then expire exactly two calendar months after each gra
   assert.equal(M.balance(state), 3600);
   assert.equal(state.lots[0].remaining, 0);
   assert.equal(state.lots[1].remaining, 1800);
+});
+test('Mini monthly and annual payments retain their acquisition values for royalties', () => {
+  for (const [cycle, paid, publisher, platform] of [
+    ['monthly', 390, 292.5, 97.5],
+    ['annual', 3900, 243.75, 81.25]
+  ]) {
+    const state = M.create('mini', '2026-10-12', cycle);
+    assert.equal(M.balance(state), 600);
+    assert.equal(state.paidCents, paid);
+    assert.equal(state.lots[0].expires, '2026-12-12');
+    M.listenBook(state, M.createBook({ title: 'Mini-esimerkki', minutes: 600, rate: 1, fixed: 600 }), 600);
+    close(state.royalties[0].publisherCents, publisher);
+    close(state.royalties[0].platformCents, platform);
+    assert.equal(M.balance(state), 0);
+  }
 });
 test('calendar month arithmetic clamps month ends and renewal keeps its original anchor', () => {
   assert.equal(M.addMonths('2026-01-31', 1), '2026-02-28');
@@ -221,9 +236,9 @@ test('Delfiini fractional duration and 1.3 multiplier retain split-session round
 });
 
 test('annual offers retain their explicit prices and allocate that payment across twelve grants', () => {
-  assert.deepEqual(M.PLANS.map(p => M.offerFor(p.id, 'annual').upfrontCents), [5900, 9900, 19900]);
-  assert.deepEqual(M.PLANS.map(p => p.cents * 12 - M.offerFor(p.id, 'annual').upfrontCents), [1180, 3180, 3980]);
-  assert.equal(M.subscriptionOffers().length, 6);
+  assert.deepEqual(M.PLANS.map(p => M.offerFor(p.id, 'annual').upfrontCents), [3900, 5900, 9900, 19900]);
+  assert.deepEqual(M.PLANS.map(p => p.cents * 12 - M.offerFor(p.id, 'annual').upfrontCents), [780, 1180, 3180, 3980]);
+  assert.equal(M.subscriptionOffers().length, 8);
   for (const plan of M.PLANS) {
     const offer = M.offerFor(plan.id, 'annual');
     assert.equal(offer.credits, plan.credits);
