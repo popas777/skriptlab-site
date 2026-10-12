@@ -11,9 +11,9 @@
   const TOPUPS = Object.freeze([TOPUP, Object.freeze({ id: 'large', name: 'Iso lisäpaketti', credits: 25000, cents: 10000 })]);
   const NO_PLAN = Object.freeze({ id: 'none', name: 'Ilman tilausta', cents: 0, credits: 0, users: 1 });
   const PLANS = Object.freeze([
-    Object.freeze({ id: 'basic', name: 'Perustilaus', cents: 590, credits: 1800, users: 1 }),
-    Object.freeze({ id: 'pro', name: 'Pro', cents: 990, credits: 3600, users: 2 }),
-    Object.freeze({ id: 'family', name: 'Perhe', cents: 1890, credits: 7200, users: 5 })
+    Object.freeze({ id: 'basic', name: 'Perustilaus', cents: 590, annualCents: 5900, credits: 1800, users: 1 }),
+    Object.freeze({ id: 'pro', name: 'Pro', cents: 1090, annualCents: 9900, credits: 3600, users: 2 }),
+    Object.freeze({ id: 'family', name: 'Perhe', cents: 1990, annualCents: 19900, credits: 7200, users: 5 })
   ]);
   function integer(value, min = 0, max = Number.MAX_SAFE_INTEGER) {
     if (!Number.isSafeInteger(value) || value < min || value > max) throw new Error('Anna kelvollinen kokonaisluku.');
@@ -45,8 +45,8 @@
     const annual = billingCycle === 'annual';
     return { ...plan, billingCycle, name: annual ? `${plan.name} · vuosi` : plan.name,
       // A prepaid year funds 12 monthly credit grants, each at the discounted value.
-      cents: annual ? plan.cents * 10 / 12 : plan.cents,
-      upfrontCents: annual ? plan.cents * 10 : plan.cents, months: annual ? 12 : 1 };
+      cents: annual ? plan.annualCents / 12 : plan.cents,
+      upfrontCents: annual ? plan.annualCents : plan.cents, months: annual ? 12 : 1 };
   }
   function subscriptionOffers() {
     return PLANS.flatMap(plan => [offerFor(plan.id), offerFor(plan.id, 'annual')]);
@@ -67,7 +67,7 @@
   }
   function grant(state, requested, label, cents, chargedCents = cents) {
     const accepted = Math.min(requested, CAP - balance(state));
-    if (accepted) state.lots.push({ id: state.lots.length + 1, created: state.today, expires: addMonths(state.today, 3), remaining: accepted, issued: accepted, unitCents: cents / requested, label });
+    if (accepted) state.lots.push({ id: state.lots.length + 1, created: state.today, expires: addMonths(state.today, 2), remaining: accepted, issued: accepted, unitCents: cents / requested, label });
     state.paidCents += chargedCents;
     record(state, label, accepted, accepted < requested ? `${requested - accepted} krediittiä jäi saldorajan vuoksi hyvittämättä.` : '');
     return { accepted, overflow: requested - accepted };

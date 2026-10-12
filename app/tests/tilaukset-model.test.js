@@ -1,20 +1,20 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const M = require('../tilaukset-model.js');
+const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} ≈ ${expected}`);
 
 test('subscription quantities and the top-up reference value agree with the proposed prices', () => {
-  assert.deepEqual(M.PLANS.map(p => [p.cents, p.credits / 60, p.users]), [[590, 30, 1], [990, 60, 2], [1890, 120, 5]]);
+  assert.deepEqual(M.PLANS.map(p => [p.cents, p.credits / 60, p.users]), [[590, 30, 1], [1090, 60, 2], [1990, 120, 5]]);
   assert.equal(M.TOPUP.cents, 250);
   assert.equal(M.TOPUPS[1].credits, M.CAP);
   assert.equal(M.TOPUPS[1].cents, 10000);
 });
-test('credits carry over, then expire exactly three calendar months after each grant', () => {
+test('credits carry over, then expire exactly two calendar months after each grant', () => {
   const state = M.create('basic', '2026-10-08');
   M.nextMonth(state);
-  M.nextMonth(state);
-  assert.equal(M.balance(state), 5400);
+  assert.equal(M.balance(state), 3600);
   assert.deepEqual(M.nextMonth(state), { expired: 1800, accepted: 1800, overflow: 0 });
-  assert.equal(M.balance(state), 5400);
+  assert.equal(M.balance(state), 3600);
   assert.equal(state.lots[0].remaining, 0);
   assert.equal(state.lots[1].remaining, 1800);
 });
@@ -25,7 +25,28 @@ test('calendar month arithmetic clamps month ends and renewal keeps its original
   M.nextMonth(state);
   M.nextMonth(state);
   assert.equal(state.today, '2026-03-31');
-  assert.equal(state.lots[0].expires, '2026-04-30');
+  assert.equal(state.lots[0].expires, '2026-03-31');
+});
+test('all subscription and top-up lots expire at the two-month boundary, including February', () => {
+  for (const [created, expires, lastValid] of [
+    ['2026-10-12', '2026-12-12', '2026-12-11'],
+    ['2026-12-31', '2027-02-28', '2027-02-27'],
+    ['2027-12-31', '2028-02-29', '2028-02-28']
+  ]) {
+    for (const type of ['monthly', 'annual', 'small', 'large']) {
+      const subscription = ['monthly', 'annual'].includes(type);
+      const state = M.create(subscription ? 'pro' : 'none', created, subscription ? type : 'monthly');
+      if (!subscription) M.topup(state, type);
+      assert.equal(state.lots[0].expires, expires);
+      const issued = M.balance(state);
+      state.today = lastValid;
+      assert.equal(M.balance(state), issued);
+      state.today = expires;
+      assert.equal(M.balance(state), 0);
+      assert.throws(() => M.spend(state, 1), /eivät riitä/);
+      assert.equal(state.lots[0].remaining, 0);
+    }
+  }
 });
 test('spending uses the earliest expiry first and new top-ups do not renew older credits', () => {
   const state = M.create('basic', '2026-10-08');
@@ -33,29 +54,29 @@ test('spending uses the earliest expiry first and new top-ups do not renew older
   M.topup(state);
   M.spend(state, 2000);
   assert.deepEqual(state.lots.map(lot => lot.remaining), [0, 1600, 600]);
-  assert.equal(state.lots[0].expires, '2027-01-08');
-  assert.equal(state.lots[2].expires, '2027-02-08');
+  assert.equal(state.lots[0].expires, '2026-12-08');
+  assert.equal(state.lots[2].expires, '2027-01-08');
   assert.equal(M.balance(state), 2200);
 });
-test('three family grants fit and top-ups never partially charge above the new cap', () => {
+test('two family grants remain active and top-ups never partially charge above the cap', () => {
   const state = M.create('family', '2026-10-08');
   M.nextMonth(state);
-  assert.deepEqual(M.nextMonth(state), { expired: 0, accepted: 7200, overflow: 0 });
-  assert.equal(M.balance(state), 21600);
-  for (let i = 0; i < 5; i++) M.topup(state);
+  assert.deepEqual(M.nextMonth(state), { expired: 7200, accepted: 7200, overflow: 0 });
+  assert.equal(M.balance(state), 14400);
+  for (let i = 0; i < 17; i++) M.topup(state);
   const before = JSON.stringify(state);
   assert.throws(() => M.topup(state), /ei mahdu/);
   assert.equal(JSON.stringify(state), before);
   assert.equal(M.balance(state), 24600);
 });
-test('large package fills an empty wallet, keeps its acquisition value and expires after three months', () => {
+test('large package fills an empty wallet, keeps its acquisition value and expires after two months', () => {
   const state = M.create('none', '2026-10-08');
   M.topup(state, 'large');
   assert.equal(M.balance(state), 25000);
   assert.equal(state.paidCents, 10000);
   assert.equal(state.lots[0].unitCents, .4);
   assert.throws(() => M.topup(state, 'large'), /ei mahdu/);
-  M.nextMonth(state); M.nextMonth(state);
+  M.nextMonth(state);
   assert.equal(M.balance(state), 25000);
   assert.equal(M.nextMonth(state).expired, 25000);
   assert.equal(M.balance(state), 0);
@@ -67,7 +88,7 @@ test('monthly overflow is explicit and unit value remains tied to the original p
   assert.deepEqual(M.nextMonth(state), { expired: 0, accepted: 2800, overflow: 4400 });
   assert.equal(M.balance(state), 25000);
   assert.match(state.events[0].detail, /4400/);
-  assert.equal(state.lots.at(-1).unitCents, 1890 / 7200);
+  assert.equal(state.lots.at(-1).unitCents, 1990 / 7200);
 });
 test('insufficient or invalid spending leaves the wallet unchanged', () => {
   const state = M.create('basic', '2026-10-08');
@@ -147,25 +168,25 @@ test('owned rights survive expiry and fractional rates cost the same across sess
 
 test('80/20 at full use pays rightsholders from each plan actual acquisition price', () => {
   const result = M.economics({ ...M.planFor('family'), publisherPercent: 80, usePercent: 100, monthlyCostCents: 0, hourlyCostCents: 0 });
-  assert.equal(result.publisher, 1512);
-  assert.equal(result.platformUsage, 378);
+  assert.equal(result.publisher, 1592);
+  assert.equal(result.platformUsage, 398);
   assert.equal(result.expiredRevenue, 0);
-  assert.equal(result.remainder, 378);
-  assert.equal(1000 * M.planFor('family').cents / M.planFor('family').credits * .8, 210);
+  assert.equal(result.remainder, 398);
+  close(1000 * M.planFor('family').cents / M.planFor('family').credits * .8, 221.1111111111111);
   assert.ok(Math.abs(1000 * M.TOPUP.cents / M.TOPUP.credits * .8 - 333.3333333333) < 1e-6);
 });
 test('expiry and costs are separate from the platform share of actual consumption', () => {
   const result = M.economics({ ...M.planFor('family'), publisherPercent: 80, usePercent: 50, monthlyCostCents: 100, hourlyCostCents: 2 });
-  assert.equal(result.publisher, 756);
-  assert.equal(result.platformUsage, 189);
-  assert.equal(result.expiredRevenue, 945);
+  assert.equal(result.publisher, 796);
+  assert.equal(result.platformUsage, 199);
+  assert.equal(result.expiredRevenue, 995);
   assert.equal(result.costs, 220);
-  assert.equal(result.remainder, 914);
-  assert.equal(result.publisher + result.costs + result.remainder, 1890);
+  assert.equal(result.remainder, 974);
+  assert.equal(result.publisher + result.costs + result.remainder, 1990);
 });
 test('the calculator exposes losses without assuming expiry and rejects invalid rates', () => {
   const inputs = { ...M.planFor('family'), publisherPercent: 80, usePercent: 100, monthlyCostCents: 400, hourlyCostCents: 1 };
-  assert.equal(M.economics(inputs).remainder, -142);
+  assert.equal(M.economics(inputs).remainder, -122);
   assert.throws(() => M.economics({ ...inputs, usePercent: 101 }));
   assert.throws(() => M.economics({ ...inputs, monthlyCostCents: -1 }));
   assert.throws(() => M.economics({ ...inputs, publisherPercent: NaN }));
@@ -199,8 +220,9 @@ test('Delfiini fractional duration and 1.3 multiplier retain split-session round
   }
 });
 
-test('annual offers charge ten monthly prices and allocate that payment across twelve grants', () => {
-  assert.deepEqual(M.PLANS.map(p => M.offerFor(p.id, 'annual').upfrontCents), [5900, 9900, 18900]);
+test('annual offers retain their explicit prices and allocate that payment across twelve grants', () => {
+  assert.deepEqual(M.PLANS.map(p => M.offerFor(p.id, 'annual').upfrontCents), [5900, 9900, 19900]);
+  assert.deepEqual(M.PLANS.map(p => p.cents * 12 - M.offerFor(p.id, 'annual').upfrontCents), [1180, 3180, 3980]);
   assert.equal(M.subscriptionOffers().length, 6);
   for (const plan of M.PLANS) {
     const offer = M.offerFor(plan.id, 'annual');
@@ -215,19 +237,19 @@ test('a prepaid year grants monthly credits without charging again and stops aft
   for (const plan of M.PLANS) {
     const state = M.create(plan.id, '2026-10-08', 'annual');
     assert.equal(M.balance(state), plan.credits);
-    assert.equal(state.paidCents, plan.cents * 10);
+    assert.equal(state.paidCents, plan.annualCents);
     assert.equal(state.paidThrough, '2027-10-08');
     for (let i = 1; i < 12; i++) {
       assert.equal(M.nextMonth(state).accepted, plan.credits);
-      assert.equal(state.paidCents, plan.cents * 10);
+      assert.equal(state.paidCents, plan.annualCents);
     }
     assert.equal(state.lots.length, 12);
     assert.equal(state.lots.reduce((sum, lot) => sum + lot.issued, 0), plan.credits * 12);
     assert.equal(M.nextMonth(state).accepted, 0);
     assert.equal(state.lots.length, 12);
-    assert.equal(state.paidCents, plan.cents * 10);
-    assert.equal(M.balance(state), plan.credits * 2);
-    M.nextMonth(state); M.nextMonth(state);
+    assert.equal(state.paidCents, plan.annualCents);
+    assert.equal(M.balance(state), plan.credits);
+    M.nextMonth(state);
     assert.equal(M.balance(state), 0);
   }
 });
@@ -236,14 +258,14 @@ test('annual credit expiry starts at each monthly grant and keeps the month-end 
   M.nextMonth(state); M.nextMonth(state);
   assert.equal(state.lots[0].created, '2026-01-31');
   assert.equal(state.lots[1].created, '2026-02-28');
-  assert.equal(state.lots[1].expires, '2026-05-28');
+  assert.equal(state.lots[1].expires, '2026-04-28');
   assert.equal(state.lots[2].created, '2026-03-31');
-  assert.equal(state.lots[2].expires, '2026-06-30');
+  assert.equal(state.lots[2].expires, '2026-05-31');
   assert.equal(state.paidThrough, '2027-01-31');
 });
 test('annual royalties use the discounted unit price while extra credits keep their own price', () => {
   const state = M.create('family', '2026-10-08', 'annual');
-  const unit = 18900 / (12 * 7200);
+  const unit = 19900 / (12 * 7200);
   assert.equal(state.lots[0].unitCents, unit);
   const book = M.createBook({ title: 'Vuosi', minutes: 17.5, rate: 10, fixed: 175 });
   M.listenBook(state, book, 60);
@@ -251,37 +273,37 @@ test('annual royalties use the discounted unit price while extra credits keep th
   M.buyBook(state, M.createBook({ title: 'Osto', minutes: 1, rate: 1, fixed: 175 }));
   assert.ok(Math.abs(state.royalties[1].publisherCents - 175 * unit * .8) < 1e-9);
   M.topup(state);
-  assert.equal(state.paidCents, 19150);
+  assert.equal(state.paidCents, 20150);
   assert.equal(state.lots[1].unitCents, 250 / 600);
   const result = M.economics({ ...M.offerFor('family', 'annual'), publisherPercent: 75, usePercent: 100, monthlyCostCents: 0, hourlyCostCents: 0 });
-  assert.equal(result.platformUsage, 393.75);
+  close(result.platformUsage, 414.5833333333333);
 });
 
 test('platform classics have no external royalty while their usage still incurs costs', () => {
   const input = { ...M.planFor('family'), publisherPercent: 75, usePercent: 100, monthlyCostCents: 100, hourlyCostCents: 2 };
   const none = M.economics({ ...input, classicPercent: 0 });
-  assert.equal(none.publisher, 1417.5);
+  assert.equal(none.publisher, 1492.5);
   assert.equal(none.classicRevenue, 0);
   const half = M.economics({ ...input, classicPercent: 50 });
-  assert.equal(half.publisher, 708.75);
-  assert.equal(half.classicRevenue, 945);
-  assert.equal(half.platformUsage, 1181.25);
+  assert.equal(half.publisher, 746.25);
+  assert.equal(half.classicRevenue, 995);
+  assert.equal(half.platformUsage, 1243.75);
   const all = M.economics({ ...input, classicPercent: 100 });
   assert.equal(all.publisher, 0);
-  assert.equal(all.classicRevenue, 1890);
-  assert.equal(all.platformUsage, 1890);
+  assert.equal(all.classicRevenue, 1990);
+  assert.equal(all.platformUsage, 1990);
   assert.equal(all.costs, 340);
   assert.equal(all.costs, none.costs);
-  assert.equal(all.remainder, 1550);
+  assert.equal(all.remainder, 1650);
 });
 test('classic share applies only to consumed credits and preserves annual discounts and expiry', () => {
   const input = { ...M.offerFor('family', 'annual'), publisherPercent: 75, usePercent: 50, classicPercent: 50, monthlyCostCents: 0, hourlyCostCents: 0 };
   const result = M.economics(input);
-  assert.equal(result.classicRevenue, 393.75);
-  assert.equal(result.publisher, 295.3125);
-  assert.equal(result.platformUsage, 492.1875);
-  assert.equal(result.expiredRevenue, 787.5);
-  assert.equal(result.remainder + result.publisher, input.cents);
+  close(result.classicRevenue, 414.5833333333333);
+  close(result.publisher, 310.9375);
+  close(result.platformUsage, 518.2291666666666);
+  close(result.expiredRevenue, 829.1666666666666);
+  close(result.remainder + result.publisher, input.cents);
   const unused = M.economics({ ...input, usePercent: 0, classicPercent: 100 });
   assert.equal(unused.classicRevenue, 0);
   assert.equal(unused.publisher, 0);

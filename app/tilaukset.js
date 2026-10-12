@@ -51,8 +51,9 @@
     article.className = 'plan';
     article.dataset.plan = plan.id;
     const annual = M.offerFor(plan.id, 'annual');
+    const annualSaving = plan.cents * 12 - annual.upfrontCents;
     article.innerHTML = `<h3>${plan.name}</h3><p class="plan-price"><strong>${euro(plan.cents)}</strong> / kk</p><p class="plan-hours">${number(plan.credits / 60)} tuntia / kk</p><p class="plan-credits">${number(plan.credits)} krediittiä kuukaudessa</p><p class="plan-users">${plan.users === 1 ? 'Yksi käyttäjä' : `Enintään ${plan.users} käyttäjää · yhteinen saldo`}</p><button type="button" class="secondary-button" data-cycle="monthly" aria-pressed="false"></button>
-      <div class="annual-option"><h4>Vuositilaus</h4><p class="annual-price"><strong>${euro(annual.upfrontCents)}</strong> / vuosi</p><p class="annual-equivalent">Vastaa ${euro(annual.cents)} / kk · maksetaan kerralla</p><p class="annual-saving">2 kuukautta ilmaiseksi</p><p class="caption">Säästät ${euro(plan.cents * 2)} verrattuna 12 kuukausimaksuun. Samat ${number(plan.credits)} krediittiä joka kuukausi.</p><button type="button" class="secondary-button" data-cycle="annual" aria-pressed="false"></button></div>`;
+      <div class="annual-option"><h4>Vuositilaus</h4><p class="annual-price"><strong>${euro(annual.upfrontCents)}</strong> / vuosi</p><p class="annual-equivalent">Vastaa ${euro(annual.cents)} / kk · maksetaan kerralla</p><p class="annual-saving">Säästä ${number(annualSaving / (plan.cents * 12) * 100)} % vuodessa</p><p class="caption">Säästät ${euro(annualSaving)} verrattuna 12 kuukausimaksuun. Samat ${number(plan.credits)} krediittiä joka kuukausi.</p><button type="button" class="secondary-button" data-cycle="annual" aria-pressed="false"></button></div>`;
     article.querySelectorAll('[data-cycle]').forEach(button => button.addEventListener('click', () => reset(plan.id, button.dataset.cycle)));
     $('plans').append(article);
   }
