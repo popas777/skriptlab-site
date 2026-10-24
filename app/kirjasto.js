@@ -2938,8 +2938,8 @@
   async function createImportDraft(metadata) {
     const contentSource = validateImportSource();
     if (!contentSource) return null;
-    if (state.importTracks.length > 200 || state.importTracks.reduce((size, track) => size + track.file.size, 0) > 300 * 1024 * 1024) {
-      showDialogNotice("Äänikirjan raja on 200 tiedostoa ja yhteensä 300 MB."); return null;
+    if (state.importTracks.length > 200 || state.importTracks.reduce((size, track) => size + track.file.size, 0) > 1536 * 1024 * 1024) {
+      showDialogNotice("Äänikirjan raja on 200 tiedostoa ja yhteensä 1536 MB."); return null;
     }
     const form = new FormData();
     if (contentSource === "text" && text(elements["add-work-text"].value)) {
