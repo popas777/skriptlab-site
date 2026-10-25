@@ -11,6 +11,7 @@
   const discovery = window.SkriptLabLibraryDiscovery;
   const pricing = window.SkriptLabLibraryPricing;
   const publication = window.SkriptLabLibraryPublication;
+  const originalLanguage = window.SkriptLabLibraryOriginalLanguage;
   const FONT_SIZES = ["xsmall", "small", "medium", "large", "xlarge"];
   const SHELL_MESSAGE_TYPES = new Set([
     "skriptlab:library-context-changed",
@@ -23,6 +24,7 @@
     media: "",
     theme: "",
     audience: "",
+    originalLanguage: "",
     sort: "newest",
     total: 0,
     nextCursor: null,
@@ -127,6 +129,7 @@
       "library-search-clear",
       "library-media-filters",
       "library-theme-filter",
+      "library-original-language-filter",
       "library-ranked-sort",
       "library-top-info",
       "library-top-info-summary",
@@ -586,6 +589,7 @@
       coverUrl: mediaUrl(firstValue(source, ["cover_data_url", "cover_url", "cover_image_url", "cover", "thumbnail_url"], media.cover_url || "")),
       status,
       language: text(firstValue(source, ["language", "language_code"], "")),
+      originalLanguages: originalLanguage?.forWork(source) || [],
       hasText: hasText || chapterCount > 0,
       hasAudio,
       audioUrl: text(firstValue(source, ["audio_url"], media.audio_url || "")),
@@ -1015,6 +1019,7 @@
     elements["library-active-filters"].textContent = [state.query ? `Haku: ${state.query}` : "",
       state.media === "audio" ? "Kuunneltavat" : (state.media === "read" ? "Luettavat" : ""),
       state.availableThemes.get(state.theme) || state.theme,
+      state.originalLanguage ? `Alkukieli: ${originalLanguage.label(state.originalLanguage === "unknown" ? "" : state.originalLanguage)}` : "",
       state.audience === "children_youth" ? "Lapset ja nuoret" : (state.audience === "adults" ? "Aikuiset" : "")].filter(Boolean).join(" · ");
   }
 
@@ -1053,7 +1058,23 @@
   }
 
   function hasFilters() {
-    return Boolean(state.query || state.media || state.theme || state.audience);
+    return Boolean(state.query || state.media || state.theme || state.audience || state.originalLanguage);
+  }
+
+  function updateOriginalLanguageOptions(works = []) {
+    const select = elements["library-original-language-filter"];
+    const choices = originalLanguage?.options(works) || [];
+    if (state.originalLanguage && state.originalLanguage !== "unknown" && !choices.some(choice => choice.value === state.originalLanguage)) {
+      choices.push({ value: state.originalLanguage, label: originalLanguage.label(state.originalLanguage) });
+    }
+    const options = [{ value: "", label: "Alkukieli: kaikki" }, ...choices, { value: "unknown", label: "Ei tiedossa" }].map(choice => {
+      const option = document.createElement("option");
+      option.value = choice.value;
+      option.textContent = choice.label;
+      return option;
+    });
+    select.replaceChildren(...options);
+    select.value = state.originalLanguage;
   }
 
   function updateThemeOptions() {
@@ -1110,7 +1131,7 @@
     const discoveryFilter = Boolean(discovery?.isDiscoveryFilter(state.theme));
     const paidFilter = state.scope === "paid";
     const chronologicalSort = Boolean(publication?.isChronologicalSort(state.sort));
-    const clientFilter = discoveryFilter || paidFilter || chronologicalSort;
+    const clientFilter = discoveryFilter || paidFilter || chronologicalSort || Boolean(state.originalLanguage);
     if (append && clientFilter && state.discoveryWorks) {
       state.works = state.discoveryWorks.slice(0, previousCount + 24);
       state.nextCursor = state.works.length < state.discoveryWorks.length ? String(state.works.length) : null;
@@ -1180,9 +1201,10 @@
         }
         const unique = [...new Map(works.map(work => [work.id, work])).values()];
         const selected = discoveryFilter ? discovery.selectWorks(unique, state.theme, state.sort === "curated") : unique;
-        const filtered = paidFilter ? selected.filter(work => pricing?.forWork(work)) : selected;
+        const priced = paidFilter ? selected.filter(work => pricing?.forWork(work)) : selected;
+        const filtered = originalLanguage.selectWorks(priced, state.originalLanguage);
         state.discoveryWorks = chronologicalSort ? publication.sortWorks(filtered, state.sort) : filtered;
-        state.topAvailabilityKnown = state.scope === "all" && !state.query && !state.media && !state.audience;
+        state.topAvailabilityKnown = state.scope === "all" && !state.query && !state.media && !state.audience && !state.originalLanguage;
         state.topMissing = state.topAvailabilityKnown ? discovery.missingEntries(unique, state.theme) : [];
         state.works = state.discoveryWorks.slice(0, 24);
         state.total = state.discoveryWorks.length;
@@ -1198,6 +1220,7 @@
 
       }
       updateThemeOptions();
+      updateOriginalLanguageOptions(works);
       renderWorks();
       if (append) focusWorkCard(elements["library-work-grid"].children[previousCount]);
     } catch (error) {
@@ -1247,12 +1270,12 @@
     closeDetail(false);
     state.scope = "all";
     state.query = text(query).slice(0, 200);
-    state.media = state.theme = state.audience = "";
+    state.media = state.theme = state.audience = state.originalLanguage = "";
     syncAudienceControl();
     state.sort = "newest";
     elements["library-search-input"].value = state.query;
     elements["library-search-clear"].hidden = !state.query;
-    ["theme"].forEach(key => {
+    ["theme", "original-language"].forEach(key => {
       elements[`library-${key}-filter`].value = "";
     });
     elements["library-sort"].value = "newest";
@@ -1271,10 +1294,12 @@
     state.media = "";
     state.theme = "";
     state.audience = "";
+    state.originalLanguage = "";
     syncAudienceControl();
     elements["library-search-input"].value = "";
     elements["library-search-clear"].hidden = true;
     elements["library-theme-filter"].value = "";
+    elements["library-original-language-filter"].value = "";
     document.querySelectorAll("[data-media]").forEach((button) => {
       const selected = button.dataset.media === "";
       button.classList.toggle("is-active", selected);
@@ -1376,6 +1401,7 @@
     const values = [
       ["Teostyyppi", work.managedExample ? "SkriptLab-esimerkki" : (work.shared ? "Jaettu teos" : "")],
       ["Kieli", languageLabel(work.language)],
+      ["Alkukieli", work.originalLanguages.map(originalLanguage.label).join(", ") || "Ei tiedossa"],
       ["Alkuteoksen ilmestymisaika", work.originalPublication?.label || ""],
       ["Lukuja", work.chapterCount ? String(work.chapterCount) : ""],
       ["Arvioitu lukuaika", readingTimeLabel(work).replace("Lukuaika noin ", "")],
@@ -3369,6 +3395,10 @@
       if (discovery?.listFor(state.theme) && !publication?.isChronologicalSort(state.sort)) state.sort = "curated";
       loadWorks();
     });
+    elements["library-original-language-filter"].addEventListener("change", () => {
+      state.originalLanguage = elements["library-original-language-filter"].value;
+      loadWorks();
+    });
     document.querySelectorAll("[data-audience]").forEach((button) => {
       button.addEventListener("click", () => {
         state.audience = state.audience === button.dataset.audience ? "" : button.dataset.audience;
@@ -3616,6 +3646,7 @@
   async function boot() {
     collectElements();
     updateThemeOptions();
+    updateOriginalLanguageOptions();
     let catalogView = "cards";
     try { catalogView = localStorage.getItem(CATALOG_VIEW_KEY); } catch (_error) { /* Use the default view. */ }
     setCatalogView(catalogView, false);
