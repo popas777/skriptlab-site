@@ -1,0 +1,47 @@
+:root { color-scheme: light; font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #252f2b; background: #f8f7f2; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+main, .brand { max-width: 72rem; margin: auto; padding: clamp(1.25rem, 5vw, 4rem); }
+header { max-width: 45rem; margin-bottom: 2rem; }
+h1, h2, h3, .brand { font-family: "Cormorant Garamond", Georgia, serif; font-weight: 500; }
+h1 { font-size: clamp(2.6rem, 7vw, 4.5rem); line-height: 1.05; letter-spacing: -.045em; margin: 0 0 .8rem; }
+h2 { font-size: 1.9rem; margin: 0; }
+h3 { font-size: 1.35rem; margin: 1.7rem 0 .6rem; }
+header p { margin: 0; max-width: 39rem; font-size: 1.06rem; line-height: 1.6; color: #505b54; }
+#detector { max-width: 55rem; min-width: 0; }
+form, #assessment { background: #fffefb; border: 1px solid #d6dbd2; padding: clamp(1.15rem, 3vw, 2rem); border-radius: .85rem; }
+.form-heading, .form-meta, .actions { display: flex; align-items: center; gap: 1rem; }
+.form-heading, .form-meta { justify-content: space-between; }
+.form-heading { padding-bottom: 1.2rem; border-bottom: 1px solid #e2e5df; margin-bottom: 1.25rem; }
+.form-heading span { font-size: .85rem; color: #33533f; }
+label { font-weight: 650; }
+.hint, small, .form-meta, .status { font-size: .9rem; color: #505b54; line-height: 1.5; }
+.hint { margin: .35rem 0 .8rem; }
+textarea { display: block; width: 100%; resize: vertical; min-height: 10rem; padding: 1rem; border-radius: .45rem; background: #fdfcf8; border: 1px solid #99a79a; color: inherit; font: inherit; line-height: 1.6; }
+:focus-visible { outline: 3px solid #34664d; outline-offset: 3px; }
+.form-meta { margin: .35rem 0 1.25rem; }
+button { font: inherit; cursor: pointer; }
+button[type=submit] { border: none; border-radius: .45rem; color: white; background: #254939; padding: .78rem 1.45rem; font-weight: 650; }
+button[type=submit]:hover:enabled { background: #153828; }
+button[type=submit]:disabled { background: #e0e5de; color: #556254; cursor: default; }
+.clear { color: #355640; padding: .45rem; border: 0; background: transparent; text-decoration: underline; }
+.clear:disabled { visibility: hidden; }
+.status:empty { display: none; }
+.status { margin: 1rem 0 0; }
+#assessment { margin-top: 1.5rem; border-top: .25rem solid #3c624c; overflow-wrap: anywhere; }
+#assessment p { line-height: 1.65; }
+#assessment ul, #assessment ol { list-style: none; padding: 0; }
+#assessment li { padding: .8rem 0; border-top: 1px solid #e3e5dd; }
+#assessment li span { display: inline-block; margin-left: .75rem; color: #4b6553; font-size: .9rem; }
+#assessment li small { display: block; margin-top: .3rem; }
+blockquote { margin: .6rem 0; padding-left: .8rem; border-left: 2px solid #b7c5b6; font: 1.04rem/1.5 Georgia, serif; }
+summary { padding: .6rem 0; cursor: pointer; color: #305741; font-weight: 600; }
+.brand { border-bottom: 1px solid #d8dcd2; padding-top: 1.1rem; padding-bottom: 1.1rem; font-size: 1.65rem; }
+.brand a { color: inherit; text-decoration: none; }
+.public-layout { display: grid; gap: clamp(1.25rem, 3vw, 3rem); grid-template-columns: minmax(0, 2.3fr) minmax(15rem, 1fr); align-items: start; }
+aside { border-top: 2px solid #526a57; padding-top: 1rem; }
+aside h2 { font-size: 1.45rem; }
+aside h3 { margin: 1.4rem 0 .4rem; }
+aside p { color: #515b53; line-height: 1.55; margin: .3rem 0 1.4rem; }
+aside p + h3 { padding-top: 1.15rem; border-top: 1px solid #d8dcd2; }
+@media (max-width: 720px) { .public-layout { grid-template-columns: 1fr; } .actions { align-items: flex-start; flex-direction: column; } }

@@ -805,7 +805,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const biographyViews = new Set(['view-kirjani', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-ai-tyonkulku', 'view-viimeistely', 'view-korjaukset', 'view-elamakerta', 'view-oikoluku', 'view-kuvitus', 'view-notebooklm', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-markkinointi', 'view-audio', 'view-video', 'view-3d-studio', 'view-julkaisupaketti', 'view-julkaise']);
     const basicHiddenViews = new Set(['view-skill', 'view-notebooklm']);
     const basicCoreViews = new Set([
-        'view-kirjani', 'view-analyysi', 'view-kehityseditointi',
+        'view-kirjani', 'view-analyysi', 'view-ai-tunnistin', 'view-kehityseditointi',
         'view-kirjoita-editoi', 'view-mobiilieditori', 'view-oikoluku',
         'view-kaannoksen-viimeistely', 'view-kuvitus',
         'view-taitto', 'view-tuotetiedot', 'view-julkaisupaketti',
@@ -814,6 +814,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     const accessModuleViews = {
         manuscripts: ['view-kirjani'],
         analysis: ['view-analyysi'],
+        ai_detector: ['view-ai-tunnistin'],
         skill: ['view-skill'],
         development_editing: ['view-kehityseditointi'],
         write_edit: ['view-kirjoita-editoi'],
