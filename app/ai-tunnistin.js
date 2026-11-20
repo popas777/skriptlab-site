@@ -4,12 +4,13 @@
   formArea.innerHTML = `
     <form autocomplete="off">
       <div class="form-heading"><h2>Pika-arvio</h2><span>Maksuton</span></div>
+      <p class="hint">Tilastollinen arvio on suuntaa antava. Jos haluat selvittää, miten teksti on syntynyt, tarkista myös luonnokset ja versiohistoria.</p>
       <label for="sample">Arvioitava teksti</label>
       <p class="hint" id="requirements">Liitä vähintään 1 000 sanaa suomenkielistä tekstiä. Enimmäiskoko on 500 kt.</p>
       <textarea id="sample" rows="9" spellcheck="false" aria-describedby="requirements word-count" placeholder="Liitä teksti tähän…"></textarea>
       <div class="form-meta"><span id="word-count">0 sanaa</span><button type="button" class="clear" disabled>Tyhjennä</button></div>
-      <div class="actions"><button type="submit" disabled>Arvioi teksti</button>
-        <small>Teksti käsitellään SkriptLabin palvelimella muistissa.</small></div>
+      <div class="actions"><button type="submit" aria-describedby="sample-privacy" disabled>Arvioi teksti</button>
+        <small id="sample-privacy">Pika-arviossa tekstisi käsitellään SkriptLabin Euroopassa sijaitsevan palvelimen muistissa. Tekstiä ei tallenneta.</small></div>
       <p class="status" role="status"></p>
     </form>
     <section id="assessment" aria-labelledby="assessment-title" hidden tabindex="-1"></section>`;
@@ -57,7 +58,8 @@
     const heading = element('h2', 'Tekstin pika-arvio');
     heading.id = 'assessment-title';
     result.replaceChildren(heading, element('p', report.summary));
-    result.append(element('small', 'Sääntöpohjainen arvio · ' + format.format(report.words) + ' sanaa. Tekijyyttä ei voi varmistaa pelkästä tekstistä.'));
+    result.append(element('small', 'Sääntöpohjainen arvio · ' + format.format(report.words) + ' sanaa.'));
+    result.append(element('p', 'Tilastollinen arvio on suuntaa antava. Pelkästä tekstistä ei voi varmuudella päätellä, onko tekoälyä käytetty tai miten sitä on käytetty.'));
     if (report.translation) result.append(element('p', 'Mukana on englannista kääntämiseen sopivia rakenteita. Käännöksen tekotapa jää avoimeksi.'));
     if (report.observations.length) {
       result.append(element('h3', 'Mihin arvio perustuu?'));
@@ -89,6 +91,8 @@
     }
     details.append(lines);
     result.append(details);
+    result.append(element('h3', 'Miten voit selvittää tekstin kirjoitustapaa?'),
+      element('p', 'Vertaa raportissa esiin nousseita kohtia päivättyihin luonnoksiin ja asiakirjan versiohistoriaan. Niistä voit nähdä, milloin kohta lisättiin ja miten se muuttui. Jos muutoksen syy jää avoimeksi, pyydä kirjoittajaa kertomaan, mitä työkaluja hän käytti siinä työvaiheessa.'));
     result.hidden = false;
     result.focus();
   }
