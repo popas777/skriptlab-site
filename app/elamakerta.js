@@ -23,17 +23,10 @@
     timeline_note: "Aikajanamerkintä",
   };
 
-  const STEPS = [
-    { id: "start", label: "Aloitus", done: (state) => Boolean(state.purpose || state.interview_sessions.length || state.materials.length) },
-    { id: "interview", label: "Haastattelu", done: (state) => answeredQuestionCount(state) > 0 },
-    { id: "materials", label: "Aineisto", done: (state) => state.materials.length > 0 },
-    { id: "outline", label: "Rakenne", done: (state) => Boolean(state.analysis_report || state.outline) },
-    { id: "chapters", label: "Luvut", done: (state) => state.chapters.some((chapter) => chapter.draft.trim()) },
-    { id: "manuscript", label: "Käsikirjoitus", done: (state) => Boolean(state.manuscript_text.trim()) },
-  ];
-  const STEP_IDS = new Set(STEPS.map((step) => step.id));
+  const FREE_TOPIC = "Oma aihe";
+  const STEP_IDS = new Set(["interview", "materials", "outline", "chapters", "manuscript"]);
   const STEP_ALIASES = {
-    aloitus: "start", tavoite: "start", haastattelu: "interview", kysymykset: "interview",
+    start: "interview", aloitus: "interview", tavoite: "interview", haastattelu: "interview", kysymykset: "interview",
     aineisto: "materials", analyysi: "outline", rakenne: "outline", luvut: "chapters",
     kirjoitus: "chapters", kasikirjoitus: "manuscript", "käsikirjoitus": "manuscript",
     hyvaksynnat: "manuscript",
@@ -43,41 +36,36 @@
       "Mikä hetki kuvaa päähenkilöä kaikkein parhaiten?",
       "Millainen oli paikka, jossa päähenkilö kasvoi?",
       "Kuka vaikutti hänen elämäänsä ratkaisevasti?",
-      "Mikä käänne muutti hänen elämänsä suunnan?",
+      "Miltä hänen tavallinen arkipäivänsä näytti?",
+      "Mikä esine muistuttaa sinua hänestä?",
+      "Milloin näit hänen muuttavan mielensä?",
+      "Mihin hän palasi yhä uudelleen?",
+      "Mitä hän opetti esimerkillään?",
+      "Millainen oli hänen tapansa juhlia?",
     ],
     autobiography: [
       "Kerro hetkestä, jota et koskaan unohda.",
       "Millainen oli paikka, jossa kasvoit?",
       "Kuka ihminen muutti sinua ja miten?",
-      "Milloin tunsit ensimmäisen kerran olevasi omalla tielläsi?",
+      "Millainen ääni vie sinut takaisin lapsuuteen?",
+      "Mitä muistat ensimmäisestä työpäivästäsi?",
+      "Mikä esine on kulkenut mukanasi pitkään?",
+      "Minkä tavan olet oppinut läheiseltäsi?",
+      "Miltä tuntui muuttaa uuteen kotiin?",
+      "Millaisen aterian muistat vieläkin?",
     ],
     first_person_guide: [
       "Mikä oma kokemuksesi sai sinut kirjoittamaan tämän oppaan?",
       "Mitä olisit itse halunnut tietää aloittaessasi?",
       "Millainen tilanne havainnollistaa menetelmääsi parhaiten?",
       "Mikä virhe opetti sinulle kaikkein eniten?",
+      "Kuka auttoi sinua eteenpäin?",
+      "Mitä harjoittelit monta kertaa?",
+      "Milloin huomasit edistyneesi?",
+      "Mikä neuvo jäi mieleesi?",
+      "Mitä tekisit nyt toisin?",
     ],
   };
-  const MODE_STARTERS = {
-    life_story: {
-      third_person: [
-        { label: "Ratkaiseva hetki", question: "Mikä hetki kuvaa päähenkilöä kaikkein parhaiten?", icon: "star" },
-        { label: "Paikka, jossa hän kasvoi", question: "Millainen oli paikka, jossa päähenkilö kasvoi?", icon: "map-pin" },
-        { label: "Hänelle tärkeä ihminen", question: "Kuka vaikutti hänen elämäänsä ratkaisevasti?", icon: "user" },
-      ],
-      first_person: [
-        { label: "Hetki, jota en unohda", question: "Kerro hetkestä, jota et koskaan unohda.", icon: "star" },
-        { label: "Paikka, jossa kasvoin", question: "Millainen oli paikka, jossa kasvoit?", icon: "map-pin" },
-        { label: "Ihminen, joka muutti minua", question: "Kuka ihminen muutti sinua ja miten?", icon: "user" },
-      ],
-    },
-    first_person_guide: [
-      { label: "Miksi opetan tätä", question: "Mikä oma kokemuksesi sai sinut kirjoittamaan tämän oppaan?", icon: "compass" },
-      { label: "Mitä olisin halunnut tietää", question: "Mitä olisit itse halunnut tietää aloittaessasi?", icon: "lightbulb" },
-      { label: "Kokemus käytännössä", question: "Millainen tilanne havainnollistaa menetelmääsi parhaiten?", icon: "path" },
-    ],
-  };
-
   const TRANSCRIPTION_LANGUAGE_CODE = "fi-FI";
   const TRANSCRIPTION_SAMPLE_RATE = 16000;
   const MAX_RECORDING_SECONDS = 10 * 60;
@@ -98,7 +86,11 @@
   let projects = [];
   let activeProject = null;
   let activeProjectId = null;
-  let selectedSessionId = null;
+  let projectReady = false;
+  let switchingProject = false;
+  let savingMemory = false;
+  let promptPage = 0;
+  let selectedNoteId = null;
   let selectedChapterId = null;
   let editingMaterialId = null;
   let saveTimer = null;
@@ -198,8 +190,8 @@
     return {
       project_mode: "autobiography",
       narrative_perspective: "first_person",
-      active_step: "start",
-      current_question: "Kerro hetkestä, jota et koskaan unohda.",
+      active_step: "interview",
+      current_question: FREE_TOPIC,
       interview_draft: "",
       interview_sessions: [],
       chapters: [],
@@ -265,9 +257,10 @@
     return perspective === "third_person" ? "biography" : "autobiography";
   }
 
-  function starterQuestionsForState(state) {
-    if (state.project_mode === "first_person_guide") return MODE_STARTERS.first_person_guide;
-    return MODE_STARTERS.life_story[state.narrative_perspective] || MODE_STARTERS.life_story.first_person;
+  function promptChoices(state, page) {
+    const presets = MODE_PRESETS[state.project_mode] || MODE_PRESETS.autobiography;
+    const start = (page * 3) % presets.length;
+    return presets.slice(start, start + 3);
   }
 
   function applyNarrativePerspective(state, perspective) {
@@ -418,7 +411,7 @@
   function normalizeStep(value) {
     const raw = String(value || "start").trim().toLowerCase();
     const normalized = STEP_ALIASES[raw] || raw;
-    return STEP_IDS.has(normalized) ? normalized : "start";
+    return STEP_IDS.has(normalized) ? normalized : "interview";
   }
 
   function normalizeAnswer(value) {
@@ -474,10 +467,23 @@
 
   function normalizeLoadedBiographyState(raw) {
     const state = normalizeBiographyState(raw);
-    return {
-      state,
-      migrated: migrateLegacyAnswersToInterview(state, raw?.answers, raw?.updated_at),
-    };
+    let migrated = migrateLegacyAnswersToInterview(state, raw?.answers, raw?.updated_at);
+    // Some older sessions contain answers without corresponding notebook entries.
+    const key = (sessionId, question, text) => JSON.stringify([sessionId, question, text]);
+    const existing = new Set(state.materials.map((item) => key(item.session_id, item.question, item.text)));
+    for (const session of state.interview_sessions) {
+      for (const answer of session.answers) {
+        const identity = key(session.id, answer.question, answer.text);
+        if (existing.has(identity)) continue;
+        state.materials.push(normalizeMaterial({
+          id: stableId("material"), kind: "interview_answer", title: truncate(answer.question || answer.text, 72),
+          session_id: session.id, question: answer.question, text: answer.text, created_at: answer.created_at,
+        }, state.materials.length));
+        existing.add(identity);
+        migrated = true;
+      }
+    }
+    return { state, migrated };
   }
 
   function normalizeChapter(value, index) {
@@ -534,7 +540,7 @@
       state.project_mode = internalLifeStoryMode(state.narrative_perspective);
     }
     state.active_step = normalizeStep(source.active_step);
-    state.current_question = String(source.current_question || MODE_PRESETS[state.project_mode][0]);
+    state.current_question = String(source.current_question || FREE_TOPIC);
     state.materials = (Array.isArray(source.materials) ? source.materials : [])
       .filter((item) => item && (item.text || item.title))
       .map(normalizeMaterial);
@@ -728,6 +734,7 @@
     if (initial) rememberProject(initial, Boolean(explicitId && String(initial.id) === explicitId));
     renderProjectMenu();
     if (!initial) {
+      $("project-notice").textContent = "Valitse ylävalikosta projekti tai luo uusi elämäkerta.";
       biographyState = defaultBiographyState();
       render();
       setSaveStatus("Valitse tai luo projekti", "error");
@@ -735,45 +742,61 @@
   }
 
   async function selectProject(project, options) {
-    if (!project?.id) return;
+    if (!project?.id || savingMemory) return;
+    if (hasMaterialEdits() && !options?.discardEdit && !window.confirm("Hylätäänkö muiston keskeneräinen muokkaus ja vaihdetaan projektia?")) return;
     const selectionRevision = ++projectSelectionRevision;
-    await cancelActiveTranscription();
-    await waitForActiveMaterialImportConfirmation();
-    await abandonPendingMaterialImports();
-    await flushPendingSave();
-    if (selectionRevision !== projectSelectionRevision) return null;
-    setSaveStatus("Ladataan projektia…", "saving");
-    let response;
+    switchingProject = true;
+    updateWorkspaceAccess();
     try {
-      response = await apiGetState(String(project.id));
-    } catch (error) {
-      setSaveStatus("Projektin vaihto epäonnistui", "error");
-      toast(error.message || "Projektin vaihto epäonnistui.");
-      throw error;
-    }
-    if (selectionRevision !== projectSelectionRevision) return null;
-    const loaded = normalizeLoadedBiographyState(response.data);
-    clearMaterialAssetPreviews();
-    rememberProject(project, Boolean(options?.keepExplicitQuery));
-    biographyState = loaded.state;
-    selectedSessionId = null;
-    selectedChapterId = null;
-    resetMaterialForm();
-    closeProjectMenu();
-    render();
-    if (loaded.migrated) {
-      scheduleSave();
+      await cancelActiveTranscription();
+      await waitForActiveMaterialImportConfirmation();
+      await abandonPendingMaterialImports();
       await flushPendingSave();
-    } else {
-      setSaveStatus("Tallennettu automaattisesti", "saved");
+      if (selectionRevision !== projectSelectionRevision) return null;
+      setSaveStatus("Ladataan projektia…", "saving");
+      let response;
+      try {
+        response = await apiGetState(String(project.id));
+      } catch (error) {
+        setSaveStatus("Projektin vaihto epäonnistui", "error");
+        toast(error.message || "Projektin vaihto epäonnistui.");
+        throw error;
+      }
+      if (selectionRevision !== projectSelectionRevision) return null;
+      const loaded = normalizeLoadedBiographyState(response.data);
+      clearMaterialAssetPreviews();
+      rememberProject(project, Boolean(options?.keepExplicitQuery));
+      biographyState = loaded.state;
+      projectReady = true;
+      promptPage = 0;
+      selectedNoteId = null;
+      $("note-search").value = "";
+      $("transcription-panel").hidden = true;
+      $("start-speaking").setAttribute("aria-expanded", "false");
+      selectedChapterId = null;
+      resetMaterialForm();
+      closeProjectMenu();
+      render();
+      if (loaded.migrated) {
+        scheduleSave();
+        await flushPendingSave();
+      } else {
+        setSaveStatus("Tallennettu automaattisesti", "saved");
+      }
+      if (selectionRevision !== projectSelectionRevision || String(project.id) !== String(getProjectId() || "")) return null;
+      renderProjectMenu();
+      if (options?.notifyParent) notifyParentOfProject(project);
+    } finally {
+      if (selectionRevision === projectSelectionRevision) {
+        switchingProject = false;
+        updateWorkspaceAccess();
+      }
     }
-    if (selectionRevision !== projectSelectionRevision || String(project.id) !== String(getProjectId() || "")) return null;
-    renderProjectMenu();
-    if (options?.notifyParent) notifyParentOfProject(project);
   }
 
   async function createProject(event) {
     event.preventDefault();
+    if (hasMaterialEdits() && !window.confirm("Hylätäänkö muiston keskeneräinen muokkaus ja luodaan uusi projekti?")) return;
     const input = $("new-project-title");
     const title = uniqueProjectTitle(input.value);
     const submit = event.currentTarget.querySelector("button[type='submit']");
@@ -789,7 +812,7 @@
       await apiSaveState(initialState, String(project.id));
       projects.unshift(project);
       input.value = "";
-      await selectProject(project, { notifyParent: true });
+      await selectProject(project, { notifyParent: true, discardEdit: true });
       toast(`Projekti “${title}” luotiin.`);
     } catch (error) {
       toast(error.message || "Projektin luonti epäonnistui.");
@@ -829,10 +852,6 @@
   function truncate(value, maximum) {
     const text = String(value || "").trim();
     return text.length > maximum ? `${text.slice(0, maximum).trimEnd()}…` : text;
-  }
-
-  function answeredQuestionCount(state) {
-    return state.interview_sessions.reduce((total, session) => total + session.answers.length, 0);
   }
 
   function setControlValue(id, value) {
@@ -1357,6 +1376,8 @@
     entries.forEach((entry) => revokePreviewUrl(entry.previewUrl));
     pendingMaterialImports = [];
     closeMaterialImport();
+    $("note-search").value = "";
+    selectedNoteId = entries[0]?.material.id;
     showStep("materials", { save: false });
     renderMaterials();
     toast(recoveredAfterSaveError
@@ -1369,8 +1390,6 @@
 
   function render() {
     renderHeader();
-    renderJourney();
-    renderMode();
     renderProgress();
     renderInterview();
     renderMaterials();
@@ -1382,7 +1401,7 @@
   }
 
   function renderHeader() {
-    $("current-project-title").textContent = activeProject?.title || biographyState.manuscript_title || "Minun tarinani";
+    $("current-project-title").textContent = activeProject?.title || "Valitse projekti";
   }
 
   function renderProjectMenu() {
@@ -1418,182 +1437,101 @@
   }
 
   function renderJourney() {
-    const path = $("path-list");
-    path.replaceChildren();
-    STEPS.forEach((step, index) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "journey-step";
-      if (biographyState.active_step === step.id) button.classList.add("is-active");
-      if (step.done(biographyState)) button.classList.add("is-complete");
-      button.setAttribute("aria-current", biographyState.active_step === step.id ? "step" : "false");
-      const number = document.createElement("span");
-      number.className = "journey-number";
-      number.textContent = String(index + 1);
-      const label = document.createElement("span");
-      label.className = "journey-label";
-      label.textContent = step.label;
-      button.append(number, label);
-      button.addEventListener("click", () => showStep(step.id));
-      path.appendChild(button);
-    });
-  }
-
-  function renderMode() {
-    const visibleMode = visibleProjectMode(biographyState);
-    document.querySelectorAll("[data-mode]").forEach((button) => {
-      const active = button.dataset.mode === visibleMode;
-      button.classList.toggle("is-active", active);
-      button.setAttribute("aria-pressed", String(active));
-    });
-    const starters = starterQuestionsForState(biographyState);
-    document.querySelectorAll("[data-prompt]").forEach((button, index) => {
-      const starter = starters[index];
-      if (!starter) return;
-      button.dataset.prompt = starter.question;
-      const label = button.querySelector("span");
-      const icon = button.querySelector("i");
-      if (label) label.textContent = starter.label;
-      if (icon) icon.className = `ph ph-${starter.icon}`;
+    const step = normalizeStep(biographyState.active_step);
+    const book = !["interview", "materials"].includes(step);
+    $("book-nav").hidden = !book;
+    document.querySelectorAll("#path-list button, #book-nav button").forEach((button) => {
+      const active = button.dataset.stepLink === step || (book && button.dataset.stepLink === "materials");
+      if (active) button.setAttribute("aria-current", "page");
+      else button.removeAttribute("aria-current");
     });
   }
 
   function renderProgress() {
-    const answered = answeredQuestionCount(biographyState);
-    const drafted = biographyState.chapters.filter((chapter) => chapter.draft.trim()).length;
-    $("answered-count").textContent = String(answered);
-    $("memory-count").textContent = String(biographyState.materials.length);
-    $("chapter-count").textContent = String(drafted);
     $("outline-material-count").textContent = String(biographyState.materials.length);
     $("manuscript-chapter-count").textContent = String(biographyState.chapters.length);
     const words = biographyState.manuscript_text.trim() ? biographyState.manuscript_text.trim().split(/\s+/u).length : 0;
     $("manuscript-word-count").textContent = String(words);
-    const latest = [...biographyState.interview_sessions].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))[0];
-    $("latest-session-date").textContent = latest ? formatDate(latest.updated_at, true) : "Ei istuntoja vielä";
-    $("latest-session-meta").textContent = latest ? `${latest.answers.length} vastausta tallennettu` : "Aloita ensimmäinen haastattelu";
-  }
-
-  function currentSession() {
-    return biographyState.interview_sessions.find((session) => session.id === selectedSessionId) || null;
-  }
-
-  function ensureSession() {
-    let session = currentSession();
-    if (session) return session;
-    session = biographyState.interview_sessions[biographyState.interview_sessions.length - 1] || null;
-    if (session) {
-      selectedSessionId = session.id;
-      return session;
-    }
-    return addSession();
-  }
-
-  function addSession() {
-    const now = new Date().toISOString();
-    const session = {
-      id: stableId("session"),
-      title: `Istunto ${biographyState.interview_sessions.length + 1}`,
-      questions: [], answers: [], started_at: now, completed_at: "", updated_at: now,
-    };
-    biographyState.interview_sessions.push(session);
-    selectedSessionId = session.id;
-    biographyState.current_question = nextPresetQuestion();
-    renderInterview();
-    renderProgress();
-    scheduleSave();
-    return session;
   }
 
   function renderInterview() {
-    $("current-question").textContent = biographyState.current_question || MODE_PRESETS[biographyState.project_mode][0];
-    setControlValue("m-text", biographyState.interview_draft);
-    const list = $("session-list");
-    list.replaceChildren();
-    $("session-count").textContent = String(biographyState.interview_sessions.length);
-    if (!biographyState.interview_sessions.length) {
-      const empty = document.createElement("p");
-      empty.className = "empty-note";
-      empty.textContent = "Ensimmäinen istunto syntyy, kun tallennat vastauksen.";
-      list.appendChild(empty);
-      return;
-    }
-    if (!selectedSessionId || !biographyState.interview_sessions.some((session) => session.id === selectedSessionId)) {
-      selectedSessionId = biographyState.interview_sessions[biographyState.interview_sessions.length - 1].id;
-    }
-    biographyState.interview_sessions.slice().reverse().forEach((session) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = `session-button${session.id === selectedSessionId ? " is-active" : ""}`;
-      const title = document.createElement("strong");
-      title.textContent = session.title;
-      const meta = document.createElement("span");
-      meta.textContent = `${formatDate(session.updated_at, false)} · ${session.answers.length} vastausta`;
-      button.append(title, meta);
-      button.addEventListener("click", () => { selectedSessionId = session.id; renderInterview(); });
-      list.appendChild(button);
+    const choices = promptChoices(biographyState, promptPage);
+    const question = biographyState.current_question;
+    document.querySelectorAll("[data-prompt]").forEach((button, index) => {
+      button.dataset.prompt = choices[index];
+      button.querySelector("span").textContent = choices[index];
+      button.setAttribute("aria-pressed", String(choices[index] === question));
     });
+    $("own-topic").setAttribute("aria-pressed", String(question === FREE_TOPIC));
+    const context = $("draft-question");
+    context.hidden = question === FREE_TOPIC || choices.includes(question);
+    context.textContent = context.hidden ? "" : question;
+    setControlValue("m-text", biographyState.interview_draft);
+    $("m-text").setAttribute("aria-describedby", context.hidden ? "" : "draft-question");
+  }
+
+  function notebookMatches(materials, query) {
+    const words = query.trim().toLocaleLowerCase("fi").split(/\s+/u).filter(Boolean);
+    return materials.slice().reverse().filter((item) => {
+      if (!words.length) return true;
+      const haystack = [item.title, item.text, item.question, item.source_filename, MATERIAL_KINDS[item.kind]]
+        .join(" ").toLocaleLowerCase("fi");
+      return words.every((word) => haystack.includes(word));
+    }).sort((a, b) => (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0));
   }
 
   function renderMaterials() {
     const list = $("material-list");
+    const matches = notebookMatches(biographyState.materials, $("note-search").value);
+    const selected = matches.find((item) => item.id === selectedNoteId) || matches[0];
+    selectedNoteId = selected?.id || null;
     list.replaceChildren();
-    $("material-count").textContent = String(biographyState.materials.length);
-    if (!biographyState.materials.length) {
-      const item = document.createElement("li");
-      item.className = "empty-note";
-      item.textContent = "Aineisto on vielä tyhjä. Aloita haastattelusta tai lisää ensimmäinen muisto.";
-      list.appendChild(item);
-      return;
-    }
-    biographyState.materials.slice().reverse().forEach((material) => {
-      const item = document.createElement("li");
-      item.className = "material-item";
-      const content = document.createElement("div");
-      const kind = document.createElement("span");
-      kind.className = "kind";
-      kind.textContent = MATERIAL_KINDS[material.kind] || "Aineisto";
-      const title = document.createElement("h3");
+    for (const material of matches) {
+      const row = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.noteId = material.id;
+      if (material.id === selectedNoteId) button.setAttribute("aria-current", "true");
+      const date = document.createElement("small");
+      date.textContent = formatDate(material.created_at, false);
+      const title = document.createElement("span");
       title.textContent = material.title;
-      const text = document.createElement("p");
-      text.textContent = truncate(material.text, 260) || material.source_filename || "Ei kuvausta vielä.";
-      content.append(kind, title);
-      if (material.kind === "photo_note" && material.asset_id) {
-        const figure = document.createElement("figure");
-        figure.className = "material-image-preview";
-        const image = document.createElement("img");
-        image.alt = material.title ? `Lähdekuva: ${material.title}` : "Lähdekuva";
-        image.dataset.materialAssetPreview = String(material.asset_id);
-        figure.appendChild(image);
-        content.appendChild(figure);
-      }
-      content.appendChild(text);
-      const actions = document.createElement("div");
-      actions.className = "material-actions";
-      const edit = document.createElement("button");
-      edit.type = "button";
-      edit.className = "icon-button";
-      edit.setAttribute("aria-label", `Muokkaa ${material.title}`);
-      edit.title = "Muokkaa muistoa";
-      const editIcon = document.createElement("i");
-      editIcon.className = "ph ph-pencil-simple";
-      editIcon.setAttribute("aria-hidden", "true");
-      edit.appendChild(editIcon);
-      edit.addEventListener("click", () => startMaterialEdit(material.id));
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.className = "icon-button danger-outline";
-      remove.setAttribute("aria-label", `Poista ${material.title}`);
-      remove.title = "Poista muisto";
-      const icon = document.createElement("i");
-      icon.className = "ph ph-trash";
-      icon.setAttribute("aria-hidden", "true");
-      remove.appendChild(icon);
-      remove.addEventListener("click", () => removeMaterial(material.id, remove));
-      actions.append(edit, remove);
-      item.append(content, actions);
-      list.appendChild(item);
-    });
-    hydrateMaterialAssetPreviews();
+      button.append(date, title);
+      row.appendChild(button);
+      list.appendChild(row);
+    }
+    $("note-count").textContent = matches.length === 1 ? "1 muisto" : `${matches.length} muistoa`;
+    const hasNotes = biographyState.materials.length > 0;
+    $("notebook-empty").hidden = Boolean(selected);
+    $("notebook-empty").textContent = hasNotes ? "Haulla ei löytynyt muistoja." : "Ensimmäinen tallentamasi muisto ilmestyy tähän.";
+    $("first-note").hidden = hasNotes;
+    $("note-reader").hidden = !selected || Boolean(editingMaterialId);
+    if (!selected || editingMaterialId) return;
+    $("note-title").textContent = selected.title;
+    $("note-meta").textContent = ["Tallennettu " + formatDate(selected.created_at, false), selected.source_filename].filter(Boolean).join(" · ");
+    $("note-body").textContent = selected.text;
+    $("note-question").hidden = !selected.question || selected.title === selected.question;
+    $("note-question").textContent = selected.question;
+    const figure = $("note-photo");
+    figure.hidden = !selected.asset_id;
+    figure.classList.remove("is-unavailable");
+    figure.replaceChildren();
+    if (selected.asset_id) {
+      const image = document.createElement("img");
+      image.alt = selected.title;
+      image.dataset.materialAssetPreview = String(selected.asset_id);
+      figure.appendChild(image);
+      hydrateMaterialAssetPreviews();
+    }
+  }
+
+  function updateWorkspaceAccess() {
+    const locked = !projectReady || switchingProject || savingMemory;
+    $("workspace").inert = locked;
+    $("path-list").inert = locked;
+    $("open-settings").disabled = locked;
+    $("project-trigger").disabled = savingMemory;
+    $("project-notice").hidden = projectReady;
   }
 
   function renderOutline() {
@@ -1659,6 +1597,7 @@
   }
 
   function renderSettings() {
+    $("project-mode").value = visibleProjectMode(biographyState);
     setControlValue("f-purpose", biographyState.purpose);
     setControlValue("narrative-perspective", biographyState.narrative_perspective);
     setControlValue("f-style", biographyState.style);
@@ -1672,6 +1611,10 @@
 
   function saveSettings() {
     const selectedPerspective = $("narrative-perspective").value;
+    if ($("project-mode").value !== visibleProjectMode(biographyState)) {
+      applyProjectMode(biographyState, $("project-mode").value);
+      promptPage = 0;
+    }
     document.querySelectorAll("[data-state-field]").forEach((input) => {
       if (input.dataset.stateField === "narrative_perspective") return;
       biographyState[input.dataset.stateField] = input.value;
@@ -1679,7 +1622,6 @@
     if (visibleProjectMode(biographyState) === "life_story") applyNarrativePerspective(biographyState, selectedPerspective);
     else biographyState.narrative_perspective = "first_person";
     closeModals();
-    renderMode();
     renderInterview();
     scheduleSave();
     toast("Asetukset tallennettiin.");
@@ -1694,7 +1636,7 @@
     }
     setSaveStatus("Tallennetaan…", "saving");
     window.clearTimeout(saveTimer);
-    saveTimer = window.setTimeout(saveNow, 750);
+    saveTimer = window.setTimeout(() => saveNow().catch(() => null), 750);
   }
 
   async function saveNow(options) {
@@ -1715,11 +1657,9 @@
         const response = await apiSaveState(snapshot, projectId, { serializedBody, keepalive: canKeepAlive });
         if (projectId !== String(getProjectId()) || revision !== stateRevision) return biographyState;
         const activeStep = biographyState.active_step;
-        const sessionId = selectedSessionId;
         const chapterId = selectedChapterId;
         biographyState = normalizeBiographyState(response.data);
         biographyState.active_step = activeStep;
-        selectedSessionId = sessionId;
         selectedChapterId = chapterId;
         setSaveStatus("Tallennettu automaattisesti juuri nyt", "saved");
         renderJourney();
@@ -1756,7 +1696,7 @@
   }
 
   function handleBeforeUnload(event) {
-    if (!hasPendingPersistence()) return undefined;
+    if (!hasPendingPersistence() && !hasMaterialEdits()) return undefined;
     event.preventDefault();
     event.returnValue = "";
     return "";
@@ -1770,7 +1710,7 @@
       return Promise.resolve(biographyState);
     }
     if (activeLoad?.projectId === projectId) return activeLoad.promise;
-    if (hasPendingPersistence()) return Promise.resolve(biographyState);
+    if (hasPendingPersistence() || savingMemory || switchingProject || editingMaterialId) return Promise.resolve(biographyState);
 
     const requestRevision = stateRevision;
     const requestState = JSON.parse(JSON.stringify(biographyState));
@@ -1786,6 +1726,8 @@
         if (!responseIsCurrent) return biographyState;
         const loaded = normalizeLoadedBiographyState(response.data);
         biographyState = loaded.state;
+        projectReady = true;
+        updateWorkspaceAccess();
         if (!biographyState.manuscript_title) biographyState.manuscript_title = activeProject?.title || "Minun tarinani";
         render();
         if (loaded.migrated) {
@@ -1796,6 +1738,7 @@
         return biographyState;
       } catch (error) {
         if (projectId === String(getProjectId() || "")) {
+          if (!projectReady) $("project-notice").textContent = "Lataus epäonnistui. Valitse projekti uudelleen ylävalikosta.";
           setSaveStatus("Projektin lataus epäonnistui", "error");
           toast(error.message || "Projektin lataus epäonnistui.");
         }
@@ -1810,6 +1753,11 @@
 
   function showStep(stepId, options) {
     const normalized = normalizeStep(stepId);
+    if (normalized !== "materials" && editingMaterialId) {
+      if (hasMaterialEdits() && !window.confirm("Hylätäänkö muiston tallentamattomat muutokset?")) return;
+      resetMaterialForm();
+      renderMaterials();
+    }
     if (normalized !== "interview") cancelRecordingForNavigation();
     biographyState.active_step = normalized;
     document.querySelectorAll(".step-view").forEach((view) => {
@@ -1818,7 +1766,7 @@
       view.classList.toggle("is-active", active);
     });
     renderJourney();
-    if (options?.save !== false) scheduleSave();
+    if (options?.save !== false && projectReady) scheduleSave();
     if (options?.focus !== false) {
       window.scrollTo({ top: 0, behavior: "smooth" });
       const heading = document.querySelector(`#view-${normalized} h1`);
@@ -1826,97 +1774,96 @@
     }
   }
 
-  function setMode(mode) {
-    if (!["life_story", "biography", "autobiography", "first_person_guide"].includes(mode)) return;
-    applyProjectMode(biographyState, mode);
-    renderMode();
-    renderInterview();
-    renderSettings();
-    scheduleSave();
-  }
-
   function selectPrompt(question) {
     biographyState.current_question = question;
-    showStep("interview");
-    window.setTimeout(() => $("m-text").focus(), 50);
-  }
-
-  function nextPresetQuestion() {
-    const presets = MODE_PRESETS[biographyState.project_mode] || MODE_PRESETS.autobiography;
-    const currentIndex = presets.indexOf(biographyState.current_question);
-    return presets[(currentIndex + 1 + presets.length) % presets.length];
+    renderInterview();
+    scheduleSave();
+    $("m-text").focus();
   }
 
   function refreshQuestion() {
-    biographyState.current_question = nextPresetQuestion();
-    $("current-question").textContent = biographyState.current_question;
+    promptPage = (promptPage + 1) % (MODE_PRESETS[biographyState.project_mode].length / 3);
+    if (!biographyState.interview_draft.trim()) biographyState.current_question = FREE_TOPIC;
+    renderInterview();
     scheduleSave();
   }
 
-  async function submitInterviewAnswer() {
+  async function saveMemory() {
     const editor = $("m-text");
-    const text = editor.value.trim();
-    if (!text) {
-      toast("Kirjoita tai litteroi ensin vastaus.");
-      editor.focus();
+    const draft = editor.value;
+    const text = draft.trim();
+    if (!text || !projectReady || savingMemory) {
+      if (!text) { toast("Kirjoita tai sanele ensin muisto."); editor.focus(); }
       return;
     }
-    const question = biographyState.current_question || MODE_PRESETS[biographyState.project_mode][0];
-    const now = new Date().toISOString();
-    const session = ensureSession();
-    appendInterviewAnswerToState(biographyState, {
-      session_id: session.id,
-      question,
-      answer: text,
-      created_at: now,
-    });
-    editor.value = "";
+    savingMemory = true;
+    updateWorkspaceAccess();
+    const question = biographyState.current_question;
+    const note = {
+      id: stableId("material"), title: truncate(text.split(/\r?\n/u)[0], 72), text,
+      kind: "free_text", question: question === FREE_TOPIC ? "" : question, created_at: new Date().toISOString(),
+    };
+    biographyState.materials.push(note);
     biographyState.interview_draft = "";
-    renderInterview();
-    renderMaterials();
-    renderProgress();
+    biographyState.current_question = FREE_TOPIC;
+    scheduleSave();
     try {
       await saveNow();
-      await runAction("interview_followup", { session_id: session.id, question, answer: text }, { showResult: false });
-      toast("Vastaus tallennettiin. Seuraava kysymys on valmis.");
-    } catch (error) {
-      biographyState.current_question = nextPresetQuestion();
+      selectedNoteId = note.id;
+      $("note-search").value = "";
+      editor.value = "";
+      $("transcription-panel").hidden = true;
+      $("start-speaking").setAttribute("aria-expanded", "false");
       renderInterview();
-      scheduleSave();
+      renderMaterials();
+      toast("Muisto tallennettu muistikirjaan.");
+    } catch (error) {
+      biographyState.materials = biographyState.materials.filter((item) => item.id !== note.id);
+      biographyState.interview_draft = draft;
+      biographyState.current_question = question;
+      toast("Tallennus epäonnistui. Tekstisi on yhä kentässä. Yritä uudelleen.");
+    } finally {
+      savingMemory = false;
+      updateWorkspaceAccess();
+      editor.focus();
     }
   }
 
-  function addManualMaterial(event) {
+  async function saveMaterialEdit(event) {
     event.preventDefault();
+    if (!editingMaterialId || savingMemory) return;
     const title = $("material-title").value.trim();
     const text = $("material-text").value.trim();
-    if (!title || !text) return;
-    if (editingMaterialId) {
-      updateMaterialInState(biographyState, editingMaterialId, {
-        title,
-        kind: $("material-kind").value,
-        text,
-      });
-      resetMaterialForm();
-      toast("Muiston muutokset tallennettiin.");
-    } else {
-      biographyState.materials.push({
-        id: stableId("material"), title, kind: $("material-kind").value,
-        text, created_at: new Date().toISOString(), session_id: "", question: "",
-      });
-      event.currentTarget.reset();
-      toast("Muisto lisättiin aineistoon.");
+    if (!title || !text) {
+      toast("Anna muistolle otsikko ja sisältö.");
+      (!title ? $("material-title") : $("material-text")).focus();
+      return;
     }
-    renderMaterials();
-    renderInterview();
-    renderProgress();
+    savingMemory = true;
+    updateWorkspaceAccess();
+    const material = biographyState.materials.find((item) => item.id === editingMaterialId);
+    const original = { ...material };
+    updateMaterialInState(biographyState, editingMaterialId, { title, text, kind: $("material-kind").value });
     scheduleSave();
+    try {
+      await saveNow();
+      resetMaterialForm();
+      $("note-search").value = "";
+      renderMaterials();
+      toast("Muutokset tallennettu.");
+    } catch (error) {
+      updateMaterialInState(biographyState, editingMaterialId, original);
+      toast("Tallennus epäonnistui. Muutoksesi ovat yhä lomakkeessa.");
+    } finally {
+      savingMemory = false;
+      updateWorkspaceAccess();
+      (editingMaterialId ? $("material-title") : $("edit-note")).focus();
+    }
   }
 
   async function removeMaterial(id, trigger) {
-    let material = biographyState.materials.find((item) => item.id === id);
+    const material = biographyState.materials.find((item) => item.id === id);
     if (!material) return false;
-    const visibleIndex = biographyState.materials.slice().reverse().findIndex((item) => item.id === id);
     const linkedWarning = material.kind === "interview_answer" && material.session_id
       ? " Myös haastatteluistunnon vastaus poistetaan."
       : "";
@@ -1927,15 +1874,25 @@
       trigger?.focus();
       return false;
     }
-    if (trigger) trigger.disabled = true;
+    savingMemory = true;
+    updateWorkspaceAccess();
+    try {
+      return await persistMaterialRemoval(id);
+    } finally {
+      savingMemory = false;
+      updateWorkspaceAccess();
+      const nextAction = $("material-list").querySelector('[aria-current="true"]');
+      if (nextAction) nextAction.focus(); else $("first-note").focus();
+    }
+  }
+
+  async function persistMaterialRemoval(id) {
     try {
       await flushPendingSave();
     } catch (error) {
-      if (trigger) trigger.disabled = false;
-      trigger?.focus();
       return false;
     }
-    material = biographyState.materials.find((item) => item.id === id);
+    const material = biographyState.materials.find((item) => item.id === id);
     if (!material) return false;
     const projectId = String(getProjectId() || "");
     const assetId = material.asset_id;
@@ -1963,10 +1920,9 @@
       stateRevision += 1;
       dirtyState = false;
       render();
-      setSaveStatus("Tallennettu automaattisesti", "saved");
+      setSaveStatus(serverState ? "Tallennettu" : "Tallennuksen tila epäselvä", serverState ? "saved" : "error");
       if (!removalPersisted) {
-        toast("Muistoa ei poistettu, koska tallennus epäonnistui.");
-        trigger?.focus();
+        toast(serverState ? "Muiston poisto epäonnistui." : "Poistoa ei voitu varmistaa. Tarkista muisto lataamalla projekti uudelleen.");
         return false;
       }
     }
@@ -1980,10 +1936,6 @@
     } else {
       toast("Muisto poistettiin.");
     }
-    const remainingItems = document.querySelectorAll("#material-list .material-item");
-    const nextItem = remainingItems[Math.min(visibleIndex, remainingItems.length - 1)];
-    const nextAction = nextItem?.querySelector(".icon-button");
-    if (nextAction) nextAction.focus(); else $("material-title")?.focus();
     return true;
   }
 
@@ -1991,6 +1943,11 @@
     const material = biographyState.materials.find((item) => item.id === id);
     if (!material) return;
     editingMaterialId = id;
+    $("note-reader").hidden = true;
+    $("material-form").hidden = false;
+    $("note-search").disabled = true;
+    $("material-list").inert = true;
+    $("materials-import-files").disabled = true;
     $("material-title").value = material.title;
     $("material-kind").value = material.kind;
     $("material-kind").disabled = Boolean(material.session_id || material.asset_id);
@@ -2002,11 +1959,22 @@
     $("material-form").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  function hasMaterialEdits() {
+    if (!editingMaterialId) return false;
+    const material = biographyState.materials.find((item) => item.id === editingMaterialId);
+    return Boolean(material && ($("material-title").value !== material.title
+      || $("material-text").value !== material.text || $("material-kind").value !== material.kind));
+  }
+
   function resetMaterialForm() {
     editingMaterialId = null;
     $("material-form").reset();
+    $("material-form").hidden = true;
+    $("note-search").disabled = false;
+    $("material-list").inert = false;
+    $("materials-import-files").disabled = false;
     $("material-kind").disabled = false;
-    $("save-material-label").textContent = "Lisää muisto";
+    $("save-material-label").textContent = "Tallenna muutokset";
     $("btn-save-material").querySelector("i").className = "ph ph-plus";
     $("btn-cancel-material-edit").hidden = true;
   }
@@ -2367,6 +2335,7 @@
     }
     if (uploadButton) uploadButton.disabled = busy;
     if (fileInput) fileInput.disabled = busy;
+    $("start-speaking").disabled = busy;
     if ($("btn-add-material")) $("btn-add-material").disabled = busy;
     if (cancelButton) {
       cancelButton.hidden = !busy;
@@ -2603,7 +2572,7 @@
       appendTranscriptToEditor(transcript);
       setTranscriptionPhase(
         "success",
-        "Litterointi valmis. Tarkista Sisältö-kenttä ja paina vasta sitten Lisää aineistoon.",
+        "Litterointi valmis. Tarkista Muistosi-kenttä ja paina sitten Tallenna muisto.",
       );
       toast("Litterointi lisättiin tarkistettavaksi.");
     } catch (error) {
@@ -2830,18 +2799,32 @@
     document.querySelectorAll("[data-step-link]").forEach((button) => {
       button.addEventListener("click", (event) => { event.preventDefault(); showStep(button.dataset.stepLink); });
     });
-    document.querySelectorAll("[data-mode]").forEach((button) => {
-      button.addEventListener("click", () => setMode(button.dataset.mode));
+    $("project-mode").addEventListener("change", () => {
+      const guide = $("project-mode").value === "first_person_guide";
+      $("narrative-perspective").disabled = guide;
+      if (guide) $("narrative-perspective").value = "first_person";
     });
     document.querySelectorAll("[data-prompt]").forEach((button) => {
       button.addEventListener("click", () => selectPrompt(button.dataset.prompt));
     });
-    $("start-writing").addEventListener("click", () => selectPrompt(biographyState.current_question));
+    $("own-topic").addEventListener("click", () => selectPrompt(FREE_TOPIC));
     $("start-speaking").addEventListener("click", () => {
-      selectPrompt(biographyState.current_question);
-      window.setTimeout(startAudioRecording, 60);
+      const panel = $("transcription-panel");
+      panel.hidden = !panel.hidden;
+      $("start-speaking").setAttribute("aria-expanded", String(!panel.hidden));
+      if (!panel.hidden) (recordingSupported ? $("btn-record-audio") : $("btn-upload-audio")).focus();
     });
-    $("start-importing").addEventListener("click", (event) => openMaterialImport(event.currentTarget, true));
+    $("note-search").addEventListener("input", renderMaterials);
+    $("material-list").addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-note-id]");
+      if (!button) return;
+      selectedNoteId = button.dataset.noteId;
+      renderMaterials();
+      $("note-title").focus({ preventScroll: true });
+      $("note-title").scrollIntoView({ block: "nearest" });
+    });
+    $("edit-note").addEventListener("click", () => startMaterialEdit(selectedNoteId));
+    $("remove-note").addEventListener("click", (event) => removeMaterial(selectedNoteId, event.currentTarget));
     $("materials-import-files").addEventListener("click", (event) => openMaterialImport(event.currentTarget, true));
     $("choose-more-material-files").addEventListener("click", () => $("material-file-input").click());
     $("material-file-input").addEventListener("change", handleMaterialFileSelection);
@@ -2852,15 +2835,18 @@
     $("cancel-material-import").addEventListener("click", () => abandonPendingMaterialImports().catch(() => null));
     $("close-material-import").addEventListener("click", () => abandonPendingMaterialImports().catch(() => null));
     $("material-import-backdrop").addEventListener("click", () => abandonPendingMaterialImports().catch(() => null));
-    $("new-session").addEventListener("click", addSession);
     $("refresh-question").addEventListener("click", refreshQuestion);
-    $("btn-add-material").addEventListener("click", submitInterviewAnswer);
+    $("btn-add-material").addEventListener("click", saveMemory);
     $("m-text").addEventListener("input", (event) => {
       biographyState.interview_draft = event.currentTarget.value;
       scheduleSave();
     });
-    $("material-form").addEventListener("submit", addManualMaterial);
-    $("btn-cancel-material-edit").addEventListener("click", resetMaterialForm);
+    $("material-form").addEventListener("submit", saveMaterialEdit);
+    $("btn-cancel-material-edit").addEventListener("click", () => {
+      resetMaterialForm();
+      renderMaterials();
+      $("edit-note").focus();
+    });
     $("add-chapter").addEventListener("click", addChapter);
     $("delete-chapter").addEventListener("click", deleteChapter);
     $("move-chapter-up").addEventListener("click", () => moveChapter(-1));
@@ -2916,7 +2902,8 @@
       applyProjectMode,
       applyNarrativePerspective,
       visibleProjectMode,
-      starterQuestionsForState,
+      promptChoices,
+      notebookMatches,
       normalizeMaterial,
       unreferencedPendingAssetEntries,
       validateMaterialFile,
@@ -2939,12 +2926,14 @@
   document.addEventListener("DOMContentLoaded", async () => {
     bindEvents();
     setupTranscription();
+    updateWorkspaceAccess();
     try {
       await chooseInitialProject();
       if (getProjectId()) await loadState();
     } catch (error) {
       biographyState = defaultBiographyState();
       render();
+      $("project-notice").textContent = "Projektien lataus epäonnistui. Lataa sivu uudelleen.";
       setSaveStatus("Projektien lataus epäonnistui", "error");
       toast(error.message || "Projektien lataus epäonnistui.");
     }
