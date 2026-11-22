@@ -245,12 +245,14 @@ window.saveProjectStructureToDB = function(data) {
 
 document.addEventListener('DOMContentLoaded', async () => {
     let currentUser = window.SkriptLabAuth.getUser();
+    let verifiedSessionToken = null;
     try {
         const sessionResponse = await apiFetch('/api/auth/me');
         if (sessionResponse.ok) {
             const refreshedUser = await sessionResponse.json();
             window.SkriptLabAuth.setSession(window.SkriptLabAuth.getToken(), refreshedUser);
             currentUser = refreshedUser;
+            verifiedSessionToken = window.SkriptLabAuth.getToken();
         }
     } catch (error) {
         console.warn('Käyttäjän käyttöoikeuksia ei saatu päivitettyä.', error);
@@ -845,6 +847,17 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         correction_reprints: ['view-korjaukset', 'view-julkaisupaketti'],
         published_library: ['view-kirjasto', 'view-kirjailijat', 'view-tilaukset']
     };
+    function hasWorkspaceAccess(viewId) {
+        const snapshot = window.SkriptLabBookAccess?.getSnapshot();
+        const grants = snapshot?.allowed_modules || currentUser?.allowed_modules;
+        const modules = Object.entries(accessModuleViews).filter(([, views]) => views.includes(navViewFor(viewId)));
+        return modules.some(([key]) => {
+            const decision = snapshot?.actions?.[`module.${key}`];
+            if (decision) return decision.allowed;
+            if (Array.isArray(grants)) return grants.includes(key);
+            return key !== 'published_library' || canSeeAllModules;
+        });
+    }
     function customAccessViews() {
         if (!Array.isArray(currentUser?.allowed_modules)) return null;
         const allowed = new Set();
@@ -5073,7 +5086,17 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
 
     window.SkriptLabElamakertaShell = Object.freeze({
         getContext: currentElamakertaThemeContext,
-        sync: syncElamakertaTheme
+        sync: syncElamakertaTheme,
+        acceptsEditor(editor) {
+            return Boolean(verifiedSessionToken && verifiedSessionToken === window.SkriptLabAuth.getToken()
+                && currentViewId === 'view-elamakerta' && isViewAllowed(currentViewId)
+                && document.getElementById('elamakerta-frame')?.contentWindow === editor);
+        },
+        openModuleMenu() {
+            if (currentViewId !== 'view-elamakerta') return;
+            if (toggleSidebarBtn.getAttribute('aria-expanded') !== 'true') toggleSidebarBtn.click();
+            sidebar.querySelector('#nav-menu [aria-current="page"]:not([hidden])')?.focus();
+        }
     });
     window.addEventListener('message', event => {
         const frame = document.getElementById('elamakerta-frame');
@@ -5179,6 +5202,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             return currentUser?.allowed_modules?.includes('published_library')
                 && ['view-kirjasto', 'view-kirjailijat', 'view-tilaukset'].includes(viewId);
         }
+        if (viewId === 'view-elamakerta' && (!verifiedSessionToken || !hasWorkspaceAccess(viewId))) return false;
         if (showcaseDemoMode) return showcaseDemoViews.has(navViewFor(viewId));
         if (isBasicNavigation() && basicHiddenViews.has(viewId)) return false;
         // Other plans can discover modules; the server guards their actions.
@@ -5195,7 +5219,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         const legend = document.getElementById('module-menu-legend');
         if (legend) legend.hidden = !basic;
         navItems.forEach(item => {
-            const hidden = !isViewAllowed(item.dataset.view);
+            const hidden = !isViewAllowed(item.dataset.view)
+                || (currentViewId === 'view-elamakerta' && !hasWorkspaceAccess(item.dataset.view));
             item.hidden = hidden;
             item.dataset.basicHidden = String(hidden);
             const core = basic && basicCoreViews.has(item.dataset.view);
@@ -5355,12 +5380,15 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             viewId = 'view-suomentaja';
         }
         if (!isViewAllowed(navViewFor(viewId))) {
-            viewId = defaultViewForUser();
+            const fallback = defaultViewForUser();
+            viewId = isViewAllowed(fallback) ? fallback : 'view-kirjani';
             activeNavViewId = viewId;
         }
+        const refreshBiographyMenu = currentViewId === 'view-elamakerta' || activeNavViewId === 'view-elamakerta';
         deactivateElamakertaFrame(activeNavViewId);
         syncElamakertaWorkspace(activeNavViewId);
         currentViewId = activeNavViewId;
+        if (refreshBiographyMenu) decorateModuleNavigation();
         document.getElementById('world-studio-frame')?.contentWindow?.postMessage({ type: 'skriptlab:world-studio-active', active: currentViewId === 'view-3d-studio' }, window.location.origin);
         autoHideSidebarForView(currentViewId);
         syncLongOperationTimersForView(currentViewId);
@@ -5401,6 +5429,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             refreshNotebookLMFrame();
         }
         if (viewId === 'view-elamakerta') {
+            refreshElamakertaFrame();
             syncElamakertaTheme();
         }
         if (['view-kirjani', 'view-analyysi', 'view-rakenne'].includes(viewId)) {
@@ -5517,9 +5546,6 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
                 updateMiscProjectSelect();
                 loadMiscAssetsForActiveProject();
             }
-            if (nextViewId === 'view-elamakerta') {
-                refreshElamakertaFrame();
-            }
             if (nextViewId === 'view-tuotetiedot') {
                 renderProductInfo();
             }
@@ -5533,7 +5559,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             applyShowcaseTerminology(document.getElementById(nextViewId));
         });
     });
-    openModule(currentViewId);
+    openModule(window.location.hash === '#elamakerta' ? 'view-elamakerta' : currentViewId);
     
     // Alistetaan globaaliksi, jotta onclickit HTML:ssä toimivat
     window.openModule = openModule;
@@ -28205,7 +28231,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             // If the iframe is still loading, refresh the src below.
         }
         const projectId = activeBiographyProjectId() || '';
-        frame.src = `elamakerta.html?project=${encodeURIComponent(projectId)}&t=${Date.now()}`;
+        frame.src = `elamakerta.html?project=${encodeURIComponent(projectId)}&v=6`;
     }
 
     function setBiographyStatus(message, isError = false) {

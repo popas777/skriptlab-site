@@ -12,6 +12,7 @@ const demoViews = ['view-kirjani', 'view-analyysi', 'view-kirjoita-editoi', 'vie
 function navigation(showcaseDemoMode, planKey = '', libraryReaderMode = false) {
   const context = vm.createContext({
     showcaseDemoMode,
+    verifiedSessionToken: "signed-in",
     libraryReaderMode,
     currentUser: { access_plan_key: planKey, allowed_modules: ['skill', 'biography', 'published_library'] },
     window: { SkriptLabBookAccess: { getSnapshot: () => ({ plan_key: planKey }) } },
@@ -42,4 +43,22 @@ test('demo scope survives a stale basic-plan snapshot and other plans keep modul
   assert.deepEqual(navViews.filter(navigation(true, 'writer_basic')).sort(), [...demoViews].sort());
   assert.deepEqual(navViews.filter(navigation(false)), navViews);
   assert.deepEqual(navViews.filter(navigation(false, 'writer_basic')), navViews.filter(view => !['view-skill', 'view-notebooklm'].includes(view)));
+});
+
+test('biography module menu follows effective account and book grants', () => {
+  const context = vm.createContext({
+    window: { SkriptLabBookAccess: { getSnapshot: () => snapshot } },
+    currentUser: { allowed_modules: ['manuscripts', 'biography'] },
+    canSeeAllModules: false,
+    navViewFor: view => view,
+  });
+  let snapshot = null;
+  vm.runInContext(source.slice(source.indexOf('    const accessModuleViews ='), source.indexOf('    function customAccessViews()')), context);
+  const allowed = view => context.hasWorkspaceAccess(view);
+  assert.equal(allowed('view-kirjani'), true);
+  assert.equal(allowed('view-elamakerta'), true);
+  assert.equal(allowed('view-audio'), false);
+  snapshot = { actions: { 'module.audio': { allowed: true }, 'module.biography': { allowed: false } } };
+  assert.equal(allowed('view-audio'), true);
+  assert.equal(allowed('view-elamakerta'), false);
 });

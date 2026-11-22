@@ -78,5 +78,5 @@ test('biography receives the exact shell theme on load, open and theme toggle', 
   assert.match(appJs, /frame\.addEventListener\(['"]load['"],\s*syncElamakertaTheme\)/);
   assert.match(appJs, /event\.data\?\.type\s*===\s*['"]skriptlab:elamakerta-ready['"]/);
   assert.match(appJs, /toggleThemeBtn\.addEventListener\(['"]click['"][\s\S]*?syncElamakertaTheme\(\);[\s\S]*?refreshLibraryFrame\(\)/);
-  assert.match(appJs, /if\s*\(viewId\s*===\s*['"]view-elamakerta['"]\)\s*\{\s*syncElamakertaTheme\(\);\s*\}/);
+  assert.match(appJs, /if\s*\(viewId\s*===\s*['"]view-elamakerta['"]\)\s*\{\s*refreshElamakertaFrame\(\);\s*syncElamakertaTheme\(\);\s*\}/);
 });

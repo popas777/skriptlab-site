@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fi">
+<html lang="fi" hidden>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Libre+Caslon+Text:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
-<link rel="stylesheet" href="elamakerta.css?v=6">
+<link rel="stylesheet" href="elamakerta.css?v=7">
 <link rel="stylesheet" href="book-access.css?v=2">
 <script src="book-access.js?v=5"></script>
 <script src="book-workflow.js?v=5" defer></script>
@@ -45,10 +45,13 @@
     <button class="settings-button" id="open-settings" disabled type="button" aria-label="Asetukset" title="Asetukset"><i class="ph ph-gear" aria-hidden="true"></i><span>Asetukset</span></button>
   </header>
 
-  <nav class="notebook-tabs" id="path-list" aria-label="Elämäkerran näkymät">
-    <button type="button" data-step-link="interview" aria-current="page">Kerro muisto</button>
-    <button type="button" data-step-link="materials">Muistikirja</button>
-  </nav>
+  <div class="workspace-navigation">
+    <nav class="notebook-tabs" id="path-list" aria-label="Elämäkerran näkymät">
+      <button type="button" data-step-link="interview" aria-current="page">Kerro muisto</button>
+      <button type="button" data-step-link="materials">Muistikirja</button>
+    </nav>
+    <button type="button" class="text-button" id="biography-modules"><i class="ph ph-list" aria-hidden="true"></i> Moduulit</button>
+  </div>
   <p id="project-notice" role="status">Ladataan projektia…</p>
   <main class="workspace" id="workspace" inert>
     <section class="step-view capture" id="view-interview" data-step="interview" aria-labelledby="interview-heading">
@@ -171,9 +174,8 @@
     if (queryId) return queryId;
     return localStorage.getItem("skriptlab_biography_project_id") || localStorage.getItem("skriptlab_active_project_id") || null;
   }
-  window.SkriptLabAuth.requireLogin();
   window.ELAMAKERTA_CONFIG = { apiBase: "/api", projectId: activeBiographyProjectId, fetchImpl: (path, options) => window.SkriptLabAuth.fetch(path, options), projectTitle: () => "Minun tarinani" };
 </script>
-<script src="elamakerta.js?v=7"></script>
+<script src="elamakerta.js?v=8"></script>
 </body>
 </html>

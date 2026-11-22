@@ -1,13 +1,42 @@
 /* ==========================================================================
-   Elämäkerta – itsenäinen elämäkerta- ja opastyötila
+   Elämäkerta – SkriptLabin elämäkerta- ja opastyötila
    ========================================================================== */
 
 (function () {
   "use strict";
 
+  const sessionToken = window.SkriptLabAuth?.getToken();
+  const isRecorderPage = Boolean(document.getElementById("recorder-page"));
+
+  function hasAppContext() {
+    if (!sessionToken || sessionToken !== window.SkriptLabAuth.getToken()) return false;
+    try {
+      if (isRecorderPage) return window.top === window && window.opener?.ElamakertaModule?.ownsRecorder(window);
+      return window.parent !== window && window.parent.SkriptLabElamakertaShell?.acceptsEditor(window);
+    } catch { return false; }
+  }
+
+  if (!hasAppContext()) {
+    if (window.top === window) window.location.replace(sessionToken ? "index.html#elamakerta" : "login.html");
+    return;
+  }
+  document.documentElement.hidden = false;
+  window.addEventListener("storage", event => {
+    if ((event.key === null || event.key === window.SkriptLabAuth.tokenKey)
+        && sessionToken !== window.SkriptLabAuth.getToken()) {
+      document.documentElement.hidden = true;
+      disposeTranscription();
+      if (isRecorderPage) window.close();
+      else window.parent.location.reload();
+    }
+  });
+
   const CONFIG = window.ELAMAKERTA_CONFIG || {};
   const API_BASE = (CONFIG.apiBase || "/api").replace(/\/$/, "");
-  const doFetch = CONFIG.fetchImpl || ((url, options) => fetch(url, options));
+  function doFetch(url, options) {
+    if (sessionToken !== window.SkriptLabAuth.getToken()) throw new Error("Kirjaudu uudelleen.");
+    return (CONFIG.fetchImpl || fetch)(url, options);
+  }
   const MODULE_PROJECT_KEY = "skriptlab_biography_project_id";
   const LEGACY_ANSWERS_SESSION_ID = "legacy_answers_session_v1";
   const LEGACY_ANSWERS_MATERIAL_ID = "legacy_answers_material_v1";
@@ -2738,7 +2767,7 @@
   }
 
   function openRecorderWindow() {
-    if (!getProjectId() || switchingProject) return;
+    if (!projectReady || switchingProject || !hasAppContext()) return;
     if (recorderWindow && !recorderWindow.closed) { recorderWindow.focus(); return; }
     const url = new URL("elamakerta-aanitys.html", window.location.href);
     url.searchParams.set("theme", document.documentElement.dataset.theme || "dark");
@@ -2769,19 +2798,10 @@
     const policy = document.permissionsPolicy || document.featurePolicy;
     recordingSupported = Boolean((window.AudioContext || window.webkitAudioContext)
       && navigator.mediaDevices?.getUserMedia && policy?.allowsFeature?.("microphone") !== false);
-    let fromBiography = false;
-    try {
-      const source = new URL(window.opener.location.href);
-      fromBiography = window.top === window && source.origin === window.location.origin
-        && /\/elamakerta(?:\.html)?\/?$/u.test(source.pathname);
-    } catch { /* The original editor may already have been closed. */ }
     const record = $("btn-record-audio");
     setTranscriptionPhase("idle", recordingSupported ? "Valitse Aloita äänitys, kun olet valmis." : "Tässä selaimessa äänitys ei ole käytettävissä. Voit tuoda äänitiedoston Elämäkertaan.");
-    if (!fromBiography) {
-      record.disabled = true;
-      $("transcription-status").textContent = "Avaa äänitys Elämäkerran Kerro puhumalla -toiminnosta.";
-    }
     record.addEventListener("click", () => {
+      if (!hasAppContext()) { disposeTranscription(); window.close(); return; }
       if (transcriptionPhase === "recording") finishAudioRecording();
       else if (["idle", "error"].includes(transcriptionPhase)) startAudioRecording();
     });
@@ -2952,10 +2972,12 @@
   }
 
   window.ElamakertaModule = {
+    ownsRecorder: popup => recorderWindow === popup && projectReady && !switchingProject && hasAppContext(),
     loadState,
     render,
     deactivate: async () => {
       await cancelActiveTranscription();
+      await flushPendingSave({ bestEffort: true });
       await waitForActiveMaterialImportConfirmation();
       await abandonPendingMaterialImports({ silent: true });
       clearMaterialAssetPreviews();
@@ -2996,6 +3018,7 @@
   initializeThemeBridge();
 
   document.addEventListener("DOMContentLoaded", async () => {
+    $("biography-modules").addEventListener("click", () => window.parent.SkriptLabElamakertaShell.openModuleMenu());
     bindEvents();
     setupTranscription();
     updateWorkspaceAccess();

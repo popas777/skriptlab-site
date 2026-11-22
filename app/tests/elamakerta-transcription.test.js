@@ -29,8 +29,10 @@ function loadWorkspaceInternals() {
       setItem: (key, value) => storage.set(key, String(value)),
     },
   };
-  window.parent = window;
+  window.SkriptLabAuth = { getToken: () => 'signed-in' };
+  window.parent = { SkriptLabElamakertaShell: { acceptsEditor: editor => editor === window }, postMessage() {} };
   const document = {
+    documentElement: { hidden: true, setAttribute() {}, style: { removeProperty() {} } },
     activeElement: null,
     visibilityState: 'visible',
     addEventListener() {},
@@ -117,6 +119,24 @@ test('biography materials expose an accessible recording and audio-file transcri
   assert.match(css, /\.transcription-panel\s+:focus-visible/);
   assert.ok(assetVersion('elamakerta.css') >= 3);
   assert.ok(assetVersion('elamakerta.js') >= 3);
+});
+
+test('direct editor and recorder entries leave the workspace hidden and request no project', () => {
+  for (const isRecorder of [false, true]) {
+    for (const token of [null, 'signed-in']) {
+      const destinations = [];
+      const window = {
+        location: { replace: url => destinations.push(url) },
+        SkriptLabAuth: { getToken: () => token },
+      };
+      window.top = window.parent = window;
+      const document = { documentElement: { hidden: true }, getElementById: () => isRecorder };
+      vm.runInNewContext(js, { window, document });
+      assert.deepEqual(destinations, [token ? 'index.html#elamakerta' : 'login.html']);
+      assert.equal(document.documentElement.hidden, true);
+      assert.equal(window.ElamakertaModule, undefined);
+    }
+  }
 });
 
 test('privacy and review copy make temporary processing and explicit material save clear', () => {
@@ -284,7 +304,8 @@ test('transcription POST uses the project endpoint and only fills the review edi
 test('only the separate, same-origin recorder can return audio to the waiting editor', () => {
   const recorder = fs.readFileSync(path.join(appRoot, 'elamakerta-aanitys.html'), 'utf8');
   assert.match(recorder, /id="recorder-page"/);
-  assert.ok(!recorder.includes('auth.js'));
+  assert.match(recorder, /<html lang="fi" hidden>/);
+  assert.match(recorder, /src="auth\.js/);
   const start = js.indexOf('function receiveRecording(');
   const handler = js.slice(start, js.indexOf('function setupRecorderPage', start));
   const accepted = [];
@@ -350,7 +371,7 @@ test('capture and notebook are the two main views and old start opens capture', 
   assert.match(html, /<details class="book-tools">/);
 });
 
-test('theme bridge accepts same-origin shell tokens and supports standalone light and dark modes', () => {
+test('theme bridge accepts same-origin shell tokens and supports light and dark modes', () => {
   assert.match(js, /SHELL_THEME_EVENT\s*=\s*["']skriptlab:theme-changed["']/);
   assert.match(js, /event\.origin\s*!==\s*window\.location\.origin/);
   assert.match(js, /event\.source\s*!==\s*window\.parent/);
@@ -475,7 +496,10 @@ test('controls use the established icon library and cache-busted module assets',
   assert.doesNotMatch(html, /<svg\b/i);
   assert.ok(assetVersion('elamakerta.css') >= 5);
   assert.ok(assetVersion('elamakerta.js') >= 5);
-  assert.match(shellHtml, /src=["']elamakerta\.html\?v=5["']/);
+  const frame = shellHtml.match(/<iframe\b[^>]*id="elamakerta-frame"[^>]*>/s);
+  assert.ok(frame);
+  assert.doesNotMatch(frame[0], /\bsrc=/);
+  assert.match(shellJs, /frame\.src = `elamakerta\.html\?project=/);
 });
 
 test('state helpers enforce project priority and mode-specific first questions', () => {

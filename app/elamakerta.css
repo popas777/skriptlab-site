@@ -341,7 +341,9 @@ button[disabled] { opacity: 0.45; pointer-events: none; }
 .settings-button { width: 44px; min-height: 44px; justify-content: center; padding: 0; background: transparent; }
 .settings-button span { display: none; }
 .notebook-tabs, .book-nav, .book-tools nav { display: flex; gap: 6px; align-items: stretch; }
-.notebook-tabs { padding-inline: clamp(12px, 3vw, 42px); border-bottom: 1px solid var(--line); }
+.workspace-navigation { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; padding-inline: clamp(6px, 2vw, 30px); border-bottom: 1px solid var(--line); }
+#biography-modules { min-height: 44px; color: var(--ink); }
+.notebook-tabs { flex-wrap: wrap; }
 .notebook-tabs button, .book-nav button, .book-tools nav button, .question-tools button {
   cursor: pointer; min-height: 44px; padding: 8px 14px; border: 0; background: transparent; color: var(--muted);
 }
