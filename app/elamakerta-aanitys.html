@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kerro muisto puhumalla – SkriptLab</title>
+  <link rel="stylesheet" href="elamakerta.css?v=6">
+</head>
+<body id="recorder-page">
+  <main class="workspace capture">
+    <h1>Kerro muisto puhumalla</h1>
+    <fieldset class="transcription-panel" id="transcription-panel">
+      <legend>Muiston äänitys</legend>
+      <p>Kun lopetat äänityksen, ääni lähetetään Geminiin litteroitavaksi. Voit tarkistaa tekstin elämäkertasi luonnoksessa. Äänityksen enimmäiskesto on 10 minuuttia.</p>
+      <div class="transcription-actions">
+        <button class="primary-button" type="button" id="btn-record-audio" aria-pressed="false"><span id="record-audio-label">Aloita äänitys</span></button>
+        <button class="secondary-button" type="button" id="recorder-close">Peruuta ja palaa</button>
+      </div>
+      <div class="transcription-feedback" id="transcription-feedback">
+        <p id="transcription-status" role="status" aria-live="polite"></p>
+        <span class="recording-timer" id="recording-timer" hidden></span>
+        <progress id="transcription-progress" aria-label="Äänityksen eteneminen" hidden></progress>
+        <p id="transcription-error" role="alert" hidden></p>
+        <a id="recover-recording" hidden>Lataa äänitys WAV-tiedostona</a>
+      </div>
+    </fieldset>
+  </main>
+  <script src="elamakerta.js?v=7"></script>
+</body>
+</html>

@@ -281,6 +281,31 @@ test('transcription POST uses the project endpoint and only fills the review edi
   assert.match(transcribeBlock, /Tarkista Muistosi-kenttä/);
 });
 
+test('only the separate, same-origin recorder can return audio to the waiting editor', () => {
+  const recorder = fs.readFileSync(path.join(appRoot, 'elamakerta-aanitys.html'), 'utf8');
+  assert.match(recorder, /id="recorder-page"/);
+  assert.ok(!recorder.includes('auth.js'));
+  const start = js.indexOf('function receiveRecording(');
+  const handler = js.slice(start, js.indexOf('function setupRecorderPage', start));
+  const accepted = [];
+  const context = {
+    recorderWindow: {}, window: { location: { origin: 'https://example.test' }, focus() {} },
+    File, MAX_AUDIO_FILE_BYTES: 4096, transcriptionPhase: 'requesting',
+    closeRecorderWindow() { context.recorderWindow = null; },
+    transcribeAudioFile: file => accepted.push(file),
+  };
+  vm.runInNewContext(handler, context);
+  const file = new File(['wav'], 'test.wav', { type: 'audio/wav' });
+  const event = { source: context.recorderWindow, origin: 'https://example.test', data: { type: 'skriptlab:biography-recording', file } };
+  context.receiveRecording({ ...event, origin: 'https://different.test' });
+  context.receiveRecording({ ...event, source: {} });
+  context.receiveRecording({ ...event, data: { ...event.data, file: new File(['x'], 'x.txt') } });
+  assert.equal(accepted.length, 0);
+  context.receiveRecording(event);
+  context.receiveRecording(event);
+  assert.deepEqual(accepted, [file]);
+});
+
 test('recording, progress, cancellation, success and error states are represented', () => {
   for (const phase of ['requesting', 'recording', 'preparing', 'transcribing', 'success', 'error']) {
     assert.match(js, new RegExp(`["']${phase}["']`));

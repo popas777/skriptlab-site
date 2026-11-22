@@ -104,6 +104,8 @@
   let modalReturnFocus = null;
   let transcriptionPhase = "idle";
   let recordingSupported = false;
+  let recorderWindow = null;
+  let recorderClosedTimer = null;
   let recordingStream = null;
   let recordingContext = null;
   let recordingSource = null;
@@ -2331,11 +2333,13 @@
       recordButton.setAttribute("aria-pressed", String(recording));
     }
     if ($("record-audio-label")) {
-      $("record-audio-label").textContent = recording ? "Lopeta ja litteroi" : "Aloita äänitys";
+      $("record-audio-label").textContent = $("recorder-page")
+        ? (recording ? "Lopeta ja litteroi" : "Aloita äänitys")
+        : "Avaa äänitysikkuna";
     }
     if (uploadButton) uploadButton.disabled = busy;
     if (fileInput) fileInput.disabled = busy;
-    $("start-speaking").disabled = busy;
+    if ($("start-speaking")) $("start-speaking").disabled = busy;
     if ($("btn-add-material")) $("btn-add-material").disabled = busy;
     if (cancelButton) {
       cancelButton.hidden = !busy;
@@ -2588,7 +2592,7 @@
 
   function microphoneErrorMessage(error) {
     if (error?.name === "NotAllowedError" || error?.name === "SecurityError") {
-      return "Mikrofonin käyttöä ei sallittu. Salli mikrofoni selaimen asetuksista tai tuo äänitiedosto.";
+      return "Mikrofonin käyttö estyi. Voit tuoda äänitiedoston tai käyttää laitteesi sanelua Muistosi-kentässä.";
     }
     if (error?.name === "NotFoundError") return "Laitteelta ei löytynyt mikrofonia.";
     if (error?.name === "NotReadableError") return "Mikrofoni on toisen sovelluksen käytössä.";
@@ -2596,10 +2600,6 @@
   }
 
   async function startAudioRecording() {
-    if (!getProjectId()) {
-      failTranscription("Valitse ensin elämäkertaprojekti ennen äänitystä.");
-      return;
-    }
     if (!recordingSupported) {
       failTranscription("Tämä selain ei tue mikrofonin PCM-äänitystä. Voit tuoda valmiin äänitiedoston.");
       return;
@@ -2687,10 +2687,19 @@
     const wavFile = createRecordingWavFile(recordingPcmChunks, recordingPcmLength);
     clearRecordingBuffer();
     if (transcriptionPhase !== "preparing") return;
-    await transcribeAudioFile(wavFile, "Äänitys");
+    const download = $("recover-recording");
+    download.href = URL.createObjectURL(wavFile);
+    download.download = wavFile.name;
+    download.hidden = false;
+    if (window.opener && !window.opener.closed) {
+      window.opener.postMessage({ type: "skriptlab:biography-recording", file: wavFile }, window.location.origin);
+    }
+    setTranscriptionPhase("success", "Äänitys on valmis. Jos elämäkertasi ei ole enää auki, voit ladata äänityksen tiedostona.");
+    $("btn-record-audio").disabled = true;
   }
 
   async function cancelActiveTranscription() {
+    closeRecorderWindow();
     const activePhase = transcriptionPhase;
     if (!["requesting", "recording", "preparing", "transcribing"].includes(activePhase)) return;
     transcriptionPhase = "cancelling";
@@ -2721,18 +2730,75 @@
     await transcribeAudioFile(file, `Tiedosto ${file.name}`);
   }
 
+  function closeRecorderWindow() {
+    window.clearInterval(recorderClosedTimer);
+    recorderClosedTimer = null;
+    if (recorderWindow && !recorderWindow.closed) recorderWindow.close();
+    recorderWindow = null;
+  }
+
+  function openRecorderWindow() {
+    if (!getProjectId() || switchingProject) return;
+    if (recorderWindow && !recorderWindow.closed) { recorderWindow.focus(); return; }
+    const url = new URL("elamakerta-aanitys.html", window.location.href);
+    url.searchParams.set("theme", document.documentElement.dataset.theme || "dark");
+    recorderWindow = window.open(url.href, "_blank", "popup,width=540,height=540");
+    if (!recorderWindow) {
+      failTranscription("Äänitysikkuna ei avautunut. Salli tämän sivun ponnahdusikkuna tai tuo äänitiedosto.");
+      return;
+    }
+    setTranscriptionError("");
+    setTranscriptionPhase("requesting", "Äänitysikkuna on auki. Aloita ja lopeta äänitys siellä.");
+    recorderClosedTimer = window.setInterval(() => {
+      if (recorderWindow?.closed) cancelActiveTranscription();
+    }, 400);
+  }
+
+  function receiveRecording(event) {
+    if (!recorderWindow || event.source !== recorderWindow || event.origin !== window.location.origin) return;
+    if (event.data?.type !== "skriptlab:biography-recording" || transcriptionPhase !== "requesting") return;
+    const file = event.data.file;
+    if (!(file instanceof File) || file.type !== "audio/wav" || !file.size || file.size > MAX_AUDIO_FILE_BYTES) return;
+    closeRecorderWindow();
+    window.focus();
+    transcribeAudioFile(file, "Äänitys");
+  }
+
+  function setupRecorderPage() {
+    setTheme(initialTheme());
+    const policy = document.permissionsPolicy || document.featurePolicy;
+    recordingSupported = Boolean((window.AudioContext || window.webkitAudioContext)
+      && navigator.mediaDevices?.getUserMedia && policy?.allowsFeature?.("microphone") !== false);
+    let fromBiography = false;
+    try {
+      const source = new URL(window.opener.location.href);
+      fromBiography = window.top === window && source.origin === window.location.origin
+        && /\/elamakerta(?:\.html)?\/?$/u.test(source.pathname);
+    } catch { /* The original editor may already have been closed. */ }
+    const record = $("btn-record-audio");
+    setTranscriptionPhase("idle", recordingSupported ? "Valitse Aloita äänitys, kun olet valmis." : "Tässä selaimessa äänitys ei ole käytettävissä. Voit tuoda äänitiedoston Elämäkertaan.");
+    if (!fromBiography) {
+      record.disabled = true;
+      $("transcription-status").textContent = "Avaa äänitys Elämäkerran Kerro puhumalla -toiminnosta.";
+    }
+    record.addEventListener("click", () => {
+      if (transcriptionPhase === "recording") finishAudioRecording();
+      else if (["idle", "error"].includes(transcriptionPhase)) startAudioRecording();
+    });
+    $("recorder-close").addEventListener("click", () => window.close());
+    window.addEventListener("pagehide", disposeTranscription);
+  }
+
   function setupTranscription() {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    recordingSupported = Boolean(navigator.mediaDevices?.getUserMedia && AudioContextClass);
+    recordingSupported = Boolean(window.isSecureContext && (window.AudioContext || window.webkitAudioContext));
     const recordButton = $("btn-record-audio");
     const uploadButton = $("btn-upload-audio");
     const fileInput = $("audio-file-input");
     const cancelButton = $("btn-cancel-transcription");
 
-    recordButton.addEventListener("click", () => {
-      if (transcriptionPhase === "recording") finishAudioRecording(false);
-      else if (!["requesting", "preparing", "transcribing"].includes(transcriptionPhase)) startAudioRecording();
-    });
+    recordButton.hidden = !recordingSupported;
+    recordButton.addEventListener("click", openRecorderWindow);
+    window.addEventListener("message", receiveRecording);
     uploadButton.addEventListener("click", () => {
       if (!uploadButton.disabled) fileInput.click();
     });
@@ -2742,7 +2808,7 @@
       "idle",
       recordingSupported
         ? "Valitse äänitys tai tuo WAV-, MP3-, AIFF-, AAC-, OGG- tai FLAC-tiedosto."
-        : "Mikrofoniäänitys ei ole tuettu tässä selaimessa. Voit tuoda äänitiedoston.",
+        : "Voit tuoda äänitiedoston tai käyttää laitteesi sanelua suoraan Muistosi-kentässä.",
     );
   }
 
@@ -2753,6 +2819,7 @@
   }
 
   function disposeTranscription() {
+    closeRecorderWindow();
     if (transcriptionController) transcriptionController.abort();
     closeRecordingResources();
     clearRecordingBuffer();
@@ -2877,6 +2944,11 @@
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") flushPendingSave({ bestEffort: true });
     });
+  }
+
+  if ($("recorder-page")) {
+    setupRecorderPage();
+    return;
   }
 
   window.ElamakertaModule = {

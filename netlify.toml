@@ -10,6 +10,12 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
 
+# Same-origin microphone requests only on the dedicated top-level biography recording page.
+[[headers]]
+  for = "/app/elamakerta-aanitys.html"
+  [headers.values]
+    Permissions-Policy = "camera=(), microphone=(self), geolocation=()"
+
 [[redirects]]
   from = "https://www.skriptlab.com/*"
   to = "https://skriptlab.com/:splat"
