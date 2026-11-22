@@ -3340,3 +3340,24 @@ body.has-audio .reader-page-controls { margin-bottom: var(--library-audio-height
 .detail-pricing { margin: 18px 0; padding: 16px; border: 1px solid currentColor; border-radius: 10px; font-size: 13px; line-height: 1.6; }
 .detail-pricing p { margin: 0 0 10px; }
 .detail-pricing a { color: inherit; text-underline-offset: 3px; }
+
+.reader-reading-area:has(.reader-editions:not([hidden])) { grid-template-rows: auto minmax(0, 1fr) auto; }
+.reader-editions {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 12px;
+  padding: 6px 12px; border-bottom: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  color: inherit; font: 500 14px/1.4 var(--ui-font);
+}
+.reader-editions[hidden], #reader-edition-choices[hidden] { display: none; }
+.reader-editions select, #reader-edition-choices button {
+  min-height: 40px; max-width: 100%; padding: 5px 10px; border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  border-radius: 6px; background: transparent; color: inherit; font: inherit;
+}
+#reader-edition-choices { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+#reader-edition-choices p { width: 100%; text-align: center; margin: 0; }
+#reader-edition-choices button { cursor: pointer; }
+
+.reader-text .edition-passage { position: relative; }
+.reader-text .edition-passage::before {
+  content: ""; position: absolute; inset-block: 0; inset-inline-start: -9px;
+  width: 2px; border-radius: 2px; background: color-mix(in srgb, currentColor 40%, transparent);
+}

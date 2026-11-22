@@ -42,6 +42,10 @@
     chapters: [],
     chapterIndex: 0,
     readerContent: null,
+    editionMap: null,
+    editionId: null,
+    editionLanding: null,
+    chapterRender: 0,
     readerMode: "text",
     pdfViewer: null,
     pdfController: null,
@@ -114,6 +118,7 @@
   function collectElements() {
     [
       "library-app",
+      "reader-editions", "reader-edition", "reader-edition-choices", "reader-edition-status",
       "reader-format", "reader-pdf", "add-work-pdf", "add-audio-order", "add-audio-tracks", "audio-track-select",
       "library-notice",
       "library-notice-text",
@@ -1928,6 +1933,68 @@
     return node;
   }
 
+  function selectEdition(id) {
+    const edition = state.editionMap.editions.get(id);
+    state.editionId = id;
+    state.chapters = edition.chapters;
+    elements["reader-edition"].value = id;
+    elements["reader-search-input"].value = "";
+    elements["reader-search-results"].replaceChildren();
+    elements["reader-search-status"].textContent = "";
+  }
+
+  function goToEdition(id, rowIndex) {
+    const row = state.editionMap.rows[rowIndex];
+    const [chapterId, paragraphIndex] = row.locations[id];
+    selectEdition(id);
+    const index = state.chapters.findIndex(chapter => chapter.id === chapterId);
+    renderChapter(index, { paragraphIndex, rowIndex });
+    elements["reader-edition-status"].textContent = state.editionMap.editions.get(id).label + " · " + row.label;
+    elements["reader-edition"].focus({ preventScroll: true });
+  }
+
+  function changeEdition(id) {
+    const map = state.editionMap;
+    if (!map || !map.editions.has(id)) return;
+    const landing = state.editionLanding;
+    const index = landing && Math.abs(elements["reader-scroll"].scrollTop - landing.top) < 2
+      ? landing.rowIndex : map.at(state.chapters[state.chapterIndex].id, currentParagraphIndex());
+    const targets = map.targets(index, id);
+    if (index === 0 && targets.exact === undefined && targets.next !== null) {
+      goToEdition(id, targets.next);
+      return;
+    }
+    if (targets.exact !== undefined) {
+      goToEdition(id, targets.exact);
+      return;
+    }
+    elements["reader-edition"].value = state.editionId;
+    const choices = elements["reader-edition-choices"];
+    const message = document.createElement("p");
+    message.textContent = map.editions.get(id).label + " ohittaa kohdan ”" + map.rows[index].label + "”.";
+    choices.replaceChildren(message);
+    for (const [direction, label] of [["previous", "Edellinen kohta"], ["next", "Seuraava kohta"]]) {
+      const target = targets[direction];
+      if (target === null) continue;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = label + " · " + map.rows[target].label;
+      button.addEventListener("click", () => goToEdition(id, target));
+      choices.append(button);
+    }
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.textContent = "Jatka nykyistä versiota";
+    cancel.addEventListener("click", () => {
+      choices.hidden = true;
+      elements["reader-edition"].focus();
+    });
+    choices.append(cancel);
+    choices.hidden = false;
+    elements["reader-edition-status"].textContent = message.textContent;
+    choices.querySelector("button").focus({ preventScroll: true });
+  }
+
   async function setReaderFormat(mode) {
     const content = state.readerContent;
     if (!content) return;
@@ -1936,6 +2003,8 @@
     state.pdfController?.abort(); state.pdfController = null;
     state.pdfViewer?.destroy(); state.pdfViewer = null;
     state.readerMode = mode;
+    elements["reader-editions"].hidden = mode !== "text" || !state.editionMap;
+    elements["reader-edition-choices"].hidden = true;
     syncReaderPageControls();
     elements["reader-format"].value = mode;
     elements["library-reader"].dataset.format = mode;
@@ -1976,7 +2045,9 @@
     }
     const byIdIndex = progress.chapterId ? state.chapters.findIndex(chapter => chapter.id === progress.chapterId) : -1;
     const startIndex = byIdIndex >= 0 ? byIdIndex : clamp(progress.chapterIndex, 0, state.chapters.length - 1);
-    renderChapter(startIndex, { scrollFraction: progress.chapterProgress, paragraphIndex: progress.paragraphIndex });
+    const rowIndex = state.editionMap && byIdIndex >= 0 && progress.paragraphIndex > 0
+      ? state.editionMap.at(progress.chapterId, progress.paragraphIndex) : undefined;
+    renderChapter(startIndex, { scrollFraction: progress.chapterProgress, paragraphIndex: progress.paragraphIndex, rowIndex });
   }
 
   function renderChapterList() {
@@ -2008,6 +2079,9 @@
 
   function renderChapter(index, options = {}) {
     if (!state.chapters.length) return;
+    const render = ++state.chapterRender;
+    state.editionLanding = null;
+    elements["reader-edition-choices"].hidden = true;
     state.chapterIndex = clamp(Math.floor(index), 0, state.chapters.length - 1);
     const chapter = state.chapters[state.chapterIndex];
     elements["reader-page"].classList.toggle("rich-publication", Boolean(chapter.blocks));
@@ -2038,13 +2112,19 @@
 
     state.restoreReaderScroll = true;
     requestAnimationFrame(() => {
+      if (render !== state.chapterRender) return;
       const paragraph = elements["reader-text"].querySelector(`[data-paragraph-index="${initialParagraph}"]`);
       if (initialParagraph > 0 && paragraph) {
         const scroller = elements["reader-scroll"];
-        scroller.scrollTop += paragraph.getBoundingClientRect().top - scroller.getBoundingClientRect().top - scroller.clientHeight * 0.18;
+        const top = scroller.scrollTop + paragraph.getBoundingClientRect().top - scroller.getBoundingClientRect().top - scroller.clientHeight * 0.18;
+        scroller.scrollTo({ top, behavior: "instant" });
       } else {
         const maximum = Math.max(0, elements["reader-scroll"].scrollHeight - elements["reader-scroll"].clientHeight);
         elements["reader-scroll"].scrollTo({ top: maximum * initialFraction, behavior: "instant" });
+      }
+      if (options.rowIndex !== undefined) {
+        state.editionLanding = { rowIndex: options.rowIndex, top: elements["reader-scroll"].scrollTop, paragraph: initialParagraph };
+        paragraph?.classList.add("edition-passage");
       }
       state.restoreReaderScroll = false;
       syncReaderPageControls();
@@ -2222,6 +2302,13 @@
     state.pdfController?.abort(); state.pdfController = null;
     state.pdfViewer?.destroy(); state.pdfViewer = null;
     state.readerContent = null;
+    state.chapterRender++;
+    state.restoreReaderScroll = false;
+    state.editionMap = null;
+    state.editionId = null;
+    state.editionLanding = null;
+    elements["reader-editions"].hidden = true;
+    elements["reader-edition-status"].textContent = "";
     state.readerMode = "text";
     elements["reader-page"].hidden = false;
     elements["reader-pdf"].hidden = true;
@@ -2258,6 +2345,22 @@
       state.selectedProgress = progress;
       state.readerContent = contentPayload;
       state.chapters = normalizeContent(contentPayload, work);
+      const editionsResource = contentPayload.resources?.find(item => item.kind === "reading-editions");
+      if (editionsResource) {
+        try {
+          const bundle = await requestJson(editionsResource.url);
+          if (sequence !== state.readerSequence) return;
+          state.editionMap = window.SkriptLabReadingEditions.create(bundle, state.chapters, normalizeContent);
+          const editions = [...state.editionMap.editions.values()];
+          elements["reader-edition"].replaceChildren(...editions.map(e => new Option(e.label, e.id)));
+          selectEdition(state.editionMap.owner.get(progress.chapterId) || editions[0].id);
+        } catch (error) {
+          if (sequence !== state.readerSequence) return;
+          state.editionMap = null;
+          if (progress.chapterId && !state.chapters.some(chapter => chapter.id === progress.chapterId)) throw error;
+          showNotice("Lyhyempien versioiden lataus epäonnistui. Voit avata teoksen uudelleen ja yrittää uudestaan.");
+        }
+      }
       const hasPdf = contentPayload.resources?.some(item => item.kind === "pdf");
       if (!state.chapters.length && !hasPdf) {
         throw new LibraryApiError("Teoksen luettavaa sisältöä ei löytynyt.", 404, contentPayload);
@@ -2280,6 +2383,8 @@
     void exitReaderFullscreen();
     state.readerSwipe = null;
     state.readerSequence += 1;
+    state.chapterRender++;
+    state.restoreReaderScroll = false;
     state.pdfController?.abort(); state.pdfController = null;
     state.pdfViewer?.destroy(); state.pdfViewer = null;
     flushProgress();
@@ -2329,6 +2434,8 @@
   }
 
   function currentParagraphIndex() {
+    const landing = state.editionLanding;
+    if (landing && Math.abs(elements["reader-scroll"].scrollTop - landing.top) < 2) return landing.paragraph;
     const scrollerRect = elements["reader-scroll"].getBoundingClientRect();
     const readingLine = scrollerRect.top + scrollerRect.height * 0.28;
     const paragraphs = [...elements["reader-text"].querySelectorAll("[data-paragraph-index]")];
@@ -3414,6 +3521,7 @@
     elements["edition-cancel"].addEventListener("click", () => elements["library-edition-dialog"].close());
     elements["library-edition-dialog"].addEventListener("cancel", (event) => { if (elements["edition-save"].disabled) event.preventDefault(); });
     elements["detail-read"].addEventListener("click", () => openReader());
+    elements["reader-edition"].addEventListener("change", event => changeEdition(event.target.value));
     elements["reader-format"].addEventListener("change", () => void setReaderFormat(elements["reader-format"].value));
     elements["audio-track-select"].addEventListener("change", () => selectAudioTrack(Number(elements["audio-track-select"].value)));
     elements["add-work-audio"].addEventListener("change", () => {
