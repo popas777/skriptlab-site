@@ -22629,7 +22629,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             };
         }
         return {
-            label: 'Valittu malli',
+            label: model.includes('gemini-4-argon') ? 'Gemini 4 Argon' : 'Valittu malli',
             min: 1000,
             max: 2000,
             ideal: 2000,
@@ -22648,6 +22648,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             || modelName.includes('gemini-3.6-flash')
             || modelName === 'gemini-3.7-flash'
             || modelName === 'gemini-3.8-flash'
+            || modelName === 'gemini-4-argon'
             || modelName === 'gemini-3.1-pro-preview';
     }
 

@@ -43,6 +43,17 @@ const textModels = [
         supports_batch: true,
         cost_input_per_million: 0.75,
         cost_output_per_million: 3.75
+    },
+    {
+        provider: 'gemini',
+        model_name: 'gemini-4-argon',
+        display_name: 'Gemini 4 Argon',
+        model_tier: 'pro',
+        task_type: 'text',
+        is_enabled: true,
+        is_default: false,
+        cost_input_per_million: 4,
+        cost_output_per_million: 20
     }
 ];
 
@@ -107,4 +118,30 @@ test('an explicit workflow text model still overrides the task-specific backend 
     for (const step of plan.modules) {
         assert.equal(step.resolvedModel, 'gemini:gemini-3.5-flash-lite');
     }
+});
+
+test('Argon remains selected for text and batch translation steps', async () => {
+    storage.clear();
+    storage.set('skriptlab.workflow-studio.v2.argon-user.no-project.plan', JSON.stringify({
+        version: 2,
+        templateId: 'writer',
+        modules: [
+            { id: 'analysis', runMode: 'direct', modelOverride: '' },
+            { id: 'translation', runMode: 'batch', modelOverride: '' }
+        ],
+        settings: {
+            textModel: 'gemini:gemini-4-argon',
+            translationModel: 'gemini:gemini-4-argon',
+            sourceLanguage: 'auto', targetLanguage: 'en', chunkWords: 2000,
+            strategy: 'balanced'
+        }
+    }));
+    const studio = global.SkriptLabWorkflowStudio.create({
+        getProject: () => ({ title: 'no-project', content: 'Testikäsikirjoitus.' }),
+        getUser: () => ({ id: 'argon-user' }), apiFetch
+    });
+    await studio.init();
+    const plan = studio.getPlan();
+    for (const step of plan.modules) assert.equal(step.resolvedModel, 'gemini:gemini-4-argon');
+    assert.equal(plan.estimate.modules.find(step => step.id === 'translation').runMode, 'batch');
 });
