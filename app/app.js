@@ -796,7 +796,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
     }
 
     const fullWorkspaceRoles = new Set(['admin', 'test_user']);
-    const writerViews = new Set(['view-kirjani', 'view-analyysi', 'view-skill', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-oikoluku', 'view-kuvitus', 'view-notebooklm', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-julkaisupaketti', 'view-audio', 'view-video', 'view-3d-studio', 'view-viimeistely', 'view-korjaukset']);
+    const writerViews = new Set(['view-kirjani', 'view-analyysi', 'view-skill', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-minun-aaneni', 'view-oikoluku', 'view-kuvitus', 'view-notebooklm', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-julkaisupaketti', 'view-audio', 'view-video', 'view-3d-studio', 'view-viimeistely', 'view-korjaukset']);
     const betaCoreViews = new Set([...writerViews, 'view-monikielinen-julkaisu', 'view-markkinointi']);
     const translatorViews = new Set([
         ...betaCoreViews,
@@ -804,11 +804,11 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         'view-kaannostyotila',
         'view-kaannoksen-viimeistely'
     ]);
-    const biographyViews = new Set(['view-kirjani', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-mobiilieditori', 'view-ai-tyonkulku', 'view-viimeistely', 'view-korjaukset', 'view-elamakerta', 'view-oikoluku', 'view-kuvitus', 'view-notebooklm', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-markkinointi', 'view-audio', 'view-video', 'view-3d-studio', 'view-julkaisupaketti', 'view-julkaise']);
+    const biographyViews = new Set(['view-kirjani', 'view-kehityseditointi', 'view-kirjoita-editoi', 'view-minun-aaneni', 'view-mobiilieditori', 'view-ai-tyonkulku', 'view-viimeistely', 'view-korjaukset', 'view-elamakerta', 'view-oikoluku', 'view-kuvitus', 'view-notebooklm', 'view-oheisaineistot', 'view-taitto', 'view-tuotetiedot', 'view-markkinointi', 'view-audio', 'view-video', 'view-3d-studio', 'view-julkaisupaketti', 'view-julkaise']);
     const basicHiddenViews = new Set(['view-skill', 'view-notebooklm']);
     const basicCoreViews = new Set([
         'view-kirjani', 'view-analyysi', 'view-ai-tunnistin', 'view-kehityseditointi',
-        'view-kirjoita-editoi', 'view-mobiilieditori', 'view-oikoluku',
+        'view-kirjoita-editoi', 'view-minun-aaneni', 'view-mobiilieditori', 'view-oikoluku',
         'view-kaannoksen-viimeistely', 'view-kuvitus',
         'view-taitto', 'view-tuotetiedot', 'view-julkaisupaketti',
         'view-audio', 'view-viimeistely', 'view-kirjasto', 'view-kirjailijat', 'view-tilaukset'
@@ -819,7 +819,7 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
         ai_detector: ['view-ai-tunnistin'],
         skill: ['view-skill'],
         development_editing: ['view-kehityseditointi'],
-        write_edit: ['view-kirjoita-editoi'],
+        write_edit: ['view-kirjoita-editoi', 'view-minun-aaneni'],
         write: ['view-mobiilieditori'],
         editing: ['view-mobiilieditori'],
         proofread: ['view-oikoluku'],
@@ -5559,7 +5559,8 @@ Raportoi vain kohdat, jotka kannattaa ihmisen tarkistaa. Älä keksi ongelmia. �
             applyShowcaseTerminology(document.getElementById(nextViewId));
         });
     });
-    openModule(window.location.hash === '#elamakerta' ? 'view-elamakerta' : currentViewId);
+    const linkedView = { '#elamakerta': 'view-elamakerta', '#minun-aaneni': 'view-minun-aaneni' }[window.location.hash];
+    openModule(linkedView || currentViewId);
     
     // Alistetaan globaaliksi, jotta onclickit HTML:ssä toimivat
     window.openModule = openModule;

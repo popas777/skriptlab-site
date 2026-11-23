@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="fi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Minun ääneni · SkriptLab</title>
+  <link rel="stylesheet" href="book-access.css?v=2">
+  <link rel="stylesheet" href="minun-aaneni.css?v=1">
+  <script defer src="config.js?v=1"></script>
+  <script defer src="auth.js?v=5"></script>
+  <script defer src="book-access.js?v=5"></script>
+  <script defer src="minun-aaneni.js?v=1"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Minun <em>ääneni</em></h1>
+      <p>Muotoile luonnos omalla kirjoitustyylilläsi.</p>
+    </header>
+    <nav role="tablist" aria-label="Minun ääneni">
+      <button type="button" role="tab" id="write-tab" aria-controls="write-panel" aria-selected="true">Kirjoita</button>
+      <button type="button" role="tab" id="settings-tab" aria-controls="settings-panel" aria-selected="false" tabindex="-1">Asetukset</button>
+    </nav>
+    <div class="feedback" id="feedback"><span id="message" role="status"></span> <button type="button" id="retry" hidden>Lataa säännöt uudelleen</button></div>
+
+    <section id="write-panel" role="tabpanel" aria-labelledby="write-tab">
+      <div class="profile-strip"><span id="profile-count">Ladataan tyylisääntöjä…</span><button class="link" id="to-sample" type="button">Lisää tekstinäyte <span aria-hidden="true">↗</span></button></div>
+      <div class="workspace">
+        <section class="card">
+          <h2><label for="draft">Luonnos</label></h2>
+          <textarea id="draft" rows="8" maxlength="15000" placeholder="Kirjoita tai liitä muokattava teksti…"></textarea>
+          <div id="source-area" hidden>
+            <label for="source">Faktantarkistuksen lähde</label>
+            <p class="hint" id="source-help">Liitä katkelma, johon väitteitä verrataan. Ilman lähdettä saat listan tarkistettavista väitteistä.</p>
+            <textarea id="source" rows="4" maxlength="6000" aria-describedby="source-help" placeholder="Liitä lähdeteksti tähän…"></textarea>
+          </div>
+          <div class="actions"><button class="primary" id="rewrite" type="button" disabled>Muotoile omalla äänellä</button><span class="count" id="draft-count">0 sanaa</span></div>
+        </section>
+        <section class="card result-card" aria-labelledby="result-title">
+          <h2 id="result-title">Oma versio</h2>
+          <p class="result-empty" id="result-empty">Oma versiosi tulee tähän. Alkuperäinen luonnos säilyy vieressä.</p>
+          <div class="prose" id="result" tabindex="-1" hidden></div>
+          <div class="actions" id="result-tools" hidden><button type="button" id="copy">Kopioi teksti</button></div>
+          <section class="fact-card" id="fact-card" hidden aria-labelledby="fact-title">
+            <h3 id="fact-title">Väitteet ja lähdetuki</h3><div id="facts"></div>
+          </section>
+        </section>
+      </div>
+    </section>
+
+    <section id="settings-panel" role="tabpanel" aria-labelledby="settings-tab" hidden>
+      <div class="workspace">
+        <div class="column">
+          <section class="card">
+            <h2><label for="sample">Oma tekstinäyte</label></h2>
+            <p class="hint">Liitä itse kirjoittamasi katkelma. Valitse löytyneistä tyylipiirteistä ne, joita haluat käyttää muissakin teksteissä.</p>
+            <textarea id="sample" rows="5" maxlength="15000" placeholder="Liitä omaa tekstiäsi…"></textarea>
+            <button id="analyze" type="button" disabled>Etsi tyylipiirteet</button>
+            <div id="suggestions" hidden><h3>Ehdotetut säännöt</h3><ul class="rows" id="suggestion-list"></ul></div>
+          </section>
+          <section class="card">
+            <h2>Omat tyylisäännöt</h2>
+            <p class="hint">Säännöt tallentuvat tilillesi. Löydät ne myös Kirjoita ja editoi -moduulin omista prompteista.</p>
+            <ul id="rules" class="rows"></ul>
+            <form id="manual-form">
+              <label for="manual">Oma sääntö</label>
+              <textarea id="manual" rows="2" maxlength="300" placeholder="Esim. Aloita kappale havainnolla."></textarea>
+              <div class="actions"><button type="submit" id="save-manual" disabled>Lisää sääntö</button><button id="cancel-edit" type="button" hidden>Peruuta</button></div>
+            </form>
+          </section>
+        </div>
+        <section class="card choices">
+          <h2>Muotoiluasetukset</h2>
+          <p class="hint">Valinnat säilyvät tämän selaimen käyttäjäprofiilissa.</p>
+          <fieldset><legend>Ilmaisu</legend><div id="option-list"></div></fieldset>
+          <fieldset><legend>Kerrontatapa</legend>
+            <label><input type="radio" name="perspective" value="original" checked> Säilytä luonnoksen näkökulma</label>
+            <label><input type="radio" name="perspective" value="first"> Kerro omasta näkökulmastani</label>
+            <label><input type="radio" name="perspective" value="passive"> Kirjoita passiivissa</label>
+          </fieldset>
+        </section>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
