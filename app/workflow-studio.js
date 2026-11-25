@@ -537,12 +537,22 @@
             }
         }
 
+        function replaceRetiredTextModel(value) {
+            const ref = safeString(value);
+            const name = ref.replace(/^gemini:/, '');
+            if (name === 'gemini-4-argon') return 'gemini:gemini-4-neon';
+            if (['gemini-3.1-pro-preview', 'gemini-3.6-flash', 'gemini-3.7-flash'].includes(name)) {
+                return 'gemini:gemini-3.8-flash';
+            }
+            return ref;
+        }
+
         function sanitizeSettings(value) {
             const source = value && typeof value === 'object' ? value : {};
             const chunkWords = Number(source.chunkWords ?? source.chunk_words);
             return {
-                textModel: safeString(source.textModel ?? source.text_model),
-                translationModel: safeString(source.translationModel ?? source.translation_model),
+                textModel: replaceRetiredTextModel(source.textModel ?? source.text_model),
+                translationModel: replaceRetiredTextModel(source.translationModel ?? source.translation_model),
                 imageModel: safeString(source.imageModel ?? source.image_model),
                 audioModel: safeString(source.audioModel ?? source.audio_model),
                 sourceLanguage: LANGUAGE_CODES.has(source.sourceLanguage ?? source.source_language)
@@ -573,7 +583,9 @@
                     id,
                     runMode: definition.supportsBatch ? requestedMode : 'direct',
                     runModeOverride: Boolean(item?.runModeOverride ?? item?.run_mode_override),
-                    modelOverride: safeString(item?.modelOverride ?? item?.model),
+                    modelOverride: ['text', 'translation'].includes(definition.modelType)
+                        ? replaceRetiredTextModel(item?.modelOverride ?? item?.model)
+                        : safeString(item?.modelOverride ?? item?.model),
                     status: VALID_STATUSES.has(item?.status) ? item.status : 'pending',
                     detail: safeString(item?.detail, 1000)
                 });
@@ -764,7 +776,7 @@
         function translationModelSupportsBatch(provider, modelName) {
             if (provider !== 'gemini') return false;
             const normalized = String(modelName || '').trim().toLowerCase();
-            return ['gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-3.8-flash', 'gemini-4-argon', 'gemini-3.1-pro-preview']
+            return ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-4-carbon', 'gemini-4-neon', 'gemini-4-hydrogen']
                 .includes(normalized);
         }
 

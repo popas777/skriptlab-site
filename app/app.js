@@ -22628,13 +22628,18 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
                     : 'nopea ja edullinen; pienempi pala vähentää tyylin ja vastauspituuden riskiä pitkällä promptilla'
             };
         }
-        if (model.includes('3.1-pro') || model.includes('pro')) {
+        const gemini4Label = {
+            'gemini-4-carbon': 'Gemini 4 Carbon',
+            'gemini-4-neon': 'Gemini 4 Neon',
+            'gemini-4-hydrogen': 'Gemini 4 Hydrogen'
+        }[model.replace(/^gemini:/, '')];
+        if (gemini4Label) {
             return {
-                label: 'Gemini 3.1 Pro',
-                min: 2000,
-                max: 4000,
-                ideal: 3000,
-                note: 'paras kirjalliseen laatuun; 2 000 sopii vaikeaan suomennokseen, 3 000-4 000 nopeampaan kokonaisuuteen'
+                label: gemini4Label,
+                min: 1000,
+                max: 2000,
+                ideal: 2000,
+                note: 'lyhyemmät palat helpottavat käännöksen tarkistamista'
             };
         }
         if (model.includes('3.8-flash') || model.includes('3.7-flash')) {
@@ -22656,7 +22661,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             };
         }
         return {
-            label: model.includes('gemini-4-argon') ? 'Gemini 4 Argon' : 'Valittu malli',
+            label: 'Valittu malli',
             min: 1000,
             max: 2000,
             ideal: 2000,
@@ -22675,7 +22680,7 @@ ${brief.extra_instructions ? `- Noudata lisäksi käyttäjän ohjetta: ${compact
             || modelName.includes('gemini-3.6-flash')
             || modelName === 'gemini-3.7-flash'
             || modelName === 'gemini-3.8-flash'
-            || modelName === 'gemini-4-argon'
+            || ['gemini-4-carbon', 'gemini-4-neon', 'gemini-4-hydrogen', 'gemini-4-argon'].includes(modelName)
             || modelName === 'gemini-3.1-pro-preview';
     }
 

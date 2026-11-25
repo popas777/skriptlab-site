@@ -46,8 +46,8 @@ const textModels = [
     },
     {
         provider: 'gemini',
-        model_name: 'gemini-4-argon',
-        display_name: 'Gemini 4 Argon',
+        model_name: 'gemini-4-neon',
+        display_name: 'Gemini 4 Neon',
         model_tier: 'pro',
         task_type: 'text',
         is_enabled: true,
@@ -120,7 +120,7 @@ test('an explicit workflow text model still overrides the task-specific backend 
     }
 });
 
-test('Argon remains selected for text and batch translation steps', async () => {
+test('Saved Argon choices resolve to Neon for text and batch translation steps', async () => {
     storage.clear();
     storage.set('skriptlab.workflow-studio.v2.argon-user.no-project.plan', JSON.stringify({
         version: 2,
@@ -142,6 +142,6 @@ test('Argon remains selected for text and batch translation steps', async () => 
     });
     await studio.init();
     const plan = studio.getPlan();
-    for (const step of plan.modules) assert.equal(step.resolvedModel, 'gemini:gemini-4-argon');
+    for (const step of plan.modules) assert.equal(step.resolvedModel, 'gemini:gemini-4-neon');
     assert.equal(plan.estimate.modules.find(step => step.id === 'translation').runMode, 'batch');
 });

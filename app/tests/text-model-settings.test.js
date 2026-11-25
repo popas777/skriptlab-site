@@ -25,8 +25,8 @@ const catalog = [
     is_demanding_default: true,
   },
   ...[
-    ['gemini-3.1-pro-preview', 'Gemini 3.1 Pro Preview', 'pro'],
-    ['gemini-4-argon', 'Gemini 4 Argon', 'pro'],
+    ['gemini-4-carbon', 'Gemini 4 Carbon', 'pro'],
+    ['gemini-4-neon', 'Gemini 4 Neon', 'pro'],
   ].map(([model_name, display_name, model_tier]) => ({
     provider: 'gemini', model_name, display_name, model_tier, is_default: false,
   })),
@@ -302,7 +302,7 @@ test('catalog loading is authenticated, accessible and returns only a saved cata
   const select = harness.document.getElementById(`${dialog.id}-select`);
   assert.deepEqual(
     Array.from(select.children, (option) => option.value),
-    ['', 'gemini:gemini-3.5-flash-lite', 'gemini:gemini-3.8-flash', 'gemini:gemini-3.1-pro-preview', 'gemini:gemini-4-argon'],
+    ['', 'gemini:gemini-3.5-flash-lite', 'gemini:gemini-3.8-flash', 'gemini:gemini-4-carbon', 'gemini:gemini-4-neon'],
   );
   select.value = 'gemini:gemini-3.8-flash';
   select.dispatch('change');
@@ -318,20 +318,20 @@ test('catalog loading is authenticated, accessible and returns only a saved cata
   assert.match(status.textContent, /ei ole enää käytettävissä/i);
 });
 
-test('Argon can be saved and restored by the shared text model control', async () => {
+test('Neon can be saved and restored by the shared text model control', async () => {
   const harness = createHarness();
   const settings = harness.api.mount({ triggerId: harness.triggerId, defaultKind: 'demanding' });
   await settings.load(false);
   harness.trigger.click();
   const dialog = harness.findByClass('text-model-settings-dialog');
   const select = harness.document.getElementById(`${dialog.id}-select`);
-  select.value = 'gemini:gemini-4-argon';
+  select.value = 'gemini:gemini-4-neon';
   select.dispatch('change');
   harness.findByClass('text-model-settings-save').click();
-  assert.equal(settings.getModel(), 'gemini:gemini-4-argon');
-  assert.match(harness.trigger.textContent + harness.trigger.children.map(child => child.textContent).join(' '), /Gemini 4 Argon/);
+  assert.equal(settings.getModel(), 'gemini:gemini-4-neon');
+  assert.match(harness.trigger.textContent + harness.trigger.children.map(child => child.textContent).join(' '), /Gemini 4 Neon/);
   await settings.load(true);
-  assert.equal(settings.getModel(), 'gemini:gemini-4-argon');
+  assert.equal(settings.getModel(), 'gemini:gemini-4-neon');
 });
 
 test('stale stored choices are cleared and storage events synchronize only catalog values', async () => {
