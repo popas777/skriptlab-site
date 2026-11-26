@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="fi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Kirjasuositukset – SkriptLab</title>
+  <link rel="stylesheet" href="kirjailijat.css?v=3">
+  <link rel="stylesheet" href="kirjasuositukset.css?v=1">
+  <script defer src="config.js?v=1"></script>
+  <script defer src="auth.js?v=5"></script>
+  <script defer src="kirjasuositukset.js?v=1"></script>
+</head>
+<body>
+  <main class="recommendations">
+    <header>
+      <h1>Kirjasuositukset</h1>
+      <p>Kerro, millaista luettavaa tai kuunneltavaa etsit. Tekoäly poimii kirjastosta viisi sopivinta kirjaa ja täydentää ehdotuksia tarvittaessa muilla teoksilla.</p>
+    </header>
+    <form id="recommendation-form">
+      <fieldset id="preferences">
+        <legend>Kenelle etsit kirjaa?</legend>
+        <div class="recipient">
+          <label><input type="radio" name="recipient" value="self" checked><span>Itselleni</span></label>
+          <label><input type="radio" name="recipient" value="gift"><span>Lahjaksi</span></label>
+        </div>
+        <label for="wish" id="wish-label">Millaista kirjaa haluaisit lukea tai kuunnella?</label>
+        <textarea id="wish" rows="4" maxlength="2000" required placeholder="Pidän nokkelista arvoituksista. Etsin lyhyttä dekkaria, jossa on enemmän päättelyä kuin väkivaltaa."></textarea>
+      </fieldset>
+      <button type="submit">Etsi kirjasuosituksia</button>
+    </form>
+    <p id="feedback" role="status" aria-live="polite"></p>
+    <div id="results"></div>
+  </main>
+</body>
+</html>

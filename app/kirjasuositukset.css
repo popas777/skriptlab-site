@@ -1,0 +1,23 @@
+.recommendations { width: min(100% - 40px, 760px); margin: 0 auto; padding: clamp(32px, 6vw, 76px) 0 64px; }
+.recommendations header { margin-bottom: 32px; }
+.recommendations header p { max-width: 58ch; margin-top: 14px; font: 400 clamp(19px, 2.4vw, 23px)/1.5 var(--display); }
+form { padding: clamp(18px, 4vw, 32px); border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+legend, #wish-label { padding: 0; display: block; font-weight: 600; }
+.recipient { display: inline-flex; gap: 3px; margin: 8px 0 22px; padding: 3px; border: 1px solid var(--line); border-radius: 8px; }
+.recipient label { position: relative; cursor: pointer; }
+.recipient input { position: absolute; opacity: 0; }
+.recipient span { display: block; padding: 7px 18px; border-radius: 5px; }
+.recipient input:checked + span { background: var(--forest-soft); color: var(--forest); font-weight: 600; }
+.recipient input:focus-visible + span { outline: 2px solid var(--forest); }
+textarea { display: block; width: 100%; min-height: 106px; margin: 8px 0 20px; padding: 12px 14px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--ink); font: inherit; }
+textarea::placeholder { color: var(--muted); }
+button[type=submit] { padding: 10px 20px; border: 0; border-radius: 6px; background: var(--forest); color: var(--surface); font-weight: 600; }
+button:disabled { opacity: .7; cursor: wait; }
+#feedback:not(:empty) { margin-top: 18px; }
+#results section { margin-top: 32px; }
+#results ol { padding-inline-start: 2em; margin: 14px 0 0; }
+#results li { padding: 16px 0 18px 6px; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+#results li::marker { color: var(--forest); font: 500 20px var(--display); }
+#results h3 { font-size: 24px; }
+#results .author { margin: 4px 0 6px; color: var(--muted); font-size: .92rem; }

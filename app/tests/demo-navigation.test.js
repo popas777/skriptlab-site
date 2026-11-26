@@ -32,9 +32,9 @@ test('demo navigation exposes exactly the eight requested modules despite old br
   assert.equal(allowed('view-unknown'), false);
 });
 
-test('library readers see exactly Library, Authors and Subscriptions even with stale broad grants', () => {
+test('library readers see exactly Library, Authors, Recommendations and Subscriptions even with stale broad grants', () => {
   const allowed = navigation(false, 'library_reader', true);
-  assert.deepEqual(navViews.filter(allowed), ['view-kirjasto', 'view-kirjailijat', 'view-tilaukset']);
+  assert.deepEqual(navViews.filter(allowed), ['view-kirjasto', 'view-kirjailijat', 'view-kirjasuositukset', 'view-tilaukset']);
   assert.equal(allowed('view-kirjoita'), false);
   assert.equal(allowed('view-unknown'), false);
 });

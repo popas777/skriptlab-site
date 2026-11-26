@@ -269,6 +269,7 @@
                     <li data-view="view-korjaukset">Korjaukset ja uusintapainokset</li>
                     <li data-view="view-kirjasto">Kirjasto</li>
                     <li data-view="view-kirjailijat">Kirjailijat</li>
+                    <li data-view="view-kirjasuositukset">Kirjasuositukset</li>
                     <li data-view="view-tilaukset">Tilaukset</li>
                 </ul>
                 <button class="sidebar-more-button" id="nav-show-more" type="button" aria-controls="nav-menu" aria-expanded="false" hidden>
@@ -1908,6 +1909,11 @@
                 <iframe id="kirjailijat-frame" class="kirjasto-frame"
                     src="kirjailijat.html?v=3" title="Kirjailijat ja heidän teoksensa"
                     loading="lazy"></iframe>
+            </div>
+
+            <div id="view-kirjasuositukset" class="view-section hidden">
+                <iframe id="kirjasuositukset-frame" class="kirjasto-frame"
+                    src="kirjasuositukset.html?v=1" title="Kirjasuositukset" loading="lazy"></iframe>
             </div>
 
             <div id="view-tilaukset" class="view-section hidden">
@@ -4567,7 +4573,7 @@
     <script src="correction-reprints.js?v=1"></script>
     <script src="demo-terminology.js?v=1"></script>
     <script src="audio-plays.js?v=1"></script>
-    <script src="app.js?v=243"></script>
+    <script src="app.js?v=244"></script>
     <script src="timeline.js?v=1"></script>
 </body>
 </html>
